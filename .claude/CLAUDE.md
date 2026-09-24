@@ -70,6 +70,7 @@ Still on, because none of it is code quality:
 - `-log` save the segment of this conversation that went wrong to `.incidents/<date>-<kebab-summary>.md`, then carry on. Do the same unprompted when I am clearly angry (caps, swearing). The segment runs from where it started going wrong to the latest turn: my messages and your replies verbatim, each tool call as one line.
 
 ## Working with me
+- Use subagents of appropriate size liberally. Have a balanced approach: don't burn tokens but don't engage incompetent subagents.
 - Restate non-trivial tasks in your own words before starting.
 - Do not silently drop a requirement. Surface it and ask.
 - Run the tests and typecheck that cover the diff, not every suite.

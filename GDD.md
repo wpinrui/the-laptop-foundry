@@ -139,7 +139,12 @@ An example class is a premium thin and light mixed-use laptop.
 
 ## Rating
 
-The rating mirrors Notebookcheck's approach. One scheme applies to every year, with expectations adjusted to the year.
+Scoring is deferred past version 0.1. In 0.1 every score is a dice roll.
+
+- Each category score and the overall score are rolled at random.
+- The roll is fixed per model. Reopening a review shows the same scores. A revision is a new model, so it rolls again.
+- Rivals roll the same way.
+- Pros and cons still come from measurements that stand out against the rivals. There is no score nudge.
 
 ### Categories
 
@@ -147,35 +152,15 @@ Chassis, keyboard, pointing device, connectivity, weight, battery life, display,
 
 There is no sustainability score.
 
-### Scale
-
-- For every year, class and category, the team researches the real best reasonable laptop and the real worst reasonable laptop.
-- The best one's measurement maps to about 90%. The worst one's maps to about 50%.
-- A curve interpolates between those points and extrapolates beyond them, capped at 100%.
-- These anchors only ground expectations. They never appear as products in the game.
-- The room above 90% rewards a build that beats the whole field.
-
-### Weights
-
-- Each of the 27 classes has its own category weights.
-- Mathematical curves produce the starting weights. The team then hand-picks them during playtesting.
-
-### Impression
-
-- The verdict's pros and cons come from measurements that stand out against the rivals.
-- The same list nudges the final score. Standouts that beat every rival push it up. Dealbreakers below the worst rival push it down.
-- The nudge is capped at a few percent either way.
-
 ## Rivals
 
 - Rivals come from six fictional makers based on Lenovo, HP, Dell, Apple, Asus and Acer.
 - The six makers are constant across all years. There are no entries or exits.
 - Each maker is set to compete or not compete in each class. That setting applies to every year.
 - Rivals carry fictional company and model names.
-- During development, a tool builds each rival to hit a target score within the anchor-defined range. The field spreads from near the top to near the bottom.
-- Rivals are then hard-coded as presets per year and class. Every player build faces the same field.
+- Rivals are hand-built and hard-coded as presets per year and class. Every player build faces the same field.
 - Rivals build under the same constraints as the player. The Apple-based rival may use Apple M-series processors, which the player cannot use.
-- Category scores never depend on the rivals. Rivals only shape the impression nudge.
+- Rivals only shape the pros and cons.
 - Rivals fill the comparison tables and give the player a field to beat.
 - Every rival has its own full review.
 
@@ -266,6 +251,39 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 - Page loads that slow down on weak hardware
 - Mock gameplay for the light and middle games
 
+## Deferred past 0.1
+
+### Rating scheme
+
+The rating mirrors Notebookcheck's approach. One scheme applies to every year, with expectations adjusted to the year.
+
+#### Scale
+
+- For every year, class and category, the team researches the real best reasonable laptop and the real worst reasonable laptop.
+- The best one's measurement maps to about 90%. The worst one's maps to about 50%.
+- A curve interpolates between those points and extrapolates beyond them, capped at 100%.
+- These anchors only ground expectations. They never appear as products in the game.
+- The room above 90% rewards a build that beats the whole field.
+
+#### Weights
+
+- Each of the 27 classes has its own category weights.
+- Mathematical curves produce the starting weights. The team then hand-picks them during playtesting.
+
+#### Impression nudge
+
+- The pros and cons list nudges the final score. Standouts that beat every rival push it up. Dealbreakers below the worst rival push it down.
+- The nudge is capped at a few percent either way.
+
+#### Rivals
+
+- Category scores never depend on the rivals. Rivals only shape the impression nudge.
+- During development, a tool builds each rival to hit a target score within the anchor-defined range. The field spreads from near the top to near the bottom.
+
+#### Content to curate
+
+- Best and worst reasonable real laptops per year, class and category
+
 ## Stretch goals
 
 - A cinematic video review, narrated with non-language-model text-to-speech, with pre-animated camera variety. Feasibility is not judged yet.
@@ -335,7 +353,6 @@ This is the highest-priority technical requirement. For every combination of cho
 - Specification options per category, with unlock years
 - Preset bodies with year availability, scaling limits and layouts
 - Materials and colours with year availability
-- Best and worst reasonable real laptops per year, class and category
 - Which of the six makers compete in which classes
 - Rival presets per year and class
 - Processor benchmark editions

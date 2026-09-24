@@ -1,0 +1,55 @@
+import type { Body } from "../types";
+
+export const BODIES: Body[] = [
+  {
+    id: "workhorse",
+    name: "Workhorse",
+    from: 2000,
+    until: 2099,
+    size: { x: 330, y: 240, z: 24 },
+    limits: { x: [280, 410], y: [200, 300], z: [14, 42] },
+    style: {
+      edge: "square",
+      corner: 3,
+      profile: 0,
+      hinge: "full",
+      latch: false,
+    },
+    hinge: { x: 30, y: 20, z: 5 },
+    layouts: ["a", "b"],
+  },
+  {
+    id: "pillow",
+    name: "Pillow",
+    from: 2000,
+    until: 2012,
+    size: { x: 355, y: 260, z: 34 },
+    limits: { x: [290, 420], y: [210, 300], z: [24, 48] },
+    style: {
+      edge: "rounded",
+      corner: 12,
+      profile: 5,
+      hinge: "barrel",
+      latch: true,
+    },
+    hinge: { x: 25, y: 20, z: 6 },
+    layouts: ["a", "b"],
+  },
+  {
+    id: "blade",
+    name: "Blade",
+    from: 2018,
+    until: 2099,
+    size: { x: 310, y: 220, z: 13 },
+    limits: { x: [290, 370], y: [200, 270], z: [10, 24] },
+    style: {
+      edge: "chamfer",
+      corner: 6,
+      profile: 1,
+      hinge: "drop",
+      latch: false,
+    },
+    hinge: { x: 35, y: 15, z: 4 },
+    layouts: ["a", "b"],
+  },
+];

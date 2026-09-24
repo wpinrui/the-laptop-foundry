@@ -1,0 +1,87 @@
+import type { Part } from "../types";
+
+// Board blocks. Sticks (SO-DIMM, LPCAMM2) stand long side along y so a row
+// stays narrow. SO-DIMM slots stack: z is per slot, times the "slots" option.
+// Capacities in GB, total.
+
+export const MEMORY: Part[] = [
+  {
+    id: "ddr2-667-sodimm",
+    name: "DDR2-667 SO-DIMM",
+    category: "memory",
+    from: 2005,
+    until: 2009,
+    shape: {
+      kind: "block",
+      role: "mem",
+      size: { x: 30, y: 67.6, z: 4.6 },
+      row: 2,
+      stack: "slots",
+    },
+    options: { capacity: [1, 0.5, 2, 4], slots: [2, 1] },
+    compact: [],
+    needs: ["mem:ddr2-sodimm"],
+    info: { note: "4 GB installed shows about 3 GB usable" },
+  },
+  {
+    id: "ddr5-5600-sodimm",
+    name: "DDR5-5600 SO-DIMM",
+    category: "memory",
+    from: 2022,
+    until: 2030,
+    shape: {
+      kind: "block",
+      role: "mem",
+      size: { x: 30, y: 69.6, z: 4.6 },
+      row: 2,
+      stack: "slots",
+    },
+    options: { capacity: [16, 8, 32, 64, 96], slots: [2, 1] },
+    compact: [],
+    needs: ["mem:ddr5-sodimm"],
+  },
+  {
+    id: "lpcamm2",
+    name: "LPCAMM2",
+    category: "memory",
+    from: 2024,
+    until: 2030,
+    shape: {
+      kind: "block",
+      role: "mem",
+      size: { x: 23, y: 78, z: 3.5 },
+      row: 2,
+    },
+    options: { capacity: [32, 64] },
+    compact: [],
+    needs: ["mem:lpcamm2"],
+  },
+  {
+    id: "lpddr5x-soldered",
+    name: "Soldered LPDDR5X",
+    category: "memory",
+    from: 2023,
+    until: 2030,
+    shape: {
+      kind: "block",
+      role: "mem",
+      size: { x: 40, y: 30, z: 1.2 },
+      row: 2,
+    },
+    options: { capacity: [16, 32, 64, 128] },
+    compact: ["x", "y"],
+    needs: ["mem:lpddr5x-soldered"],
+    optionNeeds: { capacity: { "128": ["mem:128gb"] } },
+  },
+  {
+    id: "lpddr5x-on-package",
+    name: "On-package LPDDR5X",
+    category: "memory",
+    from: 2024,
+    until: 2030,
+    // No board area: it sits on the processor package. Capacity is fixed by the processor.
+    shape: { kind: "none" },
+    compact: [],
+    needs: ["mem:on-package"],
+  },
+];

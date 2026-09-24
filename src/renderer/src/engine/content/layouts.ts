@@ -1,0 +1,307 @@
+import type { Layout, Node, Plan } from "../types";
+
+// Floor trees list children front to rear (split y) and left to right (split x).
+// Cross-axis, every child stretches to its parent, so a zone reaches an outer
+// edge exactly when it is the first or last child on the way down that axis.
+
+// Layout A, "Battery front": battery row across the full front, fans venting
+// rear either side of the board, rear ports between the fans, side ports in
+// the rear block beside the hinges.
+const floorA: Node = {
+  split: "y",
+  children: [
+    {
+      split: "x",
+      children: [
+        { zone: "spk-l", takes: ["spk"], pack: "y", grow: 1, align: "centre" },
+        {
+          zone: "drive-bay",
+          takes: ["drive"],
+          pack: "x",
+          grow: 1,
+          align: "centre",
+          capacity: 2,
+        },
+        {
+          zone: "battery",
+          takes: ["battery"],
+          pack: "x",
+          grow: 1,
+          align: "centre",
+        },
+        { zone: "spk-r", takes: ["spk"], pack: "y", grow: 1, align: "centre" },
+      ],
+    },
+    {
+      split: "x",
+      children: [
+        {
+          split: "y",
+          children: [
+            {
+              zone: "ports-left",
+              takes: ["port:left"],
+              pack: "y",
+              grow: 1,
+              edge: "left",
+            },
+            {
+              zone: "hinge-l",
+              takes: ["hinge"],
+              pack: "x",
+              grow: 0,
+              edge: "rear",
+            },
+          ],
+        },
+        {
+          zone: "fan-l",
+          takes: ["fan", "fin"],
+          pack: "x",
+          grow: 4,
+          edge: "rear",
+        },
+        {
+          split: "y",
+          children: [
+            {
+              zone: "board",
+              takes: ["board"],
+              pack: "x",
+              grow: 2,
+              align: "centre",
+            },
+            {
+              zone: "ports-rear",
+              takes: ["port:rear"],
+              pack: "x",
+              grow: 0,
+              edge: "rear",
+              align: "centre",
+            },
+          ],
+        },
+        {
+          zone: "fan-r",
+          takes: ["fan", "fin"],
+          pack: "x",
+          grow: 4,
+          edge: "rear",
+        },
+        {
+          split: "y",
+          children: [
+            {
+              zone: "ports-right",
+              takes: ["port:right"],
+              pack: "y",
+              grow: 1,
+              edge: "right",
+            },
+            {
+              zone: "hinge-r",
+              takes: ["hinge"],
+              pack: "x",
+              grow: 0,
+              edge: "rear",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// Layout B, "Battery rear": front port strip, then a row of side ports,
+// speakers and drive bay, then fan (left vent), board and optical bay (right
+// edge), then hinges either side of the removable battery on the rear edge.
+const floorB: Node = {
+  split: "y",
+  children: [
+    {
+      zone: "ports-front",
+      takes: ["port:front"],
+      pack: "x",
+      grow: 0,
+      edge: "front",
+      align: "centre",
+    },
+    {
+      split: "x",
+      children: [
+        {
+          zone: "ports-left",
+          takes: ["port:left"],
+          pack: "y",
+          grow: 1,
+          edge: "left",
+        },
+        { zone: "spk-l", takes: ["spk"], pack: "y", grow: 1, align: "centre" },
+        {
+          zone: "drive-bay",
+          takes: ["drive"],
+          pack: "x",
+          grow: 1,
+          align: "centre",
+          capacity: 2,
+        },
+        { zone: "spk-r", takes: ["spk"], pack: "y", grow: 1, align: "centre" },
+        {
+          zone: "ports-right",
+          takes: ["port:right"],
+          pack: "y",
+          grow: 1,
+          edge: "right",
+        },
+      ],
+    },
+    {
+      split: "x",
+      children: [
+        {
+          zone: "fan",
+          takes: ["fan", "fin"],
+          pack: "y",
+          grow: 4,
+          edge: "left",
+        },
+        {
+          zone: "board",
+          takes: ["board"],
+          pack: "x",
+          grow: 2,
+          align: "centre",
+        },
+        {
+          zone: "optical-bay",
+          takes: ["odd"],
+          pack: "x",
+          grow: 1,
+          edge: "right",
+          capacity: 1,
+        },
+      ],
+    },
+    {
+      split: "x",
+      children: [
+        { zone: "hinge-l", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "battery",
+          takes: ["battery"],
+          pack: "x",
+          grow: 1,
+          edge: "rear",
+          align: "centre",
+        },
+        { zone: "hinge-r", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+      ],
+    },
+  ],
+};
+
+// Shared by every layout. Deck: palm rest (trackpad centred), keyboard, hinge strip.
+export const DECK: Plan = {
+  id: "deck",
+  root: {
+    split: "y",
+    children: [
+      {
+        zone: "palm-rest",
+        takes: ["pad"],
+        pack: "y",
+        grow: 1,
+        align: "centre",
+      },
+      {
+        zone: "keyboard",
+        takes: ["keys"],
+        pack: "x",
+        grow: 0,
+        align: "centre",
+      },
+      {
+        zone: "hinge-strip",
+        takes: ["hinge-strip"],
+        pack: "x",
+        grow: 0,
+        edge: "rear",
+      },
+    ],
+  },
+};
+
+// Lid, in the lid's own frame: y = 0 at the hinge, so the chin comes first.
+export const LID: Plan = {
+  id: "lid",
+  root: {
+    split: "y",
+    children: [
+      {
+        zone: "chin",
+        takes: ["bezel-chin", "inverter"],
+        pack: "x",
+        grow: 2,
+        align: "centre",
+      },
+      {
+        split: "x",
+        children: [
+          {
+            zone: "bezel-left",
+            takes: ["bezel-side"],
+            pack: "x",
+            grow: 1,
+            edge: "left",
+          },
+          {
+            zone: "panel",
+            takes: ["panel"],
+            pack: "x",
+            grow: 0,
+            align: "centre",
+          },
+          {
+            zone: "bezel-right",
+            takes: ["bezel-side"],
+            pack: "x",
+            grow: 1,
+            edge: "right",
+          },
+        ],
+      },
+      {
+        zone: "top-bezel",
+        takes: ["bezel-top", "webcam", "kblight"],
+        pack: "x",
+        grow: 1,
+        align: "centre",
+      },
+    ],
+  },
+};
+
+export const PLANS: Plan[] = [DECK, LID];
+
+export const LAYOUTS: Layout[] = [
+  {
+    id: "a",
+    name: "Battery front",
+    from: 1995,
+    until: 2099,
+    floor: floorA,
+    deck: "deck",
+    lid: "lid",
+    portSides: ["left", "right", "rear"],
+  },
+  {
+    id: "b",
+    name: "Battery rear",
+    from: 1995,
+    until: 2099,
+    floor: floorB,
+    deck: "deck",
+    lid: "lid",
+    portSides: ["left", "right", "front"],
+  },
+];

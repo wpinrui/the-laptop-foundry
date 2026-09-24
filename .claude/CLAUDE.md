@@ -73,6 +73,7 @@ Still on, because none of it is code quality:
 
 ## Working with me
 - Use subagents of appropriate size liberally. Have a balanced approach: don't burn tokens but don't engage incompetent subagents.
+- Keep the main conversation for the PM role. Delegate implementation, research and reviews to subagents, and continue the same subagent with SendMessage when the work carries on.
 - Never change `GDD.md` without my sign-off. When code and the GDD disagree, stop and show me the proposed GDD change. Once I approve, it lands in its own `docs:` commit, never inside a feature commit.
 - Restate non-trivial tasks in your own words before starting.
 - Do not silently drop a requirement. Surface it and ask.

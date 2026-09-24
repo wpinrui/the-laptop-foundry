@@ -18,6 +18,8 @@ Still on, because none of it is code quality:
 - No secrets committed.
 - Asking permission before a medium or large build (a diff of 250 lines or more), per **Working modes**, even without a requirements round.
 - Everything in **Working with me** about how you talk to me: no em-dashes, report what you observed rather than what you intended.
+- Involve me heavily: check in at every decision point and every visible milestone, unless `-afk`. This overrides the no-confirmation rules above.
+- The GDD sync rule in **Working with me**.
 
 **Branching and merging are NOT suspended.** Every change still goes on a `<type>/<kebab-summary>` branch, still gets a PR, and still lands by squash-merge with the branch deleted. Never commit straight to `main`. MVP mode removes the review and the wait, not the workflow: I still want every slice as a revertable unit with a PR behind it.
 
@@ -70,6 +72,8 @@ Still on, because none of it is code quality:
 - `-log` save the segment of this conversation that went wrong to `.incidents/<date>-<kebab-summary>.md`, then carry on. Do the same unprompted when I am clearly angry (caps, swearing). The segment runs from where it started going wrong to the latest turn: my messages and your replies verbatim, each tool call as one line.
 
 ## Working with me
+- Use subagents of appropriate size liberally. Have a balanced approach: don't burn tokens but don't engage incompetent subagents.
+- Never change `GDD.md` without my sign-off. When code and the GDD disagree, stop and show me the proposed GDD change. Once I approve, it lands in its own `docs:` commit, never inside a feature commit.
 - Restate non-trivial tasks in your own words before starting.
 - Do not silently drop a requirement. Surface it and ask.
 - Run the tests and typecheck that cover the diff, not every suite.

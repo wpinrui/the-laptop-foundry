@@ -1,0 +1,7 @@
+appId: com.electron.the-laptop-foundry
+productName: the-laptop-foundry
+directories:
+  buildResources: build
+files:
+  - out/**
+  - "!**/*.map"

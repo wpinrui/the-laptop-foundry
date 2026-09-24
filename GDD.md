@@ -65,7 +65,7 @@ Processors and graphics are real named parts. Everything else is chosen by speci
 | Display | Specification: size, resolution, panel type, refresh rate |
 | Battery | Specification |
 | Hot-swappable battery | Optional |
-| Cooling | No fan, one fan, two fans, or a vapour chamber |
+| Cooling | No fan, one fan, two fans, or two fans on a vapour chamber |
 | Optical drive | Specification |
 | Ports | Standards, placed by side |
 | Wireless | Standard |

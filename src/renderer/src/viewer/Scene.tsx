@@ -76,6 +76,11 @@ function makeCtx(): UnitCtx & { dispose(): void } {
           roughness: 0.35,
           metalness: 0.8,
         }),
+        copper: std("slot|copper", {
+          color: token("slot-copper"),
+          roughness: 0.35,
+          metalness: 0.8,
+        }),
         plastic: std("slot|plastic", {
           color: token("slot-plastic"),
           roughness: 0.7,

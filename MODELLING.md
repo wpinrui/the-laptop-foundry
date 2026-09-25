@@ -42,7 +42,7 @@ export const model: ModelModule = { key: "fan", build };
 - x is width, left to right. y is height, up is +y. z is depth, and the front faces +z.
 - Base parts (floor and deck): front is the laptop's front edge, up is out of the keyboard.
 - Lid parts: front (+z) is the screen side, toward the user with the lid open. +y runs up the screen toward the top bezel.
-- Materials: use `ctx.materials.body`, `metal`, `plastic`, `rubber`, `glass`, `glow` and `accent` only. Never create a material. The engine re-skins parts through these slots. `body` is the part's own colour. `glow` is for anything lit. `accent` is a coloured accent, blue by default, e.g. USB tongues; the engine may recolour it.
+- Materials: use `ctx.materials.body`, `metal`, `plastic`, `rubber`, `glass`, `glow`, `accent` and `copper` only. Never create a material. The engine re-skins parts through these slots. `body` is the part's own colour. `glow` is for anything lit. `accent` is a coloured accent, blue by default, e.g. USB tongues; the engine may recolour it. `copper` is copper, for heat sinks and heat pipes.
 - Anchors: an empty `THREE.Object3D` child named `anchor:<name>`, placed where the name says. Each entry lists the anchors it must have.
 - No text, labels, logos or brand names on any model, unless a real laptop part carries them (keycap legends are the only case here, and are optional).
 
@@ -223,7 +223,7 @@ Size ranges are width by height by depth in model space, in mm. They come from t
 - **What**: a heat-sink fin stack behind a vent. The fins run from the fan to the wall facing `ctx.edge`.
 - **Size**: 2006: 6.8 to 70 wide and deep, 6 to 12 high. 2026: 6.8 to 90 wide and deep, 3 to 12 high. One plan dimension is the fin depth (6.8 to 8); the other matches the fan.
 - **Options**: none.
-- **Years**: 2006 is copper with thick fins; 2026 is thin, dense fins.
+- **Years**: 2006 is thick copper fins using `copper`; 2026 is thin, dense fins using `metal` or `copper`.
 - **Anchors**: `vent` (centre of the face on `ctx.edge`).
 - **Budget**: 3,000 triangles, 8 ms.
 - **Reference**: the reference fan for edge handling.

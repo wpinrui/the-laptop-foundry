@@ -507,3 +507,16 @@
   z-index: 50;
   overflow-y: auto;
 }
+
+/* Review index: filters above the list. */
+.rs-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  align-items: center;
+  margin: 0.5em 0 1em;
+}
+
+.rs-filters select {
+  font: inherit;
+}

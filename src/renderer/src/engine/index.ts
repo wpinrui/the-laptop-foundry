@@ -48,6 +48,7 @@ export {
 } from "./content/rivals";
 export {
   CATEGORIES as REVIEW_CATEGORIES,
+  factsOf,
   type Review,
   reviewOf,
   rivalSubject,

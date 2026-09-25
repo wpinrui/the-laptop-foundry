@@ -127,3 +127,13 @@
   color: var(--color-text);
   font-size: var(--font-size-base);
 }
+
+/* Hero shot thumbnail beside each model. */
+.model-thumb {
+  width: 96px;
+  height: 60px;
+  flex: none;
+  border-radius: var(--radius);
+  background: var(--color-surface-raised);
+  object-fit: cover;
+}

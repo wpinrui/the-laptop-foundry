@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import type { SavedData, SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
+import type { Build } from "../engine";
+import { usePhotos } from "../viewer/Photos";
 import "./app.css";
 
 /** First launch: the player names the company. */
@@ -64,6 +66,17 @@ export function Models({
         .map((m) => ({ m, block: buildBlock(m.build) })),
     [data.models],
   );
+  // Thumbnails are taken one model at a time, top of the list first.
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const next = models.find(({ m }) => !thumbs[`${m.id}:${m.updated}`])?.m;
+  const { photos, shoot } = usePhotos(
+    next ? `${next.id}:thumb` : null,
+    next ? (next.build as Build) : null,
+    ["hero"],
+    [320, 200],
+  );
+  if (next && photos && !thumbs[`${next.id}:${next.updated}`])
+    setThumbs((t) => ({ ...t, [`${next.id}:${next.updated}`]: photos[0] }));
   const nameOf = (id: string | undefined) =>
     data.models.find((m) => m.id === id)?.name;
 
@@ -88,6 +101,11 @@ export function Models({
       <ul className="model-list">
         {models.map(({ m, block }) => (
           <li key={m.id} className="model">
+            {thumbs[`${m.id}:${m.updated}`] ? (
+              <img className="model-thumb" src={thumbs[`${m.id}:${m.updated}`]} alt="" />
+            ) : (
+              <span className="model-thumb" />
+            )}
             <button
               type="button"
               className="model-open"
@@ -144,6 +162,7 @@ export function Models({
           </li>
         ))}
       </ul>
+      {shoot}
     </div>
   );
 }

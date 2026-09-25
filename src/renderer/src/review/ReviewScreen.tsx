@@ -11,6 +11,7 @@ import {
 } from "../engine";
 import { activeArea } from "../engine/content/display";
 import { Scene, surfacesOf } from "../viewer/Scene";
+import { usePhotos } from "../viewer/Photos";
 import { ReviewSite } from "./ReviewSite";
 
 // The review opens on the laptop's own screen. The page is filtered by the
@@ -67,11 +68,13 @@ export function ReviewScreen({
   const [full, setFull] = useState(false);
   const current = history[history.length - 1];
 
-  const review = useMemo(() => {
-    if (current === subject.id) return reviewOf(subject);
+  const shown = useMemo(() => {
+    if (current === subject.id) return subject;
     const r = RIVALS.find((x) => x.id === current);
-    return reviewOf(r ? rivalSubject(r) : subject);
+    return r ? rivalSubject(r) : subject;
   }, [current, subject]);
+  const review = useMemo(() => reviewOf(shown), [shown]);
+  const { photos, shoot } = usePhotos(shown.id, shown.build);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -104,7 +107,9 @@ export function ReviewScreen({
 
   const open = (id: string) => setHistory((h) => [...h, id]);
   const home = () => setHistory([subject.id]);
-  const site = <ReviewSite review={review} onOpen={open} onHome={home} />;
+  const site = (
+    <ReviewSite review={review} onOpen={open} onHome={home} photos={photos} />
+  );
 
   const page = look ? (
     <div
@@ -157,6 +162,7 @@ export function ReviewScreen({
         }}
       />
       {(full || !look) && <div className="fullscreen-page">{site}</div>}
+      {shoot}
     </div>
   );
 }

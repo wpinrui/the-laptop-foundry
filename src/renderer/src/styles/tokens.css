@@ -119,7 +119,7 @@
   --ash-flake: #cfc6bf;
 
   /* Workshop: bench, wall, pegboard and the warm lamp. */
-  --shop-bench: #8a5a36;
+  --shop-bench: #7a5a40;
   --shop-bench-edge: #5e3b22;
   --shop-wall: #3b3029;
   --shop-peg: #b99a74;
@@ -129,4 +129,8 @@
   --shop-tool-grip: #b23a2a;
   --shop-lamp: #ffd29a;
   --shop-fill: #9fb7d9;
+
+  /* Photo studio for the review's product shots. */
+  --studio-bg: #e7e9ec;
+  --studio-floor: #d9dce0;
 }

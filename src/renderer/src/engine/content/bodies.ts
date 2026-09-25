@@ -55,7 +55,7 @@ export const BODIES: Body[] = [
     // A sharp chamfered wedge: small corners, chamfered edges, 6 mm thicker at the rear, drop hinge.
     id: "blade",
     name: "Blade",
-    from: 2018,
+    from: 2015,
     until: 2099,
     size: { ...START },
     limits: LIMITS,

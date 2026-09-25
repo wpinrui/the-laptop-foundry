@@ -23,6 +23,14 @@ import type { ModelBox, ModelContext, ModelModule } from "../contract";
 type Die = [cx: number, cz: number, w: number, d: number, memory?: boolean]; // fractions of the substrate
 
 const DIES: Record<string, Die[]> = {
+  // 2016: U and Y carry the processor die and the chipset die side by side; HQ and AMD are one die.
+  "core-m3-6y30": [[-0.18, 0, 0.44, 0.6], [0.3, 0, 0.26, 0.5]],
+  "core-i5-6200u": [[-0.22, 0, 0.3, 0.5], [0.22, 0, 0.26, 0.44]],
+  "core-i7-6500u": [[-0.22, 0, 0.3, 0.5], [0.22, 0, 0.26, 0.44]],
+  "core-i7-7500u": [[-0.22, 0, 0.3, 0.5], [0.22, 0, 0.26, 0.44]],
+  "core-i7-6700hq": [[0, 0, 0.42, 0.42]],
+  "core-i7-7700hq": [[0, 0, 0.42, 0.42]],
+  "a10-9600p": [[0, 0, 0.46, 0.4]],
   "core5-120u": [[-0.12, 0, 0.42, 0.55], [0.3, 0, 0.18, 0.4]],
   "core-ultra7-258v": [[-0.12, -0.12, 0.5, 0.42], [-0.12, 0.24, 0.5, 0.2], [0.32, -0.2, 0.24, 0.36, true], [0.32, 0.2, 0.24, 0.36, true]],
   "core-ultra-x9-388h": [[-0.16, 0, 0.3, 0.6], [0.12, 0, 0.2, 0.6], [0.32, 0, 0.13, 0.5]],

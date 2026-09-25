@@ -359,3 +359,12 @@ input[type="range"] {
   color: var(--color-text);
   font-weight: 600;
 }
+
+.m-class {
+  font-size: var(--font-size-base);
+}
+
+.m-grid .price {
+  grid-column: span 2;
+  text-align: right;
+}

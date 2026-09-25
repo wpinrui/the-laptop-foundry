@@ -14,3 +14,13 @@ export {
   type Runtime,
   simulate,
 } from "./sim";
+export {
+  type Budget,
+  type BodyClass,
+  type Cost,
+  classify,
+  costOf,
+  type DeviceClass,
+  type PerfClass,
+  weightOf,
+} from "./price";

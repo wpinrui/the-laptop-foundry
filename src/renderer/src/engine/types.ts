@@ -366,6 +366,8 @@ export interface Build {
   spend: Partial<Record<SpendKey, number>>;
   /** Power profiles as the player set them. Absent means the part defaults. */
   power?: Record<ProfileId, Profile>;
+  /** Retail price in the year's nominal US dollars, as the player set it. */
+  price?: number;
 }
 
 // ---------------------------------------------------------------- fit

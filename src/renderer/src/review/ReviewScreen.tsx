@@ -10,7 +10,7 @@ import {
   solve,
 } from "../engine";
 import { activeArea } from "../engine/content/display";
-import { Scene } from "../viewer/Scene";
+import { Scene, surfacesOf } from "../viewer/Scene";
 import { ReviewSite } from "./ReviewSite";
 
 // The review opens on the laptop's own screen. The page is filtered by the
@@ -92,6 +92,7 @@ export function ReviewScreen({
   const look = lookOf(panel);
   const colour = (id: string) =>
     CONTENT.colours.find((c) => c.id === id)?.hex ?? "";
+  const surfaces = useMemo(() => surfacesOf(build), [build]);
   const colours = useMemo(
     () => ({
       floor: colour(build.finish.floor.colour),
@@ -142,6 +143,9 @@ export function ReviewScreen({
         year={build.year}
         lidAngle={105}
         colours={colours}
+        surfaces={surfaces}
+        xray={false}
+        workshop
         labelFor={() => ""}
         onHover={() => {}}
         screen={

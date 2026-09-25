@@ -1,8 +1,10 @@
 import { Html, OrbitControls } from "@react-three/drei";
-import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, type ThreeEvent, useThree } from "@react-three/fiber";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { Workshop } from "./Workshop";
 import { memo, type ReactNode, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { Box, Fit } from "../engine";
+import type { Box, Build, Fit } from "../engine";
 import { shellSurface } from "../engine";
 import { overflowSlabs } from "./overflow";
 import {
@@ -35,6 +37,48 @@ interface SceneProps {
   onPick?: (box: Box) => void;
   /** A table top under the laptop, in this colour. */
   table?: string;
+  /** Material and finish per piece; the shell shows them. */
+  surfaces?: Surfaces;
+  /** See-through shell, to show the internals. */
+  xray?: boolean;
+  /** A procedural workshop around the laptop: bench, pegboard wall, warm lamp. */
+  workshop?: boolean;
+}
+
+export type Surfaces = Record<
+  "floor" | "deck" | "lid",
+  { material: string; texture: string }
+>;
+
+/** The shell surfaces of a build: material and finish per piece. */
+export function surfacesOf(b: Build): Surfaces {
+  const one = (p: "floor" | "deck" | "lid") => ({
+    material: b.materials[p],
+    texture: b.finish[p].texture,
+  });
+  return { floor: one("floor"), deck: one("deck"), lid: one("lid") };
+}
+
+const METALNESS: Record<string, number> = {
+  plastic: 0,
+  magnesium: 0.55,
+  aluminium: 0.85,
+  cfrp: 0.1,
+};
+const ROUGHNESS: Record<string, number> = {
+  glossy: 0.12,
+  matte: 0.62,
+  "soft-touch": 0.9,
+  brushed: 0.38,
+  anodised: 0.3,
+};
+
+/** How a body material and its finish look: metalness and roughness. */
+function surfaceLook(s: Surfaces[keyof Surfaces] | undefined) {
+  return {
+    metalness: METALNESS[s?.material ?? "plastic"] ?? 0,
+    roughness: ROUGHNESS[s?.texture ?? "matte"] ?? 0.6,
+  };
 }
 
 // ------------------------------------------------------------------ materials
@@ -236,13 +280,21 @@ function Shell({
   colour,
   profile,
   z = 0,
+  surface,
+  xray = true,
+  offset = 2,
 }: {
   size: Fit["shell"]["outer"];
   style: Fit["shell"]["style"];
   colour: string;
   profile: boolean;
   z?: number;
+  surface?: Surfaces[keyof Surfaces];
+  xray?: boolean;
+  /** Depth push. The deck plate uses less, so it wins over the top face of the base. */
+  offset?: number;
 }) {
+  const look = surfaceLook(surface);
   const geometry = useMemo(
     () => surfaceGeometry(size, style, profile),
     [size.x, size.y, size.z, style, profile],
@@ -265,20 +317,25 @@ function Shell({
             lid's front face), so the shell is pushed back in depth: a flush
             unit face wins cleanly instead of z-fighting the shell's fan. */}
         <meshStandardMaterial
+          // Remount on mode change so three recompiles the transparency state.
+          key={xray ? "xray" : "solid"}
           color={colour}
-          transparent
-          opacity={0.22}
-          depthWrite={false}
+          transparent={xray}
+          opacity={xray ? 0.22 : 1}
+          depthWrite={!xray}
           side={THREE.DoubleSide}
-          roughness={0.5}
+          roughness={look.roughness}
+          metalness={look.metalness}
           polygonOffset
-          polygonOffsetFactor={2}
-          polygonOffsetUnits={2}
+          polygonOffsetFactor={offset}
+          polygonOffsetUnits={offset}
         />
       </mesh>
-      <lineSegments geometry={edges} renderOrder={3}>
-        <lineBasicMaterial color={colour} transparent opacity={0.55} />
-      </lineSegments>
+      {xray && (
+        <lineSegments geometry={edges} renderOrder={3}>
+          <lineBasicMaterial color={colour} transparent opacity={0.55} />
+        </lineSegments>
+      )}
     </group>
   );
 }
@@ -359,6 +416,9 @@ const Model = memo(function Model({
   onPick,
   screen,
   table,
+  surfaces,
+  xray = true,
+  workshop,
 }: SceneProps) {
   const ctx = useMemo(() => makeCtx(), []);
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
@@ -390,6 +450,8 @@ const Model = memo(function Model({
           style={fit.shell.style}
           colour={colours.floor}
           profile
+          surface={surfaces?.floor}
+          xray={xray}
         />
         <Shell
           size={deckPlate}
@@ -397,8 +459,12 @@ const Model = memo(function Model({
           colour={colours.deck}
           profile={false}
           z={out.z}
+          surface={surfaces?.deck}
+          xray={xray}
+          offset={1}
         />
         <Openings fit={fit} />
+        {workshop && !table && <Workshop out={out} />}
         {table && (
           <mesh position={[out.x / 2, out.y / 2, -3]} scale={[out.x * 4, out.y * 3, 6]}>
             <boxGeometry />
@@ -424,6 +490,8 @@ const Model = memo(function Model({
               colour={colours.lid}
               profile={false}
               z={fit.shell.lid.at.z}
+              surface={surfaces?.lid}
+              xray={xray}
             />
             <Units
               boxes={lid}
@@ -433,6 +501,20 @@ const Model = memo(function Model({
               year={year}
               hinge={fit.shell.style.hinge}
             />
+            {!xray && panelBox && (
+              // A solid lid would hide a panel set behind its bezel: show the dark screen glass.
+              <mesh
+                position={[
+                  panelBox.at.x + panelBox.size.x / 2,
+                  panelBox.at.y + panelBox.size.y / 2,
+                  Math.min(panelBox.at.z, fit.shell.lid.at.z) - 0.1,
+                ]}
+                rotation-x={Math.PI}
+              >
+                <planeGeometry args={[panelBox.size.x, panelBox.size.y]} />
+                <meshStandardMaterial color={token("color-opening")} roughness={0.15} metalness={0} />
+              </mesh>
+            )}
             {screen && panelBox && (
               // The panel faces down when the lid is shut; its top edge is the one away from the hinge.
               <Html
@@ -456,6 +538,26 @@ const Model = memo(function Model({
   );
 });
 
+/** A procedural room to reflect, so metal shells read as metal. No assets. */
+function Reflections() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const room = new RoomEnvironment();
+    const env = pmrem.fromScene(room, 0.04).texture;
+    scene.environment = env;
+    scene.environmentIntensity = 0.45;
+    return () => {
+      scene.environment = null;
+      env.dispose();
+      pmrem.dispose();
+      room.dispose();
+    };
+  }, [gl, scene]);
+  return null;
+}
+
 export function Scene(props: SceneProps) {
   const bg = token("color-bg");
   return (
@@ -475,12 +577,29 @@ export function Scene(props: SceneProps) {
       dpr={[1, 2]}
       onPointerMissed={() => props.onHover(null)}
     >
-      <color attach="background" args={[bg]} />
-      <hemisphereLight
-        args={[token("color-text"), token("color-surface"), 1.1]}
-      />
-      <directionalLight position={[300, 700, 500]} intensity={1.6} />
-      <directionalLight position={[-400, 300, -300]} intensity={0.5} />
+      <color attach="background" args={[props.workshop ? token("shop-wall") : bg]} />
+      <Reflections />
+      {props.workshop ? (
+        <>
+          {/* Warm lamp over the bench, a cool fill from the window side. */}
+          <hemisphereLight args={[token("shop-lamp"), token("shop-bench-edge"), 0.8]} />
+          <pointLight
+            position={[-150, 700, 250]}
+            color={token("shop-lamp")}
+            intensity={2.2}
+            distance={0}
+            decay={0}
+          />
+          <directionalLight position={[500, 400, 600]} color={token("shop-fill")} intensity={0.5} />
+          <directionalLight position={[-400, 300, -300]} intensity={0.35} />
+        </>
+      ) : (
+        <>
+          <hemisphereLight args={[token("color-text"), token("color-surface"), 1.1]} />
+          <directionalLight position={[300, 700, 500]} intensity={1.6} />
+          <directionalLight position={[-400, 300, -300]} intensity={0.5} />
+        </>
+      )}
       <Model {...props} />
       <OrbitControls
         makeDefault

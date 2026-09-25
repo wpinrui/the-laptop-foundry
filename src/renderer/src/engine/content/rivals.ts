@@ -1,4 +1,5 @@
 import { makeBuild } from "../samples";
+import { MATERIALS } from "./finish";
 import { solve } from "../solve";
 import type { Build, Category, OptionValue, Piece, Side, Size } from "../types";
 
@@ -11,7 +12,7 @@ import type { Build, Category, OptionValue, Piece, Side, Size } from "../types";
 export interface Maker {
   id: string;
   name: string;
-  /** Classes the maker competes in, as "body/performance" cells, every year. */
+  /** Classes the maker competes in, as "body/performance/budget" cells, every year. */
   competes: string[];
 }
 
@@ -20,63 +21,96 @@ export const MAKERS: Maker[] = [
     id: "tarrant",
     name: "Tarrant",
     competes: [
-      "thin and light/office",
-      "medium/office",
-      "medium/mixed-use",
-      "medium/gaming",
+      "medium/gaming/midrange",
+      "medium/gaming/premium",
+      "medium/mixed-use/midrange",
+      "medium/mixed-use/premium",
+      "medium/office/low",
+      "medium/office/midrange",
+      "medium/office/premium",
+      "thin and light/office/midrange",
+      "thin and light/office/premium",
     ],
   },
   {
     id: "halbrook",
     name: "Halbrook",
     competes: [
-      "thin and light/office",
-      "medium/office",
-      "medium/gaming",
-      "large/office",
-      "large/gaming",
+      "large/gaming/midrange",
+      "large/gaming/premium",
+      "large/mixed-use/midrange",
+      "large/office/low",
+      "large/office/midrange",
+      "medium/gaming/midrange",
+      "medium/gaming/premium",
+      "medium/office/low",
+      "medium/office/midrange",
+      "thin and light/mixed-use/midrange",
+      "thin and light/office/midrange",
+      "thin and light/office/premium",
     ],
   },
   {
     id: "denholm",
     name: "Denholm",
     competes: [
-      "thin and light/mixed-use",
-      "medium/mixed-use",
-      "large/gaming",
+      "large/gaming/midrange",
+      "large/gaming/premium",
+      "large/mixed-use/premium",
+      "medium/gaming/midrange",
+      "medium/gaming/premium",
+      "medium/mixed-use/midrange",
+      "medium/mixed-use/premium",
+      "thin and light/gaming/premium",
+      "thin and light/mixed-use/midrange",
+      "thin and light/mixed-use/premium",
+      "thin and light/office/midrange",
     ],
   },
   {
     id: "quince",
     name: "Quince",
     competes: [
-      "thin and light/mixed-use",
-      "medium/office",
-      "medium/gaming",
-      "large/mixed-use",
-      "thin and light/office",
-      "medium/mixed-use",
+      "large/gaming/midrange",
+      "large/mixed-use/premium",
+      "medium/gaming/premium",
+      "medium/mixed-use/midrange",
+      "medium/mixed-use/premium",
+      "medium/office/low",
+      "medium/office/midrange",
+      "medium/office/premium",
+      "thin and light/mixed-use/midrange",
+      "thin and light/mixed-use/premium",
+      "thin and light/office/premium",
     ],
   },
   {
     id: "arvane",
     name: "Arvane",
     competes: [
-      "thin and light/mixed-use",
-      "thin and light/gaming",
-      "medium/gaming",
-      "large/gaming",
+      "large/gaming/midrange",
+      "large/gaming/premium",
+      "medium/gaming/midrange",
+      "medium/gaming/premium",
+      "thin and light/gaming/premium",
+      "thin and light/mixed-use/midrange",
+      "thin and light/mixed-use/premium",
+      "thin and light/office/premium",
     ],
   },
   {
     id: "ecker",
     name: "Ecker",
     competes: [
-      "medium/office",
-      "medium/gaming",
-      "large/office",
-      "large/mixed-use",
-      "large/gaming",
+      "large/gaming/midrange",
+      "large/gaming/premium",
+      "large/mixed-use/midrange",
+      "large/mixed-use/premium",
+      "large/office/low",
+      "large/office/midrange",
+      "medium/gaming/midrange",
+      "medium/office/low",
+      "medium/office/midrange",
     ],
   },
 ];
@@ -122,6 +156,65 @@ function rival(
     maker,
     name,
     build: { ...build, size, price: spec.price },
+  };
+}
+
+/** Another configuration of an existing rival: same chassis, new price and parts. */
+function trim(
+  base: Rival,
+  name: string,
+  price: number,
+  change: {
+    maker?: string;
+    parts?: Partial<Record<Category, PartSpec | PartSpec[] | null>>;
+    materials?: Partial<Record<Piece, string>>;
+    spend?: Build["spend"];
+  } = {},
+): Rival {
+  const maker = change.maker ?? base.maker;
+  const parts = { ...base.build.parts };
+  for (const [cat, v] of Object.entries(change.parts ?? {}) as [
+    Category,
+    PartSpec | PartSpec[] | null,
+  ][]) {
+    if (v === null) {
+      delete parts[cat];
+      continue;
+    }
+    const single =
+      typeof v === "string" ||
+      (typeof v[0] === "string" && typeof v[1] === "object" && !Array.isArray(v[1]));
+    const list = single ? [v as PartSpec] : (v as PartSpec[]);
+    parts[cat] = list.map((x) =>
+      typeof x === "string" ? { part: x } : { part: x[0], opts: x[1] },
+    );
+  }
+  const materials = { ...base.build.materials, ...change.materials };
+  const texture = (m: string) =>
+    MATERIALS.find((x) => x.id === m)?.finishes[0] ?? "matte";
+  const finish = { ...base.build.finish };
+  for (const piece of Object.keys(change.materials ?? {}) as Piece[])
+    finish[piece] = { ...finish[piece], texture: texture(materials[piece]) };
+  const build: Build = {
+    ...base.build,
+    parts,
+    materials,
+    finish,
+    spend: { ...base.build.spend, ...change.spend },
+    price,
+  };
+  const min = solve(build).min;
+  const up = (v: number) => Math.ceil(v * 2) / 2;
+  const size: Size = {
+    x: up(Math.max(build.size.x, min.x)),
+    y: up(Math.max(build.size.y, min.y)),
+    z: up(Math.max(build.size.z, min.z)),
+  };
+  return {
+    id: `${maker}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    maker,
+    name,
+    build: { ...build, size },
   };
 }
 
@@ -1430,7 +1523,238 @@ const R2016: Rival[] = [
   }),
 ];
 
-export const RIVALS: Rival[] = [...R2006, ...R2016, ...R2026];
+// ------------------------------------------------------------------ trims
+
+// Further configurations of the chassis above, so the common classes of each
+// year (body, performance and budget) have at least two rivals to compare.
+
+const pick = (list: Rival[], name: string): Rival => {
+  const r = list.find((x) => x.name === name);
+  if (!r) throw new Error(`no rival ${name}`);
+  return r;
+};
+
+const T2006: Rival[] = (() => {
+  const b = (n: string) => pick(R2006, n);
+  const gtx = "geforce-go-7900-gtx";
+  return [
+    trim(b("Wardline X62s"), "Wardline X61", 1449),
+    trim(b("Aurel S1310"), "Aurel S1300", 1299, {
+      parts: { graphics: null, processor: "core-duo-u2500" },
+    }),
+    trim(b("Vesper W6"), "Vesper W4", 1899, {
+      parts: { graphics: null, processor: "core-duo-t2500" },
+    }),
+    trim(b("Aurel S1310"), "Aurel S1315", 1549, {
+      parts: { graphics: "radeon-x1600" },
+    }),
+    trim(b("Vesper W6"), "Vesper W5", 1499, {
+      parts: { graphics: "geforce-go-7600", processor: "core-duo-t2500" },
+    }),
+    trim(b("Wardline X62s"), "Wardline X62 Media", 1899, {
+      parts: { graphics: "radeon-x1600" },
+    }),
+    trim(b("Aurel S1310"), "Aurel S1390", 2499, {
+      parts: { graphics: gtx, processor: "core2-duo-t7600" },
+    }),
+    trim(b("Pomella 13"), "Pomella 13 Lite", 849, {
+      parts: { processor: "celeron-m-430" },
+    }),
+    trim(b("Loma 1410"), "Loma 1420", 1049, {
+      parts: { processor: "core-duo-t2500" },
+    }),
+    trim(b("Pomella 13"), "Pomella 13 Pro", 1649, {
+      parts: { processor: "core2-duo-t5500" },
+      materials: { lid: "aluminium" },
+    }),
+    trim(b("Pomella 13"), "Pomella 13 Plus", 1399, {
+      parts: { graphics: "radeon-x1600" },
+    }),
+    trim(b("Aurel E1540"), "Aurel E1520", 1449, {
+      parts: { processor: "core2-duo-t5500" },
+    }),
+    trim(b("Wardline T62"), "Wardline T62p", 2199, {
+      parts: { graphics: "radeon-x1600", processor: "core2-duo-t7600" },
+    }),
+    trim(b("Aurel E1540"), "Aurel E1560", 1549, {
+      parts: { graphics: gtx, processor: "core2-duo-t5500", cooling: "two-fans" },
+    }),
+    trim(b("Pomella 13"), "Pomella 13 Play", 1499, {
+      parts: { graphics: gtx, cooling: "two-fans" },
+    }),
+    trim(b("Aurel E1540"), "Aurel E1580", 1999, {
+      parts: { graphics: gtx, cooling: "two-fans" },
+    }),
+    trim(b("Aurel E1540"), "Vesper G5", 2099, {
+      maker: "arvane",
+      parts: { graphics: gtx, cooling: "two-fans" },
+      materials: { lid: "magnesium" },
+    }),
+    trim(b("Aurel S1310"), "Aurel S1370", 1549, {
+      parts: { graphics: gtx, processor: "core2-duo-t5500" },
+    }),
+    trim(b("Vesper W6"), "Vesper W6 Plus", 2399, {
+      parts: { battery: ["li-ion-18650", { cells: 6 }] },
+    }),
+    trim(b("Vesper W6"), "Vesper W3 Play", 1549, {
+      parts: {
+        processor: "core2-duo-t5500",
+        battery: ["li-ion-18650", { cells: 6 }],
+      },
+    }),
+    trim(b("Vesper W6"), "Vesper W6 Studio", 1699, {
+      parts: { graphics: "geforce-go-7600" },
+    }),
+    trim(b("Loma 9800"), "Loma 9810", 1099, {
+      parts: { processor: "core2-duo-t5500" },
+    }),
+    trim(b("Carrow 720 Media"), "Carrow 740 Media", 1399, {
+      parts: { graphics: "radeon-x1600" },
+    }),
+    trim(b("Loma 9920 Media"), "Loma 9950 Studio", 1799, {
+      parts: { processor: "core2-duo-t7600" },
+    }),
+    trim(b("Carrow 790 Play"), "Carrow 780 Play", 1549, {
+      parts: { processor: "core2-duo-t5500" },
+    }),
+    trim(b("Loma 9920 Media"), "Loma 9930 Play", 1499, {
+      parts: { graphics: gtx, cooling: "two-fans" },
+    }),
+  ];
+})();
+
+const T2016: Rival[] = (() => {
+  const b = (n: string) => pick(R2016, n);
+  return [
+    trim(b("Wardline X14 Carbon"), "Wardline X14", 1149, {
+      parts: { processor: "core-i5-6200u" },
+    }),
+    trim(b("Carrow Air 13"), "Carrow Air 13 Plus", 1099, {
+      parts: { graphics: "geforce-940mx" },
+    }),
+    trim(b("Aurel 13 Plus"), "Aurel 13 Pro", 1399, {
+      parts: { processor: "core-i7-7500u" },
+    }),
+    trim(b("Pomella 13"), "Pomella 13 Graphic", 1599, {
+      parts: { graphics: "geforce-940mx" },
+    }),
+    trim(b("Vesper Zephyr 14"), "Aurel Blade 14", 2199, {
+      maker: "denholm",
+      parts: { graphics: "geforce-gtx-970m" },
+    }),
+    trim(b("Wardline T470"), "Wardline E470", 579, {
+      parts: { processor: "core-i5-6200u" },
+    }),
+    trim(b("Carrow 15 Stream"), "Carrow 15 Plus", 799, {
+      parts: { processor: "core-i5-6200u" },
+    }),
+    trim(b("Wardline T470"), "Wardline T470s", 1399, {
+      parts: { processor: "core-i7-7500u" },
+    }),
+    trim(b("Pomella Pro 15"), "Pomella 15", 1299, {
+      parts: { graphics: null, processor: "core-i7-7500u" },
+    }),
+    trim(b("Aurel 15 Studio"), "Aurel 15", 1099, {
+      parts: { graphics: "geforce-940mx" },
+    }),
+    trim(b("Carrow 15 Stream"), "Carrow 15 Media", 849, {
+      parts: { processor: "core-i5-6200u", graphics: "radeon-r7-m460" },
+    }),
+    trim(b("Vesper Strike 15"), "Vesper Strike 15 Lite", 1149, {
+      parts: { graphics: "geforce-gtx-970m" },
+    }),
+    trim(b("Wardline Y720"), "Wardline Y520", 1099, {
+      parts: { graphics: "geforce-gtx-970m" },
+    }),
+    trim(b("Carrow Play 17"), "Carrow 17", 579, {
+      parts: { graphics: null, processor: "core-i5-6200u" },
+    }),
+    trim(b("Loma 17 E"), "Loma 17 E Plus", 749, {
+      parts: { processor: "core-i7-7500u" },
+    }),
+    trim(b("Carrow Play 17"), "Carrow 17 Plus", 899, {
+      parts: { graphics: null, processor: "core-i7-6500u" },
+    }),
+    trim(b("Carrow Play 17"), "Carrow 17 Media", 999, {
+      parts: { graphics: "geforce-940mx", processor: "core-i5-6200u" },
+    }),
+    trim(b("Aurel Blaze 17"), "Aurel 17 Studio", 1599, {
+      parts: { graphics: "geforce-940mx" },
+    }),
+    trim(b("Loma 17 V"), "Loma 17 VX", 1249, {
+      parts: { processor: "core-i7-6700hq" },
+    }),
+    trim(b("Loma Nitro 15"), "Loma Nitro 15 Lite", 1149),
+    trim(b("Carrow Play 17"), "Carrow Play 17 Lite", 1149, {
+      parts: { graphics: "geforce-gtx-970m" },
+    }),
+  ];
+})();
+
+const T2026: Rival[] = (() => {
+  const b = (n: string) => pick(R2026, n);
+  return [
+    trim(b("Wardline X14 Carbon"), "Wardline X14", 1299, {
+      parts: {
+        processor: "core5-120u",
+        memory: ["lpddr5x-soldered", { capacity: 16 }],
+      },
+    }),
+    trim(b("Carrow Air 14"), "Carrow Air 14 Pro", 1599, {
+      parts: { processor: "core-ultra7-258v", memory: "lpddr5x-on-package" },
+    }),
+    trim(b("Vesper Neo 14"), "Vesper Neo 14 Core", 1399),
+    trim(b("Aurel 14 Studio"), "Aurel 14 Studio RTX", 2499, {
+      parts: { graphics: "rtx-5060-laptop" },
+    }),
+    trim(b("Wardline E16"), "Wardline E16 Pro", 1599, {
+      parts: { processor: "core-ultra7-258v", memory: "lpddr5x-on-package" },
+    }),
+    trim(b("Pomella 15"), "Pomella 15 Pro", 1699, {
+      parts: { storage: "m2-2280-g5" },
+    }),
+    trim(b("Aurel 16 Plus"), "Aurel 16", 1299),
+    trim(b("Wardline P16"), "Wardline P16 Core", 1399),
+    trim(b("Carrow Play 16"), "Carrow Play 16 Lite", 1349, {
+      parts: { graphics: "rtx-5050-laptop" },
+    }),
+    trim(b("Loma 18"), "Carrow 17", 779, {
+      maker: "halbrook",
+      parts: { processor: "ryzen-ai5-340" },
+    }),
+    trim(b("Loma 18"), "Loma 18 Plus", 999, {
+      parts: { processor: "ryzen-ai5-340" },
+    }),
+    trim(b("Loma 18 Pro"), "Loma 18 Business", 1199, {
+      parts: { processor: "core-ultra7-258v", memory: "lpddr5x-on-package" },
+    }),
+    trim(b("Loma 18 Pro"), "Carrow 18", 1399, {
+      maker: "halbrook",
+      parts: { processor: "core-ultra-x9-388h", memory: ["lpddr5x-soldered", { capacity: 32 }] },
+    }),
+    trim(b("Loma 18 Pro"), "Loma 18 Studio", 1699, {
+      parts: { processor: "core-ultra-x9-388h", memory: ["lpddr5x-soldered", { capacity: 32 }] },
+    }),
+    trim(b("Aurel Forge 18"), "Aurel 18 Studio", 2299, {
+      parts: { graphics: null, processor: "core-ultra-x9-388h", memory: ["lpddr5x-soldered", { capacity: 32 }] },
+    }),
+    trim(b("Loma 18 Pro"), "Loma 18 Play", 1399, {
+      parts: { graphics: "rtx-5050-laptop" },
+    }),
+    trim(b("Vesper Strike 18"), "Vesper Strike 18 Core", 1449, {
+      parts: { graphics: "rtx-5060-laptop" },
+    }),
+  ];
+})();
+
+export const RIVALS: Rival[] = [
+  ...R2006,
+  ...T2006,
+  ...R2016,
+  ...T2016,
+  ...R2026,
+  ...T2026,
+];
 
 export function rivalsFor(year: number): Rival[] {
   return RIVALS.filter((r) => r.build.year === year);

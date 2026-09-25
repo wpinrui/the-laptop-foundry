@@ -402,7 +402,13 @@ export function Scene(props: SceneProps) {
   const bg = token("color-bg");
   return (
     <Canvas
-      camera={{ position: CAMERA_POSITION, fov: 38, near: 1, far: 20000 }}
+      // The orbit camera never sits closer than 120mm or farther than 2500mm
+      // (below); near:far used to span 1 to 20000mm, 400x wider than the
+      // camera ever uses, which starves the depth buffer of precision at the
+      // sub-mm gaps models rely on (e.g. the panel's screen over its module
+      // stack) and shows up as moire z-fighting. Tightened to the range the
+      // camera actually visits.
+      camera={{ position: CAMERA_POSITION, fov: 38, near: 10, far: 4000 }}
       dpr={[1, 2]}
       onPointerMissed={() => props.onHover(null)}
     >

@@ -64,7 +64,9 @@ function outline(
 
 /**
  * Closed outer surface of a styled slab from (0, 0, 0) to size.
- * With `profile` false the top and bottom edges stay square (the lid).
+ * With `profile` false the top and bottom edges stay square and there is no
+ * wedge (the lid). The wedge drops the lower half of the base toward the rear,
+ * so the bottom slopes down by `style.wedge` at y = size.y and the top stays flat.
  */
 export function shellSurface(
   size: Size,
@@ -85,6 +87,15 @@ export function shellSurface(
   for (const loop of loops) for (const p of loop) positions.push(...p);
   const bottomCentre = positions.length / 3;
   positions.push(size.x / 2, size.y / 2, 0);
+  if (profile && style.wedge > 0) {
+    // Only ever moves points down in the lower half: material is added outside.
+    for (let i = 0; i < positions.length; i += 3) {
+      const y = positions[i + 1];
+      const z = positions[i + 2];
+      const f = Math.max(0, 1 - z / (size.z / 2));
+      positions[i + 2] = z - style.wedge * (y / size.y) * f;
+    }
+  }
   const topCentre = positions.length / 3;
   positions.push(size.x / 2, size.y / 2, size.z);
 

@@ -76,6 +76,12 @@ export interface BodyStyle {
   corner: Mm;
   /** Profile size of the top and bottom perimeter edges: radius when rounded, leg when chamfered. */
   profile: Mm;
+  /**
+   * Cosmetic wedge: the rear is this much thicker than the front. Built outward,
+   * below the base, tapering to nothing at the front edge, so it never cuts into
+   * a part. The player's thickness is the front thickness.
+   */
+  wedge: Mm;
   hinge: "barrel" | "full" | "drop";
   latch: boolean;
 }

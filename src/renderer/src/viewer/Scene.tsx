@@ -244,6 +244,9 @@ function Shell({
   return (
     <group position={[0, 0, z]}>
       <mesh geometry={geometry} renderOrder={2}>
+        {/* Units sit flush on the shell's faces (a cover-glass panel IS the
+            lid's front face), so the shell is pushed back in depth: a flush
+            unit face wins cleanly instead of z-fighting the shell's fan. */}
         <meshStandardMaterial
           color={colour}
           transparent
@@ -251,6 +254,9 @@ function Shell({
           depthWrite={false}
           side={THREE.DoubleSide}
           roughness={0.5}
+          polygonOffset
+          polygonOffsetFactor={2}
+          polygonOffsetUnits={2}
         />
       </mesh>
       <lineSegments geometry={edges} renderOrder={3}>

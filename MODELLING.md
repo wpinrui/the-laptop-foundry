@@ -210,7 +210,7 @@ Size ranges are width by height by depth in model space, in mm. They come from t
 - **What**: the bare PCB only. Chips, memory, M.2 drives and cards are separate parts drawn on top of it. Draw the PCB as a slab at the bottom of the box: 1.6 mm thick in 2006, 1.0 mm in 2026. Keep the rest of the box free, apart from low surface detail (traces, small components under 1 mm).
 - **Size**: 2006: 119.3 to 161.2 wide, 8.6 to 11.6 high, 107.6 to 154.6 deep. 2026: 97.5 to 149 wide, 5 to 10.2 high, 117.6 to 153 deep.
 - **Options**: none.
-- **Years**: 2006 is a green PCB; 2026 is a dark PCB.
+- **Years**: draw the PCB with `ctx.materials.body`; the engine colours it green in 2006 and dark in 2026.
 - **Anchors**: none.
 - **Budget**: 6,000 triangles, 10 ms.
 - **Reference**: `src/renderer/src/engine/board.ts`.

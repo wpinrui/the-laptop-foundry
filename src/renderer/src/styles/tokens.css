@@ -18,7 +18,8 @@
   --color-opening: #05070a;
 
   /* Stand-in colours for 3D units, one per role. Replaced by real models later. */
-  --role-board: #2f7d4f;
+  --role-board-2006: #1e5a32;
+  --role-board-2026: #1a1d21;
   --role-chip: #3d4450;
   --role-vrm: #6e5a3c;
   --role-memory: #3f6fa8;

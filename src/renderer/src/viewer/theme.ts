@@ -14,7 +14,6 @@ export function token(name: string): string {
 }
 
 const ROLE_TOKEN: Record<string, string> = {
-  board: "role-board",
   cpu: "role-chip",
   gpu: "role-chip",
   chipset: "role-chip",
@@ -43,6 +42,8 @@ const ROLE_TOKEN: Record<string, string> = {
   kblight: "role-light",
 };
 
-export function roleColour(role: string): string {
+export function roleColour(role: string, year: number): string {
+  // The board's PCB colour is the one role stand-in that depends on the era.
+  if (role === "board") return token(year >= 2015 ? "role-board-2026" : "role-board-2006");
   return token(ROLE_TOKEN[role] ?? "role-chip");
 }

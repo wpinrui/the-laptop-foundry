@@ -144,7 +144,7 @@ function useUnitsGroup(
       const obj = renderUnit(
         b.role,
         b,
-        { colour: roleColour(b.role), year, hinge },
+        { colour: roleColour(b.role, year), year, hinge },
         ctx,
       );
       obj.userData.label = labelFor(b);

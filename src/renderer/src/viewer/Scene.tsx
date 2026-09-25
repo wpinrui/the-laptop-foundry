@@ -81,6 +81,11 @@ function makeCtx(): UnitCtx & { dispose(): void } {
           roughness: 0.7,
           metalness: 0,
         }),
+        accent: std("slot|accent", {
+          color: token("slot-accent"),
+          roughness: 0.7,
+          metalness: 0,
+        }),
         rubber: std("slot|rubber", {
           color: token("slot-rubber"),
           roughness: 0.95,

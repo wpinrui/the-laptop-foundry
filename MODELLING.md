@@ -42,7 +42,7 @@ export const model: ModelModule = { key: "fan", build };
 - x is width, left to right. y is height, up is +y. z is depth, and the front faces +z.
 - Base parts (floor and deck): front is the laptop's front edge, up is out of the keyboard.
 - Lid parts: front (+z) is the screen side, toward the user with the lid open. +y runs up the screen toward the top bezel.
-- Materials: use `ctx.materials.body`, `metal`, `plastic`, `rubber`, `glass` and `glow` only. Never create a material. The engine re-skins parts through these slots. `body` is the part's own colour. `glow` is for anything lit.
+- Materials: use `ctx.materials.body`, `metal`, `plastic`, `rubber`, `glass`, `glow` and `accent` only. Never create a material. The engine re-skins parts through these slots. `body` is the part's own colour. `glow` is for anything lit. `accent` is a coloured accent, blue by default, e.g. USB tongues; the engine may recolour it.
 - Anchors: an empty `THREE.Object3D` child named `anchor:<name>`, placed where the name says. Each entry lists the anchors it must have.
 - No text, labels, logos or brand names on any model, unless a real laptop part carries them (keycap legends are the only case here, and are optional).
 
@@ -179,7 +179,7 @@ Size ranges are width by height by depth in model space, in mm. They come from t
   - Cards: `pc-card`, `expresscard-34`, `expresscard-54`, `sd-reader`, `sd-reader-uhs2`, `microsd-reader`.
   - Audio: `headphone-mic` (one opening each), `audio-combo`.
   - Other: `lock-slot`.
-- **Years**: 2006 USB-A ports are black plastic; 2026 are blue-tongued at 5 Gbps and up. Use plastic or body; no text.
+- **Years**: 2006 USB-A tongues stay black `plastic`. 2026 USB-A at 5 Gbps and up use `accent` for the tongue. Use plastic or body elsewhere; no text.
 - **Anchors**: `opening` (centre of the opening, on the `ctx.edge` face).
 - **Budget**: 1,500 triangles, 4 ms.
 - **Reference**: `src/renderer/src/engine/content/ports.ts`.

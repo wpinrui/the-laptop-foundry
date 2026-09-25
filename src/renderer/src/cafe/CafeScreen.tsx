@@ -19,6 +19,7 @@ import { balancedProfile } from "../engine/sim/profiles";
 import { lookOf } from "../review/ReviewScreen";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
 import { token } from "../viewer/theme";
+import { usePhotos } from "../viewer/Photos";
 import { Scene, surfacesOf } from "../viewer/Scene";
 import "./cafe.css";
 
@@ -350,11 +351,12 @@ export function CafeScreen({
       ...RIVALS.map((x) => ({ subject: rivalSubject(x), own: false })),
     ];
   }, [library]);
-  const review = useMemo(() => {
+  const shown = useMemo(() => {
     if (app !== "web" || current === INDEX) return null;
-    const found = entries.find((x) => x.subject.id === current);
-    return reviewOf(found ? found.subject : subject);
+    return entries.find((x) => x.subject.id === current)?.subject ?? subject;
   }, [app, current, subject, entries]);
+  const review = useMemo(() => (shown ? reviewOf(shown) : null), [shown]);
+  const { photos, shoot } = usePhotos(shown?.id ?? null, shown?.build ?? null);
 
   const pct = battery ? Math.round((wh / battery.wh) * 100) : 100;
   const desktop = (
@@ -456,6 +458,7 @@ export function CafeScreen({
                     review={review}
                     onOpen={(id) => setHistory((h) => [...h, id])}
                     onHome={() => setHistory([INDEX])}
+                    photos={photos}
                   />
                 )}
               </div>
@@ -511,6 +514,7 @@ export function CafeScreen({
 
   return (
     <div className="cafe">
+      {shoot}
       <div className="review-bar">
         <button type="button" onClick={onBack}>
           ‹

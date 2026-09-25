@@ -251,14 +251,20 @@ export function ReviewIndex({
   );
 }
 
+/** Captions for the product photos, in the order they are taken. */
+const PHOTO_CAPTIONS = ["The test unit", "Left side", "Keyboard and touchpad", "Closed"];
+
 export function ReviewSite({
   review,
   onOpen,
   onHome,
+  photos,
 }: {
   review: Review;
   onOpen: (id: string) => void;
   onHome?: () => void;
+  /** Product photos, taken automatically; absent until they are ready. */
+  photos?: string[] | null;
 }) {
   const era = eraOf(review.year);
   return (
@@ -284,6 +290,16 @@ export function ReviewSite({
             </ul>
           </div>
         </section>
+        {photos && photos.length > 0 && (
+          <div className="rs-photos">
+            {photos.map((src, i) => (
+              <figure key={PHOTO_CAPTIONS[i] ?? i}>
+                <img src={src} alt={PHOTO_CAPTIONS[i] ?? "Photo"} />
+                <figcaption>{PHOTO_CAPTIONS[i]}</figcaption>
+              </figure>
+            ))}
+          </div>
+        )}
         <h2>Specifications</h2>
         <dl className="rs-specs">
           {review.specs.map(([k, v]) => (

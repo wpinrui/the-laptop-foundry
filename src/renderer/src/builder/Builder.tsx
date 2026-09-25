@@ -899,6 +899,9 @@ export function Builder({
           surfaces={surfaces}
           xray={xray}
           workshop
+          // Centre the laptop in the space the measurements panel leaves.
+          shift={170}
+          camera={{ position: [0, 430, 720], target: [0, 70, -60] }}
         />
         <button
           type="button"

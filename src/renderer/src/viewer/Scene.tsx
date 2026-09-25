@@ -269,6 +269,7 @@ function Units({
 // ------------------------------------------------------------------ shell
 
 type Wells = Fit["shell"]["wells"];
+const LAP = 1.5;
 
 /**
  * The shell surface. "open" leaves out the flat top face, which the deck
@@ -297,10 +298,17 @@ function surfaceGeometry(
     const shape = new THREE.Shape(lastLoop);
     for (const w of wells) {
       const hole = new THREE.Path();
-      hole.moveTo(w.at.x, w.at.y);
-      hole.lineTo(w.at.x + w.size.x, w.at.y);
-      hole.lineTo(w.at.x + w.size.x, w.at.y + w.size.y);
-      hole.lineTo(w.at.x, w.at.y + w.size.y);
+      // The deck laps over the edge of each module by a little, as a real
+      // top case does, so no internals show in the gap at the well's edge.
+      const lap = Math.min(LAP, w.size.x / 4, w.size.y / 4);
+      const x0 = w.at.x + lap;
+      const y0 = w.at.y + lap;
+      const x1 = w.at.x + w.size.x - lap;
+      const y1 = w.at.y + w.size.y - lap;
+      hole.moveTo(x0, y0);
+      hole.lineTo(x1, y0);
+      hole.lineTo(x1, y1);
+      hole.lineTo(x0, y1);
       hole.closePath();
       shape.holes.push(hole);
     }
@@ -459,7 +467,7 @@ function Overflow({ fit }: { fit: Fit }) {
 
 // ------------------------------------------------------------------ scene
 
-const Model = memo(function Model({
+export const Model = memo(function Model({
   fit,
   year,
   lidAngle,
@@ -606,7 +614,7 @@ const Model = memo(function Model({
 });
 
 /** A procedural room to reflect, so metal shells read as metal. No assets. */
-function Reflections() {
+export function Reflections() {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   useEffect(() => {
@@ -625,7 +633,23 @@ function Reflections() {
   return null;
 }
 
-export function Scene(props: SceneProps) {
+/**
+ * Shifts the picture left by `shift` pixels without moving the camera, so the
+ * model centres in the part of the view an overlay panel leaves free.
+ */
+function ViewShift({ shift }: { shift: number }) {
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  const size = useThree((s) => s.size);
+  useEffect(() => {
+    if (shift > 0)
+      camera.setViewOffset(size.width + 2 * shift, size.height, 2 * shift, 0, size.width, size.height);
+    else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
+  }, [camera, size.width, size.height, shift]);
+  return null;
+}
+
+export function Scene(props: SceneProps & { shift?: number }) {
   const bg = token("color-bg");
   const overlay = useRef<HTMLDivElement | null>(null);
   return (
@@ -651,16 +675,17 @@ export function Scene(props: SceneProps) {
       {props.workshop ? (
         <>
           {/* Warm lamp over the bench, a cool fill from the window side. */}
-          <hemisphereLight args={[token("shop-lamp"), token("shop-bench-edge"), 0.8]} />
+          <hemisphereLight args={[token("color-text"), token("shop-bench-edge"), 0.75]} />
           <pointLight
             position={[-150, 700, 250]}
             color={token("shop-lamp")}
-            intensity={2.2}
+            intensity={1.1}
             distance={0}
             decay={0}
           />
-          <directionalLight position={[500, 400, 600]} color={token("shop-fill")} intensity={0.5} />
-          <directionalLight position={[-400, 300, -300]} intensity={0.35} />
+          <directionalLight position={[300, 700, 500]} intensity={0.7} />
+          <directionalLight position={[500, 400, 600]} color={token("shop-fill")} intensity={0.35} />
+          <directionalLight position={[-400, 300, -300]} intensity={0.3} />
         </>
       ) : (
         <>
@@ -670,6 +695,7 @@ export function Scene(props: SceneProps) {
         </>
       )}
       <Model {...props} portal={overlay} />
+      <ViewShift shift={props.shift ?? 0} />
       <OrbitControls
         makeDefault
         target={props.camera?.target ?? [0, 30, 0]}

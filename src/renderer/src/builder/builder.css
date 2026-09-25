@@ -407,3 +407,14 @@ input[type="range"] {
   border-color: var(--color-border);
   background: var(--color-surface-raised);
 }
+
+.m-games {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, 4.5rem);
+  gap: var(--space-1) var(--space-2);
+}
+
+.m-games b,
+.m-games .m-head {
+  text-align: right;
+}

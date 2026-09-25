@@ -274,6 +274,10 @@ export interface Part extends Dated {
   watts?: Range;
   /** Power range, default limits and performance curve data for processors and graphics. */
   power?: PowerSpec;
+  /** Hardware features benchmark and game editions check: instruction sets, graphics API levels. */
+  features?: string[];
+  /** Features of the processor's integrated graphics. */
+  igpuFeatures?: string[];
   /** Hot-swap in 2026: the main pack moves into a removable casing of this thickness. */
   packCasing?: Mm;
   /** Descriptive facts for the review and the UI. Never read by the solver. */

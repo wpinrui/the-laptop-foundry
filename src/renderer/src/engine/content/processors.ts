@@ -32,6 +32,28 @@ function pw(
   };
 }
 
+// Features that benchmark and game editions check. Yonah is 32-bit only.
+const YONAH = ["sse3"];
+const MEROM = ["sse3", "ssse3", "x64"];
+const K8 = ["sse3", "x64"];
+const X86_2026 = ["sse3", "ssse3", "x64", "sse4", "avx2"];
+// Snapdragon runs x86 code through emulation, AVX2 included.
+const ARM_2026 = [...X86_2026, "arm64"];
+const DX9 = ["dx9"];
+const DX12 = ["dx9", "dx9c", "dx10", "dx11", "dx12"];
+const DX12U = [...DX12, "dx12u", "rt"];
+
+const FEATURES: Record<string, [string[], string[]]> = {
+  "celeron-m-430": [YONAH, DX9],
+  "core-duo-u2500": [YONAH, DX9],
+  "core-duo-t2500": [YONAH, DX9],
+  "core2-duo-t5500": [MEROM, DX9],
+  "core2-duo-t7600": [MEROM, DX9],
+  "turion64-x2-tl60": [K8, DX9],
+  "core5-120u": [X86_2026, DX12],
+  "snapdragon-x2e-88-100": [ARM_2026, [...DX12, "dx12u"]],
+};
+
 // Package footprint as mounted (x by y), height over the PCB. Sockets stand
 // taller than BGA packages. Platforms with a separate chipset add its block
 // to the board's second row. Integrated graphics belongs to the platform.
@@ -50,6 +72,7 @@ function cpu(
   info: Record<string, string | number>,
   chipset?: Size,
 ): Part {
+  const f = FEATURES[id] ?? [X86_2026, DX12U];
   const shape: Part["shape"] = [
     { kind: "block", role: "cpu", size, row: 1, hot: true },
   ];
@@ -64,6 +87,8 @@ function cpu(
     shape,
     compact: ["x"],
     power,
+    features: f[0],
+    igpuFeatures: f[1],
     provides,
     info,
   };

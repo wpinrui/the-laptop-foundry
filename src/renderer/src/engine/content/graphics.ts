@@ -46,6 +46,9 @@ function gpu(
     shape: { kind: "block", role: "gpu", size, row: 1, hot: true },
     compact: ["x", "y"],
     power,
+    features: id.startsWith("rtx")
+      ? ["dx9", "dx9c", "dx10", "dx11", "dx12", "dx12u", "rt", "upscaling"]
+      : ["dx9", "dx9c"],
     needs: ["dgpu"],
     info,
   };

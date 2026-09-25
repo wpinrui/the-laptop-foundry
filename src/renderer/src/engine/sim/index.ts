@@ -85,7 +85,42 @@ export interface Cooling {
   noise: { idle: number; load: number; sustained: number };
 }
 
+/** Case durability from the materials and material spend. */
+export interface Durability {
+  /** Lid, deck and floor, 0 to 1. */
+  lid: number;
+  deck: number;
+  floor: number;
+  /** Weighted over the pieces, 0 to 1. */
+  index: number;
+  /** Height of the drop test the base survives, cm. */
+  dropCm: number;
+  /** Lid flex under a 30 N press at its centre, mm. */
+  lidFlexMm: number;
+}
+
+export function durabilityOf(build: Build, content: Content = CONTENT): Durability {
+  const spend = build.spend.material ?? 0;
+  const of = (id: string) => {
+    const base = content.materials.find((m) => m.id === id)?.durability ?? 0.35;
+    return base + (1 - base) * 0.4 * spend;
+  };
+  const lid = of(build.materials.lid);
+  const deck = of(build.materials.deck);
+  const floor = of(build.materials.floor);
+  const base = (deck + floor) / 2;
+  return {
+    lid,
+    deck,
+    floor,
+    index: 0.4 * lid + 0.3 * deck + 0.3 * floor,
+    dropCm: Math.round(30 + 70 * base),
+    lidFlexMm: Math.round((6 - 5 * lid) * 10) / 10,
+  };
+}
+
 export interface Measurements {
+  durability: Durability;
   profiles: Record<ProfileId, Profile>;
   top: ProfileId;
   performance: Performance | null;
@@ -455,6 +490,7 @@ export function simulate(
   const top = topProfile(profiles);
   const f = facts(build, fit, content);
   const out: Measurements = {
+    durability: durabilityOf(build, content),
     profiles,
     top,
     performance: null,

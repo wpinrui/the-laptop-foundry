@@ -148,8 +148,11 @@ const SIDE: Record<string, string> = {
 };
 
 /** Figures that need only the chosen parts: they appear first. */
-function Early({ s }: { s: Specs }) {
-  const rows: [string, string][] = [];
+function Early({ s, d: dur }: { s: Specs; d: M["durability"] }) {
+  const rows: [string, string][] = [
+    ["Drop test", `${dur.dropCm} cm`],
+    ["Lid flex", `${one(dur.lidFlexMm)} mm`],
+  ];
   const d = s.display;
   if (d) {
     rows.push(["Display", `${d.inches}" ${d.res[0]} x ${d.res[1]}, ${d.ppi} ppi`]);
@@ -220,7 +223,7 @@ export function Measurements({
   return (
     <section className="measurements">
       <Price build={build} fit={fit} m={m} set={set} locked={locked} />
-      <Early s={specs(build)} />
+      <Early s={specs(build)} d={m.durability} />
       {perf && (
       <>
       <div className="m-grid">

@@ -138,6 +138,21 @@ function withSize(b: Build, size: Size): Build {
   return { ...b, size: { ...size } };
 }
 
+/**
+ * Smallest size the body allows that fits. The x and y minimum never depend on
+ * size; the z minimum depends on the footprint (the deck layer covers what lies
+ * beneath it), so it is read at the minimum footprint.
+ */
+function minimumOf(
+  b: Build,
+  lim: Record<Axis, [number, number]>,
+): { size: Size; min: Size } {
+  const first = solve(b).min;
+  const xy = { x: Math.max(first.x, lim.x[0]), y: Math.max(first.y, lim.y[0]) };
+  const min = solve(withSize(b, { ...xy, z: b.size.z })).min;
+  return { size: { ...xy, z: Math.max(min.z, lim.z[0]) }, min };
+}
+
 function withSpend(b: Build, v: number): Build {
   const spend: Build["spend"] = { packing: v, material: v };
   for (const c of CATEGORIES) spend[c] = v;
@@ -224,11 +239,31 @@ function check(build: Build, fit: Fit): string[] {
       .filter((b) => b.kind === "zone")
       .map((b) => [`${b.piece}:${b.zone}`, b]),
   );
-  const [fb0, fb1] = shell.bands.floor;
-  const [db0, db1] = shell.bands.deck;
-  if (Math.abs(fb1 - db0) > EPS) fail("floor band does not meet deck band");
-  if (Math.abs(db1 + shell.offsets.top - F.z) > EPS)
-    fail("deck band does not meet the top wall");
+  const topWall = F.z - shell.offsets.top;
+  if (
+    Math.abs(shell.bands.floor[1] - topWall) > EPS ||
+    Math.abs(shell.bands.deck[1] - topWall) > EPS
+  )
+    fail("bands do not run up to the top wall");
+  // The deck layer: each deck part's column, from its underside up to the top wall.
+  const deckColumns = units
+    .filter((u) => u.piece === "deck")
+    .map((u) => ({ ...u, size: { ...u.size, z: topWall - u.at.z } }));
+  // Removable packs forming the underside: on the outer bottom, each with its hatch in the bottom wall.
+  for (const u of units.filter((b) => b.skin)) {
+    if (u.role !== "battery") fail(`${u.id} is a skin but not a battery`);
+    if (Math.abs(u.at.z) > EPS) fail(`${u.id} skin is not on the outer bottom`);
+    const hatch = shell.hatches.some(
+      (h) =>
+        Math.abs(h.at.x - u.at.x) < EPS &&
+        Math.abs(h.at.y - u.at.y) < EPS &&
+        Math.abs(h.size.x - u.size.x) < EPS &&
+        Math.abs(h.size.y - u.size.y) < EPS,
+    );
+    if (!hatch) fail(`${u.id} skin has no hatch in the bottom wall`);
+  }
+  if (shell.hatches.length !== units.filter((b) => b.skin).length)
+    fail("a hatch without its pack");
 
   for (const u of units) {
     for (const k of AXES)
@@ -244,27 +279,44 @@ function check(build: Build, fit: Fit): string[] {
         ? corners(u).every((c) =>
             insideLid(c, F, shell.lid.at.z, fit.lidZ, style, shell.walls.lid),
           )
-        : corners(u).every((c) => insideBase(c, F, style, shell.walls));
+        : corners(u).every((c) =>
+            insideBase(
+              c,
+              F,
+              style,
+              u.skin ? { ...shell.walls, bottom: 0 } : shell.walls,
+            ),
+          );
     if (!inside) {
       const bad = corners(u).find((c) =>
         u.piece === "lid"
           ? !insideLid(c, F, shell.lid.at.z, fit.lidZ, style, shell.walls.lid)
-          : !insideBase(c, F, style, shell.walls),
+          : !insideBase(
+              c,
+              F,
+              style,
+              u.skin ? { ...shell.walls, bottom: 0 } : shell.walls,
+            ),
       );
       fail(
         `${u.id} (${u.role}) pokes out of the ${u.piece === "lid" ? "lid" : "base"} shell at ${JSON.stringify(bad)} in frame ${JSON.stringify(F)} (${build.body})`,
       );
     }
-    // Bands: no floor unit reaches the deck band; deck units stay in theirs; keycaps clear the closed lid.
-    if (u.piece === "floor" && u.at.z + u.size.z > db0 + EPS)
-      fail(`${u.id} (${u.role}) reaches into the deck band`);
-    if (u.piece === "floor" && u.at.z < fb0 - EPS)
-      fail(`${u.id} below the floor band`);
+    // No floor unit reaches into the deck layer above it; deck parts stay under the top wall; keycaps clear the closed lid.
+    if (u.piece === "floor") {
+      for (const d of deckColumns)
+        if (overlaps(u, d))
+          fail(`${u.id} (${u.role}) reaches into the deck layer under ${d.id}`);
+      if (u.at.z + u.size.z > topWall + EPS)
+        fail(`${u.id} (${u.role}) reaches the top wall`);
+      if (!u.skin && u.at.z < shell.offsets.bottom - EPS)
+        fail(`${u.id} below the inner floor`);
+    }
     if (
       u.piece === "deck" &&
-      (u.at.z < db0 - EPS || u.at.z + u.size.z > db1 + EPS)
+      (u.at.z < shell.bands.deck[0] - EPS || u.at.z + u.size.z > topWall + EPS)
     )
-      fail(`${u.id} leaves the deck band`);
+      fail(`${u.id} leaves the deck layer`);
     if (u.role === "keys" && u.at.z + u.size.z > shell.lid.at.z + EPS)
       fail("keycaps reach the closed lid");
     // Every unit inside its zone.
@@ -522,14 +574,9 @@ describe("fit engine", () => {
           for (const spend of [0, 1]) {
             const b = withSpend(baseBuild(year, body.id, layout.id), spend);
             const label = `${year} ${body.id} ${layout.id} spend ${spend}`;
-            const probe = run(`${label} default`, b);
-            const min = probe.min;
+            run(`${label} default`, b);
             const lim = body.limits;
-            const atMin = {
-              x: Math.max(min.x, lim.x[0]),
-              y: Math.max(min.y, lim.y[0]),
-              z: Math.max(min.z, lim.z[0]),
-            };
+            const { size: atMin, min } = minimumOf(b, lim);
             const fitsBody = AXES.every((a) => min[a] <= lim[a][1]);
             const fm = run(`${label} at min`, withSize(b, atMin));
             if (fitsBody && fm.problems.some((p) => p.kind === "geometry"))
@@ -555,7 +602,8 @@ describe("fit engine", () => {
               `${label} at max`,
               withSize(b, { x: lim.x[1], y: lim.y[1], z: lim.z[1] }),
             );
-            if (fitsBody && fx.problems.some((p) => p.kind === "geometry"))
+            const fitsAtMax = AXES.every((a) => fx.min[a] <= lim[a][1]);
+            if (fitsAtMax && fx.problems.some((p) => p.kind === "geometry"))
               stats.failures.push(`${label}: does not fit at the body maximum`);
             run(
               `${label} at body min`,
@@ -803,21 +851,19 @@ describe("fit engine", () => {
         finish,
         spend,
       };
-      const fit = run(`random ${i}`, b);
+      run(`random ${i}`, b);
       // Also at its own minimum, where every margin is zero.
-      if (i % 4 === 0)
-        run(
-          `random ${i} at min`,
-          withSize(b, {
-            x: Math.max(fit.min.x, lim.x[0]),
-            y: Math.max(fit.min.y, lim.y[0]),
-            z: Math.max(fit.min.z, lim.z[0]),
-          }),
-        );
+      if (i % 4 === 0) {
+        const m = minimumOf(b, lim);
+        const f = run(`random ${i} at min`, withSize(b, m.size));
+        const fitsBody = AXES.every((a) => m.min[a] <= lim[a][1]);
+        if (fitsBody && f.problems.some((p) => p.kind === "geometry"))
+          stats.failures.push(`random ${i}: does not fit at its own minimum`);
+      }
       if (i % 10 === 0) deterministic(`random ${i}`, b);
     }
     expect(stats.failures).toEqual([]);
-  });
+  }, 60_000);
 
   it(`every solve finishes inside ${BUDGET_MS} ms`, () => {
     stats.failures.length = 0;

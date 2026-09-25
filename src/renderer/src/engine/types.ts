@@ -319,6 +319,8 @@ export interface Box {
   /** The zone this unit sits in, or the zone id itself. */
   zone: string;
   part?: string;
+  /** A removable pack whose casing forms the underside in place of the bottom wall. */
+  skin?: boolean;
 }
 
 export interface Opening {
@@ -354,8 +356,11 @@ export interface Shell {
   style: BodyStyle;
   /** Lid in the closed position, in base coordinates. */
   lid: { at: Vec3; size: Size; inner: { at: Vec3; size: Size } };
+  /** Floor: inner bottom to the top wall. Deck: the thickest deck layer, under the top wall. */
   bands: { floor: [Mm, Mm]; deck: [Mm, Mm] };
   cutouts: Opening[];
+  /** Holes in the bottom wall where a removable pack forms the underside. */
+  hatches: { at: Vec3; size: Size }[];
 }
 
 export type Problem =

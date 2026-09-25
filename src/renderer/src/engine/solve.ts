@@ -18,7 +18,7 @@ import {
   cornerKeepOut,
   lidSideOffset,
   profileLift,
-  profileTopReserve,
+  profileTop,
 } from "./shell";
 import type {
   Anchor,
@@ -39,6 +39,7 @@ import type {
 import { bezelUnits, emit, spendOf, type Unit } from "./units";
 
 const AXES: Axis[] = ["x", "y", "z"];
+const EPS = 1e-9;
 
 function tune(t: Tune, spend: number): number {
   return t[0] + (t[1] - t[0]) * spend;
@@ -98,15 +99,17 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     floorUnits.push({ id: "board", role: "board", size: { ...board.size } });
   const lidUnits: Unit[] = [...bezelUnits(era, sl), ...em.lid];
 
-  // Deck band: the thicker of the keyboard and trackpad stacks, plus deck structure.
-  const deckStack = em.deck.reduce((m, u) => Math.max(m, u.size.z), 0);
-  const DB = deckStack + era.deckExtra;
+  // The deck layer (keyboard or trackpad stack plus deck structure) hangs from
+  // the top wall only where those parts are; elsewhere the floor runs up to the top wall.
+  const deckLayer = (u: Unit) => (u.spacer ? 0 : u.size.z + era.deckExtra);
+  const DB = em.deck.reduce((m, u) => Math.max(m, deckLayer(u)), 0);
+  const pTop = profileTop(style);
 
   const floorCtx: PlanCtx = {
     gap,
     ko: cornerKeepOut(style, off.side),
     lift: profileLift(style, off.bottom),
-    topReserve: profileTopReserve(style, DB, off.top),
+    bottom: off.bottom,
     era,
     finDepth: em.finDepth,
   };
@@ -114,7 +117,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     gap: 0,
     ko: 0,
     lift: 0,
-    topReserve: 0,
+    bottom: 0,
     era,
     finDepth: em.finDepth,
   };
@@ -147,17 +150,8 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   const dm = m2(deck);
   const lm = m2(lid);
 
-  let FBmin = 0;
-  for (const f of floor.fills.values())
-    if (f.min) FBmin = Math.max(FBmin, f.min.z);
   const lidInnerZ = lidUnits.reduce((m, u) => Math.max(m, u.size.z), 0);
   const lidZ = lidInnerZ + 2 * wl;
-
-  const min: Size = {
-    x: Math.max(fm.x + 2 * off.side, dm.x + 2 * off.side, lm.x + 2 * sl),
-    y: Math.max(fm.y + 2 * off.side, dm.y + 2 * off.side, lm.y + 2 * sl),
-    z: off.bottom + FBmin + DB + off.top,
-  };
 
   const lim = body.limits;
   const size: Size = {
@@ -165,6 +159,65 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     y: clamp(build.size.y, lim.y[0], lim.y[1]),
     z: clamp(build.size.z, lim.z[0], lim.z[1]),
   };
+
+  // x and y first: placement in plan does not depend on z.
+  const minX = Math.max(
+    fm.x + 2 * off.side,
+    dm.x + 2 * off.side,
+    lm.x + 2 * sl,
+  );
+  const minY = Math.max(
+    fm.y + 2 * off.side,
+    dm.y + 2 * off.side,
+    lm.y + 2 * sl,
+  );
+  const FX = Math.max(size.x, minX);
+  const FY = Math.max(size.y, minY);
+  const innerFoot = { x: FX - 2 * off.side, y: FY - 2 * off.side };
+  place(floor, { x: off.side, y: off.side }, innerFoot);
+  place(deck, { x: off.side, y: off.side }, innerFoot);
+  // Lid frame: y = 0 at the hinge. Placed in lid-local coordinates, mapped to the closed position below.
+  place(lid, { x: sl, y: sl }, { x: FX - 2 * sl, y: FY - 2 * sl });
+
+  // Deck units in plan, then the deck layer over each floor zone.
+  const deckPlaced: PlacedUnit[] = [];
+  for (const zone of zonesOf(deckPlan.root)) {
+    const fill = deck.fills.get(zone);
+    if (fill?.min && fill.at && fill.size)
+      deckPlaced.push(...placeUnits(fill, flatCtx, 0, 0));
+  }
+  const coverOver = (
+    at: { x: number; y: number },
+    sz: { x: number; y: number },
+  ) => {
+    let c = 0;
+    for (const u of deckPlaced) {
+      if (u.spacer) continue;
+      const hit =
+        u.at.x < at.x + sz.x - EPS &&
+        at.x < u.at.x + u.size.x - EPS &&
+        u.at.y < at.y + sz.y - EPS &&
+        at.y < u.at.y + u.size.y - EPS;
+      if (hit) c = Math.max(c, deckLayer(u));
+    }
+    return c;
+  };
+  // Minimum z at this footprint: every floor zone plus the deck layer over it,
+  // openings clear of the top edge profile, and every deck part over bare floor.
+  let minZ = off.bottom + off.top;
+  const cover = new Map<unknown, number>();
+  for (const f of floor.fills.values()) {
+    if (!f.min || !f.at || !f.size) continue;
+    const c = coverOver(f.at, f.size);
+    cover.set(f.node, c);
+    const need =
+      off.bottom + f.min.z + Math.max(c + off.top, isOpeningZone(f) ? pTop : 0);
+    minZ = Math.max(minZ, need);
+  }
+  for (const u of deckPlaced)
+    minZ = Math.max(minZ, off.bottom + deckLayer(u) + off.top);
+
+  const min: Size = { x: minX, y: minY, z: minZ };
   for (const a of AXES) {
     if (min[a] > lim[a][1])
       problems.push({
@@ -185,19 +238,10 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   }
 
   // Short axes lay out at their minimum; the shell is still drawn at the player's size.
-  const F: Size = {
-    x: Math.max(size.x, min.x),
-    y: Math.max(size.y, min.y),
-    z: Math.max(size.z, min.z),
-  };
-  const FB = F.z - off.bottom - DB - off.top;
+  const F: Size = { x: FX, y: FY, z: Math.max(size.z, min.z) };
   const floorZ0 = off.bottom;
-  const deckZ0 = off.bottom + FB;
-  const innerFoot = { x: F.x - 2 * off.side, y: F.y - 2 * off.side };
-  place(floor, { x: off.side, y: off.side }, innerFoot);
-  place(deck, { x: off.side, y: off.side }, innerFoot);
-  // Lid frame: y = 0 at the hinge. Placed in lid-local coordinates, mapped to the closed position below.
-  place(lid, { x: sl, y: sl }, { x: F.x - 2 * sl, y: F.y - 2 * sl });
+  const deckTop = F.z - off.top;
+  const hatches: { at: Vec3; size: Size }[] = [];
 
   const boxes: Box[] = [];
   const openings: Opening[] = [];
@@ -208,6 +252,10 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   for (const zone of zonesOf(layout.floor)) {
     const fill = floor.fills.get(zone);
     if (!fill?.min || !fill.at || !fill.size) continue;
+    const opening = isOpeningZone(fill);
+    // Room above this zone's floor: up to the deck layer over it, and below the top edge profile for openings.
+    let room = deckTop - (cover.get(zone) ?? 0) - floorZ0;
+    if (opening) room = Math.min(room, F.z - pTop - floorZ0);
     boxes.push({
       id: `zone:floor:${zone.zone}`,
       role: zone.takes[0],
@@ -215,13 +263,17 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       kind: "zone",
       zone: zone.zone,
       at: { ...fill.at, z: floorZ0 },
-      size: { ...fill.size, z: FB },
+      size: { ...fill.size, z: room },
     });
-    const units = placeUnits(fill, floorCtx, floorZ0, FB);
-    const opening = isOpeningZone(fill);
+    const units = placeUnits(fill, floorCtx, floorZ0, room);
     for (const u of units) {
       placedFloor.push(u);
       boxes.push(unitBox(u, "floor"));
+      if (u.skin)
+        hatches.push({
+          at: { ...u.at },
+          size: { x: u.size.x, y: u.size.y, z: off.bottom },
+        });
       if (u.role === "board") {
         for (const b of board.blocks) {
           const bx = (u.size.x - board.size.x) / 2;
@@ -268,21 +320,28 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     }
   }
 
-  // Deck.
+  // Deck: parts hang from the deck structure under the top wall.
   for (const zone of zonesOf(deckPlan.root)) {
     const fill = deck.fills.get(zone);
     if (!fill?.min || !fill.at || !fill.size) continue;
+    const units = deckPlaced.filter((u) => u.zone === zone.zone && !u.spacer);
+    const layer = units.reduce((m, u) => Math.max(m, deckLayer(u)), 0);
     boxes.push({
       id: `zone:deck:${zone.zone}`,
       role: zone.takes[0],
       piece: "deck",
       kind: "zone",
       zone: zone.zone,
-      at: { ...fill.at, z: deckZ0 },
-      size: { ...fill.size, z: DB },
+      at: { ...fill.at, z: deckTop - layer },
+      size: { ...fill.size, z: layer },
     });
-    for (const u of placeUnits(fill, flatCtx, deckZ0, DB))
-      if (!u.spacer) boxes.push(unitBox(u, "deck"));
+    for (const u of units)
+      boxes.push(
+        unitBox(
+          { ...u, at: { ...u.at, z: deckTop - era.deckExtra - u.size.z } },
+          "deck",
+        ),
+      );
   }
 
   // Lid, closed: lid-local y runs from the hinge, so it maps to base y reversed. The panel faces down.
@@ -422,8 +481,9 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
           size: { x: size.x - 2 * sl, y: size.y - 2 * sl, z: lidInnerZ },
         },
       },
-      bands: { floor: [floorZ0, floorZ0 + FB], deck: [deckZ0, deckZ0 + DB] },
+      bands: { floor: [floorZ0, deckTop], deck: [deckTop - DB, deckTop] },
       cutouts: openings,
+      hatches,
     },
     boxes,
     anchors,
@@ -442,5 +502,6 @@ function unitBox(u: PlacedUnit, piece: Piece): Box {
     part: u.part,
     at: { ...u.at },
     size: { ...u.size },
+    ...(u.skin ? { skin: true } : {}),
   };
 }

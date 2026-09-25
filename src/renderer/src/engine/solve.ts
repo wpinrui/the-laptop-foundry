@@ -1,0 +1,446 @@
+import { buildBoard } from "./board";
+import { checkCompat } from "./compat";
+import { CONTENT, type Content, eraFor, indexContent } from "./content";
+import {
+  alongAxis,
+  deal,
+  isOpeningZone,
+  measure,
+  type PlacedUnit,
+  type PlanCtx,
+  type PlanSolve,
+  place,
+  placeUnits,
+  zonesOf,
+} from "./plan";
+import {
+  baseOffsets,
+  cornerKeepOut,
+  lidSideOffset,
+  profileLift,
+  profileTopReserve,
+} from "./shell";
+import type {
+  Anchor,
+  Axis,
+  Box,
+  Build,
+  Era,
+  Fit,
+  Opening,
+  Piece,
+  Problem,
+  Role,
+  Route,
+  Size,
+  Tune,
+  Vec3,
+} from "./types";
+import { bezelUnits, emit, spendOf, type Unit } from "./units";
+
+const AXES: Axis[] = ["x", "y", "z"];
+
+function tune(t: Tune, spend: number): number {
+  return t[0] + (t[1] - t[0]) * spend;
+}
+
+function wallFor(era: Era, material: string, spend: number): number {
+  const t = era.wall[material];
+  if (t) return tune(t, spend);
+  // Unavailable material (flagged by compat): use the thickest wall of the era.
+  return Math.max(...Object.values(era.wall).map((w) => w[0]));
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
+}
+
+/**
+ * Solve a build into an assembly. Pure and deterministic: the same build
+ * always gives the same fit. No rendering dependency.
+ */
+export function solve(build: Build, content: Content = CONTENT): Fit {
+  const idx = indexContent(content);
+  const body = idx.bodies.get(build.body);
+  const layout = idx.layouts.get(build.layout);
+  if (!body) throw new Error(`Unknown body: ${build.body}`);
+  if (!layout) throw new Error(`Unknown layout: ${build.layout}`);
+  const deckPlan = idx.plans.get(layout.deck);
+  const lidPlan = idx.plans.get(layout.lid);
+  if (!deckPlan || !lidPlan)
+    throw new Error(`Layout ${layout.id} references a missing plan`);
+  const era = eraFor(build.year, content.eras);
+  const problems: Problem[] = checkCompat(build, idx, era, body, layout);
+  const style = body.style;
+
+  // Walls, gaps and styling allowance.
+  const matSpend = spendOf(build, "material");
+  const gap = tune(era.gap, spendOf(build, "packing"));
+  const wf = wallFor(era, build.materials.floor, matSpend);
+  const wd = wallFor(era, build.materials.deck, matSpend);
+  const wl = wallFor(era, build.materials.lid, matSpend);
+  const walls = { bottom: wf, top: wd, side: Math.max(wf, wd), lid: wl };
+  const off = baseOffsets(style, walls);
+  const sl = lidSideOffset(style, wl);
+
+  // Units and the derived mainboard.
+  const em = emit(build, idx, era, body);
+  const cooler =
+    em.fans === 0
+      ? era.spreader
+      : em.chamber
+        ? (era.vapourChamber ?? era.heatPipe)
+        : era.heatPipe;
+  const board = buildBoard(em.blocks, era, gap, cooler);
+  const hasCpu = em.blocks.some((b) => b.role === "cpu");
+  const floorUnits: Unit[] = [...em.floor];
+  if (em.blocks.length > 0 || hasCpu)
+    floorUnits.push({ id: "board", role: "board", size: { ...board.size } });
+  const lidUnits: Unit[] = [...bezelUnits(era, sl), ...em.lid];
+
+  // Deck band: the thicker of the keyboard and trackpad stacks, plus deck structure.
+  const deckStack = em.deck.reduce((m, u) => Math.max(m, u.size.z), 0);
+  const DB = deckStack + era.deckExtra;
+
+  const floorCtx: PlanCtx = {
+    gap,
+    ko: cornerKeepOut(style, off.side),
+    lift: profileLift(style, off.bottom),
+    topReserve: profileTopReserve(style, DB, off.top),
+    era,
+    finDepth: em.finDepth,
+  };
+  const flatCtx: PlanCtx = {
+    gap: 0,
+    ko: 0,
+    lift: 0,
+    topReserve: 0,
+    era,
+    finDepth: em.finDepth,
+  };
+
+  const floorDeal = deal(layout.floor, floorUnits);
+  const deckDeal = deal(deckPlan.root, em.deck);
+  const lidDeal = deal(lidPlan.root, lidUnits);
+  const seenNoRoom = new Set<string>();
+  for (const u of [
+    ...floorDeal.unplaced,
+    ...deckDeal.unplaced,
+    ...lidDeal.unplaced,
+  ]) {
+    const key = `${u.part ?? u.id}|${u.role}`;
+    if (seenNoRoom.has(key)) continue;
+    seenNoRoom.add(key);
+    problems.push({
+      kind: "compat",
+      code: "no-room",
+      part: u.part ?? u.id,
+      role: u.role,
+    });
+  }
+
+  const floor = measure(layout.floor, floorDeal.fills, floorCtx);
+  const deck = measure(deckPlan.root, deckDeal.fills, flatCtx);
+  const lid = measure(lidPlan.root, lidDeal.fills, flatCtx);
+  const m2 = (ps: PlanSolve) => ps.mins.get(ps.root) ?? { x: 0, y: 0 };
+  const fm = m2(floor);
+  const dm = m2(deck);
+  const lm = m2(lid);
+
+  let FBmin = 0;
+  for (const f of floor.fills.values())
+    if (f.min) FBmin = Math.max(FBmin, f.min.z);
+  const lidInnerZ = lidUnits.reduce((m, u) => Math.max(m, u.size.z), 0);
+  const lidZ = lidInnerZ + 2 * wl;
+
+  const min: Size = {
+    x: Math.max(fm.x + 2 * off.side, dm.x + 2 * off.side, lm.x + 2 * sl),
+    y: Math.max(fm.y + 2 * off.side, dm.y + 2 * off.side, lm.y + 2 * sl),
+    z: off.bottom + FBmin + DB + off.top,
+  };
+
+  const lim = body.limits;
+  const size: Size = {
+    x: clamp(build.size.x, lim.x[0], lim.x[1]),
+    y: clamp(build.size.y, lim.y[0], lim.y[1]),
+    z: clamp(build.size.z, lim.z[0], lim.z[1]),
+  };
+  for (const a of AXES) {
+    if (min[a] > lim[a][1])
+      problems.push({
+        kind: "geometry",
+        code: "too-big",
+        axis: a,
+        by: min[a] - lim[a][1],
+      });
+  }
+  for (const a of AXES) {
+    if (size[a] < min[a])
+      problems.push({
+        kind: "geometry",
+        code: "short",
+        axis: a,
+        by: min[a] - size[a],
+      });
+  }
+
+  // Short axes lay out at their minimum; the shell is still drawn at the player's size.
+  const F: Size = {
+    x: Math.max(size.x, min.x),
+    y: Math.max(size.y, min.y),
+    z: Math.max(size.z, min.z),
+  };
+  const FB = F.z - off.bottom - DB - off.top;
+  const floorZ0 = off.bottom;
+  const deckZ0 = off.bottom + FB;
+  const innerFoot = { x: F.x - 2 * off.side, y: F.y - 2 * off.side };
+  place(floor, { x: off.side, y: off.side }, innerFoot);
+  place(deck, { x: off.side, y: off.side }, innerFoot);
+  // Lid frame: y = 0 at the hinge. Placed in lid-local coordinates, mapped to the closed position below.
+  place(lid, { x: sl, y: sl }, { x: F.x - 2 * sl, y: F.y - 2 * sl });
+
+  const boxes: Box[] = [];
+  const openings: Opening[] = [];
+  const anchors: Anchor[] = [];
+  const placedFloor: PlacedUnit[] = [];
+
+  // Floor.
+  for (const zone of zonesOf(layout.floor)) {
+    const fill = floor.fills.get(zone);
+    if (!fill?.min || !fill.at || !fill.size) continue;
+    boxes.push({
+      id: `zone:floor:${zone.zone}`,
+      role: zone.takes[0],
+      piece: "floor",
+      kind: "zone",
+      zone: zone.zone,
+      at: { ...fill.at, z: floorZ0 },
+      size: { ...fill.size, z: FB },
+    });
+    const units = placeUnits(fill, floorCtx, floorZ0, FB);
+    const opening = isOpeningZone(fill);
+    for (const u of units) {
+      placedFloor.push(u);
+      boxes.push(unitBox(u, "floor"));
+      if (u.role === "board") {
+        for (const b of board.blocks) {
+          const bx = (u.size.x - board.size.x) / 2;
+          boxes.push({
+            id: `block:${b.id}`,
+            role: b.role,
+            piece: "floor",
+            kind: "unit",
+            zone: zone.zone,
+            part: b.part,
+            at: {
+              x: u.at.x + bx + b.at.x,
+              y: u.at.y + b.at.y,
+              z: u.at.z + b.at.z,
+            },
+            size: { ...b.size },
+          });
+        }
+      }
+      if (
+        opening &&
+        zone.edge &&
+        (u.role === "fin" || u.role === "odd" || u.role.startsWith("port:"))
+      ) {
+        const side = zone.edge;
+        const e = alongAxis(side);
+        const o: Opening = {
+          id: `opening:${u.id}`,
+          kind: u.role === "fin" ? "vent" : u.role === "odd" ? "bay" : "port",
+          side,
+          part: u.part,
+          u: [u.at[e], u.at[e] + u.size[e]],
+          z: [u.at.z, u.at.z + u.size.z],
+        };
+        openings.push(o);
+        const at: Vec3 = { x: 0, y: 0, z: (o.z[0] + o.z[1]) / 2 };
+        at[e] = (o.u[0] + o.u[1]) / 2;
+        if (side === "left") at.x = 0;
+        else if (side === "right") at.x = F.x;
+        else if (side === "front") at.y = 0;
+        else at.y = F.y;
+        anchors.push({ kind: "opening", at, opening: o });
+      }
+    }
+  }
+
+  // Deck.
+  for (const zone of zonesOf(deckPlan.root)) {
+    const fill = deck.fills.get(zone);
+    if (!fill?.min || !fill.at || !fill.size) continue;
+    boxes.push({
+      id: `zone:deck:${zone.zone}`,
+      role: zone.takes[0],
+      piece: "deck",
+      kind: "zone",
+      zone: zone.zone,
+      at: { ...fill.at, z: deckZ0 },
+      size: { ...fill.size, z: DB },
+    });
+    for (const u of placeUnits(fill, flatCtx, deckZ0, DB))
+      if (!u.spacer) boxes.push(unitBox(u, "deck"));
+  }
+
+  // Lid, closed: lid-local y runs from the hinge, so it maps to base y reversed. The panel faces down.
+  // It rests on the layout frame, so on a short z it floats above the drawn base: it cannot close.
+  const lidZ0 = F.z;
+  const lidInnerZ0 = lidZ0 + wl;
+  const flipY = (y: number, h: number) => F.y - y - h;
+  for (const zone of zonesOf(lidPlan.root)) {
+    const fill = lid.fills.get(zone);
+    if (!fill?.min || !fill.at || !fill.size) continue;
+    boxes.push({
+      id: `zone:lid:${zone.zone}`,
+      role: zone.takes[0],
+      piece: "lid",
+      kind: "zone",
+      zone: zone.zone,
+      at: { x: fill.at.x, y: flipY(fill.at.y, fill.size.y), z: lidInnerZ0 },
+      size: { ...fill.size, z: lidInnerZ },
+    });
+    for (const u of placeUnits(fill, flatCtx, lidInnerZ0, lidInnerZ)) {
+      if (u.spacer) continue;
+      boxes.push(
+        unitBox({ ...u, at: { ...u.at, y: flipY(u.at.y, u.size.y) } }, "lid"),
+      );
+    }
+  }
+
+  // Hinge axis: across the hinge mounts, on the base's top face.
+  const hinges = placedFloor.filter((u) => u.role === "hinge");
+  if (hinges.length >= 2) {
+    const [h0, h1] = [hinges[0], hinges[hinges.length - 1]];
+    const y = Math.min(h0.at.y + h0.size.y / 2, h1.at.y + h1.size.y / 2);
+    anchors.push({
+      kind: "hinge",
+      from: { x: h0.at.x + h0.size.x / 2, y, z: F.z },
+      to: { x: h1.at.x + h1.size.x / 2, y, z: F.z },
+    });
+  }
+
+  // Heat sources on the hot chips, sinks at the fin stacks, and routes between them.
+  const routes: Route[] = [];
+  const hot = boxes.filter(
+    (b) => b.kind === "unit" && (b.role === "cpu" || b.role === "gpu"),
+  );
+  const fins = boxes.filter((b) => b.kind === "unit" && b.role === "fin");
+  const centreTop = (b: Box): Vec3 => ({
+    x: b.at.x + b.size.x / 2,
+    y: b.at.y + b.size.y / 2,
+    z: b.at.z + b.size.z,
+  });
+  const centre = (b: Box): Vec3 => ({
+    x: b.at.x + b.size.x / 2,
+    y: b.at.y + b.size.y / 2,
+    z: b.at.z + b.size.z / 2,
+  });
+  for (const h of hot) {
+    const block = board.blocks.find((b) => `block:${b.id}` === h.id);
+    anchors.push({
+      kind: "heat-source",
+      at: centreTop(h),
+      box: h.id,
+      watts: block?.watts ?? 0,
+    });
+  }
+  for (const f of fins)
+    anchors.push({ kind: "heat-sink", at: centre(f), box: f.id });
+  const pipeZ = (h: Box) => h.at.z + h.size.z + cooler / 2;
+  if (em.chamber && hot.length > 0) {
+    routes.push({
+      kind: "vapour-chamber",
+      points: hot.map((h) => ({ ...centreTop(h), z: pipeZ(h) })),
+      width: Math.max(...hot.map((h) => h.size.x)),
+    });
+  }
+  for (const h of hot) {
+    for (const f of fins) {
+      const s = { ...centreTop(h), z: pipeZ(h) };
+      const d = centre(f);
+      routes.push({
+        kind: "heat-pipe",
+        points: [s, { x: d.x, y: s.y, z: s.z }, { ...d, z: s.z }],
+        width: 6,
+      });
+    }
+  }
+  const boardBox = boxes.find((b) => b.kind === "unit" && b.role === "board");
+  const hingeAnchor = anchors.find((a) => a.kind === "hinge");
+  const panelBox = boxes.find((b) => b.kind === "unit" && b.role === "panel");
+  if (boardBox && hingeAnchor?.kind === "hinge" && panelBox) {
+    const mid = {
+      x: (hingeAnchor.from.x + hingeAnchor.to.x) / 2,
+      y: hingeAnchor.from.y,
+      z: hingeAnchor.from.z,
+    };
+    routes.push({
+      kind: "display-cable",
+      points: [
+        centreTop(boardBox),
+        mid,
+        {
+          x: panelBox.at.x + panelBox.size.x / 2,
+          y: panelBox.at.y + panelBox.size.y,
+          z: panelBox.at.z,
+        },
+      ],
+      width: 4,
+    });
+  }
+
+  return {
+    min,
+    frame: F,
+    lidZ,
+    shell: {
+      outer: size,
+      inner: {
+        at: { x: off.side, y: off.side, z: off.bottom },
+        size: {
+          x: size.x - 2 * off.side,
+          y: size.y - 2 * off.side,
+          z: size.z - off.bottom - off.top,
+        },
+      },
+      walls,
+      offsets: {
+        side: off.side,
+        bottom: off.bottom,
+        top: off.top,
+        lidSide: sl,
+      },
+      style,
+      lid: {
+        at: { x: 0, y: 0, z: lidZ0 },
+        size: { x: size.x, y: size.y, z: lidZ },
+        inner: {
+          at: { x: sl, y: sl, z: lidInnerZ0 },
+          size: { x: size.x - 2 * sl, y: size.y - 2 * sl, z: lidInnerZ },
+        },
+      },
+      bands: { floor: [floorZ0, floorZ0 + FB], deck: [deckZ0, deckZ0 + DB] },
+      cutouts: openings,
+    },
+    boxes,
+    anchors,
+    routes,
+    problems,
+  };
+}
+
+function unitBox(u: PlacedUnit, piece: Piece): Box {
+  return {
+    id: `${piece}:${u.id}`,
+    role: u.role as Role,
+    piece,
+    kind: "unit",
+    zone: u.zone,
+    part: u.part,
+    at: { ...u.at },
+    size: { ...u.size },
+  };
+}

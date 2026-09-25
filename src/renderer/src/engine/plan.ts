@@ -1,0 +1,331 @@
+import type { Era, Node, PlanAxis, Side, Size, Vec3, ZoneNode } from "./types";
+import { isZone } from "./types";
+import type { Unit } from "./units";
+import { OPENING_ROLES } from "./units";
+
+// Plans are split trees. Bottom-up: each zone packs its units, splits sum
+// along their axis and take the largest across it. Top-down: each axis on its
+// own, slack goes to children by grow weight, children stretch across.
+
+export interface PlanCtx {
+  gap: number;
+  /** Keep-out at each end of an opening strip, clear of rounded plan corners. */
+  ko: number;
+  /** Units in opening zones sit this far up, clear of the bottom edge profile. */
+  lift: number;
+  /** Extra floor band an opening needs to stay clear of the top edge profile. */
+  topReserve: number;
+  era: Era;
+  finDepth: number;
+}
+
+export interface ZoneFill {
+  node: ZoneNode;
+  units: Unit[];
+  min: Size | null;
+  /** Plan rect after placement. */
+  at?: { x: number; y: number };
+  size?: { x: number; y: number };
+}
+
+export interface PlacedUnit extends Unit {
+  at: Vec3;
+  zone: string;
+}
+
+export function zonesOf(root: Node): ZoneNode[] {
+  const out: ZoneNode[] = [];
+  const walk = (n: Node) => {
+    if (isZone(n)) out.push(n);
+    else for (const c of n.children) walk(c);
+  };
+  walk(root);
+  return out;
+}
+
+/** Deal units to zones by role, round-robin in tree order, skipping full zones. */
+export function deal(
+  root: Node,
+  units: Unit[],
+): { fills: Map<ZoneNode, ZoneFill>; unplaced: Unit[] } {
+  const zones = zonesOf(root);
+  const fills = new Map<ZoneNode, ZoneFill>();
+  for (const z of zones) fills.set(z, { node: z, units: [], min: null });
+  const cursor = new Map<string, number>();
+  const unplaced: Unit[] = [];
+  for (const u of units) {
+    const takers = zones.filter((z) => z.takes.includes(u.role));
+    let start = cursor.get(u.role) ?? 0;
+    let placed = false;
+    for (let k = 0; k < takers.length; k++) {
+      const z = takers[(start + k) % takers.length];
+      const fill = fills.get(z) as ZoneFill;
+      if (z.capacity !== undefined && fill.units.length >= z.capacity) continue;
+      fill.units.push(u);
+      start = (start + k + 1) % takers.length;
+      placed = true;
+      break;
+    }
+    cursor.set(u.role, start);
+    if (!placed) unplaced.push(u);
+  }
+  return { fills, unplaced };
+}
+
+export function edgeAxis(side: Side): PlanAxis {
+  return side === "left" || side === "right" ? "x" : "y";
+}
+export function alongAxis(side: Side): PlanAxis {
+  return side === "left" || side === "right" ? "y" : "x";
+}
+function other(a: PlanAxis): PlanAxis {
+  return a === "x" ? "y" : "x";
+}
+
+export function isFanZone(z: ZoneNode): boolean {
+  return z.takes.includes("fan");
+}
+
+export function isOpeningZone(fill: ZoneFill): boolean {
+  return !!fill.node.edge && fill.units.some((u) => OPENING_ROLES.has(u.role));
+}
+
+function zoneMin(fill: ZoneFill, ctx: PlanCtx): Size | null {
+  const { node, units } = fill;
+  if (units.length === 0) return null;
+  const opening = isOpeningZone(fill);
+  const lift = opening ? ctx.lift : 0;
+  const reserve = opening ? ctx.topReserve : 0;
+  if (isFanZone(node) && node.edge) {
+    const k = units.filter((u) => u.role === "fan").length;
+    const e = alongAxis(node.edge);
+    const fan = ctx.era.fan.min;
+    const size: Size = { x: 0, y: 0, z: fan.z + lift + reserve };
+    size[e] = k * fan.x + Math.max(0, k - 1) * ctx.gap + 2 * ctx.ko;
+    size[other(e)] = fan.x + ctx.finDepth;
+    return size;
+  }
+  const p = node.pack;
+  const size: Size = { x: 0, y: 0, z: 0 };
+  for (const u of units) {
+    for (const a of ["x", "y", "z"] as const) {
+      size[a] = a === p ? size[a] + u.size[a] : Math.max(size[a], u.size[a]);
+    }
+  }
+  if (p !== "z") size[p] += Math.max(0, units.length - 1) * ctx.gap;
+  if (opening && node.edge) size[alongAxis(node.edge)] += 2 * ctx.ko;
+  size.z += lift + reserve;
+  return size;
+}
+
+export interface PlanSolve {
+  fills: Map<ZoneNode, ZoneFill>;
+  mins: Map<Node, { x: number; y: number } | null>;
+  root: Node;
+  ctx: PlanCtx;
+}
+
+export function measure(
+  root: Node,
+  fills: Map<ZoneNode, ZoneFill>,
+  ctx: PlanCtx,
+): PlanSolve {
+  const mins = new Map<Node, { x: number; y: number } | null>();
+  const walk = (n: Node): { x: number; y: number } | null => {
+    let m: { x: number; y: number } | null = null;
+    if (isZone(n)) {
+      const fill = fills.get(n) as ZoneFill;
+      fill.min = zoneMin(fill, ctx);
+      m = fill.min ? { x: fill.min.x, y: fill.min.y } : null;
+    } else {
+      const a = n.split;
+      const c = other(a);
+      let count = 0;
+      const acc = { x: 0, y: 0 };
+      for (const child of n.children) {
+        const cm = walk(child);
+        if (!cm) continue;
+        acc[a] += cm[a];
+        acc[c] = Math.max(acc[c], cm[c]);
+        count++;
+      }
+      if (count > 0) {
+        acc[a] += (count - 1) * ctx.gap;
+        m = acc;
+      }
+    }
+    mins.set(n, m);
+    return m;
+  };
+  walk(root);
+  return { fills, mins, root, ctx };
+}
+
+/** Grow weight of a node along an axis: a same-axis split sums, a cross split takes its largest. */
+function weight(n: Node, a: PlanAxis, mins: PlanSolve["mins"]): number {
+  if (!mins.get(n)) return 0;
+  if (isZone(n)) return n.grow;
+  const ws = n.children.map((c) => weight(c, a, mins));
+  return n.split === a ? ws.reduce((s, w) => s + w, 0) : Math.max(0, ...ws);
+}
+
+/** Top-down placement in a rect. A rect smaller than the minimum is raised to it by the caller. */
+export function place(
+  ps: PlanSolve,
+  at: { x: number; y: number },
+  size: { x: number; y: number },
+): void {
+  const walk = (
+    n: Node,
+    pos: { x: number; y: number },
+    sz: { x: number; y: number },
+  ) => {
+    if (isZone(n)) {
+      const fill = ps.fills.get(n) as ZoneFill;
+      fill.at = { ...pos };
+      fill.size = { ...sz };
+      return;
+    }
+    const a = n.split;
+    const kids = n.children.filter((c) => ps.mins.get(c));
+    if (kids.length === 0) return;
+    const used =
+      kids.reduce(
+        (s, c) => s + (ps.mins.get(c) as { x: number; y: number })[a],
+        0,
+      ) +
+      (kids.length - 1) * ps.ctx.gap;
+    const slack = Math.max(0, sz[a] - used);
+    const ws = kids.map((c) => weight(c, a, ps.mins));
+    const total = ws.reduce((s, w) => s + w, 0);
+    let cursor = pos[a];
+    kids.forEach((c, i) => {
+      const extra =
+        slack === 0
+          ? 0
+          : total > 0
+            ? (slack * ws[i]) / total
+            : slack / kids.length;
+      const len = (ps.mins.get(c) as { x: number; y: number })[a] + extra;
+      const cpos = { ...pos };
+      cpos[a] = cursor;
+      const csz = { ...sz };
+      csz[a] = len;
+      walk(c, cpos, csz);
+      cursor += len + ps.ctx.gap;
+    });
+  };
+  walk(ps.root, at, size);
+}
+
+/**
+ * Place a zone's units inside its rect. z0 is the bottom of the zone's band and
+ * bandH its height (the floor band grows with the player's z; fans fill it).
+ */
+export function placeUnits(
+  fill: ZoneFill,
+  ctx: PlanCtx,
+  z0: number,
+  bandH: number,
+): PlacedUnit[] {
+  const { node, units } = fill;
+  if (!fill.at || !fill.size || units.length === 0) return [];
+  const at = fill.at;
+  const sz = fill.size;
+  const opening = isOpeningZone(fill);
+  const lift = opening ? ctx.lift : 0;
+  const reserve = opening ? ctx.topReserve : 0;
+  const zBase = z0 + lift;
+  const out: PlacedUnit[] = [];
+
+  if (isFanZone(node) && node.edge) {
+    const fans = units.filter((u) => u.role === "fan");
+    const fins = units.filter((u) => u.role === "fin");
+    const k = fans.length;
+    const e = alongAxis(node.edge);
+    const n = edgeAxis(node.edge);
+    const lim = ctx.era.fan;
+    const alongRoom =
+      (sz[e] - 2 * ctx.ko - Math.max(0, k - 1) * ctx.gap) / Math.max(1, k);
+    const side = Math.min(
+      lim.max.x,
+      Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth)),
+    );
+    const fz = Math.min(lim.max.z, Math.max(lim.min.z, bandH - lift - reserve));
+    const group = k * side + Math.max(0, k - 1) * ctx.gap;
+    let u0 = at[e] + (sz[e] - group) / 2;
+    const atEnd = node.edge === "right" || node.edge === "rear";
+    const finN = atEnd ? at[n] + sz[n] - ctx.finDepth : at[n];
+    const fanN = atEnd ? finN - side : at[n] + ctx.finDepth;
+    for (let i = 0; i < k; i++) {
+      const fanAt: Vec3 = { x: 0, y: 0, z: zBase };
+      fanAt[e] = u0;
+      fanAt[n] = fanN;
+      const fanSize: Size = { x: side, y: side, z: fz };
+      out.push({ ...fans[i], at: fanAt, size: fanSize, zone: node.zone });
+      if (fins[i]) {
+        const finAt: Vec3 = { x: 0, y: 0, z: zBase };
+        finAt[e] = u0;
+        finAt[n] = finN;
+        const finSize: Size = { x: 0, y: 0, z: fz };
+        finSize[e] = side;
+        finSize[n] = ctx.finDepth;
+        out.push({ ...fins[i], at: finAt, size: finSize, zone: node.zone });
+      }
+      u0 += side + ctx.gap;
+    }
+    return out;
+  }
+
+  const p = node.pack;
+  const edgeA = node.edge ? edgeAxis(node.edge) : undefined;
+  const alongA = opening && node.edge ? alongAxis(node.edge) : undefined;
+  const range = (a: PlanAxis): [number, number] => {
+    const ko = a === alongA ? ctx.ko : 0;
+    return [at[a] + ko, at[a] + sz[a] - ko];
+  };
+  const alignOf = (a: PlanAxis): "start" | "centre" | "end" => {
+    if (a === edgeA)
+      return node.edge === "left" || node.edge === "front" ? "start" : "end";
+    if (a === p) return node.align ?? "start";
+    return "centre";
+  };
+  const put = (
+    lo: number,
+    hi: number,
+    len: number,
+    al: "start" | "centre" | "end",
+  ) =>
+    al === "start" ? lo : al === "end" ? hi - len : lo + (hi - lo - len) / 2;
+
+  let cursor = 0;
+  let total = 0;
+  if (p !== "z")
+    total =
+      units.reduce((s, u) => s + u.size[p], 0) +
+      Math.max(0, units.length - 1) * ctx.gap;
+  if (p !== "z") {
+    const [lo, hi] = range(p);
+    cursor = put(lo, hi, total, alignOf(p));
+  }
+  let zc = zBase;
+  for (const u of units) {
+    const pos: Vec3 = { x: 0, y: 0, z: zBase };
+    for (const a of ["x", "y"] as const) {
+      if (a === p) {
+        pos[a] = cursor;
+      } else {
+        const [lo, hi] = range(a);
+        pos[a] = put(lo, hi, u.size[a], alignOf(a));
+      }
+    }
+    if (p === "z") {
+      pos.z = zc;
+      zc += u.size.z;
+    } else {
+      cursor += u.size[p] + ctx.gap;
+    }
+    out.push({ ...u, at: pos, size: { ...u.size }, zone: node.zone });
+  }
+  return out;
+}

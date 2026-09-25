@@ -1,0 +1,130 @@
+import type { Part, Size } from "../types";
+
+// Discrete graphics only. Integrated graphics comes with the processor.
+// The board block includes the memory around the chip. MXM modules are
+// mounted long side along x and stand 5 mm taller for their connector.
+
+function gpu(
+  id: string,
+  name: string,
+  from: number,
+  until: number,
+  size: Size,
+  watts: [number, number],
+  info: Record<string, string | number>,
+): Part {
+  return {
+    id,
+    name,
+    category: "graphics",
+    from,
+    until,
+    shape: { kind: "block", role: "gpu", size, row: 1, hot: true },
+    compact: ["x", "y"],
+    watts,
+    needs: ["dgpu"],
+    info,
+  };
+}
+
+export const GRAPHICS: Part[] = [
+  gpu(
+    "geforce-go-7400",
+    "NVIDIA GeForce Go 7400",
+    2006,
+    2008,
+    { x: 45, y: 45, z: 2 },
+    [15, 15],
+    { memory: "128 MB", mount: "soldered" },
+  ),
+  gpu(
+    "radeon-x1400",
+    "ATI Mobility Radeon X1400",
+    2006,
+    2008,
+    { x: 45, y: 45, z: 2 },
+    [15, 15],
+    { memory: "128 MB", mount: "soldered" },
+  ),
+  gpu(
+    "geforce-go-7600",
+    "NVIDIA GeForce Go 7600",
+    2006,
+    2008,
+    { x: 78, y: 73, z: 7 },
+    [20, 20],
+    { memory: "256 MB", mount: "MXM-II" },
+  ),
+  gpu(
+    "radeon-x1600",
+    "ATI Mobility Radeon X1600",
+    2006,
+    2008,
+    { x: 78, y: 73, z: 7 },
+    [20, 20],
+    { memory: "256 MB", mount: "MXM-II" },
+  ),
+  gpu(
+    "geforce-go-7900-gtx",
+    "NVIDIA GeForce Go 7900 GTX",
+    2006,
+    2008,
+    { x: 100, y: 82, z: 7 },
+    [45, 45],
+    { memory: "512 MB", mount: "MXM-III" },
+  ),
+  gpu(
+    "rtx-5050-laptop",
+    "NVIDIA GeForce RTX 5050 Laptop",
+    2025,
+    2030,
+    { x: 55, y: 45, z: 2 },
+    [50, 100],
+    { memory: "8 GB" },
+  ),
+  gpu(
+    "rtx-5060-laptop",
+    "NVIDIA GeForce RTX 5060 Laptop",
+    2025,
+    2030,
+    { x: 55, y: 45, z: 2 },
+    [45, 115],
+    { memory: "8 GB" },
+  ),
+  gpu(
+    "rtx-5070-laptop",
+    "NVIDIA GeForce RTX 5070 Laptop",
+    2025,
+    2030,
+    { x: 55, y: 45, z: 2 },
+    [50, 100],
+    { memory: "8 GB" },
+  ),
+  gpu(
+    "rtx-5070ti-laptop",
+    "NVIDIA GeForce RTX 5070 Ti Laptop",
+    2025,
+    2030,
+    { x: 60, y: 55, z: 2 },
+    [60, 115],
+    { memory: "12 GB" },
+  ),
+  gpu(
+    "rtx-5080-laptop",
+    "NVIDIA GeForce RTX 5080 Laptop",
+    2025,
+    2030,
+    { x: 70, y: 65, z: 2 },
+    [80, 150],
+    { memory: "16 GB" },
+  ),
+  gpu(
+    "rtx-5090-laptop",
+    "NVIDIA GeForce RTX 5090 Laptop",
+    2025,
+    2030,
+    { x: 75, y: 70, z: 2 },
+    [95, 150],
+    { memory: "24 GB" },
+  ),
+];

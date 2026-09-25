@@ -43,6 +43,7 @@ export const MATERIAL_SLOTS = [
   "rubber",
   "glass",
   "glow",
+  "accent",
 ] as const;
 export type MaterialSlot = (typeof MATERIAL_SLOTS)[number];
 

@@ -1,7 +1,7 @@
 import type { Part, PortGroup } from "../types";
 
 // Opening is width along the edge by height. Depth is how far the connector
-// reaches into the chassis. A side's strip packs its ports in group order:
+// reaches into the chassis (USB-A calibrated to a 13.5 mm mid-mount receptacle). A side's strip packs its ports in group order:
 // power, video, network, USB, cards, audio, then anything else.
 
 function port(
@@ -66,9 +66,9 @@ export const PORTS: Part[] = [
     21,
   ),
   port("modem-rj11", "Modem RJ11", 1990, 2010, "network", 11, 10, 16),
-  port("usb-a-2.0", "USB-A 2.0", 2001, 2014, "usb", 14, 7, 15),
-  port("usb-a-5g", "USB-A 5 Gbps", 2010, 2099, "usb", 14, 7, 15),
-  port("usb-a-10g", "USB-A 10 Gbps", 2014, 2099, "usb", 14, 7, 15),
+  port("usb-a-2.0", "USB-A 2.0", 2001, 2014, "usb", 14, 7, 13.5),
+  port("usb-a-5g", "USB-A 5 Gbps", 2010, 2099, "usb", 14, 7, 13.5),
+  port("usb-a-10g", "USB-A 10 Gbps", 2014, 2099, "usb", 14, 7, 13.5),
   port("usb-c-10g", "USB-C 10 Gbps", 2016, 2099, "usb", 9.5, 4, 9, {
     charges: true,
   }),

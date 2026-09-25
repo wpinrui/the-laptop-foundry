@@ -5,7 +5,8 @@ import type { Part } from "../types";
 export const BATTERIES: Part[] = [
   {
     // 18.4 mm cells, 65 mm long, laid along x. Rows are 3 cells wide (2 for 4-cell).
-    // Pack is perRow x 65 + 10 wide, rows x 18.4 + 3.2 deep, 20 tall, before casing.
+    // Pack is perRow x 65 + 10 wide, rows x 18.4 + 3.2 deep, 19 tall, before casing
+    // (calibrated: 18.4 mm cells in a 0.3 mm holder, 1 mm removable casing each side).
     id: "li-ion-18650",
     name: "Li-ion 18650 cells",
     category: "battery",
@@ -16,7 +17,7 @@ export const BATTERIES: Part[] = [
       perRow: { "4": 2, "6": 3, "9": 3, "12": 3 },
       diameter: 18.4,
       length: 65,
-      height: 20,
+      height: 19,
     },
     options: { cells: [6, 4, 9, 12] },
     compact: [],

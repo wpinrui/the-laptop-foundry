@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { available, CONTENT, panelsFor, partsFor } from "./content";
 import { zonesOf } from "./plan";
 import { SAMPLES } from "./samples";
-import { flatFace, insideBase, insideLid, planDistance } from "./shell";
+import { flatFace, insideBase, insideLid } from "./shell";
 import { solve } from "./solve";
 import type {
   Axis,
@@ -25,6 +25,15 @@ import { CATEGORIES, PIECES, SIDES } from "./types";
 import { validateContent } from "./validate";
 
 const EPS = 1e-6;
+/**
+ * References the engine may undershoot. The engine gives the minimum a build
+ * needs; these real machines carry more than their minimum, so only the upper
+ * side of the tolerance is held.
+ */
+const KNOWN_THIN: Record<string, string> = {
+  "dtr-2006":
+    "the M1710 is about 5 mm thicker than the minimum for its parts; the optical drive under the keyboard sets the engine's minimum",
+};
 const AXES: Axis[] = ["x", "y", "z"];
 const YEARS = [2006, 2026];
 /** Per-solve budget: a quarter of a 60 Hz frame, so a slider tick never drops a frame. */
@@ -76,6 +85,25 @@ function reverseKeys<T>(v: T): T {
 const texture = (m: string) =>
   CONTENT.materials.find((x) => x.id === m)?.finishes[0] ?? "matte";
 
+function basePorts(year: number, layoutId: string): Build["ports"] {
+  const layout = CONTENT.layouts.find((l) => l.id === layoutId);
+  const sets =
+    year < 2020
+      ? [
+          ["dc-jack", "usb-a-2.0", "vga"],
+          ["usb-a-2.0", "headphone-mic"],
+          ["usb-a-2.0", "lock-slot"],
+        ]
+      : [
+          ["usb-c-10g", "usb-a-5g", "hdmi-2.1"],
+          ["usb-c-10g", "audio-combo"],
+          ["usb-a-5g", "lock-slot"],
+        ];
+  return (layout?.portSides ?? []).flatMap((side, i) =>
+    sets[i % sets.length].map((part) => ({ part, side })),
+  );
+}
+
 function baseBuild(year: number, body: string, layout: string): Build {
   const b = CONTENT.bodies.find((x) => x.id === body);
   const p = (part: string, opts?: BuildPart["opts"]): BuildPart[] => [
@@ -114,16 +142,8 @@ function baseBuild(year: number, body: string, layout: string): Build {
     layout,
     size: b ? { ...b.size } : { x: 300, y: 220, z: 20 },
     parts,
-    ports:
-      year < 2020
-        ? [
-            { part: "dc-jack", side: "left" },
-            { part: "usb-a-2.0", side: "right" },
-          ]
-        : [
-            { part: "usb-c-10g", side: "left" },
-            { part: "usb-c-10g", side: "right" },
-          ],
+    // A multi-port strip on every side the layout has, so strip order is checked everywhere.
+    ports: basePorts(year, layout),
     materials: { floor: mat, deck: mat, lid: mat },
     finish: {
       floor: { colour: "black", texture: texture(mat) },
@@ -242,13 +262,32 @@ function check(build: Build, fit: Fit): string[] {
   const topWall = F.z - shell.offsets.top;
   if (
     Math.abs(shell.bands.floor[1] - topWall) > EPS ||
-    Math.abs(shell.bands.deck[1] - topWall) > EPS
+    Math.abs(shell.bands.deck[1] - F.z) > EPS
   )
-    fail("bands do not run up to the top wall");
+    fail("bands do not run up to the top wall and the top surface");
   // The deck layer: each deck part's column, from its underside up to the top wall.
   const deckColumns = units
     .filter((u) => u.piece === "deck")
-    .map((u) => ({ ...u, size: { ...u.size, z: topWall - u.at.z } }));
+    .map((u) => ({ ...u, size: { ...u.size, z: F.z - u.at.z } }));
+  // A removable pack replaces the bottom wall under it; a well opens the top wall over a deck part.
+  const wallsFor = (u: Box) =>
+    u.skin
+      ? { ...shell.walls, bottom: 0 }
+      : u.piece === "deck"
+        ? { ...shell.walls, top: 0 }
+        : shell.walls;
+  for (const u of units.filter((b) => b.piece === "deck")) {
+    const well = shell.wells.some(
+      (w) =>
+        Math.abs(w.at.x - u.at.x) < EPS &&
+        Math.abs(w.at.y - u.at.y) < EPS &&
+        Math.abs(w.size.x - u.size.x) < EPS &&
+        Math.abs(w.size.y - u.size.y) < EPS,
+    );
+    if (!well) fail(`${u.id} has no well in the top wall`);
+    if (Math.abs(u.at.z + u.size.z - F.z) > EPS)
+      fail(`${u.id} is not flush with the top surface`);
+  }
   // Removable packs forming the underside: on the outer bottom, each with its hatch in the bottom wall.
   for (const u of units.filter((b) => b.skin)) {
     if (u.role !== "battery") fail(`${u.id} is a skin but not a battery`);
@@ -277,26 +316,30 @@ function check(build: Build, fit: Fit): string[] {
     const inside =
       u.piece === "lid"
         ? corners(u).every((c) =>
-            insideLid(c, F, shell.lid.at.z, fit.lidZ, style, shell.walls.lid),
-          )
-        : corners(u).every((c) =>
-            insideBase(
+            insideLid(
               c,
               F,
+              shell.lid.at.z,
+              fit.lidZ,
               style,
-              u.skin ? { ...shell.walls, bottom: 0 } : shell.walls,
+              shell.walls.lid,
+              shell.walls.lidFront,
             ),
-          );
+          )
+        : corners(u).every((c) => insideBase(c, F, style, wallsFor(u)));
     if (!inside) {
       const bad = corners(u).find((c) =>
         u.piece === "lid"
-          ? !insideLid(c, F, shell.lid.at.z, fit.lidZ, style, shell.walls.lid)
-          : !insideBase(
+          ? !insideLid(
               c,
               F,
+              shell.lid.at.z,
+              fit.lidZ,
               style,
-              u.skin ? { ...shell.walls, bottom: 0 } : shell.walls,
-            ),
+              shell.walls.lid,
+              shell.walls.lidFront,
+            )
+          : !insideBase(c, F, style, wallsFor(u)),
       );
       fail(
         `${u.id} (${u.role}) pokes out of the ${u.piece === "lid" ? "lid" : "base"} shell at ${JSON.stringify(bad)} in frame ${JSON.stringify(F)} (${build.body})`,
@@ -314,7 +357,7 @@ function check(build: Build, fit: Fit): string[] {
     }
     if (
       u.piece === "deck" &&
-      (u.at.z < shell.bands.deck[0] - EPS || u.at.z + u.size.z > topWall + EPS)
+      (u.at.z < shell.bands.deck[0] - EPS || u.at.z + u.size.z > F.z + EPS)
     )
       fail(`${u.id} leaves the deck layer`);
     if (u.role === "keys" && u.at.z + u.size.z > shell.lid.at.z + EPS)
@@ -446,12 +489,10 @@ function check(build: Build, fit: Fit): string[] {
       rects.push([o.u[0], o.u[1], o.z[0], o.z[1]]);
       bySide.set(o.side, rects);
     } else if (a.kind === "hinge") {
-      const p = style.edge === "square" ? 0 : style.profile;
       for (const pt of [a.from, a.to]) {
-        if (Math.abs(pt.z - F.z) > EPS)
-          fail("hinge axis is not on the top face");
-        if (planDistance(pt.x, pt.y, F.x, F.y, style.corner) < p - EPS)
-          fail("hinge axis is off the flat of the top face");
+        if (Math.abs(pt.z - F.z) > EPS || Math.abs(pt.y - F.y) > EPS)
+          fail("hinge axis is not on the base's rear top edge");
+        if (pt.x < 0 || pt.x > F.x) fail("hinge axis runs outside the base");
       }
     } else if (a.kind === "heat-source") {
       const b = fit.boxes.find((x) => x.id === a.box);
@@ -474,7 +515,146 @@ function check(build: Build, fit: Fit): string[] {
   ).length;
   if (fins !== vents) fail("every fin stack needs exactly one vent");
   if (!fit.anchors.some((a) => a.kind === "hinge")) fail("no hinge axis");
+
+  // Ports: each on its own side's face, and in strip order. Side strips run from
+  // the rear (hinge end, power first) to the front; front and rear strips run left to right.
+  const byStrip = new Map<string, Box[]>();
+  for (const u of units) {
+    if (!u.role.startsWith("port:")) continue;
+    const list = byStrip.get(u.zone) ?? [];
+    list.push(u);
+    byStrip.set(u.zone, list);
+  }
+  for (const [zone, list] of byStrip) {
+    const side = list[0].role.slice(5) as Side;
+    const face = {
+      left: (b: Box) => Math.abs(b.at.x - shell.offsets.side) < EPS,
+      right: (b: Box) =>
+        Math.abs(b.at.x + b.size.x - (F.x - shell.offsets.side)) < EPS,
+      front: (b: Box) => Math.abs(b.at.y - shell.offsets.side) < EPS,
+      rear: (b: Box) =>
+        Math.abs(b.at.y + b.size.y - (F.y - shell.offsets.side)) < EPS,
+    }[side];
+    for (const b of list)
+      if (!face(b)) fail(`${b.id} is not on the ${side} face`);
+    const seq = [...list].sort(
+      (a, b) => Number(a.id.split(":").pop()) - Number(b.id.split(":").pop()),
+    );
+    for (let i = 1; i < seq.length; i++) {
+      const ok =
+        side === "left" || side === "right"
+          ? seq[i].at.y < seq[i - 1].at.y
+          : seq[i].at.x > seq[i - 1].at.x;
+      if (!ok) {
+        fail(
+          `${zone}: ports are not in strip order (${side === "left" || side === "right" ? "rear to front" : "left to right"})`,
+        );
+        break;
+      }
+    }
+  }
+
+  // Hinge mounts sit at the two rear corners of the floor.
+  const hinges = units.filter((u) => u.role === "hinge");
+  const s = shell.offsets.side;
+  if (hinges.length !== 2)
+    fail(`expected two hinge mounts, found ${hinges.length}`);
+  else {
+    const [l, r] = [...hinges].sort((a, b) => a.at.x - b.at.x);
+    const rear = (h: Box) => Math.abs(h.at.y + h.size.y - (F.y - s)) < EPS;
+    if (!rear(l) || Math.abs(l.at.x - s) > EPS)
+      fail(
+        `left hinge mount is not at the rear left corner (x ${l.at.x.toFixed(1)})`,
+      );
+    if (!rear(r) || Math.abs(r.at.x + r.size.x - (F.x - s)) > EPS)
+      fail(
+        `right hinge mount is not at the rear right corner (x ${r.at.x.toFixed(1)})`,
+      );
+  }
+
+  // The lid clears the base at every angle from closed to past flat.
+  const axis = fit.anchors.find((a) => a.kind === "hinge");
+  if (axis?.kind === "hinge") {
+    const lidZ0 = shell.lid.at.z;
+    for (let deg = 0; deg <= LID_MAX_DEG; deg += LID_STEP_DEG) {
+      const hit = lidHitsBase(
+        F,
+        style.wedge,
+        lidZ0,
+        fit.lidZ,
+        axis.from.y,
+        axis.from.z,
+        deg,
+      );
+      if (hit) {
+        fail(`lid intersects the base at ${deg} degrees`);
+        break;
+      }
+    }
+  }
   return errs;
+}
+
+const LID_MAX_DEG = 180;
+const LID_STEP_DEG = 5;
+
+/**
+ * Does the lid, opened by `deg` about the hinge axis (running along x at
+ * (py, pz)), overlap the base? Both are compared as their bounding solids in
+ * the y-z plane: the base spans y 0 to F.y and z from the wedge's lowest point
+ * to F.z; the closed lid spans y 0 to F.y and z lidZ0 to lidZ0 + lidZ. Every
+ * part and shell lies inside these, so no overlap here means none in the model.
+ * Separating axis test between the rotated lid rectangle and the base rectangle.
+ */
+function lidHitsBase(
+  F: Size,
+  wedge: number,
+  lidZ0: number,
+  lidZ: number,
+  py: number,
+  pz: number,
+  deg: number,
+): boolean {
+  const t = (deg * Math.PI) / 180;
+  const c = Math.cos(t);
+  const sn = Math.sin(t);
+  // Same rotation as the viewer: front edge rises as the lid opens.
+  const rot = (y: number, z: number): [number, number] => {
+    const dy = y - py;
+    const dz = z - pz;
+    return [py + dy * c + dz * sn, pz - dy * sn + dz * c];
+  };
+  const lid = [
+    rot(0, lidZ0),
+    rot(F.y, lidZ0),
+    rot(F.y, lidZ0 + lidZ),
+    rot(0, lidZ0 + lidZ),
+  ];
+  const base: [number, number][] = [
+    [0, -wedge],
+    [F.y, -wedge],
+    [F.y, F.z],
+    [0, F.z],
+  ];
+  const axes: [number, number][] = [
+    [1, 0],
+    [0, 1],
+    [c, -sn],
+    [sn, c],
+  ];
+  const tol = 1e-6;
+  for (const [ay, az] of axes) {
+    const proj = (pts: [number, number][]) =>
+      pts.map(([y, z]) => y * ay + z * az);
+    const a = proj(lid);
+    const b = proj(base);
+    if (
+      Math.max(...a) <= Math.min(...b) + tol ||
+      Math.max(...b) <= Math.min(...a) + tol
+    )
+      return false;
+  }
+  return true;
 }
 
 // ------------------------------------------------------------------ runner
@@ -801,6 +981,67 @@ describe("fit engine", () => {
     expect(stats.failures).toEqual([]);
   });
 
+  it("reference builds land within 2 mm of their real machine's total thickness", () => {
+    const lines: string[] = [];
+    const off: string[] = [];
+    for (const s of SAMPLES) {
+      if (!s.thickness) continue;
+      const body = CONTENT.bodies.find((b) => b.id === s.build.body);
+      if (!body) throw new Error(s.build.body);
+      const { size } = minimumOf(s.build, body.limits);
+      const f = solve(withSize(s.build, size));
+      const front = f.min.z + f.lidZ;
+      const rear = front + body.style.wedge;
+      const [lo, hi] = s.thickness;
+      lines.push(
+        `${s.id}: ${front.toFixed(1)}${rear > front ? ` to ${rear.toFixed(1)}` : ""} vs ${lo} to ${hi}`,
+      );
+      const known = KNOWN_THIN[s.id];
+      // Every real machine must be buildable at its thickness: the minimum is never more than 2 mm over.
+      if (rear > hi + 2)
+        off.push(
+          `${s.id} is ${(rear - hi).toFixed(1)} mm thicker than the real machine`,
+        );
+      if (front < lo - 2 && !known)
+        off.push(
+          `${s.id} is ${(lo - front).toFixed(1)} mm thinner than the real machine`,
+        );
+    }
+    console.log(
+      ["reference thickness, engine minimum vs real:", ...lines].join("\n  "),
+    );
+    expect(off).toEqual([]);
+  });
+
+  it("at max spend, fans never make a thin 2026 ultrabook taller than its battery and keyboard do", () => {
+    const bad: string[] = [];
+    for (const body of CONTENT.bodies.filter((b) => available(b, 2026)))
+      for (const layout of CONTENT.layouts)
+        for (const cooling of ["one-fan", "two-fans"]) {
+          const b = withSpend(baseBuild(2026, body.id, layout.id), 1);
+          b.parts = {
+            ...b.parts,
+            battery: [
+              { part: "li-po-pouch", opts: { wh: 60, thickness: "slim" } },
+            ],
+            cooling: [{ part: cooling }],
+          };
+          const { size } = minimumOf(b, body.limits);
+          const withFans = solve(withSize(b, size)).min.z;
+          const noFans = solve(
+            withSize(
+              { ...b, parts: { ...b.parts, cooling: [{ part: "fanless" }] } },
+              size,
+            ),
+          ).min.z;
+          if (withFans > noFans + 1e-6)
+            bad.push(
+              `${body.id} ${layout.id} ${cooling}: ${withFans.toFixed(2)} with fans vs ${noFans.toFixed(2)} without`,
+            );
+        }
+    expect(bad).toEqual([]);
+  });
+
   it(`a seeded random sample of ${RANDOM_BUILDS} full builds`, () => {
     stats.failures.length = 0;
     const rnd = mulberry32(20060626);
@@ -893,6 +1134,36 @@ describe("fit engine", () => {
       }
       if (i % 10 === 0) deterministic(`random ${i}`, b);
     }
+    expect(stats.failures).toEqual([]);
+  }, 60_000);
+
+  it("hinges and lid hold at every size: the full shared body range for every year, body and layout", () => {
+    stats.failures.length = 0;
+    const range = (lo: number, hi: number) => [
+      lo,
+      lo + (hi - lo) * 0.25,
+      (lo + hi) / 2,
+      lo + (hi - lo) * 0.75,
+      hi,
+    ];
+    for (const year of YEARS)
+      for (const body of CONTENT.bodies)
+        for (const layout of CONTENT.layouts) {
+          const full = baseBuild(year, body.id, layout.id);
+          const empty: Build = { ...full, parts: {}, ports: [], spend: {} };
+          const lim = body.limits;
+          for (const x of range(lim.x[0], lim.x[1]))
+            for (const y of range(lim.y[0], lim.y[1]))
+              for (const z of range(lim.z[0], lim.z[1]))
+                for (const [kind, b] of [
+                  ["full", full],
+                  ["empty", empty],
+                ] as const)
+                  run(
+                    `${year} ${body.id} ${layout.id} ${kind} ${x.toFixed(0)} x ${y.toFixed(0)} x ${z.toFixed(0)}`,
+                    withSize(b, { x, y, z }),
+                  );
+        }
     expect(stats.failures).toEqual([]);
   }, 60_000);
 

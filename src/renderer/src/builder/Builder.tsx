@@ -720,6 +720,7 @@ export function Builder() {
       <main className="stage">
         <Scene
           fit={fit}
+          year={build.year}
           lidAngle={lidAngle}
           colours={colours}
           labelFor={labelFor}

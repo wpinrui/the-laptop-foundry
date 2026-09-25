@@ -14,6 +14,7 @@ import type {
   Body,
   Build,
   BuildPart,
+  Category,
   Era,
   OptionValue,
   Part,
@@ -35,6 +36,8 @@ export interface Unit {
   spacer?: boolean;
   /** A removable pack whose casing forms the underside: it replaces the bottom wall. */
   skin?: boolean;
+  /** The part's options, defaults filled in. */
+  opts?: Record<string, OptionValue>;
 }
 
 /** A block on the derived mainboard. */
@@ -46,6 +49,7 @@ export interface Block {
   hot: boolean;
   part?: string;
   watts?: number;
+  opts?: Record<string, OptionValue>;
 }
 
 export interface Emitted {
@@ -176,6 +180,24 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
     const chosen = build.parts[cat] ?? [];
     const f = 1 - 0.15 * spendOf(build, cat);
     chosen.forEach((bp, n) => {
+      // Every unit and block this part emits carries its resolved options.
+      const lists: { opts?: Record<string, OptionValue> }[][] = [
+        out.floor,
+        out.deck,
+        out.lid,
+        out.blocks,
+      ];
+      const before = lists.map((l) => l.length);
+      emitOne(cat, f, bp, n);
+      const opts = resolvedOpts(idx, cat, bp);
+      lists.forEach((l, i) => {
+        for (let k = before[i]; k < l.length; k++) l[k].opts = opts;
+      });
+    });
+  }
+
+  function emitOne(cat: Category, f: number, bp: BuildPart, n: number): void {
+    {
       if (cat === "display") {
         const panel = idx.panels.get(bp.part);
         if (!panel) return;
@@ -203,7 +225,18 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
       const base = `${cat}:${n}`;
       shapes(part).forEach((shape, s) => {
         const id = s === 0 ? base : `${base}:${s}`;
-        emitShape(out, push, part, bp, shape, id, f, casing, era);
+        emitShape(
+          out,
+          push,
+          part,
+          bp,
+          shape,
+          id,
+          f,
+          casing,
+          era,
+          spendOf(build, cat),
+        );
       });
       if (cat === "keyboard" && opt(part, bp, "light") === "lid-light") {
         push({
@@ -223,7 +256,7 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
           part: part.id,
         });
       }
-    });
+    }
   }
 
   emitPorts(build, idx, out, push);
@@ -239,6 +272,30 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
   return out;
 }
 
+function padStack(mech: string, spend: number): number {
+  const [a, b] = PAD_STACK[mech] ?? PAD_STACK.mechanical;
+  return a + (b - a) * spend;
+}
+
+function resolvedOpts(
+  idx: Index,
+  cat: Category,
+  bp: BuildPart,
+): Record<string, OptionValue> {
+  if (cat === "display") {
+    const panel = idx.panels.get(bp.part);
+    return { refresh: bp.opts?.refresh ?? panel?.refresh[0] ?? 60 };
+  }
+  const part = idx.parts.get(bp.part);
+  const out: Record<string, OptionValue> = {};
+  if (!part) return out;
+  for (const k of Object.keys(part.options ?? {})) {
+    const v = opt(part, bp, k);
+    if (v !== undefined) out[k] = v;
+  }
+  return out;
+}
+
 function emitShape(
   out: Emitted,
   push: (u: Unit) => void,
@@ -249,6 +306,7 @@ function emitShape(
   f: number,
   casing: number,
   era: Era,
+  spend: number,
 ): void {
   switch (shape.kind) {
     case "none":
@@ -320,9 +378,11 @@ function emitShape(
         id,
         role: "keys",
         size: {
-          x: cols * pitch + 8,
+          // A row of "15 columns" is about 14.5 full keys wide (narrow keys at the
+          // ends), plus a 2 mm frame each side. Calibrated against real 14 inch boards.
+          x: (cols - 0.5) * pitch + 4,
           y: shape.rows * pitch + 4,
-          z: shape.stack,
+          z: shape.stack[0] + (shape.stack[1] - shape.stack[0]) * spend,
         },
         part: part.id,
       });
@@ -339,7 +399,7 @@ function emitShape(
         size: {
           x: shape.x,
           y: shape.y + rows * PAD_BUTTON_ROW,
-          z: PAD_STACK[mech] ?? 4.5,
+          z: padStack(mech, spend),
         },
         part: part.id,
       });
@@ -351,12 +411,14 @@ function emitShape(
       out.finDepth = part.compact.includes("y")
         ? era.finDepth * f
         : era.finDepth;
-      const fin = { x: 0, y: out.finDepth, z: era.fan.min.z };
+      // Cooling spend thins the fan by up to a third; the fin stack matches it.
+      const fanZ = era.fan.min.z * (1 - spend / 3);
+      const fin = { x: 0, y: out.finDepth, z: fanZ };
       for (let i = 0; i < shape.count; i++) {
         push({
           id: `${id}:fan:${i}`,
           role: "fan",
-          size: { ...era.fan.min },
+          size: { ...era.fan.min, z: fanZ },
           part: part.id,
         });
         push({

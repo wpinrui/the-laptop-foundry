@@ -1,6 +1,10 @@
 import type { Layout, Node, Plan } from "../types";
 
 // Floor trees list children front to rear (split y) and left to right (split x).
+// Side port strips pack from the rear (hinge end) toward the front, power
+// rearmost; front and rear strips pack left to right, centred.
+// Hinge mounts align to their outer side so they always sit at the rear corners,
+// whatever else in their row grows or collapses.
 // Cross-axis, every child stretches to its parent, so a zone reaches an outer
 // edge exactly when it is the first or last child on the way down that axis.
 
@@ -44,6 +48,8 @@ const floorA: Node = {
               pack: "y",
               grow: 1,
               edge: "left",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "hinge-l",
@@ -51,6 +57,7 @@ const floorA: Node = {
               pack: "x",
               grow: 0,
               edge: "rear",
+              align: "start",
             },
           ],
         },
@@ -97,6 +104,8 @@ const floorA: Node = {
               pack: "y",
               grow: 1,
               edge: "right",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "hinge-r",
@@ -104,6 +113,7 @@ const floorA: Node = {
               pack: "x",
               grow: 0,
               edge: "rear",
+              align: "end",
             },
           ],
         },
@@ -139,6 +149,8 @@ const floorB: Node = {
               pack: "y",
               grow: 1,
               edge: "left",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "fan",
@@ -197,6 +209,8 @@ const floorB: Node = {
               pack: "y",
               grow: 1,
               edge: "right",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "optical-bay",
@@ -213,7 +227,14 @@ const floorB: Node = {
     {
       split: "x",
       children: [
-        { zone: "hinge-l", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "hinge-l",
+          takes: ["hinge"],
+          pack: "x",
+          grow: 0,
+          edge: "rear",
+          align: "start",
+        },
         {
           zone: "battery",
           takes: ["battery"],
@@ -222,7 +243,14 @@ const floorB: Node = {
           edge: "rear",
           align: "centre",
         },
-        { zone: "hinge-r", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "hinge-r",
+          takes: ["hinge"],
+          pack: "x",
+          grow: 0,
+          edge: "rear",
+          align: "end",
+        },
       ],
     },
   ],
@@ -247,6 +275,8 @@ const floorC: Node = {
               pack: "y",
               grow: 1,
               edge: "left",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "drive-bay",
@@ -306,6 +336,8 @@ const floorC: Node = {
               pack: "y",
               grow: 1,
               edge: "right",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "optical-bay",
@@ -322,7 +354,14 @@ const floorC: Node = {
     {
       split: "x",
       children: [
-        { zone: "hinge-l", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "hinge-l",
+          takes: ["hinge"],
+          pack: "x",
+          grow: 0,
+          edge: "rear",
+          align: "start",
+        },
         {
           zone: "fan-l",
           takes: ["fan", "fin"],
@@ -345,7 +384,14 @@ const floorC: Node = {
           grow: 4,
           edge: "rear",
         },
-        { zone: "hinge-r", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "hinge-r",
+          takes: ["hinge"],
+          pack: "x",
+          grow: 0,
+          edge: "rear",
+          align: "end",
+        },
       ],
     },
   ],

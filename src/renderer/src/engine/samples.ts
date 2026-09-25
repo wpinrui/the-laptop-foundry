@@ -73,20 +73,27 @@ export interface Sample {
   build: Build;
   /** Real machine of the era for comparison, outer size x by y by total thickness. */
   real: string;
+  /**
+   * The real machine's total thickness (base plus lid), thinnest to thickest,
+   * in mm. The fit check holds the engine's minimum within 2 mm of it.
+   */
+  thickness: [number, number] | null;
 }
 
-const s = (id: string, name: string, real: string, spec: Spec): Sample => ({
-  id,
-  name,
-  real,
-  build: makeBuild(spec),
-});
+const s = (
+  id: string,
+  name: string,
+  real: string,
+  thickness: [number, number] | null,
+  spec: Spec,
+): Sample => ({ id, name, real, thickness, build: makeBuild(spec) });
 
 export const SAMPLES: Sample[] = [
   s(
     "t60",
     "2006 15.4 inch business, full T60 port set, Workhorse, layout B",
-    "ThinkPad T60 15.4 inch: about 357 x 262 x 31 to 36",
+    "ThinkPad T60 15.4 inch: about 357 x 268 x 31 to 36",
+    [31, 36],
     {
       year: 2006,
       body: "workhorse",
@@ -125,7 +132,8 @@ export const SAMPLES: Sample[] = [
   s(
     "t60-trim",
     "2006 15.4 inch business, trimmed port set, Workhorse, layout B",
-    "ThinkPad T60 15.4 inch: about 357 x 262 x 31 to 36",
+    "ThinkPad T60 15.4 inch: about 357 x 268 x 31 to 36",
+    [31, 36],
     {
       year: 2006,
       body: "workhorse",
@@ -160,7 +168,8 @@ export const SAMPLES: Sample[] = [
   s(
     "dtr-2006",
     "2006 17 inch desktop replacement, Pillow, layout C",
-    "Dell XPS M1710: about 394 x 286 x 43",
+    "Dell XPS M1710: 394 x 287 x 42",
+    [42, 42],
     {
       year: 2006,
       body: "pillow",
@@ -198,7 +207,8 @@ export const SAMPLES: Sample[] = [
   s(
     "ultraportable-2006",
     "2006 12.1 inch ultraportable, Workhorse, layout B",
-    "ThinkPad X60s: about 268 x 211 x 21 to 28",
+    "ThinkPad X60s: 267 x 211 x 21.1 to 28.2",
+    [21.1, 28.2],
     {
       year: 2006,
       body: "workhorse",
@@ -224,15 +234,17 @@ export const SAMPLES: Sample[] = [
         ["headphone-mic", "front"],
       ],
       materials: { floor: "magnesium", deck: "magnesium", lid: "magnesium" },
+      spend: { material: 0.5 },
     },
   ),
   s(
     "ultrabook-14",
-    "2026 14 inch ultrabook, Blade, layout A",
-    "Asus Zenbook S 14 (258V): about 310 x 215 x 12 to 13",
+    "2026 14 inch ultrabook, Workhorse, layout A",
+    "Asus Zenbook S 14 (UX5406): 310 x 215 x 11.9 to 12.9",
+    [11.9, 12.9],
     {
       year: 2026,
-      body: "blade",
+      body: "workhorse",
       layout: "a",
       parts: {
         processor: "core-ultra7-258v",
@@ -259,11 +271,12 @@ export const SAMPLES: Sample[] = [
   ),
   s(
     "thinnest-13",
-    "2026 13.3 inch thinnest, Blade, layout A, all spend at 1",
-    "Asus Zenbook S 13 OLED: about 296 x 216 x 11",
+    "2026 13.3 inch thinnest, Workhorse, layout A, all spend at 1",
+    "Asus Zenbook S 13 OLED (UX5304): 296 x 216 x 10.9 to 11.8",
+    [10.9, 11.8],
     {
       year: 2026,
-      body: "blade",
+      body: "workhorse",
       layout: "a",
       parts: {
         processor: "core-ultra7-258v",
@@ -291,13 +304,16 @@ export const SAMPLES: Sample[] = [
         speakers: 1,
         webcam: 1,
         processor: 1,
+        keyboard: 1,
+        trackpad: 1,
       },
     },
   ),
   s(
     "gaming-16",
     "2026 16 inch gaming, Workhorse, layout A",
-    "Lenovo Legion Pro 7i 16: about 363 x 262 x 22 to 27",
+    "Lenovo Legion Pro 7i Gen 10: 364 x 276 x 21.8 to 26.7",
+    [21.8, 26.7],
     {
       year: 2026,
       body: "workhorse",
@@ -333,7 +349,8 @@ export const SAMPLES: Sample[] = [
   s(
     "flagship-18",
     "2026 18 inch RTX 5090, Workhorse, layout A",
-    "Asus ROG Strix SCAR 18: about 399 x 298 x 23 to 31",
+    "Asus ROG Strix SCAR 18 (2025): 399 x 298 x 23.6 to 32",
+    [23.6, 32],
     {
       year: 2026,
       body: "workhorse",
@@ -370,9 +387,46 @@ export const SAMPLES: Sample[] = [
     },
   ),
   s(
+    "x1-carbon",
+    "2026 14 inch business ultraportable, Workhorse, layout A",
+    "Lenovo ThinkPad X1 Carbon Gen 12: 316 x 223 x 15",
+    [15, 15],
+    {
+      year: 2026,
+      body: "workhorse",
+      layout: "a",
+      parts: {
+        processor: "core-ultra7-258v",
+        memory: "lpddr5x-on-package",
+        storage: "m2-2280-g4",
+        display: "2026-14-1920x1200-ips",
+        battery: ["li-po-pouch", { wh: 60, thickness: "slim" }],
+        cooling: "one-fan",
+        wireless: "wifi-7",
+        keyboard: ["kb-1.5", { light: "white" }],
+        trackpad: [
+          "pad-110x70",
+          { mechanism: "mechanical", buttons: "separate", stick: "yes" },
+        ],
+        webcam: "cam-1080p-ir",
+        speakers: "spk-stereo-2026",
+      },
+      ports: [
+        ["usb4-40g", "left"],
+        ["usb4-40g", "left"],
+        ["usb-a-5g", "left"],
+        ["hdmi-2.1", "left"],
+        ["usb-a-5g", "right"],
+        ["audio-combo", "right"],
+      ],
+      materials: { floor: "magnesium", deck: "magnesium", lid: "cfrp" },
+    },
+  ),
+  s(
     "no-fit",
     "2026 18 inch RTX 5090 with a 99.9 Wh slim pack, Blade, layout A (should not fit)",
     "No real machine: a 99.9 Wh pouch only 4.5 mm thick is 435 mm wide",
+    null,
     {
       year: 2026,
       body: "blade",

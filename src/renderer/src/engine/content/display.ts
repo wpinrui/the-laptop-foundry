@@ -32,9 +32,30 @@ export const PANEL_TYPES: PanelType[] = [
     inverter: { x: 100, y: 10, z: 5 },
   },
   // Including cover glass.
-  { id: "ips", name: "IPS", from: 2012, until: 2099, thickness: 3.5 },
-  { id: "oled", name: "OLED", from: 2019, until: 2099, thickness: 2.1 },
-  { id: "mini-led", name: "Mini-LED", from: 2021, until: 2099, thickness: 5.0 },
+  {
+    id: "ips",
+    name: "IPS",
+    from: 2012,
+    until: 2099,
+    thickness: 3.5,
+    coverGlass: true,
+  },
+  {
+    id: "oled",
+    name: "OLED",
+    from: 2019,
+    until: 2099,
+    thickness: 2.1,
+    coverGlass: true,
+  },
+  {
+    id: "mini-led",
+    name: "Mini-LED",
+    from: 2021,
+    until: 2099,
+    thickness: 5.0,
+    coverGlass: true,
+  },
 ];
 
 const W: [number, number] = [16, 10];

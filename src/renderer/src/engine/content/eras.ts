@@ -18,7 +18,7 @@ export const ERAS: Era[] = [
     },
     gap: [3, 2],
     bezel: { side: 12, top: 12, chin: 22 },
-    packCasing: 2,
+    packCasing: 1,
     pcb: 1.6,
     heatPipe: 3,
     spreader: 1,
@@ -54,7 +54,7 @@ export const ERAS: Era[] = [
     boardMargin: 3,
     vrmMm2PerWatt: 8,
     vrmHeight: 2,
-    fan: { min: { x: 50, y: 50, z: 5 }, max: { x: 90, y: 90, z: 12 } },
+    fan: { min: { x: 50, y: 50, z: 4.5 }, max: { x: 90, y: 90, z: 12 } },
     finDepth: 8,
   },
 ];

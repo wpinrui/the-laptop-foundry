@@ -97,7 +97,8 @@ export const WIRELESS: Part[] = [
 ];
 export const BLUETOOTH_2006: Size = { x: 15, y: 20, z: 3 };
 
-// Footprint = cols x pitch + 8 by rows x pitch + 4. Stack is the height at that travel.
+// Footprint = (cols - 0.5) x pitch + 4 by rows x pitch + 4. Stack is the height at that travel,
+// at keyboard spend 0 and 1.
 export const KEYBOARDS: Part[] = [
   {
     id: "kb-2.5",
@@ -105,7 +106,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 1995,
     until: 2010,
-    shape: { kind: "keys", rows: 6, stack: 6.5 },
+    shape: { kind: "keys", rows: 6, stack: [6.0, 5.0] },
     options: {
       cols: [15, 19],
       pitch: [19, 17],
@@ -119,7 +120,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 1995,
     until: 2010,
-    shape: { kind: "keys", rows: 6, stack: 7.0 },
+    shape: { kind: "keys", rows: 6, stack: [6.5, 5.5] },
     options: {
       cols: [15, 19],
       pitch: [19, 17],
@@ -133,7 +134,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2015,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: 3.0 },
+    shape: { kind: "keys", rows: 6, stack: [2.6, 2.2] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -147,7 +148,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2015,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: 3.8 },
+    shape: { kind: "keys", rows: 6, stack: [3.3, 2.8] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -161,7 +162,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2019,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: 5.5 },
+    shape: { kind: "keys", rows: 6, stack: [5.0, 4.2] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -173,10 +174,10 @@ export const KEYBOARDS: Part[] = [
 /** The 2006 keyboard light sits in the top bezel beside the webcam. */
 export const LID_LIGHT: Size = { x: 12, y: 5, z: 4 };
 
-// Mechanism sets the stack; separate buttons add a 12 mm row; a pointing stick adds its own 12 mm button row.
-export const PAD_STACK: Record<string, number> = {
-  mechanical: 4.5,
-  haptic: 3.5,
+// Mechanism sets the stack (at trackpad spend 0 and 1); separate buttons add a 12 mm row; a pointing stick adds its own 12 mm button row.
+export const PAD_STACK: Record<string, [number, number]> = {
+  mechanical: [4.5, 3.5],
+  haptic: [3.5, 2.5],
 };
 export const PAD_BUTTON_ROW = 12;
 

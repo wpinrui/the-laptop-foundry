@@ -273,6 +273,9 @@ function Openings({ fit }: { fit: Fit }) {
   return (
     <group>
       {fit.shell.cutouts.map((o) => {
+        // A port's model draws its own opening; an opaque block here would
+        // hide the connector face and read as a brick poking out of the wall.
+        if (o.kind === "port") return null;
         const du = o.u[1] - o.u[0];
         const dz = o.z[1] - o.z[0];
         const uc = (o.u[0] + o.u[1]) / 2;

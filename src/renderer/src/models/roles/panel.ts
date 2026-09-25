@@ -164,7 +164,9 @@ function coverGlass(b: Bufs, W: number, H: number, D: number, kind: Kind): { ben
   const ins = 0.5; // the stack sits just inside the glass edge
   const zG = zF - cg;
   const zBody = zB + R;
-  const zStackFront = zG - 0.02;
+  // Full-face gap behind the cover glass, taken from the stack's own thickness
+  // (never pushed past the box front) so the module face doesn't z-fight the glass.
+  const zStackFront = zG - 0.06;
 
   b.screen.chamferSlab(-x1, x1, -y1, y1, zG, zF, c);
 

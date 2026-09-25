@@ -93,6 +93,10 @@
 }
 
 .desk-bar select {
+  /* The builder's picker rule stretches a first-child select; not here. */
+  flex: none;
+  width: auto;
+  padding: 1px 4px;
   font: inherit;
   color: var(--desk-text);
   background: transparent;

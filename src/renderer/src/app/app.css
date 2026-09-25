@@ -1,0 +1,116 @@
+.screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.screen.models {
+  justify-content: flex-start;
+  padding-top: 10vh;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.screen input {
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-3);
+  min-width: 20rem;
+}
+
+.screen button {
+  font: inherit;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+}
+
+.screen button:hover {
+  color: var(--color-text);
+}
+
+.screen button.primary {
+  color: var(--color-text);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  font-weight: 600;
+}
+
+.screen button.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.screen button.danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.models-head {
+  display: flex;
+  gap: var(--space-3);
+  width: min(40rem, 100%);
+}
+
+.models-head .company {
+  flex: 1;
+  font-size: 1.25rem;
+  font-weight: 700;
+  background: transparent;
+  border-color: transparent;
+}
+
+.models-head .company:focus {
+  border-color: var(--color-border);
+}
+
+.model-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(40rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.model {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.screen .model-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: none;
+  text-align: left;
+}
+
+.model-open b {
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}

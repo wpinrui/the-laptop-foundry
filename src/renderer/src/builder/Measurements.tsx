@@ -10,8 +10,11 @@ import {
   type Results,
   type Runtime,
   results,
+  type Specs,
+  specs,
   weightOf,
 } from "../engine";
+import { formatOption } from "./format";
 import { PROFILE_NAME } from "./Power";
 
 // Raw measurements only, each shown once it can be computed. No ratings.
@@ -88,11 +91,13 @@ function Price({
   fit,
   m,
   set,
+  locked,
 }: {
   build: Build;
   fit: Fit;
   m: M;
   set: (f: (b: Build) => Build) => void;
+  locked?: boolean;
 }) {
   const cost = costOf(build, fit);
   const kg = weightOf(build, fit);
@@ -111,6 +116,7 @@ function Price({
           min={0}
           step={10}
           aria-label="retail price"
+          disabled={locked}
           value={build.price ?? ""}
           onChange={(e) => {
             const v = e.target.value === "" ? undefined : Number(e.target.value);
@@ -125,21 +131,96 @@ function Price({
   );
 }
 
+const PANEL_TYPE: Record<string, string> = {
+  "tn-matte": "TN matte",
+  "tn-glossy": "TN glossy",
+  "ips-type": "IPS",
+  ips: "IPS",
+  oled: "OLED",
+  "mini-led": "Mini-LED",
+};
+
+const SIDE: Record<string, string> = {
+  left: "Left",
+  right: "Right",
+  rear: "Rear",
+  front: "Front",
+};
+
+/** Figures that need only the chosen parts: they appear first. */
+function Early({ s }: { s: Specs }) {
+  const rows: [string, string][] = [];
+  const d = s.display;
+  if (d) {
+    rows.push(["Display", `${d.inches}" ${d.res[0]} x ${d.res[1]}, ${d.ppi} ppi`]);
+    rows.push(["Panel", `${PANEL_TYPE[d.type] ?? d.type}, ${d.aspect[0]}:${d.aspect[1]}`]);
+    rows.push(["Brightness", `${int(d.nits)} nits`]);
+    rows.push(["Refresh", `${d.refresh} Hz`]);
+    rows.push(["Gamut", d.gamut]);
+  }
+  const k = s.keyboard;
+  if (k) {
+    rows.push(["Key travel", `${one(k.travel)} mm${k.mechanical ? ", mechanical" : ""}`]);
+    rows.push(["Key pitch", `${k.pitch} mm`]);
+    rows.push(["Layout", k.numpad ? "With numpad" : "No numpad"]);
+    rows.push(["Keyboard light", formatOption("light", k.light)]);
+  }
+  const w = s.webcam;
+  if (w)
+    rows.push([
+      "Webcam",
+      [
+        `${w.res[0]} x ${w.res[1]}, ${one(w.megapixels)} MP`,
+        w.ir ? "IR" : "",
+        w.shutter ? "shutter" : "",
+      ]
+        .filter(Boolean)
+        .join(", "),
+    ]);
+  const sp = s.speakers;
+  if (sp)
+    rows.push([
+      "Speakers",
+      `${sp.channels === "mono" ? "Mono" : "Stereo"}, ${sp.drivers} ${sp.drivers === 1 ? "driver" : "drivers"}${sp.bass ? ", bass" : ""}`,
+    ]);
+  const p = s.ports;
+  if (p) {
+    rows.push(["Ports", `${p.total} connectors`]);
+    for (const side of p.sides)
+      rows.push([
+        `${SIDE[side.side] ?? side.side} side`,
+        `${side.connectors}${side.charges ? ", charges" : ""}`,
+      ]);
+  }
+  if (rows.length === 0) return null;
+  return (
+    <div className="m-spec">
+      {rows.map(([label, value]) => [
+        <span key={`${label}-l`}>{label}</span>,
+        <b key={`${label}-v`}>{value}</b>,
+      ])}
+    </div>
+  );
+}
+
 export function Measurements({
   m,
   build,
   fit,
   set,
+  locked,
 }: {
   m: M;
   build: Build;
   fit: Fit;
   set: (f: (b: Build) => Build) => void;
+  locked?: boolean;
 }) {
   const { performance: perf, cooling: cool, battery } = m;
   return (
     <section className="measurements">
-      <Price build={build} fit={fit} m={m} set={set} />
+      <Price build={build} fit={fit} m={m} set={set} locked={locked} />
+      <Early s={specs(build)} />
       {perf && (
       <>
       <div className="m-grid">

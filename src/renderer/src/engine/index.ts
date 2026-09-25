@@ -16,6 +16,7 @@ export {
   type Timeline,
   timeline,
 } from "./sim";
+export { type Specs, specs } from "./sim/specs";
 export {
   type Budget,
   type BodyClass,

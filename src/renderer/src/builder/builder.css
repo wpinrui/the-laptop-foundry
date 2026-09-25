@@ -45,6 +45,10 @@
 }
 
 .tab-body {
+  margin: 0;
+  border: 0;
+  min-width: 0;
+  min-height: 0;
   flex: 1;
   overflow-y: auto;
   padding: var(--space-3);
@@ -416,5 +420,106 @@ input[type="range"] {
 
 .m-games b,
 .m-games .m-head {
+  text-align: right;
+}
+
+/* Fit problems: a count on each tab, and a summary visible from every tab. */
+.tab-count {
+  display: inline-block;
+  margin-left: var(--space-1);
+  min-width: 1.25rem;
+  padding: 0 var(--space-1);
+  border-radius: 999px;
+  background: var(--color-warning);
+  color: var(--color-bg);
+  font-weight: 700;
+  text-align: center;
+}
+
+.problems {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-warning);
+  font-size: var(--font-size-caption);
+  max-height: 8rem;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.problems b {
+  color: var(--color-warning);
+}
+
+.problems ul {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+}
+
+.problems button {
+  font: inherit;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text);
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.problems button:hover span:first-child {
+  text-decoration: underline;
+}
+
+.problem-tab {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.model-bar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.locked-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+
+.locked-bar span {
+  flex: 1;
+}
+
+.locked-bar .revise {
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+}
+
+.tab-body:disabled {
+  opacity: 0.75;
+}
+
+/* Early figures: keyboard, webcam, speakers, display and ports. */
+.m-spec {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+}
+
+.m-spec b {
   text-align: right;
 }

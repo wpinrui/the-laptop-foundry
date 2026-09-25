@@ -9,6 +9,9 @@ export interface SavedModel {
   updated: number;
   /** The model this one was revised from. */
   revisedFrom?: string;
+  /** When the model was first reviewed. A reviewed model is locked: its
+   * build never changes, so its review never changes. Revise makes a new model. */
+  reviewed?: number;
 }
 
 export interface SavedData {

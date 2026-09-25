@@ -145,6 +145,8 @@ export interface ZoneNode {
   grow: number;
   edge?: Side;
   align?: "start" | "centre" | "end";
+  /** Which end the first unit goes at along the pack axis. Side port strips pack from the rear. */
+  packFrom?: "start" | "end";
   /** Most units this zone holds. Extra units go to the next zone that takes the role. */
   capacity?: number;
 }
@@ -327,6 +329,10 @@ export interface Box {
   part?: string;
   /** A removable pack whose casing forms the underside in place of the bottom wall. */
   skin?: boolean;
+  /** The part's options, defaults filled in. */
+  opts?: Record<string, OptionValue>;
+  /** The outer edge the unit's zone sits on (vents, ports, bays). */
+  edge?: Side;
 }
 
 export interface Opening {

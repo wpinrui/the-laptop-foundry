@@ -1,6 +1,8 @@
 import type { Layout, Node, Plan } from "../types";
 
 // Floor trees list children front to rear (split y) and left to right (split x).
+// Side port strips pack from the rear (hinge end) toward the front, power
+// rearmost; front and rear strips pack left to right, centred.
 // Hinge mounts align to their outer side so they always sit at the rear corners,
 // whatever else in their row grows or collapses.
 // Cross-axis, every child stretches to its parent, so a zone reaches an outer
@@ -46,6 +48,8 @@ const floorA: Node = {
               pack: "y",
               grow: 1,
               edge: "left",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "hinge-l",
@@ -100,6 +104,8 @@ const floorA: Node = {
               pack: "y",
               grow: 1,
               edge: "right",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "hinge-r",
@@ -143,6 +149,8 @@ const floorB: Node = {
               pack: "y",
               grow: 1,
               edge: "left",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "fan",
@@ -201,6 +209,8 @@ const floorB: Node = {
               pack: "y",
               grow: 1,
               edge: "right",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "optical-bay",
@@ -265,6 +275,8 @@ const floorC: Node = {
               pack: "y",
               grow: 1,
               edge: "left",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "drive-bay",
@@ -324,6 +336,8 @@ const floorC: Node = {
               pack: "y",
               grow: 1,
               edge: "right",
+              align: "end",
+              packFrom: "end",
             },
             {
               zone: "optical-bay",

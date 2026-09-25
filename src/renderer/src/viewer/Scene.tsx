@@ -6,6 +6,7 @@ import type { Box, Fit } from "../engine";
 import { shellSurface } from "../engine";
 import { overflowSlabs } from "./overflow";
 import { disposeUnit, renderUnit, type UnitCtx } from "./renderUnit";
+import { baseOffset, CAMERA_POSITION, ENGINE_ROTATION_X } from "./space";
 import { roleColour, token } from "./theme";
 
 export interface Hover {
@@ -284,8 +285,8 @@ const Model = memo(function Model({
 
   return (
     // Engine space is z up; three is y up. Rotate once here and centre the base.
-    <group rotation-x={-Math.PI / 2}>
-      <group position={[-out.x / 2, -out.y / 2, 0]}>
+    <group rotation-x={ENGINE_ROTATION_X}>
+      <group position={baseOffset(out)}>
         <Shell
           size={out}
           style={fit.shell.style}
@@ -329,7 +330,7 @@ export function Scene(props: SceneProps) {
   const bg = token("color-bg");
   return (
     <Canvas
-      camera={{ position: [0, 360, 560], fov: 38, near: 1, far: 20000 }}
+      camera={{ position: CAMERA_POSITION, fov: 38, near: 1, far: 20000 }}
       dpr={[1, 2]}
       onPointerMissed={() => props.onHover(null)}
     >

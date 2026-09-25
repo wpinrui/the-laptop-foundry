@@ -362,7 +362,10 @@ export function placeUnits(
     cursor = put(lo, hi, total, alignOf(p));
   }
   let zc = zBase;
-  for (const u of units) {
+  // Packing from the end: the first unit sits at the high end of the group.
+  const ordered =
+    node.packFrom === "end" && p !== "z" ? [...units].reverse() : units;
+  for (const u of ordered) {
     const pos: Vec3 = { x: 0, y: 0, z: zBase };
     for (const a of ["x", "y"] as const) {
       if (a === p) {

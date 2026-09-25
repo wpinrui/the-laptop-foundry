@@ -32,6 +32,7 @@ import type {
   Problem,
   Role,
   Route,
+  Side,
   Size,
   Tune,
   Vec3,
@@ -268,7 +269,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     const units = placeUnits(fill, floorCtx, floorZ0, room);
     for (const u of units) {
       placedFloor.push(u);
-      boxes.push(unitBox(u, "floor"));
+      boxes.push(unitBox(u, "floor", zone.edge));
       if (u.skin)
         hatches.push({
           at: { ...u.at },
@@ -284,6 +285,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
             kind: "unit",
             zone: zone.zone,
             part: b.part,
+            ...(b.opts ? { opts: b.opts } : {}),
             at: {
               x: u.at.x + bx + b.at.x,
               y: u.at.y + b.at.y,
@@ -494,7 +496,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   };
 }
 
-function unitBox(u: PlacedUnit, piece: Piece): Box {
+function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
   return {
     id: `${piece}:${u.id}`,
     role: u.role as Role,
@@ -505,5 +507,7 @@ function unitBox(u: PlacedUnit, piece: Piece): Box {
     at: { ...u.at },
     size: { ...u.size },
     ...(u.skin ? { skin: true } : {}),
+    ...(u.opts ? { opts: u.opts } : {}),
+    ...(edge ? { edge } : {}),
   };
 }

@@ -14,6 +14,7 @@ import type {
   Body,
   Build,
   BuildPart,
+  Category,
   Era,
   OptionValue,
   Part,
@@ -35,6 +36,8 @@ export interface Unit {
   spacer?: boolean;
   /** A removable pack whose casing forms the underside: it replaces the bottom wall. */
   skin?: boolean;
+  /** The part's options, defaults filled in. */
+  opts?: Record<string, OptionValue>;
 }
 
 /** A block on the derived mainboard. */
@@ -46,6 +49,7 @@ export interface Block {
   hot: boolean;
   part?: string;
   watts?: number;
+  opts?: Record<string, OptionValue>;
 }
 
 export interface Emitted {
@@ -176,6 +180,24 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
     const chosen = build.parts[cat] ?? [];
     const f = 1 - 0.15 * spendOf(build, cat);
     chosen.forEach((bp, n) => {
+      // Every unit and block this part emits carries its resolved options.
+      const lists: { opts?: Record<string, OptionValue> }[][] = [
+        out.floor,
+        out.deck,
+        out.lid,
+        out.blocks,
+      ];
+      const before = lists.map((l) => l.length);
+      emitOne(cat, f, bp, n);
+      const opts = resolvedOpts(idx, cat, bp);
+      lists.forEach((l, i) => {
+        for (let k = before[i]; k < l.length; k++) l[k].opts = opts;
+      });
+    });
+  }
+
+  function emitOne(cat: Category, f: number, bp: BuildPart, n: number): void {
+    {
       if (cat === "display") {
         const panel = idx.panels.get(bp.part);
         if (!panel) return;
@@ -223,7 +245,7 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
           part: part.id,
         });
       }
-    });
+    }
   }
 
   emitPorts(build, idx, out, push);
@@ -236,6 +258,25 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
     size: { x: 0, y: body.hinge.y, z: 0 },
     spacer: true,
   });
+  return out;
+}
+
+function resolvedOpts(
+  idx: Index,
+  cat: Category,
+  bp: BuildPart,
+): Record<string, OptionValue> {
+  if (cat === "display") {
+    const panel = idx.panels.get(bp.part);
+    return { refresh: bp.opts?.refresh ?? panel?.refresh[0] ?? 60 };
+  }
+  const part = idx.parts.get(bp.part);
+  const out: Record<string, OptionValue> = {};
+  if (!part) return out;
+  for (const k of Object.keys(part.options ?? {})) {
+    const v = opt(part, bp, k);
+    if (v !== undefined) out[k] = v;
+  }
   return out;
 }
 

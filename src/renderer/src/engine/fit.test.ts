@@ -76,6 +76,25 @@ function reverseKeys<T>(v: T): T {
 const texture = (m: string) =>
   CONTENT.materials.find((x) => x.id === m)?.finishes[0] ?? "matte";
 
+function basePorts(year: number, layoutId: string): Build["ports"] {
+  const layout = CONTENT.layouts.find((l) => l.id === layoutId);
+  const sets =
+    year < 2020
+      ? [
+          ["dc-jack", "usb-a-2.0", "vga"],
+          ["usb-a-2.0", "headphone-mic"],
+          ["usb-a-2.0", "lock-slot"],
+        ]
+      : [
+          ["usb-c-10g", "usb-a-5g", "hdmi-2.1"],
+          ["usb-c-10g", "audio-combo"],
+          ["usb-a-5g", "lock-slot"],
+        ];
+  return (layout?.portSides ?? []).flatMap((side, i) =>
+    sets[i % sets.length].map((part) => ({ part, side })),
+  );
+}
+
 function baseBuild(year: number, body: string, layout: string): Build {
   const b = CONTENT.bodies.find((x) => x.id === body);
   const p = (part: string, opts?: BuildPart["opts"]): BuildPart[] => [
@@ -114,16 +133,8 @@ function baseBuild(year: number, body: string, layout: string): Build {
     layout,
     size: b ? { ...b.size } : { x: 300, y: 220, z: 20 },
     parts,
-    ports:
-      year < 2020
-        ? [
-            { part: "dc-jack", side: "left" },
-            { part: "usb-a-2.0", side: "right" },
-          ]
-        : [
-            { part: "usb-c-10g", side: "left" },
-            { part: "usb-c-10g", side: "right" },
-          ],
+    // A multi-port strip on every side the layout has, so strip order is checked everywhere.
+    ports: basePorts(year, layout),
     materials: { floor: mat, deck: mat, lid: mat },
     finish: {
       floor: { colour: "black", texture: texture(mat) },
@@ -472,6 +483,44 @@ function check(build: Build, fit: Fit): string[] {
   ).length;
   if (fins !== vents) fail("every fin stack needs exactly one vent");
   if (!fit.anchors.some((a) => a.kind === "hinge")) fail("no hinge axis");
+
+  // Ports: each on its own side's face, and in strip order. Side strips run from
+  // the rear (hinge end, power first) to the front; front and rear strips run left to right.
+  const byStrip = new Map<string, Box[]>();
+  for (const u of units) {
+    if (!u.role.startsWith("port:")) continue;
+    const list = byStrip.get(u.zone) ?? [];
+    list.push(u);
+    byStrip.set(u.zone, list);
+  }
+  for (const [zone, list] of byStrip) {
+    const side = list[0].role.slice(5) as Side;
+    const face = {
+      left: (b: Box) => Math.abs(b.at.x - shell.offsets.side) < EPS,
+      right: (b: Box) =>
+        Math.abs(b.at.x + b.size.x - (F.x - shell.offsets.side)) < EPS,
+      front: (b: Box) => Math.abs(b.at.y - shell.offsets.side) < EPS,
+      rear: (b: Box) =>
+        Math.abs(b.at.y + b.size.y - (F.y - shell.offsets.side)) < EPS,
+    }[side];
+    for (const b of list)
+      if (!face(b)) fail(`${b.id} is not on the ${side} face`);
+    const seq = [...list].sort(
+      (a, b) => Number(a.id.split(":").pop()) - Number(b.id.split(":").pop()),
+    );
+    for (let i = 1; i < seq.length; i++) {
+      const ok =
+        side === "left" || side === "right"
+          ? seq[i].at.y < seq[i - 1].at.y
+          : seq[i].at.x > seq[i - 1].at.x;
+      if (!ok) {
+        fail(
+          `${zone}: ports are not in strip order (${side === "left" || side === "right" ? "rear to front" : "left to right"})`,
+        );
+        break;
+      }
+    }
+  }
 
   // Hinge mounts sit at the two rear corners of the floor.
   const hinges = units.filter((u) => u.role === "hinge");

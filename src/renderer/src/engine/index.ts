@@ -8,6 +8,8 @@ export {
   type Battery,
   type Cooling,
   defaultProfiles,
+  type Durability,
+  durabilityOf,
   type Measurements,
   type Performance,
   profilesOf,

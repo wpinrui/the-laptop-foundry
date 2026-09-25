@@ -64,6 +64,8 @@ export interface Era {
 
 export interface Material extends Dated {
   density: number;
+  /** Resistance to drops, dents and flex, 0 to 1. Material spend raises it. */
+  durability: number;
   finishes: string[];
 }
 export type Colour = Dated & { hex: string };

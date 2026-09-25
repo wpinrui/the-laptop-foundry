@@ -8,6 +8,7 @@ export const MATERIALS: Material[] = [
     from: 1990,
     until: 2099,
     density: 1.2,
+    durability: 0.35,
     finishes: ["matte", "glossy", "soft-touch"],
   },
   {
@@ -16,6 +17,7 @@ export const MATERIALS: Material[] = [
     from: 1995,
     until: 2099,
     density: 1.8,
+    durability: 0.6,
     finishes: ["matte", "soft-touch"],
   },
   {
@@ -24,6 +26,7 @@ export const MATERIALS: Material[] = [
     from: 1998,
     until: 2099,
     density: 2.7,
+    durability: 0.7,
     finishes: ["brushed", "anodised", "matte"],
   },
   {
@@ -32,6 +35,7 @@ export const MATERIALS: Material[] = [
     from: 2004,
     until: 2099,
     density: 1.6,
+    durability: 0.75,
     finishes: ["matte", "soft-touch"],
   },
 ];

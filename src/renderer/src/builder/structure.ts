@@ -1,8 +1,9 @@
 import { available, type Build, CONTENT, type Piece, PIECES } from "../engine";
 
 // Structural choices always hold a valid value for the year. Changing year
-// clears every part, port, option and spend setting. The engine's year
-// problems stay for revising a saved model into another year.
+// keeps every part, port, option and spend setting: anything the new year
+// lacks stays in the build and the engine flags it unavailable, for the
+// player to replace.
 
 function firstBody(year: number): string {
   return (CONTENT.bodies.find((b) => available(b, year)) ?? CONTENT.bodies[0])
@@ -49,21 +50,13 @@ function validFinish(b: Build): Pick<Build, "materials" | "finish"> {
   return { materials, finish };
 }
 
-/** Move a build to another year: everything chosen is cleared; the structure stays valid. */
+/** Move a build to another year: choices are kept, missing ones get flagged; the structure stays valid. */
 export function toYear(b: Build, year: number): Build {
   const bodyOk = CONTENT.bodies.some(
     (x) => x.id === b.body && available(x, year),
   );
   const body = bodyOk ? b.body : firstBody(year);
-  const next: Build = {
-    ...b,
-    year,
-    body,
-    parts: {},
-    ports: [],
-    spend: {},
-    power: undefined,
-  };
+  const next: Build = { ...b, year, body };
   next.layout = validLayout(body, b.layout, year);
   return { ...next, ...validFinish(next) };
 }

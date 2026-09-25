@@ -102,9 +102,33 @@ export function gameEdition(year: number): number {
   return 2005 + 3 * Math.max(0, Math.floor((year - 2005) / 3));
 }
 
-/** Graphics cost grows about 18 percent a year; processor demand about 5.7 percent. */
-const GPU_GROWTH = 1.182;
-const CPU_GROWTH = 1 / 0.946;
+/**
+ * How much heavier each edition is than the 2005 one, on graphics and on the
+ * processor, anchored at the editions reviews use and interpolated between
+ * them on a log scale.
+ */
+const DEMAND: [year: number, gpu: number, cpu: number][] = [
+  [2005, 1, 1],
+  [2014, 15, 2.25],
+  [2026, 33.7, 3.2],
+];
+
+function demand(edition: number): { gpu: number; cpu: number } {
+  const [first] = DEMAND;
+  if (edition <= first[0]) return { gpu: first[1], cpu: first[2] };
+  for (let i = 1; i < DEMAND.length; i++) {
+    const [y0, g0, c0] = DEMAND[i - 1];
+    const [y1, g1, c1] = DEMAND[i];
+    if (edition <= y1 || i === DEMAND.length - 1) {
+      const t = (edition - y0) / (y1 - y0);
+      return {
+        gpu: g0 * (g1 / g0) ** t,
+        cpu: c0 * (c1 / c0) ** t,
+      };
+    }
+  }
+  return { gpu: first[1], cpu: first[2] };
+}
 
 function resolutions(edition: number): Record<Preset, [number, number]> {
   if (edition < 2010)
@@ -208,8 +232,9 @@ export function results(
     const name = `${g.name} ${ed}`;
     if (!has(gpuFeatures, needsFor(g, ed)))
       return { id: g.id, name, edition: ed, runs: null };
-    const gGrow = GPU_GROWTH ** (ed - 2005);
-    const cpuCap = (perf.single * g.cpu) / CPU_GROWTH ** (ed - 2005);
+    const d = demand(ed);
+    const gGrow = d.gpu;
+    const cpuCap = (perf.single * g.cpu) / d.cpu;
     const fps = (preset: Preset, [w, h]: [number, number]) => {
       const mp = ((w * h) / 1e6) ** 0.9;
       const gpuFps = gpuScore / (g.cost[preset] * gGrow * mp);

@@ -493,7 +493,8 @@ function build(
   else if (part === "vga") dsub(k, m, W, H, L, false);
   else if (part === "dvi-d") dsub(k, m, W, H, L, true);
   else if (part === "s-video") miniDin(k, m, W, H, L);
-  else if (part.startsWith("hdmi")) hdmi(k, m, W, H, L);
+  // Mini DisplayPort is drawn as the nearest shape, a small keyed HDMI-style socket.
+  else if (part.startsWith("hdmi") || part === "mini-dp") hdmi(k, m, W, H, L);
   else if (part === "ethernet-drop-jaw") modular(k, m, W, H, L, 8, false, true);
   else if (part.startsWith("ethernet")) modular(k, m, W, H, L, 8, true, false);
   else if (part === "modem-rj11") modular(k, m, W, H, L, 4, false, false);

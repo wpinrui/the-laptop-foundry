@@ -5,7 +5,7 @@ import type { ModelBox, ModelContext, ModelModule } from "../contract";
 //
 // Sticks lie long side along z (src/renderer/src/engine/content/memory.ts), so
 // in model space a SO-DIMM's gold edge runs along z at the -x end.
-//   ddr2-667-sodimm, ddr5-5600-sodimm: one level per slot (option slots, 1 or 2;
+//   ddr2-667-sodimm, ddr4-2133-sodimm, ddr5-5600-sodimm: one level per slot (option slots, 1 or 2;
 //       the block height is per slot times slots), stacked one above the other.
 //       Each level: a plastic slot along the -x end, the stick (body PCB)
 //       plugged into it with its gold fingers showing either side of the key
@@ -15,7 +15,7 @@ import type { ModelBox, ModelContext, ModelModule } from "../contract";
 //   lpcamm2: a flat module screwed down onto the board: a compression
 //       connector along the -x side, the module over it, a metal stiffener bar
 //       with three screws over the connector, and a row of LPDDR5X packages.
-//   lpddr5x-soldered: bare memory packages straight on the board in a 2 by 2
+//   lpddr3-soldered, lpddr5x-soldered: bare memory packages straight on the board in a 2 by 2
 //       grid with their decoupling capacitors; no module, no slot.
 // capacity has no visual effect.
 //

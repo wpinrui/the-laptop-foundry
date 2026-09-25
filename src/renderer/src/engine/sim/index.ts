@@ -258,6 +258,7 @@ const BACKLIGHT: Record<string, number> = {
   "tn-glossy": 0.5,
   "ips-type": 0.55,
   ips: 0.2,
+  "tn-led": 0.3,
   "mini-led": 0.3,
 };
 
@@ -267,6 +268,8 @@ function displayWatts(f: Facts, content: "idle" | "web" | "video"): number {
   const a = activeArea(f.panel);
   const dm2 = (a.x * a.y) / 1e4;
   let perDm2 = BACKLIGHT[f.panel.type] ?? 0.3;
+  // 2016 LED backlights are less efficient than 2026 ones.
+  if (f.year >= 2012 && f.year < 2020) perDm2 *= 1.4;
   if (f.panel.type === "oled") perDm2 = content === "video" ? 0.18 : 0.3;
   const light = dm2 * perDm2 * (content === "idle" ? 0.25 : 1);
   const mp = (f.panel.res[0] * f.panel.res[1]) / 1e6;
@@ -277,7 +280,7 @@ function displayWatts(f: Facts, content: "idle" | "web" | "video"): number {
 /** Board, memory, storage and radios at idle. */
 function baseWatts(f: Facts): number {
   const old = f.year < 2012;
-  let w = old ? 4.5 : 1;
+  let w = old ? 4.5 : f.year < 2020 ? 2 : 1;
   if (!old && f.cpu && f.cpu.range[0] >= 45) w += 4.5;
   w += f.hdds * (old ? 1 : 0.8) + f.ssds * 0.1;
   return w;

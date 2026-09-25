@@ -288,6 +288,7 @@ const PANEL_TYPE: Record<string, string> = {
   "tn-matte": "matte TN",
   "tn-glossy": "glossy TN",
   "ips-type": "wide-angle",
+  "tn-led": "TN",
   ips: "IPS",
   oled: "OLED",
   "mini-led": "mini-LED",

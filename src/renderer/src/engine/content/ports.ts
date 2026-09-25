@@ -47,10 +47,12 @@ export const PORTS: Part[] = [
   port("dc-jack", "DC barrel jack", 1990, 2099, "power", 9, 9, 13, {
     charges: true,
   }),
-  port("vga", "VGA", 1990, 2014, "video", 31, 13, 12),
+  port("vga", "VGA", 1990, 2017, "video", 31, 13, 12),
   port("dvi-d", "DVI-D", 2000, 2012, "video", 40, 15, 12),
   port("s-video", "S-Video", 1995, 2010, "video", 10, 10, 12),
   port("hdmi-1.3", "HDMI", 2006, 2014, "video", 15, 6, 12),
+  port("hdmi-1.4", "HDMI 1.4", 2009, 2019, "video", 15, 6, 12),
+  port("mini-dp", "Mini DisplayPort", 2010, 2018, "video", 7.5, 5, 10),
   port("hdmi-2.1", "HDMI 2.1", 2020, 2099, "video", 15, 6, 12),
   port("ethernet-100", "Ethernet 100M", 1995, 2012, "network", 16, 14, 21),
   port("ethernet-1g", "Ethernet 1G", 2004, 2099, "network", 16, 14, 21),
@@ -74,6 +76,12 @@ export const PORTS: Part[] = [
   }),
   port("usb4-40g", "USB4 40 Gbps", 2020, 2099, "usb", 9.5, 4, 9, {
     charges: true,
+  }),
+  // Thunderbolt 3 needs its own controller chip on the board.
+  port("thunderbolt-3", "Thunderbolt 3", 2015, 2021, "usb", 9.5, 4, 9, {
+    charges: true,
+    needs: intel,
+    controller: true,
   }),
   port("thunderbolt-4", "Thunderbolt 4", 2020, 2099, "usb", 9.5, 4, 9, {
     charges: true,

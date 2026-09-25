@@ -44,7 +44,7 @@ const ERA_PRICE: EraPrice[] = [
     year: 2016,
     budget: { low: 600, premium: 1200 },
     body: { thinKg: 1.6, thinMm: 21, largeKg: 2.7, largeWidth: 385 },
-    perf: { gamingGraphics: 3000, mixedGraphics: 1000, mixedMulti: 2500 },
+    perf: { gamingGraphics: 3000, mixedGraphics: 1000, mixedMulti: 4000 },
     board: 90,
     assembly: 25,
   },
@@ -94,6 +94,31 @@ const FIXED: Record<string, number> = {
   "rtx-5080-laptop": 950,
   "rtx-5090-laptop": 1600,
   // 32 GB on the processor package.
+  "core-m3-6y30": 281,
+  "core-i5-6200u": 281,
+  "core-i7-6500u": 393,
+  "core-i7-7500u": 393,
+  "core-i7-6700hq": 378,
+  "core-i7-7700hq": 378,
+  "a10-9600p": 150,
+  "geforce-940mx": 60,
+  "radeon-r7-m460": 55,
+  "geforce-gtx-960m": 150,
+  "geforce-gtx-970m": 280,
+  "geforce-gtx-1060-laptop": 300,
+  "geforce-gtx-1070-laptop": 480,
+  "geforce-gtx-1080-laptop": 750,
+  "dvd-rw-slim-2016": 18,
+  "wifi-ac": 15,
+  "kb-2.0": 16,
+  "pad-100x56": 10,
+  "pad-105x70": 12,
+  "pad-130x80": 18,
+  "spk-stereo-2016": 5,
+  "spk-stereo-2016-sub": 12,
+  "hdmi-1.4": 3,
+  "mini-dp": 4,
+  "thunderbolt-3": 20,
   "lpddr5x-on-package": 150,
   "bay-battery": 70,
   "bridge-battery": 25,
@@ -169,6 +194,8 @@ const FIXED: Record<string, number> = {
 /** Per gigabyte and per module, for memory. */
 const MEMORY: Record<string, { gb: number; module: number }> = {
   "ddr2-667-sodimm": { gb: 100, module: 10 },
+  "ddr4-2133-sodimm": { gb: 6, module: 5 },
+  "lpddr3-soldered": { gb: 7, module: 0 },
   "ddr5-5600-sodimm": { gb: 10, module: 5 },
   lpcamm2: { gb: 12, module: 10 },
   "lpddr5x-soldered": { gb: 9, module: 0 },
@@ -180,6 +207,9 @@ const STORAGE: Record<string, { base: number; gb: number }> = {
   "hdd25-7200": { base: 60, gb: 0.6 },
   hdd18: { base: 70, gb: 1 },
   "ssd18-pata": { base: 50, gb: 12.5 },
+  "hdd25-2016": { base: 40, gb: 0.03 },
+  "m2-2280-sata": { base: 15, gb: 0.25 },
+  "m2-2280-g3": { base: 20, gb: 0.35 },
   "ssd25-sata": { base: 15, gb: 0.07 },
   "m2-2280-g4": { base: 15, gb: 0.08 },
   "m2-2280-g5": { base: 25, gb: 0.12 },
@@ -207,6 +237,7 @@ const LIGHT: Record<string, number> = {
 const PANEL: Record<string, { dm2: number; mp: number }> = {
   "tn-matte": { dm2: 18, mp: 20 },
   "tn-glossy": { dm2: 19, mp: 20 },
+  "tn-led": { dm2: 6, mp: 8 },
   "ips-type": { dm2: 30, mp: 25 },
   ips: { dm2: 7, mp: 8 },
   oled: { dm2: 16, mp: 8 },
@@ -219,7 +250,12 @@ function batteryWh(part: Part, bp: BuildPart): number {
   return Number(opt(part, bp, "wh") ?? 0);
 }
 
-function partCost(cat: Category, part: Part, bp: BuildPart): number {
+function partCost(
+  cat: Category,
+  part: Part,
+  bp: BuildPart,
+  year: number,
+): number {
   const o = (k: string) => opt(part, bp, k);
   switch (cat) {
     case "memory": {
@@ -230,7 +266,9 @@ function partCost(cat: Category, part: Part, bp: BuildPart): number {
     }
     case "storage": {
       const s = STORAGE[part.id] ?? { base: 30, gb: 0.1 };
-      return s.base + Number(o("capacity") ?? 0) * s.gb;
+      // A 2.5 inch SATA SSD cost about four times as much per gigabyte in 2016.
+      const flash = part.id === "ssd25-sata" && year < 2020 ? 4 : 1;
+      return s.base + Number(o("capacity") ?? 0) * s.gb * flash;
     }
     case "battery": {
       const perWh = BATTERY[part.id] ?? 1;
@@ -339,7 +377,7 @@ export function costOf(
         continue;
       }
       const p = part(bp.part);
-      if (p) catCost += partCost(cat, p, bp);
+      if (p) catCost += partCost(cat, p, bp, build.year);
     }
     add(cat, catCost);
     // Compacting a part costs more on a dear part.

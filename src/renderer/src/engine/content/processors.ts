@@ -37,6 +37,7 @@ const YONAH = ["sse3"];
 const MEROM = ["sse3", "ssse3", "x64"];
 const K8 = ["sse3", "x64"];
 const X86_2026 = ["sse3", "ssse3", "x64", "sse4", "avx2"];
+const X86_2016 = X86_2026;
 // Snapdragon runs x86 code through emulation, AVX2 included.
 const ARM_2026 = [...X86_2026, "arm64"];
 const DX9 = ["dx9"];
@@ -50,6 +51,13 @@ const FEATURES: Record<string, [string[], string[]]> = {
   "core2-duo-t5500": [MEROM, DX9],
   "core2-duo-t7600": [MEROM, DX9],
   "turion64-x2-tl60": [K8, DX9],
+  "core-m3-6y30": [X86_2016, DX12],
+  "core-i5-6200u": [X86_2016, DX12],
+  "core-i7-6500u": [X86_2016, DX12],
+  "core-i7-7500u": [X86_2016, DX12],
+  "core-i7-6700hq": [X86_2016, DX12],
+  "core-i7-7700hq": [X86_2016, DX12],
+  "a10-9600p": [X86_2016, DX12],
   "core5-120u": [X86_2026, DX12],
   "snapdragon-x2e-88-100": [ARM_2026, [...DX12, "dx12u"]],
 };
@@ -97,6 +105,13 @@ function cpu(
 const i945: Size = { x: 70, y: 35, z: 2 };
 const rs485: Size = { x: 65, y: 35, z: 2 };
 const hm870: Size = { x: 25, y: 25, z: 2 };
+const hm170: Size = { x: 23, y: 22, z: 2 };
+const intel2016 = [
+  "platform:intel",
+  "mem:ddr4-sodimm",
+  "mem:lpddr3-soldered",
+  "dgpu",
+];
 
 const intel2006 = ["platform:intel", "mem:ddr2-sodimm", "dgpu"];
 const amd2006 = ["platform:amd", "mem:ddr2-sodimm", "dgpu"];
@@ -168,6 +183,80 @@ export const PROCESSORS: Part[] = [
     amd2006,
     { platform: "ATI RS485", igpu: "Radeon Xpress 1150 (chipset)" },
     rs485,
+  ),
+
+  // 2016. Skylake and Kaby Lake U and Y carry the chipset on the package; HQ has its own.
+  cpu(
+    "core-m3-6y30",
+    "Intel Core m3-6Y30",
+    2015,
+    2017,
+    { x: 20, y: 16.5, z: 1.2 },
+    pw("skylake-y", [3.8, 7], 4.5, 7, 4.5, 0.3, [[4.5, 1450]], 700, [4.5, 350]),
+    ["platform:intel", "mem:lpddr3-soldered"],
+    { platform: "Skylake-Y", igpu: "HD Graphics 515" },
+  ),
+  cpu(
+    "core-i5-6200u",
+    "Intel Core i5-6200U",
+    2015,
+    2017,
+    { x: 42, y: 24, z: 1.3 },
+    pw("skylake-u", [7.5, 25], 15, 25, 15, 0.5, [[15, 2500]], 850, [15, 450]),
+    intel2016,
+    { platform: "Skylake-U", igpu: "HD Graphics 520" },
+  ),
+  cpu(
+    "core-i7-6500u",
+    "Intel Core i7-6500U",
+    2015,
+    2017,
+    { x: 42, y: 24, z: 1.3 },
+    pw("skylake-u", [7.5, 25], 15, 25, 15, 0.5, [[15, 2700]], 950, [15, 480]),
+    intel2016,
+    { platform: "Skylake-U", igpu: "HD Graphics 520" },
+  ),
+  cpu(
+    "core-i7-7500u",
+    "Intel Core i7-7500U",
+    2016,
+    2018,
+    { x: 42, y: 24, z: 1.3 },
+    pw("skylake-u", [7.5, 25], 15, 25, 15, 0.5, [[15, 2900], [25, 3600]], 1050, [15, 550]),
+    intel2016,
+    { platform: "Kaby Lake-U", igpu: "HD Graphics 620" },
+  ),
+  cpu(
+    "core-i7-6700hq",
+    "Intel Core i7-6700HQ",
+    2015,
+    2017,
+    { x: 42, y: 28, z: 1.5 },
+    pw("skylake-h", [35, 56], 45, 56, 45, 1.5, [[45, 5800]], 950, [45, 600]),
+    ["platform:intel", "mem:ddr4-sodimm", "dgpu"],
+    { platform: "Skylake-H", igpu: "HD Graphics 530" },
+    hm170,
+  ),
+  cpu(
+    "core-i7-7700hq",
+    "Intel Core i7-7700HQ",
+    2017,
+    2018,
+    { x: 42, y: 28, z: 1.5 },
+    pw("skylake-h", [35, 56], 45, 56, 45, 1.5, [[45, 6400]], 1050, [45, 650]),
+    ["platform:intel", "mem:ddr4-sodimm", "dgpu"],
+    { platform: "Kaby Lake-H", igpu: "HD Graphics 630" },
+    hm170,
+  ),
+  cpu(
+    "a10-9600p",
+    "AMD A10-9600P",
+    2016,
+    2018,
+    { x: 35, y: 35, z: 1.4 },
+    pw("bristol-ridge", [12, 25], 15, 25, 15, 1, [[15, 1900]], 550, [15, 600]),
+    ["platform:amd", "mem:ddr4-sodimm", "dgpu"],
+    { platform: "Bristol Ridge", igpu: "Radeon R5" },
   ),
 
   // Raptor Lake-U takes soldered LPDDR5; it is modelled with the soldered LPDDR5X row.

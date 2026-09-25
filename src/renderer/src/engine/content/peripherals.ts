@@ -30,6 +30,7 @@ export const OPTICAL: Part[] = [
   odd("dvd-rw-slim-2006", "DVD±RW slim", 2005, 2010, 9.5),
   odd("bd-writer", "Blu-ray writer", 2006, 2010, 12.7),
   odd("hd-dvd", "HD DVD reader", 2006, 2008, 12.7),
+  odd("dvd-rw-slim-2016", "DVD±RW slim", 2011, 2019, 9.5),
   odd("dvd-rw-slim", "DVD±RW slim", 2020, 2030, 9.5),
   odd("bd-writer-slim", "Blu-ray writer slim", 2020, 2030, 9.5),
 ];
@@ -64,6 +65,20 @@ export const WIRELESS: Part[] = [
       row: 2,
     },
     options: { bluetooth: ["none", "2.0"] },
+    compact: [],
+  },
+  {
+    id: "wifi-ac",
+    name: "802.11ac + Bluetooth 4.1",
+    category: "wireless",
+    from: 2013,
+    until: 2020,
+    shape: {
+      kind: "block",
+      role: "wlan",
+      size: { x: 22, y: 30, z: 3 },
+      row: 2,
+    },
     compact: [],
   },
   {
@@ -129,6 +144,20 @@ export const KEYBOARDS: Part[] = [
     compact: [],
   },
   {
+    id: "kb-2.0",
+    name: "2.0 mm travel",
+    category: "keyboard",
+    from: 2011,
+    until: 2019,
+    shape: { kind: "keys", rows: 6, stack: [4.2, 3.6] },
+    options: {
+      cols: [15, 19],
+      pitch: [19, 18],
+      light: ["none", "white", "rgb-zones"],
+    },
+    compact: [],
+  },
+  {
     id: "kb-1.0",
     name: "1.0 mm travel",
     category: "keyboard",
@@ -187,7 +216,7 @@ function pad(
   until: number,
   x: number,
   y: number,
-  y2026: boolean,
+  y2026: boolean | "clickpad",
 ): Part {
   return {
     id,
@@ -196,7 +225,14 @@ function pad(
     from,
     until,
     shape: { kind: "pad", x, y },
-    options: y2026
+    options:
+      y2026 === "clickpad"
+        ? {
+            mechanism: ["mechanical"],
+            buttons: ["clickpad", "separate"],
+            stick: ["no", "yes"],
+          }
+        : y2026
       ? {
           mechanism: ["haptic", "mechanical"],
           buttons: ["clickpad", "separate"],
@@ -215,6 +251,9 @@ export const TRACKPADS: Part[] = [
   pad("pad-65x40", 2000, 2010, 65, 40, false),
   pad("pad-75x45", 2000, 2010, 75, 45, false),
   pad("pad-85x50", 2003, 2010, 85, 50, false),
+  pad("pad-100x56", 2012, 2019, 100, 56, "clickpad"),
+  pad("pad-105x70", 2014, 2019, 105, 70, "clickpad"),
+  pad("pad-130x80", 2015, 2019, 130, 80, "clickpad"),
   pad("pad-110x70", 2018, 2030, 110, 70, true),
   pad("pad-125x80", 2018, 2030, 125, 80, true),
   pad("pad-145x90", 2020, 2030, 145, 90, true),
@@ -300,6 +339,13 @@ export const SPEAKERS: Part[] = [
   spk("spk-stereo-sub", "Stereo plus subwoofer", 2005, 2010, [
     { size: spk06, count: 2 },
     { size: sub06, count: 1 },
+  ]),
+  spk("spk-stereo-2016", "Stereo, 2 x 2 W", 2011, 2019, [
+    { size: { x: 25, y: 12, z: 6 }, count: 2 },
+  ]),
+  spk("spk-stereo-2016-sub", "Stereo plus subwoofer", 2011, 2019, [
+    { size: { x: 25, y: 12, z: 6 }, count: 2 },
+    { size: { x: 35, y: 30, z: 10 }, count: 1 },
   ]),
   spk("spk-stereo-2026", "Stereo, 2 x 2 W", 2018, 2030, [
     { size: tw26, count: 2 },

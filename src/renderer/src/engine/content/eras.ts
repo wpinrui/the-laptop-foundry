@@ -30,6 +30,33 @@ export const ERAS: Era[] = [
     finDepth: 8,
   },
   {
+    year: 2016,
+    wall: {
+      plastic: [1.8, 1.4],
+      magnesium: [1.0, 0.8],
+      aluminium: [1.2, 1.0],
+      cfrp: [1.1, 0.9],
+    },
+    pieces: {
+      plastic: ["floor", "deck", "lid"],
+      magnesium: ["floor", "deck", "lid"],
+      aluminium: ["floor", "deck", "lid"],
+      cfrp: ["deck", "lid"],
+    },
+    gap: [2.5, 1.5],
+    bezel: { side: 8, top: 10, chin: 16 },
+    packCasing: 1,
+    pcb: 1.2,
+    heatPipe: 2.5,
+    spreader: 0.8,
+    deckExtra: 1.2,
+    boardMargin: 4,
+    vrmMm2PerWatt: 10,
+    vrmHeight: 2.5,
+    fan: { min: { x: 50, y: 50, z: 6 }, max: { x: 80, y: 80, z: 12 } },
+    finDepth: 8,
+  },
+  {
     year: 2026,
     wall: {
       plastic: [1.6, 1.2],

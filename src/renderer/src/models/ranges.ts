@@ -48,7 +48,7 @@ function base(year: number, body: string, layout: string): Build {
   const b = CONTENT.bodies.find((x) => x.id === body);
   const one = (part: string): BuildPart[] => [{ part }];
   const parts: Build["parts"] =
-    year < 2020
+    year < 2012
       ? {
           processor: one("core-duo-t2500"),
           memory: one("ddr2-667-sodimm"),
@@ -62,7 +62,22 @@ function base(year: number, body: string, layout: string): Build {
           speakers: one("spk-stereo-2006"),
           webcam: one("cam-0.3mp"),
         }
-      : {
+      : year < 2020
+        ? {
+            processor: one("core-i7-6700hq"),
+            graphics: one("geforce-gtx-1060-laptop"),
+            memory: one("ddr4-2133-sodimm"),
+            storage: one("m2-2280-sata"),
+            display: one("2016-14-1920x1080-ips"),
+            battery: one("li-po-pouch"),
+            cooling: one("two-fans"),
+            wireless: one("wifi-ac"),
+            keyboard: one("kb-1.5"),
+            trackpad: one("pad-105x70"),
+            speakers: one("spk-stereo-2016"),
+            webcam: one("cam-720p"),
+          }
+        : {
           processor: one("core-ultra9-275hx"),
           graphics: one("rtx-5070-laptop"),
           memory: one("ddr5-5600-sodimm"),
@@ -193,7 +208,7 @@ export function modelRanges(): Map<ModelKey, RoleRange> {
     }
   };
 
-  for (const year of [2006, 2026]) {
+  for (const year of [2006, 2016, 2026]) {
     // One part or option value at a time, into a base build; ports on every side.
     const subs: { cat: string; apply: (b: Build) => Build }[] = [
       { cat: "", apply: (b) => b },

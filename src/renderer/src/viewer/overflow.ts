@@ -53,7 +53,14 @@ export function overflowSlabs(fit: Fit): Slab[] {
         size: { ...inner.size, z: inner.size.z + inner.at.z },
       };
     if (b.piece === "lid") container = lidInner;
-    slabs.push(...outside(b as Box, container));
+    // A deck part hangs from the deck structure under the top wall: check its whole column,
+    // so a base that is short on thickness shows red even when no part itself pokes out.
+    const top = fit.frame.z - fit.shell.offsets.top;
+    const checked =
+      b.piece === "deck"
+        ? { at: b.at, size: { ...b.size, z: top - b.at.z } }
+        : b;
+    slabs.push(...outside(checked as Box, container));
   }
   return slabs.filter(
     (s) => s.size.x > 0.05 && s.size.y > 0.05 && s.size.z > 0.05,

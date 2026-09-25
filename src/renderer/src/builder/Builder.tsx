@@ -311,12 +311,11 @@ function SizeSlider({
           step={0.5}
           value={value}
           aria-label={`size ${axis}`}
-          onChange={(e) =>
-            set((b) => ({
-              ...b,
-              size: { ...b.size, [axis]: Number(e.target.value) },
-            }))
-          }
+          onChange={(e) => {
+            // Read the value now: the updater may run after React restores the controlled input.
+            const v = Number(e.target.value);
+            set((b) => ({ ...b, size: { ...b.size, [axis]: v } }));
+          }}
         />
         <span className="mark" style={{ left: `${markAt * 100}%` }} />
       </div>
@@ -625,14 +624,8 @@ export function Builder() {
                   flagged={flags.body}
                   options={bodies.map((b) => ({ value: b.id, label: b.name }))}
                   onChange={(v) =>
-                    set((b) => ({
-                      ...b,
-                      body: v,
-                      size: {
-                        ...(CONTENT.bodies.find((x) => x.id === v)?.size ??
-                          b.size),
-                      },
-                    }))
+                    // Bodies are shapes: switching keeps the laptop's size.
+                    set((b) => ({ ...b, body: v }))
                   }
                 />
                 <Select

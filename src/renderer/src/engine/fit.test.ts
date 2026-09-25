@@ -431,7 +431,9 @@ function check(build: Build, fit: Fit): string[] {
         o.z[0] < flat.z[0] - EPS ||
         o.z[1] > flat.z[1] + EPS
       )
-        fail(`${o.id} is not on the flat of the ${o.side} face`);
+        fail(
+          `${o.id} is not on the flat of the ${o.side} face: u ${o.u.map((v) => v.toFixed(2))} z ${o.z.map((v) => v.toFixed(2))} flat u ${flat.u.map((v) => v.toFixed(2))} z ${flat.z.map((v) => v.toFixed(2))} ${build.body} ${build.layout} frame ${JSON.stringify(F)}`,
+        );
       const rects = bySide.get(o.side) ?? [];
       for (const r of rects)
         if (
@@ -633,7 +635,9 @@ describe("fit engine", () => {
       const subs: {
         label: string;
         category: Category | "port";
-        apply: (b: Build, side: Side) => Build;
+        apply: (b: Build, side: Side, variant: number) => Build;
+        /** Other option values of the same part to try alongside the one under test. */
+        variants?: number;
       }[] = [];
       for (const c of CATEGORIES) {
         if (c === "display") {
@@ -660,12 +664,25 @@ describe("fit engine", () => {
               : opts.flatMap(([k, vs]) =>
                   vs.map((v) => ({ part: part.id, opts: { [k]: v } })),
                 );
-          for (const bp of combos)
+          for (const bp of combos) {
+            // The value under test stays fixed; the part's other options range over their values.
+            let alts: BuildPart[] = [bp];
+            for (const [k, vs] of opts) {
+              if (bp.opts && k in bp.opts) continue;
+              alts = alts.flatMap((a) =>
+                vs.map((v) => ({ ...a, opts: { ...a.opts, [k]: v } })),
+              );
+            }
             subs.push({
               label: `${c} ${part.id} ${JSON.stringify(bp.opts ?? {})}`,
               category: c,
-              apply: (b) => ({ ...b, parts: { ...b.parts, [c]: [bp] } }),
+              variants: alts.length,
+              apply: (b, _side, variant) => ({
+                ...b,
+                parts: { ...b.parts, [c]: [alts[variant]] },
+              }),
             });
+          }
         }
       }
       for (const port of partsFor("port", year))
@@ -685,49 +702,50 @@ describe("fit engine", () => {
           for (const side of sub.category === "port"
             ? layout.portSides
             : (["left"] as Side[]))
-            for (const cpu of cpus)
-              for (const mem of mems) {
-                const base = baseBuild(year, bodies[0].id, layout.id);
-                const swapped = {
-                  ...base,
-                  parts: {
-                    ...base.parts,
-                    processor: [{ part: cpu.id }],
-                    memory: [{ part: mem.id }],
-                  },
-                };
-                const b = sub.apply(swapped, side);
-                if (sub.category === "processor")
-                  b.parts.memory = swapped.parts.memory;
-                if (sub.category === "memory")
-                  b.parts.processor = swapped.parts.processor;
-                if (!solve(b).problems.every((p) => p.kind === "geometry"))
-                  continue;
-                compatible = true;
-                for (const body of bodies) {
-                  const at = {
-                    ...b,
-                    body: body.id,
-                    size: {
-                      x: body.limits.x[1],
-                      y: body.limits.y[1],
-                      z: body.limits.z[1],
+            for (let variant = 0; variant < (sub.variants ?? 1); variant++)
+              for (const cpu of cpus)
+                for (const mem of mems) {
+                  const base = baseBuild(year, bodies[0].id, layout.id);
+                  const swapped = {
+                    ...base,
+                    parts: {
+                      ...base.parts,
+                      processor: [{ part: cpu.id }],
+                      memory: [{ part: mem.id }],
                     },
                   };
-                  const f = run(
-                    `${year} ${sub.label} ${layout.id} ${side} on ${body.id}`,
-                    at,
-                  );
-                  run(
-                    `${year} ${sub.label} ${layout.id} ${side} on ${body.id} spend 1`,
-                    withSpend(at, 1),
-                  );
-                  if (f.problems.length === 0) {
-                    fits = true;
-                    break search;
+                  const b = sub.apply(swapped, side, variant);
+                  if (sub.category === "processor")
+                    b.parts.memory = swapped.parts.memory;
+                  if (sub.category === "memory")
+                    b.parts.processor = swapped.parts.processor;
+                  if (!solve(b).problems.every((p) => p.kind === "geometry"))
+                    continue;
+                  compatible = true;
+                  for (const body of bodies) {
+                    const at = {
+                      ...b,
+                      body: body.id,
+                      size: {
+                        x: body.limits.x[1],
+                        y: body.limits.y[1],
+                        z: body.limits.z[1],
+                      },
+                    };
+                    const f = run(
+                      `${year} ${sub.label} ${layout.id} ${side} on ${body.id}`,
+                      at,
+                    );
+                    run(
+                      `${year} ${sub.label} ${layout.id} ${side} on ${body.id} spend 1`,
+                      withSpend(at, 1),
+                    );
+                    if (f.problems.length === 0) {
+                      fits = true;
+                      break search;
+                    }
                   }
                 }
-              }
         if (!compatible)
           stats.failures.push(
             `${year} ${sub.label}: no compatible build exists`,

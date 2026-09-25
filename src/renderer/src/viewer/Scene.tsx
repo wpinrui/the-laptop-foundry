@@ -31,6 +31,10 @@ interface SceneProps {
   /** A page shown on the display panel, laid out at `width` CSS pixels across the active area. */
   screen?: { node: ReactNode; width: number; mm: { x: number; y: number } };
   camera?: { position: [number, number, number]; target: [number, number, number] };
+  /** Called with the unit clicked. */
+  onPick?: (box: Box) => void;
+  /** A table top under the laptop, in this colour. */
+  table?: string;
 }
 
 // ------------------------------------------------------------------ materials
@@ -153,6 +157,7 @@ function useUnitsGroup(
       obj.userData.label = labelFor(b);
       obj.traverse((o) => {
         o.userData.label = obj.userData.label;
+        o.userData.box = b;
         o.castShadow = true;
       });
       group.add(obj);
@@ -172,6 +177,7 @@ function Units({
   ctx,
   labelFor,
   onHover,
+  onPick,
   year,
   hinge,
 }: {
@@ -179,6 +185,7 @@ function Units({
   ctx: UnitCtx;
   labelFor: (b: Box) => string;
   onHover: SceneProps["onHover"];
+  onPick?: SceneProps["onPick"];
   year: number;
   hinge: UnitOpts["hinge"];
 }) {
@@ -197,6 +204,13 @@ function Units({
       object={group}
       onPointerMove={move}
       onPointerOut={() => onHover(null)}
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        const box = e.object.userData.box as Box | undefined;
+        if (onPick && box) {
+          e.stopPropagation();
+          onPick(box);
+        }
+      }}
     />
   );
 }
@@ -342,7 +356,9 @@ const Model = memo(function Model({
   colours,
   labelFor,
   onHover,
+  onPick,
   screen,
+  table,
 }: SceneProps) {
   const ctx = useMemo(() => makeCtx(), []);
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
@@ -383,11 +399,18 @@ const Model = memo(function Model({
           z={out.z}
         />
         <Openings fit={fit} />
+        {table && (
+          <mesh position={[out.x / 2, out.y / 2, -3]} scale={[out.x * 4, out.y * 3, 6]}>
+            <boxGeometry />
+            <meshStandardMaterial color={table} roughness={0.8} />
+          </mesh>
+        )}
         <Units
           boxes={base}
           ctx={ctx}
           labelFor={labelFor}
           onHover={onHover}
+          onPick={onPick}
           year={year}
           hinge={fit.shell.style.hinge}
         />

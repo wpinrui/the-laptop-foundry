@@ -17,7 +17,7 @@ import { ReviewSite } from "./ReviewSite";
 // panel: resolution, brightness, colour and surface. F shows it full screen,
 // clean, with no panel simulation.
 
-interface Look {
+export interface Look {
   width: number;
   height: number;
   mm: { x: number; y: number };
@@ -26,7 +26,7 @@ interface Look {
   shift: number;
 }
 
-function lookOf(panel: PanelOption | undefined): Look | null {
+export function lookOf(panel: PanelOption | undefined): Look | null {
   if (!panel) return null;
   const mm = activeArea(panel);
   const ppi = panel.res[0] / (mm.x / 25.4);

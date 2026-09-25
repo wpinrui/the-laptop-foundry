@@ -5,6 +5,7 @@ import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { emptyBuild } from "./builder/structure";
 import { type Build, CONTENT, type Subject } from "./engine";
+import { CafeScreen } from "./cafe/CafeScreen";
 import { ReviewScreen } from "./review/ReviewScreen";
 
 const store = () => window.api.store;
@@ -22,6 +23,7 @@ export function App() {
   const [data, setData] = useState<SavedData | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState<Subject | null>(null);
+  const [using, setUsing] = useState<Subject | null>(null);
 
   useEffect(() => {
     store().load().then(setData);
@@ -43,6 +45,10 @@ export function App() {
   const company = data.company;
   const review = (m: SavedModel) =>
     setReviewing({ id: m.id, name: m.name, company, build: m.build as Build });
+  if (using)
+    return (
+      <CafeScreen key={using.id} subject={using} onBack={() => setUsing(null)} />
+    );
   if (reviewing)
     return (
       <ReviewScreen
@@ -92,6 +98,11 @@ export function App() {
       onReview={(id) => {
         const m = data.models.find((x) => x.id === id);
         if (m) review(m);
+      }}
+      onUse={(id) => {
+        const m = data.models.find((x) => x.id === id);
+        if (m)
+          setUsing({ id: m.id, name: m.name, company, build: m.build as Build });
       }}
     />
   );

@@ -5,7 +5,12 @@ import * as THREE from "three";
 import type { Box, Fit } from "../engine";
 import { shellSurface } from "../engine";
 import { overflowSlabs } from "./overflow";
-import { disposeUnit, renderUnit, type UnitCtx } from "./renderUnit";
+import {
+  disposeUnit,
+  renderUnit,
+  type UnitCtx,
+  type UnitOpts,
+} from "./renderUnit";
 import { baseOffset, CAMERA_POSITION, ENGINE_ROTATION_X } from "./space";
 import { roleColour, token } from "./theme";
 
@@ -17,6 +22,7 @@ export interface Hover {
 
 interface SceneProps {
   fit: Fit;
+  year: number;
   /** Lid opening angle in degrees. */
   lidAngle: number;
   colours: { floor: string; deck: string; lid: string };
@@ -50,6 +56,46 @@ function makeCtx(): UnitCtx & { dispose(): void } {
       }
       return m;
     },
+    slots(bodyColour) {
+      const std = (
+        key: string,
+        params: THREE.MeshStandardMaterialParameters,
+      ) => {
+        let m = cache.get(key);
+        if (!m) {
+          m = new THREE.MeshStandardMaterial(params);
+          cache.set(key, m);
+        }
+        return m;
+      };
+      return {
+        body: this.material(bodyColour),
+        glow: this.material(bodyColour, "glow"),
+        metal: std("slot|metal", {
+          color: token("slot-metal"),
+          roughness: 0.35,
+          metalness: 0.8,
+        }),
+        plastic: std("slot|plastic", {
+          color: token("slot-plastic"),
+          roughness: 0.7,
+          metalness: 0,
+        }),
+        rubber: std("slot|rubber", {
+          color: token("slot-rubber"),
+          roughness: 0.95,
+          metalness: 0,
+        }),
+        glass: std("slot|glass", {
+          color: token("slot-glass"),
+          roughness: 0.05,
+          metalness: 0,
+          transparent: true,
+          opacity: 0.35,
+        }),
+      };
+    },
+    danger: token("color-danger"),
     dispose() {
       for (const m of cache.values()) m.dispose();
       cache.clear();
@@ -64,6 +110,8 @@ function useUnitsGroup(
   boxes: Box[],
   ctx: UnitCtx,
   labelFor: (b: Box) => string,
+  year: number,
+  hinge: UnitOpts["hinge"],
 ): THREE.Group {
   const group = useMemo(() => new THREE.Group(), []);
   const live = useRef(new Map<string, { key: string; obj: THREE.Object3D }>());
@@ -71,7 +119,7 @@ function useUnitsGroup(
     const seen = new Set<string>();
     for (const b of boxes) {
       seen.add(b.id);
-      const key = `${b.role}|${b.part ?? ""}|${b.size.x.toFixed(3)}|${b.size.y.toFixed(3)}|${b.size.z.toFixed(3)}`;
+      const key = `${b.role}|${b.part ?? ""}|${b.size.x.toFixed(3)}|${b.size.y.toFixed(3)}|${b.size.z.toFixed(3)}|${JSON.stringify(b.opts ?? {})}|${b.edge ?? ""}|${year}|${hinge}`;
       const had = live.current.get(b.id);
       if (had && had.key === key) {
         had.obj.position.set(
@@ -83,7 +131,12 @@ function useUnitsGroup(
         continue;
       }
       if (had) disposeUnit(had.obj);
-      const obj = renderUnit(b.role, b, { colour: roleColour(b.role) }, ctx);
+      const obj = renderUnit(
+        b.role,
+        b,
+        { colour: roleColour(b.role), year, hinge },
+        ctx,
+      );
       obj.userData.label = labelFor(b);
       obj.traverse((o) => {
         o.userData.label = obj.userData.label;
@@ -97,7 +150,7 @@ function useUnitsGroup(
       disposeUnit(v.obj);
       live.current.delete(id);
     }
-  }, [boxes, ctx, group, labelFor]);
+  }, [boxes, ctx, group, labelFor, year, hinge]);
   return group;
 }
 
@@ -106,13 +159,17 @@ function Units({
   ctx,
   labelFor,
   onHover,
+  year,
+  hinge,
 }: {
   boxes: Box[];
   ctx: UnitCtx;
   labelFor: (b: Box) => string;
   onHover: SceneProps["onHover"];
+  year: number;
+  hinge: UnitOpts["hinge"];
 }) {
-  const group = useUnitsGroup(boxes, ctx, labelFor);
+  const group = useUnitsGroup(boxes, ctx, labelFor, year, hinge);
   const move = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const label = e.object.userData.label as string | undefined;
@@ -258,6 +315,7 @@ function Overflow({ fit }: { fit: Fit }) {
 
 const Model = memo(function Model({
   fit,
+  year,
   lidAngle,
   colours,
   labelFor,
@@ -301,7 +359,14 @@ const Model = memo(function Model({
           z={out.z}
         />
         <Openings fit={fit} />
-        <Units boxes={base} ctx={ctx} labelFor={labelFor} onHover={onHover} />
+        <Units
+          boxes={base}
+          ctx={ctx}
+          labelFor={labelFor}
+          onHover={onHover}
+          year={year}
+          hinge={fit.shell.style.hinge}
+        />
         <Overflow fit={fit} />
         {/* The lid turns about the hinge axis, which runs along x. */}
         <group position={[0, hy, hz]} rotation-x={(-lidAngle * Math.PI) / 180}>
@@ -318,6 +383,8 @@ const Model = memo(function Model({
               ctx={ctx}
               labelFor={labelFor}
               onHover={onHover}
+              year={year}
+              hinge={fit.shell.style.hinge}
             />
           </group>
         </group>

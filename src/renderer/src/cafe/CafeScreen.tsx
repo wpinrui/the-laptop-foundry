@@ -19,7 +19,7 @@ import { balancedProfile } from "../engine/sim/profiles";
 import { lookOf } from "../review/ReviewScreen";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
 import { token } from "../viewer/theme";
-import { Scene } from "../viewer/Scene";
+import { Scene, surfacesOf } from "../viewer/Scene";
 import "./cafe.css";
 
 // The cafe: the laptop on a table, running what the simulation says it can.
@@ -496,6 +496,7 @@ export function CafeScreen({
   ) : null;
 
   const colour = (id: string) => CONTENT.colours.find((c) => c.id === id)?.hex ?? "";
+  const surfaces = useMemo(() => surfacesOf(build), [build]);
   const colours = useMemo(
     () => ({
       floor: colour(build.finish.floor.colour),
@@ -523,6 +524,8 @@ export function CafeScreen({
         year={build.year}
         lidAngle={105}
         colours={colours}
+        surfaces={surfaces}
+        xray={false}
         labelFor={labelFor}
         onHover={noHover}
         onPick={onPick}

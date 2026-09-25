@@ -24,7 +24,7 @@ import {
   simulate,
   solve,
 } from "../engine";
-import { type Hover, Scene } from "../viewer/Scene";
+import { type Hover, Scene, surfacesOf } from "../viewer/Scene";
 import { formatOption, panelLabel } from "./format";
 import { Measurements } from "./Measurements";
 import { Power } from "./Power";
@@ -300,12 +300,15 @@ function SizeSlider({
   set,
   fit,
   flags,
+  lock,
 }: {
   axis: Axis;
   build: Build;
   set: SetBuild;
   fit: Fit;
   flags: Flags;
+  /** Scale every axis by the same ratio, in the spirit of a uniform scale. */
+  lock: boolean;
 }) {
   const body = CONTENT.bodies.find((b) => b.id === build.body);
   if (!body) return null;
@@ -331,7 +334,18 @@ function SizeSlider({
           onChange={(e) => {
             // Read the value now: the updater may run after React restores the controlled input.
             const v = Number(e.target.value);
-            set((b) => ({ ...b, size: { ...b.size, [axis]: v } }));
+            set((b) => {
+              if (!lock || b.size[axis] <= 0)
+                return { ...b, size: { ...b.size, [axis]: v } };
+              const k = v / b.size[axis];
+              const size = { ...b.size };
+              for (const a of ["x", "y", "z"] as Axis[]) {
+                const [l, h] = body.limits[a];
+                const step = 0.5;
+                size[a] = a === axis ? v : Math.min(h, Math.max(l, Math.round((b.size[a] * k) / step) * step));
+              }
+              return { ...b, size };
+            });
           }}
         />
         <span className="mark" style={{ left: `${markAt * 100}%` }} />
@@ -437,7 +451,12 @@ function Materials({
         const colours = CONTENT.colours.filter(
           (c) => available(c, year) || c.id === build.finish[piece].colour,
         );
-        const finishes = (mat?.finishes ?? []).map((f) => ({
+        const finishes = (mat?.finishes ?? [])
+          .filter((f) => {
+            const fin = CONTENT.finishes.find((x) => x.id === f);
+            return !fin || available(fin, year);
+          })
+          .map((f) => ({
           value: f,
           label: CONTENT.finishes.find((x) => x.id === f)?.name ?? f,
         }));
@@ -605,6 +624,10 @@ export function Builder({
   };
   const [tab, setTab] = useState<Tab>("Body");
   const [lidAngle, setLidAngle] = useState(100);
+  const [lock, setLock] = useState(false);
+  // X-ray follows the tab (see-through while fitting parts) unless pinned.
+  const [xrayPin, setXrayPin] = useState<boolean | null>(null);
+  const xray = xrayPin ?? (tab === "Body" || tab === "Internals");
   const set: SetBuild = useCallback(
     (f) => {
       if (!locked) setBuild((b) => f(b));
@@ -635,6 +658,10 @@ export function Builder({
       build.finish.deck.colour,
       build.finish.lid.colour,
     ],
+  );
+  const surfaces = useMemo(
+    () => surfacesOf(build),
+    [build.materials, build.finish],
   );
   const labelFor = useCallback((b: Box) => {
     const byRole = ROLE_NAME[b.role];
@@ -769,6 +796,14 @@ export function Builder({
                   }
                 />
               </div>
+              <label className="lock">
+                <input
+                  type="checkbox"
+                  checked={lock}
+                  onChange={(e) => setLock(e.target.checked)}
+                />
+                Keep proportions
+              </label>
               <div className="sizes">
                 {(["x", "y", "z"] as Axis[]).map((a) => (
                   <SizeSlider
@@ -778,6 +813,7 @@ export function Builder({
                     set={set}
                     fit={fit}
                     flags={flags}
+                    lock={lock}
                   />
                 ))}
               </div>
@@ -860,7 +896,18 @@ export function Builder({
           colours={colours}
           labelFor={labelFor}
           onHover={hoverStore.set}
+          surfaces={surfaces}
+          xray={xray}
+          workshop
         />
+        <button
+          type="button"
+          className={xray ? "xray on" : "xray"}
+          title="X-ray follows the tab until you pick"
+          onClick={() => setXrayPin(!xray)}
+        >
+          {xrayPin === null ? "X-ray (auto)" : xray ? "X-ray on" : "X-ray off"}
+        </button>
         <input
           className="lid-angle"
           type="range"

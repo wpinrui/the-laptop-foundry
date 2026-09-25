@@ -55,7 +55,15 @@ export function toYear(b: Build, year: number): Build {
     (x) => x.id === b.body && available(x, year),
   );
   const body = bodyOk ? b.body : firstBody(year);
-  const next: Build = { ...b, year, body, parts: {}, ports: [], spend: {} };
+  const next: Build = {
+    ...b,
+    year,
+    body,
+    parts: {},
+    ports: [],
+    spend: {},
+    power: undefined,
+  };
   next.layout = validLayout(body, b.layout, year);
   return { ...next, ...validFinish(next) };
 }

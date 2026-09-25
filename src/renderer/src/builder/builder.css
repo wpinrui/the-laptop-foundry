@@ -247,3 +247,115 @@ input[type="range"] {
   padding: var(--space-1) var(--space-2);
   z-index: 10;
 }
+
+/* Power limits: one row per profile. */
+.power {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.power-row {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, 3.5rem);
+  gap: var(--space-1);
+  align-items: center;
+  font-size: var(--font-size-caption);
+}
+
+.power-row.gpu {
+  grid-template-columns: 1fr repeat(5, 3.5rem);
+}
+
+.power-row.head,
+.power-row.sub {
+  color: var(--color-text-muted);
+}
+
+.power-row .span2 {
+  grid-column: span 2;
+}
+
+.power-row.off .watts {
+  opacity: 0.5;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.watts {
+  font: inherit;
+  width: 100%;
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Live measurements over the stage. */
+.measurements {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 19rem;
+  max-height: calc(100% - 5rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.measurements b {
+  color: var(--color-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.m-grid {
+  display: grid;
+  grid-template-columns: 1fr 4.5rem 4.5rem;
+  gap: var(--space-1) var(--space-2);
+}
+
+.m-grid b,
+.m-head {
+  text-align: right;
+}
+
+.m-trace {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.m-trace div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.m-battery {
+  display: grid;
+  grid-template-columns: 1fr repeat(4, 3.5rem);
+  gap: var(--space-1) var(--space-2);
+}
+
+.m-battery b {
+  text-align: right;
+}
+
+.m-battery .on {
+  color: var(--color-text);
+  font-weight: 600;
+}

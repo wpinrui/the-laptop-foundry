@@ -1,4 +1,36 @@
-import type { Part, Size } from "../types";
+import type { Part, PowerSpec, Size } from "../types";
+
+// Power: range, default sustained and boost limits (typical for the part's
+// class of machine), rated power (sizes the power stage), idle package power.
+// Scores are Cinebench R23 points (multi-core at a package power, single-core
+// at full boost) and integrated graphics in Time Spy graphics points. 2006
+// parts never ran R23: their figures are scaled from Cinebench R15 by about 10
+// (multi) and 6 (single), and their graphics are scaled from shader throughput.
+
+/** [min, max], sustained, boost, rated, idle, multi points, single, igpu. */
+function pw(
+  arch: string,
+  range: [number, number],
+  sustained: number,
+  boost: number,
+  rated: number,
+  idle: number,
+  points: [number, number][],
+  single: number,
+  igpu: [number, number],
+): PowerSpec {
+  return {
+    arch,
+    range,
+    sustained,
+    boost,
+    rated,
+    idle,
+    points: points.map(([watts, score]) => ({ watts, score })),
+    single,
+    igpu: { watts: igpu[0], score: igpu[1] },
+  };
+}
 
 // Package footprint as mounted (x by y), height over the PCB. Sockets stand
 // taller than BGA packages. Platforms with a separate chipset add its block
@@ -13,7 +45,7 @@ function cpu(
   from: number,
   until: number,
   size: Size,
-  watts: number,
+  power: PowerSpec,
   provides: string[],
   info: Record<string, string | number>,
   chipset?: Size,
@@ -31,7 +63,7 @@ function cpu(
     until,
     shape,
     compact: ["x"],
-    watts: [watts, watts],
+    power,
     provides,
     info,
   };
@@ -52,7 +84,7 @@ export const PROCESSORS: Part[] = [
     2006,
     2008,
     { x: 35, y: 35, z: socket2006 },
-    27,
+    pw("yonah", [10, 27], 27, 27, 27, 6, [[27, 260]], 260, [27, 8]),
     intel2006,
     gma,
     i945,
@@ -63,7 +95,7 @@ export const PROCESSORS: Part[] = [
     2006,
     2008,
     { x: 35, y: 35, z: bga2006 },
-    9,
+    pw("yonah", [4, 9], 9, 9, 9, 0.8, [[9, 360]], 190, [9, 8]),
     intel2006,
     gma,
     i945,
@@ -74,7 +106,7 @@ export const PROCESSORS: Part[] = [
     2006,
     2008,
     { x: 35, y: 35, z: socket2006 },
-    31,
+    pw("yonah", [10, 31], 31, 31, 31, 1, [[31, 590]], 310, [31, 8]),
     intel2006,
     gma,
     i945,
@@ -85,7 +117,7 @@ export const PROCESSORS: Part[] = [
     2006,
     2008,
     { x: 35, y: 35, z: socket2006 },
-    34,
+    pw("merom", [10, 34], 34, 34, 34, 1.5, [[34, 570]], 300, [34, 8]),
     intel2006,
     gma,
     i945,
@@ -96,7 +128,7 @@ export const PROCESSORS: Part[] = [
     2006,
     2008,
     { x: 35, y: 35, z: socket2006 },
-    34,
+    pw("merom", [10, 34], 34, 34, 34, 1.5, [[34, 800]], 420, [34, 8]),
     intel2006,
     gma,
     i945,
@@ -107,7 +139,7 @@ export const PROCESSORS: Part[] = [
     2006,
     2008,
     { x: 35, y: 35, z: socket2006 },
-    35,
+    pw("k8", [10, 35], 35, 35, 35, 2.5, [[35, 540]], 280, [35, 7]),
     amd2006,
     { platform: "ATI RS485", igpu: "Radeon Xpress 1150 (chipset)" },
     rs485,
@@ -120,7 +152,7 @@ export const PROCESSORS: Part[] = [
     2024,
     2030,
     { x: 50, y: 25, z: 1.5 },
-    15,
+    pw("raptor-lake-u", [8, 55], 25, 45, 15, 0.6, [[25, 8500]], 1750, [25, 1600]),
     ["platform:intel", "mem:ddr5-sodimm", "mem:lpddr5x-soldered", "dgpu"],
     { platform: "Raptor Lake-U", igpu: "Intel Graphics" },
   ),
@@ -130,7 +162,7 @@ export const PROCESSORS: Part[] = [
     2024,
     2030,
     { x: 27.5, y: 27, z: 1.5 },
-    17,
+    pw("lunar-lake", [8, 37], 25, 37, 17, 0.4, [[17, 8000], [30, 10300]], 1850, [30, 4000]),
     ["platform:intel", "mem:on-package", "dgpu"],
     { platform: "Lunar Lake", igpu: "Arc 140V", onPackageGb: 32 },
   ),
@@ -140,7 +172,7 @@ export const PROCESSORS: Part[] = [
     2026,
     2030,
     { x: 50, y: 25, z: 1.5 },
-    25,
+    pw("panther-lake", [15, 80], 45, 65, 25, 0.6, [[50, 19000]], 2150, [45, 6500]),
     ["platform:intel", "mem:lpddr5x-soldered", "mem:lpcamm2", "dgpu"],
     { platform: "Panther Lake", igpu: "Arc B390" },
   ),
@@ -150,7 +182,7 @@ export const PROCESSORS: Part[] = [
     2025,
     2030,
     { x: 37.5, y: 45, z: 2 },
-    55,
+    pw("arrow-lake-hx", [45, 160], 125, 160, 55, 2, [[55, 26000], [140, 36000]], 2250, [55, 1000]),
     ["platform:intel", "mem:ddr5-sodimm", "dgpu"],
     { platform: "Arrow Lake-HX", igpu: "Intel graphics (4 Xe cores)" },
     hm870,
@@ -161,7 +193,7 @@ export const PROCESSORS: Part[] = [
     2025,
     2030,
     { x: 25, y: 40, z: 1.5 },
-    28,
+    pw("zen5-mobile", [15, 54], 28, 40, 28, 0.7, [[28, 10500]], 1850, [28, 2700]),
     ["platform:amd", "mem:lpddr5x-soldered", "mem:ddr5-sodimm", "dgpu"],
     { platform: "Krackan Point", igpu: "Radeon 840M" },
   ),
@@ -171,7 +203,7 @@ export const PROCESSORS: Part[] = [
     2026,
     2030,
     { x: 25, y: 40, z: 1.5 },
-    28,
+    pw("zen5-mobile", [15, 54], 45, 54, 28, 0.8, [[28, 16000], [54, 20000]], 2050, [45, 4000]),
     ["platform:amd", "mem:lpddr5x-soldered", "mem:ddr5-sodimm", "dgpu"],
     { platform: "Gorgon Point", igpu: "Radeon 890M" },
   ),
@@ -181,7 +213,7 @@ export const PROCESSORS: Part[] = [
     2025,
     2030,
     { x: 37.5, y: 52.5, z: 2 },
-    55,
+    pw("strix-halo", [45, 120], 80, 120, 55, 2.5, [[80, 33000]], 2000, [100, 10500]),
     ["platform:amd", "mem:lpddr5x-soldered", "mem:128gb", "dgpu"],
     { platform: "Strix Halo", igpu: "Radeon 8060S" },
   ),
@@ -191,7 +223,7 @@ export const PROCESSORS: Part[] = [
     2025,
     2030,
     { x: 40, y: 40, z: 2 },
-    55,
+    pw("fire-range", [55, 160], 125, 160, 55, 4, [[55, 28000], [140, 38000]], 2150, [55, 600]),
     ["platform:amd", "mem:ddr5-sodimm", "dgpu"],
     { platform: "Fire Range", igpu: "Radeon 610M" },
   ),
@@ -202,7 +234,7 @@ export const PROCESSORS: Part[] = [
     2026,
     2030,
     { x: 36, y: 36, z: 1.5 },
-    23,
+    pw("oryon", [15, 80], 45, 65, 23, 0.5, [[50, 28000]], 2300, [45, 4500]),
     ["platform:qualcomm", "mem:lpddr5x-soldered"],
     { platform: "Snapdragon X2", igpu: "Adreno X2-90" },
   ),

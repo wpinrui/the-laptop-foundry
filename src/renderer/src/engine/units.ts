@@ -334,7 +334,7 @@ function emitShape(
         row: shape.row,
         hot: !!shape.hot,
         part: part.id,
-        watts: part.watts?.[1],
+        watts: part.power?.rated ?? part.watts?.[1],
       });
       return;
     }

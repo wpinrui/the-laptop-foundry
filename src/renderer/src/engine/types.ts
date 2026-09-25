@@ -270,8 +270,10 @@ export interface Part extends Dated {
   needs?: string[];
   /** Needs that only apply when an option has a given value. */
   optionNeeds?: Record<string, Record<string, string[]>>;
-  /** Default power range. The top of it sizes the power stage. */
+  /** Default power range. The top of it sizes the power stage. Processors and graphics use `power` instead. */
   watts?: Range;
+  /** Power range, default limits and performance curve data for processors and graphics. */
+  power?: PowerSpec;
   /** Hot-swap in 2026: the main pack moves into a removable casing of this thickness. */
   packCasing?: Mm;
   /** Descriptive facts for the review and the UI. Never read by the solver. */
@@ -297,6 +299,51 @@ export interface PanelType extends Dated {
   coverGlass?: boolean;
 }
 
+// ---------------------------------------------------------------- power
+
+/** A curated real measurement: a score at a known package power. */
+export interface PowerPoint {
+  watts: number;
+  score: number;
+}
+
+export interface PowerSpec {
+  /** Architecture key into the simulation's curve table. */
+  arch: string;
+  /** Lowest and highest power the part can be set to. */
+  range: Range;
+  /** Default sustained and short-boost limits. */
+  sustained: number;
+  boost: number;
+  /** Rated power. Sizes the power stage in the fit engine. */
+  rated: number;
+  /** Package power at idle. */
+  idle: number;
+  /** Multi-core points (processors) or graphics points (graphics). */
+  points: PowerPoint[];
+  /** Single-core score with one core at full boost. Processors only. */
+  single?: number;
+  /** Integrated graphics score at a package power. Processors only. */
+  igpu?: PowerPoint;
+}
+
+export type ProfileId = "high" | "medium" | "low";
+export const PROFILES: ProfileId[] = ["high", "medium", "low"];
+
+export interface Limits {
+  sustained: number;
+  boost: number;
+}
+
+export interface Profile {
+  enabled: boolean;
+  cpu: Limits;
+  /** Discrete graphics limits. Ignored without a discrete part. */
+  gpu: Limits;
+  /** Highest fan speed allowed, 0 to 1. */
+  fan: number;
+}
+
 // ---------------------------------------------------------------- build
 
 export interface BuildPart {
@@ -317,6 +364,8 @@ export interface Build {
   materials: Record<Piece, string>;
   finish: Record<Piece, { colour: string; texture: string }>;
   spend: Partial<Record<SpendKey, number>>;
+  /** Power profiles as the player set them. Absent means the part defaults. */
+  power?: Record<ProfileId, Profile>;
 }
 
 // ---------------------------------------------------------------- fit

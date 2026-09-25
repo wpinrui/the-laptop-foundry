@@ -13,10 +13,13 @@ import {
   panelsFor,
   partsFor,
   type Side,
+  simulate,
   solve,
 } from "../engine";
 import { type Hover, Scene } from "../viewer/Scene";
 import { formatOption, panelLabel } from "./format";
+import { Measurements } from "./Measurements";
+import { Power } from "./Power";
 import { emptyBuild, materialsFor, toBody, toYear } from "./structure";
 import "./builder.css";
 
@@ -212,7 +215,10 @@ function PartRow({
       const next = [...(b.parts[cat] ?? [])];
       if (!id) next.splice(slot, 1);
       else next[slot] = { part: id };
-      return withList(b, cat, next);
+      const out = withList(b, cat, next);
+      // New chips start from their own default power limits.
+      if (cat === "processor" || cat === "graphics") delete out.power;
+      return out;
     });
   const setOpt = (key: string, v: string) =>
     set((b) => {
@@ -552,6 +558,7 @@ export function Builder() {
   const set: SetBuild = useCallback((f) => setBuild((b) => f(b)), []);
   const fit = useMemo(() => solve(build), [build]);
   const flags = useMemo(() => flagsOf(fit.problems, build), [fit, build]);
+  const measured = useMemo(() => simulate(build, fit), [build, fit]);
 
   const colourHex = (id: string) =>
     CONTENT.colours.find((c) => c.id === id)?.hex ?? "";
@@ -689,6 +696,7 @@ export function Builder() {
                   flags={flags}
                 />
               ))}
+              <Power build={build} set={set} />
             </>
           )}
           {tab === "Display and input" &&
@@ -736,6 +744,7 @@ export function Builder() {
           aria-label="lid"
           onChange={(e) => setLidAngle(Number(e.target.value))}
         />
+        <Measurements m={measured} />
         <HoverLabel />
       </main>
     </div>

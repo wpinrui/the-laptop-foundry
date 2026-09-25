@@ -225,7 +225,18 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
       const base = `${cat}:${n}`;
       shapes(part).forEach((shape, s) => {
         const id = s === 0 ? base : `${base}:${s}`;
-        emitShape(out, push, part, bp, shape, id, f, casing, era);
+        emitShape(
+          out,
+          push,
+          part,
+          bp,
+          shape,
+          id,
+          f,
+          casing,
+          era,
+          spendOf(build, cat),
+        );
       });
       if (cat === "keyboard" && opt(part, bp, "light") === "lid-light") {
         push({
@@ -261,6 +272,11 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
   return out;
 }
 
+function padStack(mech: string, spend: number): number {
+  const [a, b] = PAD_STACK[mech] ?? PAD_STACK.mechanical;
+  return a + (b - a) * spend;
+}
+
 function resolvedOpts(
   idx: Index,
   cat: Category,
@@ -290,6 +306,7 @@ function emitShape(
   f: number,
   casing: number,
   era: Era,
+  spend: number,
 ): void {
   switch (shape.kind) {
     case "none":
@@ -361,9 +378,11 @@ function emitShape(
         id,
         role: "keys",
         size: {
-          x: cols * pitch + 8,
+          // A row of "15 columns" is about 14.5 full keys wide (narrow keys at the
+          // ends), plus a 2 mm frame each side. Calibrated against real 14 inch boards.
+          x: (cols - 0.5) * pitch + 4,
           y: shape.rows * pitch + 4,
-          z: shape.stack,
+          z: shape.stack[0] + (shape.stack[1] - shape.stack[0]) * spend,
         },
         part: part.id,
       });
@@ -380,7 +399,7 @@ function emitShape(
         size: {
           x: shape.x,
           y: shape.y + rows * PAD_BUTTON_ROW,
-          z: PAD_STACK[mech] ?? 4.5,
+          z: padStack(mech, spend),
         },
         part: part.id,
       });
@@ -392,12 +411,14 @@ function emitShape(
       out.finDepth = part.compact.includes("y")
         ? era.finDepth * f
         : era.finDepth;
-      const fin = { x: 0, y: out.finDepth, z: era.fan.min.z };
+      // Cooling spend thins the fan by up to a third; the fin stack matches it.
+      const fanZ = era.fan.min.z * (1 - spend / 3);
+      const fin = { x: 0, y: out.finDepth, z: fanZ };
       for (let i = 0; i < shape.count; i++) {
         push({
           id: `${id}:fan:${i}`,
           role: "fan",
-          size: { ...era.fan.min },
+          size: { ...era.fan.min, z: fanZ },
           part: part.id,
         });
         push({

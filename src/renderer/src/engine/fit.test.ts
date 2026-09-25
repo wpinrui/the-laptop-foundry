@@ -25,6 +25,15 @@ import { CATEGORIES, PIECES, SIDES } from "./types";
 import { validateContent } from "./validate";
 
 const EPS = 1e-6;
+/**
+ * References the engine may undershoot. The engine gives the minimum a build
+ * needs; these real machines carry more than their minimum, so only the upper
+ * side of the tolerance is held.
+ */
+const KNOWN_THIN: Record<string, string> = {
+  "dtr-2006":
+    "the M1710 is about 5 mm thicker than the minimum for its parts; the optical drive under the keyboard sets the engine's minimum",
+};
 const AXES: Axis[] = ["x", "y", "z"];
 const YEARS = [2006, 2026];
 /** Per-solve budget: a quarter of a 60 Hz frame, so a slider tick never drops a frame. */
@@ -253,13 +262,32 @@ function check(build: Build, fit: Fit): string[] {
   const topWall = F.z - shell.offsets.top;
   if (
     Math.abs(shell.bands.floor[1] - topWall) > EPS ||
-    Math.abs(shell.bands.deck[1] - topWall) > EPS
+    Math.abs(shell.bands.deck[1] - F.z) > EPS
   )
-    fail("bands do not run up to the top wall");
+    fail("bands do not run up to the top wall and the top surface");
   // The deck layer: each deck part's column, from its underside up to the top wall.
   const deckColumns = units
     .filter((u) => u.piece === "deck")
-    .map((u) => ({ ...u, size: { ...u.size, z: topWall - u.at.z } }));
+    .map((u) => ({ ...u, size: { ...u.size, z: F.z - u.at.z } }));
+  // A removable pack replaces the bottom wall under it; a well opens the top wall over a deck part.
+  const wallsFor = (u: Box) =>
+    u.skin
+      ? { ...shell.walls, bottom: 0 }
+      : u.piece === "deck"
+        ? { ...shell.walls, top: 0 }
+        : shell.walls;
+  for (const u of units.filter((b) => b.piece === "deck")) {
+    const well = shell.wells.some(
+      (w) =>
+        Math.abs(w.at.x - u.at.x) < EPS &&
+        Math.abs(w.at.y - u.at.y) < EPS &&
+        Math.abs(w.size.x - u.size.x) < EPS &&
+        Math.abs(w.size.y - u.size.y) < EPS,
+    );
+    if (!well) fail(`${u.id} has no well in the top wall`);
+    if (Math.abs(u.at.z + u.size.z - F.z) > EPS)
+      fail(`${u.id} is not flush with the top surface`);
+  }
   // Removable packs forming the underside: on the outer bottom, each with its hatch in the bottom wall.
   for (const u of units.filter((b) => b.skin)) {
     if (u.role !== "battery") fail(`${u.id} is a skin but not a battery`);
@@ -288,26 +316,30 @@ function check(build: Build, fit: Fit): string[] {
     const inside =
       u.piece === "lid"
         ? corners(u).every((c) =>
-            insideLid(c, F, shell.lid.at.z, fit.lidZ, style, shell.walls.lid),
-          )
-        : corners(u).every((c) =>
-            insideBase(
+            insideLid(
               c,
               F,
+              shell.lid.at.z,
+              fit.lidZ,
               style,
-              u.skin ? { ...shell.walls, bottom: 0 } : shell.walls,
+              shell.walls.lid,
+              shell.walls.lidFront,
             ),
-          );
+          )
+        : corners(u).every((c) => insideBase(c, F, style, wallsFor(u)));
     if (!inside) {
       const bad = corners(u).find((c) =>
         u.piece === "lid"
-          ? !insideLid(c, F, shell.lid.at.z, fit.lidZ, style, shell.walls.lid)
-          : !insideBase(
+          ? !insideLid(
               c,
               F,
+              shell.lid.at.z,
+              fit.lidZ,
               style,
-              u.skin ? { ...shell.walls, bottom: 0 } : shell.walls,
-            ),
+              shell.walls.lid,
+              shell.walls.lidFront,
+            )
+          : !insideBase(c, F, style, wallsFor(u)),
       );
       fail(
         `${u.id} (${u.role}) pokes out of the ${u.piece === "lid" ? "lid" : "base"} shell at ${JSON.stringify(bad)} in frame ${JSON.stringify(F)} (${build.body})`,
@@ -325,7 +357,7 @@ function check(build: Build, fit: Fit): string[] {
     }
     if (
       u.piece === "deck" &&
-      (u.at.z < shell.bands.deck[0] - EPS || u.at.z + u.size.z > topWall + EPS)
+      (u.at.z < shell.bands.deck[0] - EPS || u.at.z + u.size.z > F.z + EPS)
     )
       fail(`${u.id} leaves the deck layer`);
     if (u.role === "keys" && u.at.z + u.size.z > shell.lid.at.z + EPS)
@@ -947,6 +979,67 @@ describe("fit engine", () => {
       deterministic(`sample ${s.id}`, s.build);
     }
     expect(stats.failures).toEqual([]);
+  });
+
+  it("reference builds land within 2 mm of their real machine's total thickness", () => {
+    const lines: string[] = [];
+    const off: string[] = [];
+    for (const s of SAMPLES) {
+      if (!s.thickness) continue;
+      const body = CONTENT.bodies.find((b) => b.id === s.build.body);
+      if (!body) throw new Error(s.build.body);
+      const { size } = minimumOf(s.build, body.limits);
+      const f = solve(withSize(s.build, size));
+      const front = f.min.z + f.lidZ;
+      const rear = front + body.style.wedge;
+      const [lo, hi] = s.thickness;
+      lines.push(
+        `${s.id}: ${front.toFixed(1)}${rear > front ? ` to ${rear.toFixed(1)}` : ""} vs ${lo} to ${hi}`,
+      );
+      const known = KNOWN_THIN[s.id];
+      // Every real machine must be buildable at its thickness: the minimum is never more than 2 mm over.
+      if (rear > hi + 2)
+        off.push(
+          `${s.id} is ${(rear - hi).toFixed(1)} mm thicker than the real machine`,
+        );
+      if (front < lo - 2 && !known)
+        off.push(
+          `${s.id} is ${(lo - front).toFixed(1)} mm thinner than the real machine`,
+        );
+    }
+    console.log(
+      ["reference thickness, engine minimum vs real:", ...lines].join("\n  "),
+    );
+    expect(off).toEqual([]);
+  });
+
+  it("at max spend, fans never make a thin 2026 ultrabook taller than its battery and keyboard do", () => {
+    const bad: string[] = [];
+    for (const body of CONTENT.bodies.filter((b) => available(b, 2026)))
+      for (const layout of CONTENT.layouts)
+        for (const cooling of ["one-fan", "two-fans"]) {
+          const b = withSpend(baseBuild(2026, body.id, layout.id), 1);
+          b.parts = {
+            ...b.parts,
+            battery: [
+              { part: "li-po-pouch", opts: { wh: 60, thickness: "slim" } },
+            ],
+            cooling: [{ part: cooling }],
+          };
+          const { size } = minimumOf(b, body.limits);
+          const withFans = solve(withSize(b, size)).min.z;
+          const noFans = solve(
+            withSize(
+              { ...b, parts: { ...b.parts, cooling: [{ part: "fanless" }] } },
+              size,
+            ),
+          ).min.z;
+          if (withFans > noFans + 1e-6)
+            bad.push(
+              `${body.id} ${layout.id} ${cooling}: ${withFans.toFixed(2)} with fans vs ${noFans.toFixed(2)} without`,
+            );
+        }
+    expect(bad).toEqual([]);
   });
 
   it(`a seeded random sample of ${RANDOM_BUILDS} full builds`, () => {

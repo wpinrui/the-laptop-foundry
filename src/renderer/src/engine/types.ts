@@ -49,8 +49,9 @@ export interface Era {
   vapourChamber?: Mm;
   /** Heat spreader over the chips when there is no fan. */
   spreader: Mm;
-  /** Deck structure on top of the keyboard or trackpad stack. */
+  /** Deck structure under the keyboard or trackpad stack, which sit flush in wells in the top case. */
   deckExtra: Mm;
+
   /** Routing margin between the two mainboard rows. */
   boardMargin: Mm;
   vrmMm2PerWatt: number;
@@ -237,7 +238,8 @@ export type Shape =
       depth: Mm;
       thickness: Record<string, Mm>;
     }
-  | { kind: "keys"; rows: number; stack: Mm }
+  /** Stack height at keyboard spend 0 and 1. */
+  | { kind: "keys"; rows: number; stack: Tune }
   | { kind: "pad"; x: Mm; y: Mm }
   /** Fans fill their zone within the era's fan limits. */
   | { kind: "fan"; count: number; chamber?: boolean }
@@ -291,6 +293,8 @@ export interface PanelType extends Dated {
   /** Thickness including cover glass; for CCFL, [at 12.1", at 17"] interpolated by size. */
   thickness: Mm | [Mm, Mm];
   inverter?: Size;
+  /** Cover glass is the lid's front face, so the lid has no front wall over the panel. */
+  coverGlass?: boolean;
 }
 
 // ---------------------------------------------------------------- build
@@ -362,17 +366,20 @@ export interface Shell {
   outer: Size;
   /** Inner base box. Contents are laid out from its origin. */
   inner: { at: Vec3; size: Size };
-  walls: { bottom: Mm; top: Mm; side: Mm; lid: Mm };
+  /** lidFront is 0 when the panel's cover glass forms the lid's front face. */
+  walls: { bottom: Mm; top: Mm; side: Mm; lid: Mm; lidFront: Mm };
   /** Inner box inset from the outer faces, after styling allowance. */
   offsets: { side: Mm; bottom: Mm; top: Mm; lidSide: Mm };
   style: BodyStyle;
   /** Lid in the closed position, in base coordinates. */
   lid: { at: Vec3; size: Size; inner: { at: Vec3; size: Size } };
-  /** Floor: inner bottom to the top wall. Deck: the thickest deck layer, under the top wall. */
+  /** Floor: inner bottom to the top wall. Deck: the thickest deck layer, down from the top surface. */
   bands: { floor: [Mm, Mm]; deck: [Mm, Mm] };
   cutouts: Opening[];
   /** Holes in the bottom wall where a removable pack forms the underside. */
   hatches: { at: Vec3; size: Size }[];
+  /** Openings in the top wall where the keyboard and trackpad sit flush with the top surface. */
+  wells: { at: Vec3; size: Size }[];
 }
 
 export type Problem =

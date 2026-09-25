@@ -106,7 +106,9 @@ function zoneMin(fill: ZoneFill, ctx: PlanCtx): Size | null {
     const k = units.filter((u) => u.role === "fan").length;
     const e = alongAxis(node.edge);
     const fan = ctx.era.fan.min;
-    const size: Size = { x: 0, y: 0, z: fan.z + lift };
+    // The thinnest fan this build allows (cooling spend thins it); fans only grow into slack.
+    const fanZ = units.find((u) => u.role === "fan")?.size.z ?? fan.z;
+    const size: Size = { x: 0, y: 0, z: fanZ + lift };
     size[e] = k * fan.x + Math.max(0, k - 1) * ctx.gap + fill.koLo + fill.koHi;
     size[other(e)] = fan.x + ctx.finDepth;
     return size;
@@ -303,7 +305,10 @@ export function placeUnits(
       lim.max.x,
       Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth)),
     );
-    const fz = Math.min(lim.max.z, Math.max(lim.min.z, bandH - lift));
+    const fz = Math.min(
+      lim.max.z,
+      Math.max(fans[0]?.size.z ?? lim.min.z, bandH - lift),
+    );
     const group = k * side + Math.max(0, k - 1) * ctx.gap;
     let u0 = at[e] + fill.koLo + (sz[e] - fill.koLo - fill.koHi - group) / 2;
     const atEnd = node.edge === "right" || node.edge === "rear";

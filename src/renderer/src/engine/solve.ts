@@ -81,7 +81,16 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   const wf = wallFor(era, build.materials.floor, matSpend);
   const wd = wallFor(era, build.materials.deck, matSpend);
   const wl = wallFor(era, build.materials.lid, matSpend);
-  const walls = { bottom: wf, top: wd, side: Math.max(wf, wd), lid: wl };
+  // A panel under cover glass is the lid's front face: no front wall over it.
+  const panel = idx.panels.get(build.parts.display?.[0]?.part ?? "");
+  const coverGlass = !!(panel && idx.panelTypes.get(panel.type)?.coverGlass);
+  const walls = {
+    bottom: wf,
+    top: wd,
+    side: Math.max(wf, wd),
+    lid: wl,
+    lidFront: coverGlass ? 0 : wl,
+  };
   const off = baseOffsets(style, walls);
   const sl = lidSideOffset(style, wl);
 
@@ -100,8 +109,9 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     floorUnits.push({ id: "board", role: "board", size: { ...board.size } });
   const lidUnits: Unit[] = [...bezelUnits(era, sl), ...em.lid];
 
-  // The deck layer (keyboard or trackpad stack plus deck structure) hangs from
-  // the top wall only where those parts are; elsewhere the floor runs up to the top wall.
+  // The keyboard and trackpad sit in wells in the top case, flush with the top
+  // surface, on the deck structure. Over them the floor runs up to that layer;
+  // elsewhere it runs up to the top wall. The top wall does not add over a well.
   const deckLayer = (u: Unit) => (u.spacer ? 0 : u.size.z + era.deckExtra);
   const DB = em.deck.reduce((m, u) => Math.max(m, deckLayer(u)), 0);
   const pTop = profileTop(style);
@@ -144,6 +154,12 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   }
 
   const floor = measure(layout.floor, floorDeal.fills, floorCtx);
+  // Where the battery sits on the rear edge, the keyboard sits in front of it, not over it.
+  for (const f of floor.fills.values()) {
+    if (f.min && f.node.edge === "rear" && f.node.takes.includes("battery"))
+      for (const u of em.deck)
+        if (u.role === "hinge-strip") u.size.y = Math.max(u.size.y, f.min.y);
+  }
   const deck = measure(deckPlan.root, deckDeal.fills, flatCtx);
   const lid = measure(lidPlan.root, lidDeal.fills, flatCtx);
   const m2 = (ps: PlanSolve) => ps.mins.get(ps.root) ?? { x: 0, y: 0 };
@@ -152,7 +168,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   const lm = m2(lid);
 
   const lidInnerZ = lidUnits.reduce((m, u) => Math.max(m, u.size.z), 0);
-  const lidZ = lidInnerZ + 2 * wl;
+  const lidZ = lidInnerZ + wl + walls.lidFront;
 
   const lim = body.limits;
   const size: Size = {
@@ -203,20 +219,28 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     }
     return c;
   };
-  // Minimum z at this footprint: every floor zone plus the deck layer over it,
-  // openings clear of the top edge profile, and every deck part over bare floor.
+  // Minimum z at this footprint. Each floor part needs its own height plus
+  // whatever sits over it: the deck layer where a keyboard or trackpad covers
+  // that part, else the top wall; openings also stay clear of the top edge
+  // profile. Parts are laid out in plan first, at their thinnest (fans unfilled).
   let minZ = off.bottom + off.top;
   const cover = new Map<unknown, number>();
   for (const f of floor.fills.values()) {
     if (!f.min || !f.at || !f.size) continue;
-    const c = coverOver(f.at, f.size);
-    cover.set(f.node, c);
-    const need =
-      off.bottom + f.min.z + Math.max(c + off.top, isOpeningZone(f) ? pTop : 0);
-    minZ = Math.max(minZ, need);
+    const opening = isOpeningZone(f);
+    let zoneCover = 0;
+    for (const u of placeUnits(f, floorCtx, off.bottom, 0)) {
+      const c = coverOver(u.at, u.size);
+      zoneCover = Math.max(zoneCover, c);
+      minZ = Math.max(
+        minZ,
+        u.at.z + u.size.z + Math.max(c, off.top, opening ? pTop : 0),
+      );
+    }
+    cover.set(f.node, zoneCover);
   }
   for (const u of deckPlaced)
-    minZ = Math.max(minZ, off.bottom + deckLayer(u) + off.top);
+    minZ = Math.max(minZ, off.bottom + Math.max(deckLayer(u), off.top));
 
   const min: Size = { x: minX, y: minY, z: minZ };
   for (const a of AXES) {
@@ -241,8 +265,9 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   // Short axes lay out at their minimum; the shell is still drawn at the player's size.
   const F: Size = { x: FX, y: FY, z: Math.max(size.z, min.z) };
   const floorZ0 = off.bottom;
-  const deckTop = F.z - off.top;
+  const topWall = F.z - off.top;
   const hatches: { at: Vec3; size: Size }[] = [];
+  const wells: { at: Vec3; size: Size }[] = [];
 
   const boxes: Box[] = [];
   const openings: Opening[] = [];
@@ -255,7 +280,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     if (!fill?.min || !fill.at || !fill.size) continue;
     const opening = isOpeningZone(fill);
     // Room above this zone's floor: up to the deck layer over it, and below the top edge profile for openings.
-    let room = deckTop - (cover.get(zone) ?? 0) - floorZ0;
+    let room = F.z - Math.max(cover.get(zone) ?? 0, off.top) - floorZ0;
     if (opening) room = Math.min(room, F.z - pTop - floorZ0);
     boxes.push({
       id: `zone:floor:${zone.zone}`,
@@ -334,22 +359,22 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       piece: "deck",
       kind: "zone",
       zone: zone.zone,
-      at: { ...fill.at, z: deckTop - layer },
+      at: { ...fill.at, z: F.z - layer },
       size: { ...fill.size, z: layer },
     });
-    for (const u of units)
-      boxes.push(
-        unitBox(
-          { ...u, at: { ...u.at, z: deckTop - era.deckExtra - u.size.z } },
-          "deck",
-        ),
-      );
+    for (const u of units) {
+      boxes.push(unitBox({ ...u, at: { ...u.at, z: F.z - u.size.z } }, "deck"));
+      wells.push({
+        at: { x: u.at.x, y: u.at.y, z: topWall },
+        size: { x: u.size.x, y: u.size.y, z: off.top },
+      });
+    }
   }
 
   // Lid, closed: lid-local y runs from the hinge, so it maps to base y reversed. The panel faces down.
   // It rests on the layout frame, so on a short z it floats above the drawn base: it cannot close.
   const lidZ0 = F.z;
-  const lidInnerZ0 = lidZ0 + wl;
+  const lidInnerZ0 = lidZ0 + walls.lidFront;
   const flipY = (y: number, h: number) => F.y - y - h;
   for (const zone of zonesOf(lidPlan.root)) {
     const fill = lid.fills.get(zone);
@@ -485,9 +510,10 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
           size: { x: size.x - 2 * sl, y: size.y - 2 * sl, z: lidInnerZ },
         },
       },
-      bands: { floor: [floorZ0, deckTop], deck: [deckTop - DB, deckTop] },
+      bands: { floor: [floorZ0, topWall], deck: [F.z - DB, F.z] },
       cutouts: openings,
       hatches,
+      wells,
     },
     boxes,
     anchors,

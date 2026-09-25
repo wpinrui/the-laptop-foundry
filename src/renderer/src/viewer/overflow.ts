@@ -53,9 +53,15 @@ export function overflowSlabs(fit: Fit): Slab[] {
         size: { ...inner.size, z: inner.size.z + inner.at.z },
       };
     if (b.piece === "lid") container = lidInner;
+    // Keyboard and trackpad sit in wells, flush with the top surface.
+    if (b.piece === "deck")
+      container = {
+        at: inner.at,
+        size: { ...inner.size, z: fit.shell.outer.z - inner.at.z },
+      };
     // A deck part hangs from the deck structure under the top wall: check its whole column,
     // so a base that is short on thickness shows red even when no part itself pokes out.
-    const top = fit.frame.z - fit.shell.offsets.top;
+    const top = fit.frame.z;
     const checked =
       b.piece === "deck"
         ? { at: b.at, size: { ...b.size, z: top - b.at.z } }

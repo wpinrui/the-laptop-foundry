@@ -125,7 +125,10 @@ export function insideBase(
   );
 }
 
-/** Is this point inside the lid's inner solid? The lid spans z0 to z0 + lidZ. */
+/**
+ * Is this point inside the lid's inner solid? The lid spans z0 (its front face
+ * when closed) to z0 + lidZ. `front` is 0 when cover glass forms the front face.
+ */
 export function insideLid(
   pt: Vec3,
   outer: Size,
@@ -133,11 +136,12 @@ export function insideLid(
   lidZ: number,
   style: BodyStyle,
   wall: number,
+  front = wall,
   eps = 1e-6,
 ): boolean {
   const d = planDistance(pt.x, pt.y, outer.x, outer.y, style.corner);
   if (d < wall - eps) return false;
-  return pt.z >= z0 + wall - eps && pt.z <= z0 + lidZ - wall + eps;
+  return pt.z >= z0 + front - eps && pt.z <= z0 + lidZ - wall + eps;
 }
 
 /** Flat part of an outer face, where openings may go: [u range, z range]. */

@@ -139,46 +139,14 @@ export function measure(
   fills: Map<ZoneNode, ZoneFill>,
   ctx: PlanCtx,
 ): PlanSolve {
-  // Which zones reach which outer edges, once empty zones have collapsed.
-  const empty = new Map<Node, boolean>();
-  const isEmpty = (n: Node): boolean => {
-    const e = isZone(n)
-      ? (fills.get(n) as ZoneFill).units.length === 0
-      : n.children.map(isEmpty).every(Boolean);
-    empty.set(n, e);
-    return e;
-  };
-  isEmpty(root);
-  type Reach = { left: boolean; right: boolean; front: boolean; rear: boolean };
-  const reach = (n: Node, r: Reach) => {
-    if (isZone(n)) {
-      const fill = fills.get(n) as ZoneFill;
-      fill.koLo = 0;
-      fill.koHi = 0;
-      if (n.edge && isOpeningZone(fill)) {
-        const along = alongAxis(n.edge);
-        fill.koLo = (along === "x" ? r.left : r.front) ? ctx.ko : 0;
-        fill.koHi = (along === "x" ? r.right : r.rear) ? ctx.ko : 0;
-      }
-      return;
-    }
-    const kids = n.children;
-    kids.forEach((c, i) => {
-      const before = kids.slice(0, i).every((k) => empty.get(k));
-      const after = kids.slice(i + 1).every((k) => empty.get(k));
-      const cr = { ...r };
-      if (n.split === "x") {
-        cr.left = r.left && before;
-        cr.right = r.right && after;
-      } else {
-        cr.front = r.front && before;
-        cr.rear = r.rear && after;
-      }
-      reach(c, cr);
-    });
-  };
-  reach(root, { left: true, right: true, front: true, rear: true });
-
+  // Corner keep-out: an opening zone's end needs clearance only as far as it
+  // sits inside the rounded corner, i.e. by ctx.ko less its distance from the
+  // inner edge. That distance is at least the sum of what precedes it, measured
+  // first without any keep-out (a lower bound, so the clearance is conservative).
+  for (const f of fills.values()) {
+    f.koLo = 0;
+    f.koHi = 0;
+  }
   const mins = new Map<Node, { x: number; y: number } | null>();
   const walk = (n: Node): { x: number; y: number } | null => {
     let m: { x: number; y: number } | null = null;
@@ -207,6 +175,33 @@ export function measure(
     return m;
   };
   walk(root);
+  if (ctx.ko > 0) {
+    type Dist = { x: number; y: number };
+    const lead = (n: Node, lo: Dist, hi: Dist) => {
+      if (isZone(n)) {
+        const fill = fills.get(n) as ZoneFill;
+        if (n.edge && isOpeningZone(fill)) {
+          const a = alongAxis(n.edge);
+          fill.koLo = Math.max(0, ctx.ko - lo[a]);
+          fill.koHi = Math.max(0, ctx.ko - hi[a]);
+        }
+        return;
+      }
+      const a = n.split;
+      const kids = n.children.filter((c) => mins.get(c));
+      kids.forEach((c, i) => {
+        const before = kids
+          .slice(0, i)
+          .reduce((s2, k2) => s2 + (mins.get(k2) as Dist)[a] + ctx.gap, 0);
+        const after = kids
+          .slice(i + 1)
+          .reduce((s2, k2) => s2 + (mins.get(k2) as Dist)[a] + ctx.gap, 0);
+        lead(c, { ...lo, [a]: lo[a] + before }, { ...hi, [a]: hi[a] + after });
+      });
+    };
+    lead(root, { x: 0, y: 0 }, { x: 0, y: 0 });
+    walk(root);
+  }
   return { fills, mins, root, ctx };
 }
 
@@ -233,6 +228,14 @@ export function place(
       const fill = ps.fills.get(n) as ZoneFill;
       fill.at = { ...pos };
       fill.size = { ...sz };
+      if (n.edge && isOpeningZone(fill) && ps.ctx.ko > 0) {
+        const a = alongAxis(n.edge);
+        fill.koLo = Math.max(0, ps.ctx.ko - (pos[a] - at[a]));
+        fill.koHi = Math.max(
+          0,
+          ps.ctx.ko - (at[a] + size[a] - (pos[a] + sz[a])),
+        );
+      }
       return;
     }
     const a = n.split;

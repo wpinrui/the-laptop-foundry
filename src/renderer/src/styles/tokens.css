@@ -10,9 +10,44 @@
   --color-text: #e6edf3;
   --color-text-muted: #9ba7b4;
   --color-accent: #4493f8;
+  /* Fit problems. Danger marks geometry that does not fit; warning marks a
+     compatibility or year problem on a control. */
+  --color-danger: #f85149;
+  --color-warning: #d29922;
+  /* Port and vent openings in the 3D shell. */
+  --color-opening: #05070a;
+
+  /* Stand-in colours for 3D units, one per role. Replaced by real models later. */
+  --role-board: #2f7d4f;
+  --role-chip: #3d4450;
+  --role-vrm: #6e5a3c;
+  --role-memory: #3f6fa8;
+  --role-storage: #6b5aa8;
+  --role-wireless: #4f8f8f;
+  --role-battery: #b7892f;
+  --role-fan: #8a94a3;
+  --role-fin: #b8c0cc;
+  --role-drive: #7d68b8;
+  --role-optical: #9aa5b5;
+  --role-speaker: #8f4f7a;
+  --role-hinge: #5c6570;
+  --role-port: #c9d1d9;
+  --role-keys: #262a31;
+  --role-pad: #4a515c;
+  --role-panel: #1c3a5e;
+  --role-inverter: #a8603c;
+  --role-webcam: #0b0d10;
+  --role-light: #e8d27a;
 
   /* Typography: 16px base, rem-based scale, 14px (0.875rem) floor for fine print. */
   --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-size-base: 1rem;
   --font-size-caption: 0.875rem;
+
+  /* Spacing and radius scale. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --radius: 6px;
 }

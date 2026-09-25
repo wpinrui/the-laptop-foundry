@@ -1,0 +1,249 @@
+.builder {
+  display: grid;
+  grid-template-columns: 26rem 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab,
+.year,
+.chip {
+  font: inherit;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+}
+
+.tab {
+  font-size: var(--font-size-caption);
+}
+
+.tab.on,
+.year.on {
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border-color: var(--color-border);
+  font-weight: 600;
+}
+
+.tab-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.years {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+select {
+  font: inherit;
+  font-size: var(--font-size-caption);
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+  max-width: 100%;
+}
+
+select:first-child {
+  flex: 1 1 100%;
+}
+
+select.flagged,
+.chip.flagged {
+  border-color: var(--color-warning);
+  box-shadow: 0 0 0 1px var(--color-warning);
+}
+
+.flagged-block {
+  border-left: 3px solid var(--color-warning);
+  padding-left: var(--space-2);
+}
+
+input[type="range"] {
+  accent-color: var(--color-accent);
+}
+
+/* Engineering spend: a thin full-width slider under its picker. */
+.spend {
+  flex: 1 1 100%;
+  height: 0.75rem;
+  margin: 0;
+  opacity: 0.8;
+}
+
+.sizes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.size {
+  display: grid;
+  grid-template-columns: 1fr 3.5rem;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.size output {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.track {
+  position: relative;
+}
+
+.track input {
+  width: 100%;
+}
+
+/* Where the build's minimum sits on the slider. */
+.mark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+
+.size.short .mark,
+.size.short output {
+  color: var(--color-danger);
+  background: var(--color-danger);
+}
+
+.size.short output {
+  background: transparent;
+}
+
+.size.danger .mark {
+  background: var(--color-danger);
+}
+
+.size.danger output {
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+.ports,
+.materials {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.side,
+.piece {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.side.off {
+  opacity: 0.6;
+}
+
+.side-name {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.chip {
+  font-size: var(--font-size-caption);
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border-color: var(--color-border);
+}
+
+.chip:hover {
+  border-color: var(--color-danger);
+}
+
+.chips select.add {
+  flex: 0 0 auto;
+  width: 2.5rem;
+}
+
+.swatches {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  cursor: pointer;
+  padding: 0;
+}
+
+.swatch.on {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.stage {
+  position: relative;
+  min-width: 0;
+}
+
+.lid-angle {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  width: 10rem;
+}
+
+.hover {
+  position: fixed;
+  pointer-events: none;
+  font-size: var(--font-size-caption);
+  color: var(--color-text);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+  z-index: 10;
+}

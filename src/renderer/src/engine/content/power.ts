@@ -50,7 +50,8 @@ export const BATTERIES: Part[] = [
       depth: 85,
       thickness: { slim: 4.5, standard: 6.5 },
     },
-    options: { wh: [60, 45, 75, 90, 99.9], thickness: ["standard", "slim"] },
+    // Slim first: the default suits an ultrabook; standard is the thick gaming pack.
+    options: { wh: [60, 45, 75, 90, 99.9], thickness: ["slim", "standard"] },
     compact: ["x"],
   },
 ];

@@ -28,6 +28,7 @@ import { type Hover, Scene } from "../viewer/Scene";
 import { formatOption, panelLabel } from "./format";
 import { Measurements } from "./Measurements";
 import { Power } from "./Power";
+import { blockReason, problemText, type Tab, TABS, tabOf } from "./problems";
 import { materialsFor, toBody, toYear } from "./structure";
 import "./builder.css";
 
@@ -556,7 +557,6 @@ function HoverLabel() {
 
 // ------------------------------------------------------------------ builder
 
-const TABS = ["Body", "Internals", "Display and input", "Finish"] as const;
 const YEARS = [...new Set(CONTENT.eras.map((e) => e.year))];
 
 export function Builder({
@@ -565,15 +565,19 @@ export function Builder({
   onBack,
   reroll,
   onReview,
+  onRevise,
 }: {
   model: SavedModel;
   onReview: (m: SavedModel) => void;
+  onRevise: () => void;
   onSave: (m: SavedModel) => void;
   onBack: () => void;
   reroll: (b: Build) => string;
 }) {
   const [build, setBuild] = useState<Build>(() => model.build as Build);
   const [name, setName] = useState(model.name);
+  // A reviewed model is locked so its review never changes. Revise makes a new one.
+  const locked = !!model.reviewed;
 
   // Every change saves shortly after it is made, and leaving saves at once.
   const pending = useRef<(() => void) | null>(null);
@@ -582,7 +586,7 @@ export function Builder({
   const latest = useRef({ model, onSave });
   latest.current = { model, onSave };
   useEffect(() => {
-    if (first.current) {
+    if (first.current || locked) {
       first.current = false;
       return;
     }
@@ -594,16 +598,28 @@ export function Builder({
     pending.current = flush;
     const t = setTimeout(flush, 400);
     return () => clearTimeout(t);
-  }, [build, name]);
+  }, [build, name, locked]);
   const back = () => {
     pending.current?.();
     onBack();
   };
-  const [tab, setTab] = useState<(typeof TABS)[number]>("Body");
+  const [tab, setTab] = useState<Tab>("Body");
   const [lidAngle, setLidAngle] = useState(100);
-  const set: SetBuild = useCallback((f) => setBuild((b) => f(b)), []);
+  const set: SetBuild = useCallback(
+    (f) => {
+      if (!locked) setBuild((b) => f(b));
+    },
+    [locked],
+  );
   const fit = useMemo(() => solve(build), [build]);
   const flags = useMemo(() => flagsOf(fit.problems, build), [fit, build]);
+  const listed = useMemo(
+    () =>
+      fit.problems.map((p) => ({ tab: tabOf(p), text: problemText(p) })),
+    [fit],
+  );
+  const perTab = (t: Tab) => listed.filter((p) => p.tab === t).length;
+  const block = blockReason(fit.problems);
   const measured = useMemo(() => simulate(build, fit), [build, fit]);
 
   const colourHex = (id: string) =>
@@ -643,39 +659,76 @@ export function Builder({
             className="model-name"
             value={name}
             aria-label="model name"
+            readOnly={locked}
             onChange={(e) => setName(e.target.value)}
           />
           <button
             type="button"
+            disabled={!locked && !!block}
+            title={locked ? undefined : (block ?? undefined)}
             onClick={() => {
               pending.current?.();
               onReview({ ...model, name: name.trim() || model.name, build });
             }}
           >
-            Get reviewed
+            {locked ? "Read review" : "Get reviewed"}
           </button>
-          <button
-            type="button"
-            className="reroll"
-            aria-label="new name"
-            onClick={() => setName(reroll(build))}
-          >
-            ↻
-          </button>
-        </div>
-        <nav className="tabs">
-          {TABS.map((t) => (
+          {!locked && (
             <button
               type="button"
-              key={t}
-              className={t === tab ? "tab on" : "tab"}
-              onClick={() => setTab(t)}
+              className="reroll"
+              aria-label="new name"
+              onClick={() => setName(reroll(build))}
             >
-              {t}
+              ↻
             </button>
-          ))}
+          )}
+        </div>
+        {locked && (
+          <div className="locked-bar">
+            <span>Reviewed. This model is kept as it was reviewed.</span>
+            <button type="button" className="revise" onClick={onRevise}>
+              Revise
+            </button>
+          </div>
+        )}
+        <nav className="tabs">
+          {TABS.map((t) => {
+            const n = perTab(t);
+            return (
+              <button
+                type="button"
+                key={t}
+                className={t === tab ? "tab on" : "tab"}
+                onClick={() => setTab(t)}
+              >
+                {t}
+                {n > 0 && (
+                  <span className="tab-count" title={`${n} problems`}>
+                    {n}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
-        <div className="tab-body">
+        {!locked && listed.length > 0 && (
+          <div className="problems">
+            <b>{block}. Not ready for review.</b>
+            <ul>
+              {listed.map((p, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: problems have no id and never reorder within one render
+                <li key={i}>
+                  <button type="button" onClick={() => setTab(p.tab)}>
+                    <span>{p.text}</span>
+                    <span className="problem-tab">{p.tab}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <fieldset className="tab-body" disabled={locked}>
           {tab === "Body" && (
             <>
               <div className="years">
@@ -797,7 +850,7 @@ export function Builder({
               />
             </>
           )}
-        </div>
+        </fieldset>
       </aside>
       <main className="stage">
         <Scene
@@ -818,7 +871,13 @@ export function Builder({
           aria-label="lid"
           onChange={(e) => setLidAngle(Number(e.target.value))}
         />
-        <Measurements m={measured} build={build} fit={fit} set={set} />
+        <Measurements
+          m={measured}
+          build={build}
+          fit={fit}
+          set={set}
+          locked={locked}
+        />
         <HoverLabel />
       </main>
     </div>

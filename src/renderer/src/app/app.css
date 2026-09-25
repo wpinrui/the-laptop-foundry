@@ -53,6 +53,19 @@
   font-weight: 600;
 }
 
+.screen button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.screen button:disabled:hover {
+  color: var(--color-text-muted);
+}
+
+.model-block {
+  color: var(--color-warning);
+}
+
 .screen button.primary:disabled {
   opacity: 0.5;
   cursor: default;

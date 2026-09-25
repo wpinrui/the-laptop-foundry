@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { SavedData, SavedModel } from "../../../preload/store";
+import { buildBlock } from "../builder/problems";
 import "./app.css";
 
 /** First launch: the player names the company. */
@@ -56,7 +57,13 @@ export function Models({
 }) {
   const [company, setCompany] = useState(data.company ?? "");
   const [confirming, setConfirming] = useState<string | null>(null);
-  const models = [...data.models].sort((a, b) => b.updated - a.updated);
+  const models = useMemo(
+    () =>
+      [...data.models]
+        .sort((a, b) => b.updated - a.updated)
+        .map((m) => ({ m, block: buildBlock(m.build) })),
+    [data.models],
+  );
   const nameOf = (id: string | undefined) =>
     data.models.find((m) => m.id === id)?.name;
 
@@ -79,7 +86,7 @@ export function Models({
         </button>
       </header>
       <ul className="model-list">
-        {models.map((m) => (
+        {models.map(({ m, block }) => (
           <li key={m.id} className="model">
             <button
               type="button"
@@ -88,14 +95,31 @@ export function Models({
             >
               <b>{m.name}</b>
               <span>
-                {[yearOf(m), nameOf(m.revisedFrom)].filter(Boolean).join(", ")}
+                {[
+                  yearOf(m),
+                  nameOf(m.revisedFrom),
+                  m.reviewed ? "Reviewed" : null,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
               </span>
+              {block && <span className="model-block">{block}</span>}
             </button>
-            <button type="button" onClick={() => onUse(m.id)}>
+            <button
+              type="button"
+              disabled={!!block}
+              title={block ?? undefined}
+              onClick={() => onUse(m.id)}
+            >
               Use it
             </button>
-            <button type="button" onClick={() => onReview(m.id)}>
-              Get reviewed
+            <button
+              type="button"
+              disabled={!m.reviewed && !!block}
+              title={m.reviewed ? undefined : (block ?? undefined)}
+              onClick={() => onReview(m.id)}
+            >
+              {m.reviewed ? "Read review" : "Get reviewed"}
             </button>
             <button type="button" onClick={() => onRevise(m.id)}>
               Revise

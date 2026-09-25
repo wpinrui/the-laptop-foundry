@@ -62,8 +62,13 @@ export function registerStore(): void {
   ipcMain.handle("store:save-model", async (_e, model: unknown) => {
     if (!isModel(model)) throw new Error("not a model");
     const d = await load();
+    // A reviewed model is locked: its build and name never change again.
+    const lock = (m: SavedModel): SavedModel =>
+      m.reviewed
+        ? { ...model, name: m.name, build: m.build, reviewed: m.reviewed }
+        : model;
     const models = d.models.some((m) => m.id === model.id)
-      ? d.models.map((m) => (m.id === model.id ? model : m))
+      ? d.models.map((m) => (m.id === model.id ? lock(m) : m))
       : [...d.models, model];
     await persist({ ...d, models });
     return data;

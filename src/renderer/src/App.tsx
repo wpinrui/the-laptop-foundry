@@ -3,6 +3,7 @@ import type { SavedData, SavedModel } from "../../preload/store";
 import { CompanySetup, Models } from "./app/Models";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
+import { buildBlock } from "./builder/problems";
 import { emptyBuild } from "./builder/structure";
 import { type Build, CONTENT, type Subject } from "./engine";
 import { CafeScreen } from "./cafe/CafeScreen";
@@ -43,8 +44,15 @@ export function App() {
     );
 
   const company = data.company;
-  const review = (m: SavedModel) =>
+  // The first review locks the model, so its review never changes.
+  const review = (m: SavedModel) => {
+    if (!m.reviewed) {
+      if (buildBlock(m.build)) return;
+      const now = Date.now();
+      save({ ...m, reviewed: now, updated: now });
+    }
     setReviewing({ id: m.id, name: m.name, company, build: m.build as Build });
+  };
   if (using)
     return (
       <CafeScreen key={using.id} subject={using} onBack={() => setUsing(null)} />
@@ -55,19 +63,6 @@ export function App() {
         key={reviewing.id}
         subject={reviewing}
         onBack={() => setReviewing(null)}
-      />
-    );
-
-  const model = open ? data.models.find((m) => m.id === open) : undefined;
-  if (model)
-    return (
-      <Builder
-        key={model.id}
-        model={model}
-        onSave={save}
-        onBack={() => setOpen(null)}
-        onReview={review}
-        reroll={(b) => randomName(b.year, inchesOf(b))}
       />
     );
 
@@ -83,6 +78,24 @@ export function App() {
     };
     save(m).then(() => setOpen(m.id));
   };
+  const revise = (id: string) => {
+    const src = data.models.find((m) => m.id === id);
+    if (src) create(structuredClone(src.build) as Build, src.id);
+  };
+
+  const model = open ? data.models.find((m) => m.id === open) : undefined;
+  if (model)
+    return (
+      <Builder
+        key={model.id}
+        model={model}
+        onSave={save}
+        onBack={() => setOpen(null)}
+        onReview={review}
+        onRevise={() => revise(model.id)}
+        reroll={(b) => randomName(b.year, inchesOf(b))}
+      />
+    );
 
   return (
     <Models
@@ -90,10 +103,7 @@ export function App() {
       onCompany={(name) => store().setCompany(name).then(setData)}
       onNew={() => create(emptyBuild())}
       onOpen={setOpen}
-      onRevise={(id) => {
-        const src = data.models.find((m) => m.id === id);
-        if (src) create(structuredClone(src.build) as Build, src.id);
-      }}
+      onRevise={revise}
       onDelete={(id) => store().deleteModel(id).then(setData)}
       onReview={(id) => {
         const m = data.models.find((x) => x.id === id);
@@ -101,7 +111,7 @@ export function App() {
       }}
       onUse={(id) => {
         const m = data.models.find((x) => x.id === id);
-        if (m)
+        if (m && !buildBlock(m.build))
           setUsing({ id: m.id, name: m.name, company, build: m.build as Build });
       }}
     />

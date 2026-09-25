@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { app, BrowserWindow } from "electron";
+import { registerStore } from "./store";
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -11,6 +12,7 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
+      nodeIntegration: false,
       sandbox: true,
     },
   });
@@ -25,6 +27,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerStore();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

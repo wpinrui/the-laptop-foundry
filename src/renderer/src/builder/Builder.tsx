@@ -1,4 +1,12 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import type { SavedModel } from "../../../preload/store";
 import {
   available,
   type Axis,
@@ -20,7 +28,7 @@ import { type Hover, Scene } from "../viewer/Scene";
 import { formatOption, panelLabel } from "./format";
 import { Measurements } from "./Measurements";
 import { Power } from "./Power";
-import { emptyBuild, materialsFor, toBody, toYear } from "./structure";
+import { materialsFor, toBody, toYear } from "./structure";
 import "./builder.css";
 
 // ------------------------------------------------------------------ problems
@@ -551,8 +559,44 @@ function HoverLabel() {
 const TABS = ["Body", "Internals", "Display and input", "Finish"] as const;
 const YEARS = [...new Set(CONTENT.eras.map((e) => e.year))];
 
-export function Builder() {
-  const [build, setBuild] = useState<Build>(emptyBuild);
+export function Builder({
+  model,
+  onSave,
+  onBack,
+  reroll,
+}: {
+  model: SavedModel;
+  onSave: (m: SavedModel) => void;
+  onBack: () => void;
+  reroll: (b: Build) => string;
+}) {
+  const [build, setBuild] = useState<Build>(() => model.build as Build);
+  const [name, setName] = useState(model.name);
+
+  // Every change saves shortly after it is made, and leaving saves at once.
+  const pending = useRef<(() => void) | null>(null);
+  const first = useRef(true);
+  // Saved data reloads after each save; the effect must not re-run on that.
+  const latest = useRef({ model, onSave });
+  latest.current = { model, onSave };
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const flush = () => {
+      pending.current = null;
+      const { model: m, onSave: save } = latest.current;
+      save({ ...m, name: name.trim() || m.name, build, updated: Date.now() });
+    };
+    pending.current = flush;
+    const t = setTimeout(flush, 400);
+    return () => clearTimeout(t);
+  }, [build, name]);
+  const back = () => {
+    pending.current?.();
+    onBack();
+  };
   const [tab, setTab] = useState<(typeof TABS)[number]>("Body");
   const [lidAngle, setLidAngle] = useState(100);
   const set: SetBuild = useCallback((f) => setBuild((b) => f(b)), []);
@@ -589,6 +633,25 @@ export function Builder() {
   return (
     <div className="builder">
       <aside className="panel">
+        <div className="model-bar">
+          <button type="button" className="back" aria-label="models" onClick={back}>
+            ‹
+          </button>
+          <input
+            className="model-name"
+            value={name}
+            aria-label="model name"
+            onChange={(e) => setName(e.target.value)}
+          />
+          <button
+            type="button"
+            className="reroll"
+            aria-label="new name"
+            onClick={() => setName(reroll(build))}
+          >
+            ↻
+          </button>
+        </div>
         <nav className="tabs">
           {TABS.map((t) => (
             <button

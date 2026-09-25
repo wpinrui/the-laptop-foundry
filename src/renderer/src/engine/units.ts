@@ -33,6 +33,8 @@ export interface Unit {
   part?: string;
   /** Reserves room in a zone but is not a physical piece. */
   spacer?: boolean;
+  /** A removable pack whose casing forms the underside: it replaces the bottom wall. */
+  skin?: boolean;
 }
 
 /** A block on the derived mainboard. */
@@ -287,7 +289,7 @@ function emitShape(
         y: rows * shape.diameter + 3.2 + 2 * casing,
         z: shape.height + 2 * casing,
       };
-      push({ id, role: "battery", size, part: part.id });
+      push({ id, role: "battery", size, part: part.id, skin: casing > 0 });
       return;
     }
     case "pouch": {
@@ -307,6 +309,7 @@ function emitShape(
           z: size.z + 2 * casing,
         },
         part: part.id,
+        skin: casing > 0,
       });
       return;
     }

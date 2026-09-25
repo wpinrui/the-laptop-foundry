@@ -16,7 +16,7 @@ export const BODIES: Body[] = [
       latch: false,
     },
     hinge: { x: 30, y: 20, z: 5 },
-    layouts: ["a", "b"],
+    layouts: ["a", "b", "c"],
   },
   {
     id: "pillow",
@@ -33,7 +33,7 @@ export const BODIES: Body[] = [
       latch: true,
     },
     hinge: { x: 25, y: 20, z: 6 },
-    layouts: ["a", "b"],
+    layouts: ["a", "b", "c"],
   },
   {
     id: "blade",
@@ -50,6 +50,6 @@ export const BODIES: Body[] = [
       latch: false,
     },
     hinge: { x: 35, y: 15, z: 4 },
-    layouts: ["a", "b"],
+    layouts: ["a", "b", "c"],
   },
 ];

@@ -13,8 +13,8 @@ export interface PlanCtx {
   ko: number;
   /** Units in opening zones sit this far up, clear of the bottom edge profile. */
   lift: number;
-  /** Extra floor band an opening needs to stay clear of the top edge profile. */
-  topReserve: number;
+  /** Bottom wall: a skin unit sits this far below the inner floor, on the outer bottom. */
+  bottom: number;
   era: Era;
   finDepth: number;
 }
@@ -23,6 +23,12 @@ export interface ZoneFill {
   node: ZoneNode;
   units: Unit[];
   min: Size | null;
+  /**
+   * Corner keep-out at the low and high end of an opening zone along its edge.
+   * Only an end that reaches the corner of the face needs it.
+   */
+  koLo: number;
+  koHi: number;
   /** Plan rect after placement. */
   at?: { x: number; y: number };
   size?: { x: number; y: number };
@@ -50,7 +56,8 @@ export function deal(
 ): { fills: Map<ZoneNode, ZoneFill>; unplaced: Unit[] } {
   const zones = zonesOf(root);
   const fills = new Map<ZoneNode, ZoneFill>();
-  for (const z of zones) fills.set(z, { node: z, units: [], min: null });
+  for (const z of zones)
+    fills.set(z, { node: z, units: [], min: null, koLo: 0, koHi: 0 });
   const cursor = new Map<string, number>();
   const unplaced: Unit[] = [];
   for (const u of units) {
@@ -95,26 +102,28 @@ function zoneMin(fill: ZoneFill, ctx: PlanCtx): Size | null {
   if (units.length === 0) return null;
   const opening = isOpeningZone(fill);
   const lift = opening ? ctx.lift : 0;
-  const reserve = opening ? ctx.topReserve : 0;
   if (isFanZone(node) && node.edge) {
     const k = units.filter((u) => u.role === "fan").length;
     const e = alongAxis(node.edge);
     const fan = ctx.era.fan.min;
-    const size: Size = { x: 0, y: 0, z: fan.z + lift + reserve };
-    size[e] = k * fan.x + Math.max(0, k - 1) * ctx.gap + 2 * ctx.ko;
+    const size: Size = { x: 0, y: 0, z: fan.z + lift };
+    size[e] = k * fan.x + Math.max(0, k - 1) * ctx.gap + fill.koLo + fill.koHi;
     size[other(e)] = fan.x + ctx.finDepth;
     return size;
   }
   const p = node.pack;
   const size: Size = { x: 0, y: 0, z: 0 };
   for (const u of units) {
+    // A skin sits on the outer bottom, so only its height above the inner floor counts.
+    const h = u.skin ? Math.max(0, u.size.z - ctx.bottom) : u.size.z;
     for (const a of ["x", "y", "z"] as const) {
-      size[a] = a === p ? size[a] + u.size[a] : Math.max(size[a], u.size[a]);
+      const v = a === "z" ? h : u.size[a];
+      size[a] = a === p ? size[a] + v : Math.max(size[a], v);
     }
   }
   if (p !== "z") size[p] += Math.max(0, units.length - 1) * ctx.gap;
-  if (opening && node.edge) size[alongAxis(node.edge)] += 2 * ctx.ko;
-  size.z += lift + reserve;
+  if (opening && node.edge) size[alongAxis(node.edge)] += fill.koLo + fill.koHi;
+  size.z += lift;
   return size;
 }
 
@@ -130,6 +139,46 @@ export function measure(
   fills: Map<ZoneNode, ZoneFill>,
   ctx: PlanCtx,
 ): PlanSolve {
+  // Which zones reach which outer edges, once empty zones have collapsed.
+  const empty = new Map<Node, boolean>();
+  const isEmpty = (n: Node): boolean => {
+    const e = isZone(n)
+      ? (fills.get(n) as ZoneFill).units.length === 0
+      : n.children.map(isEmpty).every(Boolean);
+    empty.set(n, e);
+    return e;
+  };
+  isEmpty(root);
+  type Reach = { left: boolean; right: boolean; front: boolean; rear: boolean };
+  const reach = (n: Node, r: Reach) => {
+    if (isZone(n)) {
+      const fill = fills.get(n) as ZoneFill;
+      fill.koLo = 0;
+      fill.koHi = 0;
+      if (n.edge && isOpeningZone(fill)) {
+        const along = alongAxis(n.edge);
+        fill.koLo = (along === "x" ? r.left : r.front) ? ctx.ko : 0;
+        fill.koHi = (along === "x" ? r.right : r.rear) ? ctx.ko : 0;
+      }
+      return;
+    }
+    const kids = n.children;
+    kids.forEach((c, i) => {
+      const before = kids.slice(0, i).every((k) => empty.get(k));
+      const after = kids.slice(i + 1).every((k) => empty.get(k));
+      const cr = { ...r };
+      if (n.split === "x") {
+        cr.left = r.left && before;
+        cr.right = r.right && after;
+      } else {
+        cr.front = r.front && before;
+        cr.rear = r.rear && after;
+      }
+      reach(c, cr);
+    });
+  };
+  reach(root, { left: true, right: true, front: true, rear: true });
+
   const mins = new Map<Node, { x: number; y: number } | null>();
   const walk = (n: Node): { x: number; y: number } | null => {
     let m: { x: number; y: number } | null = null;
@@ -234,7 +283,6 @@ export function placeUnits(
   const sz = fill.size;
   const opening = isOpeningZone(fill);
   const lift = opening ? ctx.lift : 0;
-  const reserve = opening ? ctx.topReserve : 0;
   const zBase = z0 + lift;
   const out: PlacedUnit[] = [];
 
@@ -246,14 +294,15 @@ export function placeUnits(
     const n = edgeAxis(node.edge);
     const lim = ctx.era.fan;
     const alongRoom =
-      (sz[e] - 2 * ctx.ko - Math.max(0, k - 1) * ctx.gap) / Math.max(1, k);
+      (sz[e] - fill.koLo - fill.koHi - Math.max(0, k - 1) * ctx.gap) /
+      Math.max(1, k);
     const side = Math.min(
       lim.max.x,
       Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth)),
     );
-    const fz = Math.min(lim.max.z, Math.max(lim.min.z, bandH - lift - reserve));
+    const fz = Math.min(lim.max.z, Math.max(lim.min.z, bandH - lift));
     const group = k * side + Math.max(0, k - 1) * ctx.gap;
-    let u0 = at[e] + (sz[e] - group) / 2;
+    let u0 = at[e] + fill.koLo + (sz[e] - fill.koLo - fill.koHi - group) / 2;
     const atEnd = node.edge === "right" || node.edge === "rear";
     const finN = atEnd ? at[n] + sz[n] - ctx.finDepth : at[n];
     const fanN = atEnd ? finN - side : at[n] + ctx.finDepth;
@@ -281,8 +330,9 @@ export function placeUnits(
   const edgeA = node.edge ? edgeAxis(node.edge) : undefined;
   const alongA = opening && node.edge ? alongAxis(node.edge) : undefined;
   const range = (a: PlanAxis): [number, number] => {
-    const ko = a === alongA ? ctx.ko : 0;
-    return [at[a] + ko, at[a] + sz[a] - ko];
+    const lo = a === alongA ? fill.koLo : 0;
+    const hi = a === alongA ? fill.koHi : 0;
+    return [at[a] + lo, at[a] + sz[a] - hi];
   };
   const alignOf = (a: PlanAxis): "start" | "centre" | "end" => {
     if (a === edgeA)
@@ -319,9 +369,10 @@ export function placeUnits(
         pos[a] = put(lo, hi, u.size[a], alignOf(a));
       }
     }
+    if (u.skin) pos.z = z0 - ctx.bottom;
     if (p === "z") {
       pos.z = zc;
-      zc += u.size.z;
+      zc += u.skin ? Math.max(0, u.size.z - ctx.bottom) : u.size.z;
     } else {
       cursor += u.size[p] + ctx.gap;
     }

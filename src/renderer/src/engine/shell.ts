@@ -69,13 +69,9 @@ export function profileLift(style: BodyStyle, bottom: number): number {
   return Math.max(0, profileSize(style) - bottom);
 }
 
-/** Top of any opening stays below the top edge profile: floor band room it costs. */
-export function profileTopReserve(
-  style: BodyStyle,
-  deckBand: number,
-  top: number,
-): number {
-  return Math.max(0, profileSize(style) - deckBand - top);
+/** Top of any opening stays this far below the top of the base, clear of the top edge profile. */
+export function profileTop(style: BodyStyle): number {
+  return profileSize(style);
 }
 
 // ------------------------------------------------------------ verification

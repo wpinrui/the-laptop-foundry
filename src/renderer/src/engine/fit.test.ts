@@ -620,6 +620,19 @@ describe("fit engine", () => {
               }),
             );
             deterministic(label, b);
+            // The builder starts empty: no parts, no ports. It must still solve cleanly.
+            const empty: Build = { ...b, parts: {}, ports: [], spend: {} };
+            const fe = run(`${label} empty`, empty);
+            run(
+              `${label} empty at max`,
+              withSize(empty, { x: lim.x[1], y: lim.y[1], z: lim.z[1] }),
+            );
+            if (
+              fe.problems.some(
+                (p) => p.kind === "geometry" && p.code === "too-big",
+              )
+            )
+              stats.failures.push(`${label}: an empty build is too big`);
           }
     expect(stats.failures).toEqual([]);
   });

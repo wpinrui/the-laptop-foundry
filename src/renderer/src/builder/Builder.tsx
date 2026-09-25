@@ -12,12 +12,12 @@ import {
   type Problem,
   panelsFor,
   partsFor,
-  SAMPLES,
   type Side,
   solve,
 } from "../engine";
 import { type Hover, Scene } from "../viewer/Scene";
 import { formatOption, panelLabel } from "./format";
+import { emptyBuild, materialsFor, toBody, toYear } from "./structure";
 import "./builder.css";
 
 // ------------------------------------------------------------------ problems
@@ -65,9 +65,11 @@ function flagsOf(problems: Problem[], build: Build): Flags {
       p.code === "bad-option"
     )
       f.parts.add(p.part);
-    else if (p.code === "missing" || p.code === "too-many")
-      f.categories.add(p.category);
-    else if (p.code === "no-charging" || p.code === "port-side") f.ports = true;
+    // A blank picker already shows a missing part; it gets no outline.
+    else if (p.code === "missing") continue;
+    else if (p.code === "too-many") f.categories.add(p.category);
+    else if (p.code === "port-side") f.ports = true;
+    else if (p.code === "no-charging") f.ports = build.ports.length > 0;
     else if (p.code === "wrong-piece" || p.code === "wrong-finish")
       f.pieces.add(p.piece);
     else if (p.code === "layout-not-on-body") f.layout = true;
@@ -415,9 +417,8 @@ function Materials({
       {(["lid", "deck", "floor"] as Piece[]).map((piece) => {
         const matId = build.materials[piece];
         const mat = CONTENT.materials.find((m) => m.id === matId);
-        const mats = CONTENT.materials.filter(
-          (m) => available(m, year) || m.id === matId,
-        );
+        const allowed = materialsFor(year, piece);
+        const mats = CONTENT.materials.filter((m) => allowed.includes(m.id));
         const colours = CONTENT.colours.filter(
           (c) => available(c, year) || c.id === build.finish[piece].colour,
         );
@@ -544,13 +545,8 @@ function HoverLabel() {
 const TABS = ["Body", "Internals", "Display and input", "Finish"] as const;
 const YEARS = [...new Set(CONTENT.eras.map((e) => e.year))];
 
-function initialBuild(): Build {
-  const sample = SAMPLES.find((s) => s.id === "t60-trim") ?? SAMPLES[0];
-  return JSON.parse(JSON.stringify(sample.build)) as Build;
-}
-
 export function Builder() {
-  const [build, setBuild] = useState<Build>(initialBuild);
+  const [build, setBuild] = useState<Build>(emptyBuild);
   const [tab, setTab] = useState<(typeof TABS)[number]>("Body");
   const [lidAngle, setLidAngle] = useState(100);
   const set: SetBuild = useCallback((f) => setBuild((b) => f(b)), []);
@@ -577,14 +573,10 @@ export function Builder() {
   }, []);
 
   const year = build.year;
-  const bodies = CONTENT.bodies.filter(
-    (b) => available(b, year) || b.id === build.body,
-  );
+  const bodies = CONTENT.bodies.filter((b) => available(b, year));
   const body = CONTENT.bodies.find((b) => b.id === build.body);
   const layouts = CONTENT.layouts.filter(
-    (l) =>
-      (available(l, year) && body?.layouts.includes(l.id)) ||
-      l.id === build.layout,
+    (l) => available(l, year) && body?.layouts.includes(l.id),
   );
 
   return (
@@ -611,7 +603,7 @@ export function Builder() {
                     type="button"
                     key={y}
                     className={y === year ? "year on" : "year"}
-                    onClick={() => set((b) => ({ ...b, year: y }))}
+                    onClick={() => set((b) => toYear(b, y))}
                   >
                     {y}
                   </button>
@@ -625,7 +617,7 @@ export function Builder() {
                   options={bodies.map((b) => ({ value: b.id, label: b.name }))}
                   onChange={(v) =>
                     // Bodies are shapes: switching keeps the laptop's size.
-                    set((b) => ({ ...b, body: v }))
+                    set((b) => toBody(b, v))
                   }
                 />
                 <Select

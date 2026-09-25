@@ -16,7 +16,12 @@ import { archOf, igpuAt, scoreAt, singleAt } from "./curves";
 import { balancedProfile, partOf, profilesOf, topProfile } from "./profiles";
 
 export { ARCHS, igpuAt, scoreAt, singleAt } from "./curves";
-export { balancedProfile, defaultProfiles, profilesOf, topProfile } from "./profiles";
+export {
+  balancedProfile,
+  defaultProfiles,
+  profilesOf,
+  topProfile,
+} from "./profiles";
 
 // The one simulation the builder and the reviewer share. Pure and
 // deterministic: a build in, every raw measurement out.
@@ -468,4 +473,46 @@ export function simulate(
   if (f.wh > 0 && f.panel) out.battery = batteryFor(f, c, profiles, complete);
   if (complete) out.cooling = coolingFor(f, c, profiles);
   return out;
+}
+
+// ------------------------------------------------------------------ timelines
+
+export interface Timeline {
+  cpuW: number[];
+  gpuW: number[];
+  fan: number[];
+  cpuDie: number[];
+  /** Fan noise, dB(A). */
+  db: number[];
+  /** Multi-core score (Cinebench R23 scale) each second. */
+  multi: number[];
+  /** Graphics score (Time Spy scale) each second. */
+  graphics: number[];
+}
+
+/**
+ * Second-by-second run of one load on one profile, from a cool start. The
+ * cafe plays these back so a poorly cooled build slows as it heats up.
+ */
+export function timeline(
+  build: Build,
+  fit: Fit,
+  profile: ProfileId,
+  load: "idle" | "cpu" | "gpu",
+  seconds: number = DURATION,
+  content: Content = CONTENT,
+): Timeline {
+  const f = facts(build, fit, content);
+  const c = cooler(f);
+  const p = profilesOf(build, content)[profile];
+  const t = run(f, c, p, load, seconds);
+  return {
+    cpuW: t.cpuW,
+    gpuW: t.gpuW,
+    fan: t.fan,
+    cpuDie: t.cpuDie,
+    db: t.fan.map((x) => noise(c, x)),
+    multi: t.cpuW.map((w) => (f.cpu ? scoreAt(f.cpu, w) : 0)),
+    graphics: t.cpuW.map((w, i) => graphicsAt(f, w, t.gpuW[i])),
+  };
 }

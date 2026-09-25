@@ -95,4 +95,26 @@
   /* Panel simulation overlays. */
   --panel-glare: #ffffff;
   --panel-tn-shift: #203050;
+
+  /* Cafe: table, desktop and the mock visuals. */
+  --cafe-table: #6b4a33;
+  --cafe-wall: #2a211c;
+  --desk-2006-a: #3a6ea5;
+  --desk-2006-b: #7fb2e5;
+  --desk-2026-a: #1d2b53;
+  --desk-2026-b: #7e5bb5;
+  --desk-bar: #10131a;
+  --desk-text: #f2f2f2;
+  --desk-window: #f7f7f7;
+  --desk-window-text: #1a1a1a;
+  --desk-battery: #58c26b;
+  --desk-battery-low: #e0493b;
+  --kiln-tile-a: #d9822b;
+  --kiln-tile-b: #f2c14e;
+  --kiln-empty: #2b2b2b;
+  --ash-sky: #4a3b3b;
+  --ash-sun: #e8894a;
+  --ash-ground: #1c1716;
+  --ash-ridge: #3a2f2c;
+  --ash-flake: #cfc6bf;
 }

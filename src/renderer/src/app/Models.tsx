@@ -43,6 +43,7 @@ export function Models({
   onRevise,
   onDelete,
   onReview,
+  onUse,
 }: {
   data: SavedData;
   onCompany: (name: string) => void;
@@ -51,6 +52,7 @@ export function Models({
   onRevise: (id: string) => void;
   onDelete: (id: string) => void;
   onReview: (id: string) => void;
+  onUse: (id: string) => void;
 }) {
   const [company, setCompany] = useState(data.company ?? "");
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -88,6 +90,9 @@ export function Models({
               <span>
                 {[yearOf(m), nameOf(m.revisedFrom)].filter(Boolean).join(", ")}
               </span>
+            </button>
+            <button type="button" onClick={() => onUse(m.id)}>
+              Use it
             </button>
             <button type="button" onClick={() => onReview(m.id)}>
               Get reviewed

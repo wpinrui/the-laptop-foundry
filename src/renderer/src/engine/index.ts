@@ -13,6 +13,8 @@ export {
   profilesOf,
   type Runtime,
   simulate,
+  type Timeline,
+  timeline,
 } from "./sim";
 export {
   type Budget,

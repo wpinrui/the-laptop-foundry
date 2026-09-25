@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react";
-import type { Review, Table } from "../engine";
+import { type CSSProperties, useMemo, useState } from "react";
+import { factsOf, type Review, rollScores, type Subject, type Table } from "../engine";
 import "./review.css";
 
 // The in-game review site, Notebook Ledger. Its look follows the model's era.
@@ -121,6 +121,133 @@ function TableView({
         ))}
       </tbody>
     </table>
+  );
+}
+
+/** One entry on the index page. */
+export interface IndexEntry {
+  subject: Subject;
+  /** The player's own model. */
+  own: boolean;
+}
+
+const BODIES = ["thin and light", "medium", "large"] as const;
+const PERFS = ["office", "mixed-use", "gaming"] as const;
+const BUDGETS = ["low", "midrange", "premium"] as const;
+
+/** Every review on the site: the player's reviewed models and every rival. */
+export function ReviewIndex({
+  entries,
+  era,
+  onOpen,
+}: {
+  entries: IndexEntry[];
+  era: Era;
+  onOpen: (id: string) => void;
+}) {
+  const [year, setYear] = useState<number | "">("");
+  const [body, setBody] = useState("");
+  const [perf, setPerf] = useState("");
+  const [budget, setBudget] = useState("");
+  const [own, setOwn] = useState(false);
+  const rows = useMemo(
+    () =>
+      entries.map((e) => {
+        const f = factsOf(e.subject);
+        return { ...e, cls: f.cls, score: rollScores(e.subject.id).overall };
+      }),
+    [entries],
+  );
+  const years = [...new Set(rows.map((r) => r.subject.build.year))].sort();
+  const shown = rows
+    .filter(
+      (r) =>
+        (year === "" || r.subject.build.year === year) &&
+        (!body || r.cls.body === body) &&
+        (!perf || r.cls.performance === perf) &&
+        (!budget || r.cls.budget === budget) &&
+        (!own || r.own),
+    )
+    .sort(
+      (a, b) =>
+        Number(b.own) - Number(a.own) ||
+        b.subject.build.year - a.subject.build.year ||
+        b.score - a.score,
+    );
+  const pick = (
+    label: string,
+    value: string,
+    set: (v: string) => void,
+    options: readonly string[],
+  ) => (
+    <select value={value} aria-label={label} onChange={(e) => set(e.target.value)}>
+      <option value="">{`Any ${label}`}</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+  return (
+    <div className={`rs rs-${era}`}>
+      <Masthead era={era} />
+      <article className="rs-page">
+        <p className="rs-kicker">Reviews</p>
+        <h1>All laptop reviews</h1>
+        <div className="rs-filters">
+          <select
+            value={year}
+            aria-label="year"
+            onChange={(e) => setYear(e.target.value ? Number(e.target.value) : "")}
+          >
+            <option value="">Any year</option>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          {pick("size", body, setBody, BODIES)}
+          {pick("use", perf, setPerf, PERFS)}
+          {pick("budget", budget, setBudget, BUDGETS)}
+          <label>
+            <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} />
+            Mine only
+          </label>
+        </div>
+        <table className="rs-table">
+          <thead>
+            <tr>
+              <th>Laptop</th>
+              <th>Year</th>
+              <th>Class</th>
+              <th>Price</th>
+              <th>Rating</th>
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((r) => (
+              <tr key={r.subject.id} className={r.own ? "rs-me" : undefined}>
+                <td>
+                  <button type="button" className="rs-link" onClick={() => onOpen(r.subject.id)}>
+                    {r.subject.company} {r.subject.name}
+                  </button>
+                </td>
+                <td>{r.subject.build.year}</td>
+                <td>
+                  {[r.cls.budget, r.cls.body, r.cls.performance].filter(Boolean).join(", ")}
+                </td>
+                <td>{r.subject.build.price ? `$${r.subject.build.price.toLocaleString("en-US")}` : "—"}</td>
+                <td>{r.score.toFixed(1)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {shown.length === 0 && <p>No reviews match.</p>}
+      </article>
+      <footer className="rs-foot">{PUBLICATION}</footer>
+    </div>
   );
 }
 

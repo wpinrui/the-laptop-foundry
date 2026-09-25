@@ -55,7 +55,14 @@ export function App() {
   };
   if (using)
     return (
-      <CafeScreen key={using.id} subject={using} onBack={() => setUsing(null)} />
+      <CafeScreen
+        key={using.id}
+        subject={using}
+        library={data.models
+          .filter((x) => x.reviewed)
+          .map((x) => ({ id: x.id, name: x.name, company, build: x.build as Build }))}
+        onBack={() => setUsing(null)}
+      />
     );
   if (reviewing)
     return (

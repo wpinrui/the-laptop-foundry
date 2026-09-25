@@ -315,7 +315,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006,
   }),
-  rival(2006, "halbrook", "Carrow 720 Media", {
+  rival(2006, "halbrook", "Carrow 720", {
     body: "pillow",
     layout: "b",
     size: [358, 262, 30],
@@ -1579,7 +1579,7 @@ const T2006: Rival[] = (() => {
     trim(b("Aurel E1540"), "Aurel E1560", 1549, {
       parts: { graphics: gtx, processor: "core2-duo-t5500", cooling: "two-fans" },
     }),
-    trim(b("Pomella 13"), "Pomella 13 Play", 1499, {
+    trim(b("Pomella 13"), "Pomella Play 15", 1499, {
       parts: { graphics: gtx, cooling: "two-fans" },
     }),
     trim(b("Aurel E1540"), "Aurel E1580", 1999, {
@@ -1608,7 +1608,7 @@ const T2006: Rival[] = (() => {
     trim(b("Loma 9800"), "Loma 9810", 1099, {
       parts: { processor: "core2-duo-t5500" },
     }),
-    trim(b("Carrow 720 Media"), "Carrow 740 Media", 1399, {
+    trim(b("Carrow 720"), "Carrow 740", 1399, {
       parts: { graphics: "radeon-x1600" },
     }),
     trim(b("Loma 9920 Media"), "Loma 9950 Studio", 1799, {
@@ -1645,6 +1645,9 @@ const T2016: Rival[] = (() => {
     trim(b("Wardline T470"), "Wardline E470", 579, {
       parts: { processor: "core-i5-6200u" },
     }),
+    trim(b("Wardline T470"), "Wardline T470p", 999, {
+      parts: { graphics: "geforce-940mx" },
+    }),
     trim(b("Carrow 15 Stream"), "Carrow 15 Plus", 799, {
       parts: { processor: "core-i5-6200u" },
     }),
@@ -1657,7 +1660,7 @@ const T2016: Rival[] = (() => {
     trim(b("Aurel 15 Studio"), "Aurel 15", 1099, {
       parts: { graphics: "geforce-940mx" },
     }),
-    trim(b("Carrow 15 Stream"), "Carrow 15 Media", 849, {
+    trim(b("Carrow 15 Stream"), "Carrow 15 Home", 849, {
       parts: { processor: "core-i5-6200u", graphics: "radeon-r7-m460" },
     }),
     trim(b("Vesper Strike 15"), "Vesper Strike 15 Lite", 1149, {

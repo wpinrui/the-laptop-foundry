@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type Box,
   CONTENT,
+  gameEdition,
   KILNBENCH,
   PROFILES,
   type ProfileId,
@@ -16,7 +17,7 @@ import {
 } from "../engine";
 import { balancedProfile } from "../engine/sim/profiles";
 import { lookOf } from "../review/ReviewScreen";
-import { eraOf, ReviewSite } from "../review/ReviewSite";
+import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
 import { token } from "../viewer/theme";
 import { Scene } from "../viewer/Scene";
 import "./cafe.css";
@@ -26,6 +27,10 @@ import "./cafe.css";
 
 type App = "desktop" | "kiln" | "ash" | "web";
 const BATTERY_SPEED = 30;
+const INDEX = "index";
+const LATEST = Math.max(...CONTENT.eras.map((e) => e.year));
+const GAME_EDITIONS: number[] = [];
+for (let y = 2005; y <= gameEdition(LATEST); y += 3) GAME_EDITIONS.push(y);
 const PROFILE_NAME: Record<ProfileId, string> = {
   high: "High",
   medium: "Medium",
@@ -241,15 +246,24 @@ function Ash({ fps, refuses, name }: { fps: number; refuses: boolean; name: stri
 
 export function CafeScreen({
   subject,
+  library = [],
   onBack,
 }: {
   subject: Subject;
+  /** The player's reviewed models, for the review site. */
+  library?: Subject[];
   onBack: () => void;
 }) {
   const build = subject.build;
   const fit = useMemo(() => solve(build), [build]);
   const m = useMemo(() => simulate(build, fit), [build, fit]);
-  const r = useMemo(() => results(build, m), [build, m]);
+  // Any edition up to the latest can run; its feature checks decide whether it does.
+  const [benchYear, setBenchYear] = useState(
+    () => [...KILNBENCH].reverse().find((e) => e.year <= build.year)?.year ?? KILNBENCH[0].year,
+  );
+  const [gameYear, setGameYear] = useState(() => gameEdition(build.year));
+  const benchR = useMemo(() => results(build, m, benchYear), [build, m, benchYear]);
+  const gameR = useMemo(() => results(build, m, gameYear), [build, m, gameYear]);
   const enabled = PROFILES.filter((id) => m.profiles[id].enabled);
   const [profile, setProfile] = useState<ProfileId>(() => balancedProfile(m.profiles));
   const [app, setApp] = useState<App>("desktop");
@@ -258,7 +272,7 @@ export function CafeScreen({
   const [wh, setWh] = useState(() => m.battery?.wh ?? 0);
   const [heat, setHeat] = useState(0);
   const [kiln, setKiln] = useState({ running: false, progress: 0, elapsed: 0, result: null as number | null });
-  const [history, setHistory] = useState<string[]>([subject.id]);
+  const [history, setHistory] = useState<string[]>([INDEX]);
 
   const tl = useMemo(
     () => ({
@@ -280,10 +294,10 @@ export function CafeScreen({
   const fan = off ? 0 : load ? active.fan[i] : Math.max(idleFan, heat > 0 ? tl.cpu.fan[i] : 0);
   useFanAudio(db, fan, muted);
 
-  const edition = [...KILNBENCH].reverse().find((e) => e.year <= build.year) ?? KILNBENCH[0];
+  const edition = KILNBENCH.find((e) => e.year === benchYear) ?? KILNBENCH[0];
   const eraRef = build.year < 2012 ? 600 : build.year < 2020 ? 5000 : 20000;
   const work = 40 * eraRef;
-  const ash = r?.games.find((g) => g.id === "ashfall");
+  const ash = gameR?.games.find((g) => g.id === "ashfall");
   const ashHigh = ash?.runs?.find((x) => x.preset === "high" && !x.native);
   const gfxRef = m.cooling?.graphics.sustained ?? 1;
   const fps = ashHigh ? (ashHigh.fps * tl.gpu.graphics[i]) / gfxRef : 0;
@@ -329,12 +343,18 @@ export function CafeScreen({
   const look = lookOf(CONTENT.panels.find((p) => p.id === build.parts.display?.[0]?.part));
   const era = eraOf(build.year);
   const current = history[history.length - 1];
+  const entries = useMemo(() => {
+    // Only reviewed models have a review; an unreviewed one is not listed.
+    return [
+      ...library.map((x) => ({ subject: x, own: true })),
+      ...RIVALS.map((x) => ({ subject: rivalSubject(x), own: false })),
+    ];
+  }, [library]);
   const review = useMemo(() => {
-    if (app !== "web") return null;
-    if (current === subject.id) return reviewOf(subject);
-    const rv = RIVALS.find((x) => x.id === current);
-    return reviewOf(rv ? rivalSubject(rv) : subject);
-  }, [app, current, subject]);
+    if (app !== "web" || current === INDEX) return null;
+    const found = entries.find((x) => x.subject.id === current);
+    return reviewOf(found ? found.subject : subject);
+  }, [app, current, subject, entries]);
 
   const pct = battery ? Math.round((wh / battery.wh) * 100) : 100;
   const desktop = (
@@ -355,7 +375,7 @@ export function CafeScreen({
             <button
               type="button"
               onClick={() => {
-                setHistory([subject.id]);
+                setHistory([INDEX]);
                 setApp("web");
               }}
             >
@@ -372,6 +392,36 @@ export function CafeScreen({
                   </button>
                 )}
                 <span />
+                {app === "kiln" && (
+                  <select
+                    value={benchYear}
+                    aria-label="Kilnbench edition"
+                    disabled={kiln.running}
+                    onChange={(e) => {
+                      setBenchYear(Number(e.target.value));
+                      setKiln({ running: false, progress: 0, elapsed: 0, result: null });
+                    }}
+                  >
+                    {KILNBENCH.map((e) => (
+                      <option key={e.year} value={e.year}>
+                        Kilnbench {e.year}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {app === "ash" && (
+                  <select
+                    value={gameYear}
+                    aria-label="Ashfall edition"
+                    onChange={(e) => setGameYear(Number(e.target.value))}
+                  >
+                    {GAME_EDITIONS.map((y) => (
+                      <option key={y} value={y}>
+                        Ashfall {y}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -385,8 +435,8 @@ export function CafeScreen({
               <div className="win-body">
                 {app === "kiln" && (
                   <Kiln
-                    name={r?.bench.name ?? `Kilnbench ${edition.year}`}
-                    refuses={!r || r.bench.multi === null}
+                    name={benchR?.bench.name ?? `Kilnbench ${edition.year}`}
+                    refuses={!benchR || benchR.bench.multi === null}
                     running={kiln.running}
                     progress={kiln.progress}
                     result={kiln.result}
@@ -394,11 +444,18 @@ export function CafeScreen({
                   />
                 )}
                 {app === "ash" && <Ash fps={fps} refuses={!ashHigh} name={ash?.name ?? "Ashfall"} />}
+                {app === "web" && current === INDEX && (
+                  <ReviewIndex
+                    entries={entries}
+                    era={era}
+                    onOpen={(id) => setHistory((h) => [...h, id])}
+                  />
+                )}
                 {app === "web" && review && (
                   <ReviewSite
                     review={review}
                     onOpen={(id) => setHistory((h) => [...h, id])}
-                    onHome={() => setHistory([subject.id])}
+                    onHome={() => setHistory([INDEX])}
                   />
                 )}
               </div>

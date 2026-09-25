@@ -24,3 +24,20 @@ export {
   type PerfClass,
   weightOf,
 } from "./price";
+export {
+  type BenchResult,
+  GAMES,
+  type GameResult,
+  gameEdition,
+  KILNBENCH,
+  PRESETS,
+  type Results,
+  results,
+} from "./bench";
+export {
+  MAKERS,
+  type Maker,
+  RIVALS,
+  type Rival,
+  rivalsFor,
+} from "./content/rivals";

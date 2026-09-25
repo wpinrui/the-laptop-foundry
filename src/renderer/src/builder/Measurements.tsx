@@ -5,8 +5,11 @@ import {
   type DeviceClass,
   type Fit,
   type Measurements as M,
+  PRESETS,
   PROFILES,
+  type Results,
   type Runtime,
+  results,
   weightOf,
 } from "../engine";
 import { PROFILE_NAME } from "./Power";
@@ -36,6 +39,48 @@ function className(c: DeviceClass): string {
   ].filter(Boolean);
   const text = words.join(" ");
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+const PRESET_NAME = { low: "Low", medium: "Medium", high: "High", ultra: "Ultra" };
+
+/** Kilnbench and the three games, at the model year's editions. */
+function Bench({ r }: { r: Results | null }) {
+  if (!r) return null;
+  const { bench, games } = r;
+  const native = games.find((g) => g.runs?.some((x) => x.native))?.runs?.find(
+    (x) => x.native,
+  );
+  const rows: { key: string; label: string; native: boolean }[] = PRESETS.map(
+    (p) => ({ key: p, label: PRESET_NAME[p], native: false }),
+  );
+  if (native)
+    rows.push({ key: "native", label: `${native.res[0]} x ${native.res[1]}`, native: true });
+  return (
+    <>
+      <div className="m-grid">
+        <span>{bench.name}</span>
+        <b>{bench.single === null ? "—" : int(bench.single)}</b>
+        <b>{bench.multi === null ? "—" : int(bench.multi)}</b>
+      </div>
+      <div className="m-games">
+        <span />
+        {games.map((g) => (
+          <span key={g.id} className="m-head">
+            {g.name}
+          </span>
+        ))}
+        {rows.map((row) => [
+          <span key={row.key}>{row.label}</span>,
+          ...games.map((g) => {
+            const run = g.runs?.find((x) =>
+              row.native ? x.native : !x.native && x.preset === row.key,
+            );
+            return <b key={`${row.key}-${g.id}`}>{run ? int(run.fps) : "—"}</b>;
+          }),
+        ])}
+      </div>
+    </>
+  );
 }
 
 function Price({
@@ -155,6 +200,8 @@ export function Measurements({
           </div>
         </>
       )}
+
+      {cool && <Bench r={results(build, m)} />}
 
       {battery && (
         <div className="m-battery">

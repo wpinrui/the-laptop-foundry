@@ -1,6 +1,6 @@
-import { OrbitControls } from "@react-three/drei";
+import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, type ReactNode, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Box, Fit } from "../engine";
 import { shellSurface } from "../engine";
@@ -28,6 +28,9 @@ interface SceneProps {
   colours: { floor: string; deck: string; lid: string };
   labelFor: (box: Box) => string;
   onHover: (h: Hover | null) => void;
+  /** A page shown on the display panel, laid out at `width` CSS pixels across the active area. */
+  screen?: { node: ReactNode; width: number; mm: { x: number; y: number } };
+  camera?: { position: [number, number, number]; target: [number, number, number] };
 }
 
 // ------------------------------------------------------------------ materials
@@ -339,8 +342,10 @@ const Model = memo(function Model({
   colours,
   labelFor,
   onHover,
+  screen,
 }: SceneProps) {
   const ctx = useMemo(() => makeCtx(), []);
+  const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   useEffect(() => () => ctx.dispose(), [ctx]);
   const base = useMemo(
     () => fit.boxes.filter((b) => b.kind === "unit" && b.piece !== "lid"),
@@ -405,6 +410,22 @@ const Model = memo(function Model({
               year={year}
               hinge={fit.shell.style.hinge}
             />
+            {screen && panelBox && (
+              // The panel faces down when the lid is shut; its top edge is the one away from the hinge.
+              <Html
+                transform
+                position={[
+                  panelBox.at.x + panelBox.size.x / 2,
+                  panelBox.at.y + panelBox.size.y / 2,
+                  panelBox.at.z - 0.3,
+                ]}
+                rotation={[Math.PI, 0, 0]}
+                distanceFactor={(screen.mm.x * 400) / screen.width}
+                zIndexRange={[4, 0]}
+              >
+                {screen.node}
+              </Html>
+            )}
           </group>
         </group>
       </group>
@@ -422,7 +443,12 @@ export function Scene(props: SceneProps) {
       // sub-mm gaps models rely on (e.g. the panel's screen over its module
       // stack) and shows up as moire z-fighting. Tightened to the range the
       // camera actually visits.
-      camera={{ position: CAMERA_POSITION, fov: 38, near: 10, far: 4000 }}
+      camera={{
+        position: props.camera?.position ?? CAMERA_POSITION,
+        fov: 38,
+        near: 10,
+        far: 4000,
+      }}
       dpr={[1, 2]}
       onPointerMissed={() => props.onHover(null)}
     >
@@ -435,7 +461,7 @@ export function Scene(props: SceneProps) {
       <Model {...props} />
       <OrbitControls
         makeDefault
-        target={[0, 30, 0]}
+        target={props.camera?.target ?? [0, 30, 0]}
         minDistance={120}
         maxDistance={2500}
       />

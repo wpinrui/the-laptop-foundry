@@ -41,3 +41,13 @@ export {
   type Rival,
   rivalsFor,
 } from "./content/rivals";
+export {
+  CATEGORIES as REVIEW_CATEGORIES,
+  type Review,
+  reviewOf,
+  rivalSubject,
+  rollScores,
+  type Scores,
+  type Subject,
+  type Table,
+} from "./review";

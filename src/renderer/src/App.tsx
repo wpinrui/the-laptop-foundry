@@ -4,7 +4,8 @@ import { CompanySetup, Models } from "./app/Models";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { emptyBuild } from "./builder/structure";
-import { type Build, CONTENT } from "./engine";
+import { type Build, CONTENT, type Subject } from "./engine";
+import { ReviewScreen } from "./review/ReviewScreen";
 
 const store = () => window.api.store;
 
@@ -20,6 +21,7 @@ function newId(): string {
 export function App() {
   const [data, setData] = useState<SavedData | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState<Subject | null>(null);
 
   useEffect(() => {
     store().load().then(setData);
@@ -38,6 +40,18 @@ export function App() {
       />
     );
 
+  const company = data.company;
+  const review = (m: SavedModel) =>
+    setReviewing({ id: m.id, name: m.name, company, build: m.build as Build });
+  if (reviewing)
+    return (
+      <ReviewScreen
+        key={reviewing.id}
+        subject={reviewing}
+        onBack={() => setReviewing(null)}
+      />
+    );
+
   const model = open ? data.models.find((m) => m.id === open) : undefined;
   if (model)
     return (
@@ -46,6 +60,7 @@ export function App() {
         model={model}
         onSave={save}
         onBack={() => setOpen(null)}
+        onReview={review}
         reroll={(b) => randomName(b.year, inchesOf(b))}
       />
     );
@@ -74,6 +89,10 @@ export function App() {
         if (src) create(structuredClone(src.build) as Build, src.id);
       }}
       onDelete={(id) => store().deleteModel(id).then(setData)}
+      onReview={(id) => {
+        const m = data.models.find((x) => x.id === id);
+        if (m) review(m);
+      }}
     />
   );
 }

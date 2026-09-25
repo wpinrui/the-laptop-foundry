@@ -2,7 +2,14 @@ import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, type ThreeEvent, useThree } from "@react-three/fiber";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { Workshop } from "./Workshop";
-import { memo, type ReactNode, useEffect, useMemo, useRef } from "react";
+import {
+  memo,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import * as THREE from "three";
 import type { Box, Build, Fit } from "../engine";
 import { shellSurface } from "../engine";
@@ -261,15 +268,57 @@ function Units({
 
 // ------------------------------------------------------------------ shell
 
+type Wells = Fit["shell"]["wells"];
+
+/**
+ * The shell surface. "open" leaves out the flat top face, which the deck
+ * draws instead; "deck" is that top face alone, with the keyboard and
+ * trackpad wells cut out so a solid shell does not cover them.
+ */
 function surfaceGeometry(
   size: Fit["shell"]["outer"],
   style: Fit["shell"]["style"],
   profile: boolean,
+  mode: "full" | "open" | "deck" = "full",
+  wells: Wells = [],
 ): THREE.BufferGeometry {
   const data = shellSurface(size, style, profile);
+  const count = data.positions.length / 3;
+  // shellSurface lays out the rings, then the bottom centre, then the top centre.
+  const topCentre = count - 1;
+  const bottomCentre = count - 2;
+  if (mode === "deck") {
+    const lastLoop: THREE.Vector2[] = [];
+    let n = 0;
+    for (let i = 0; i + 2 < data.indices.length; i += 3)
+      if (data.indices[i] === topCentre) n++;
+    for (let v = bottomCentre - n; v < bottomCentre; v++)
+      lastLoop.push(new THREE.Vector2(data.positions[v * 3], data.positions[v * 3 + 1]));
+    const shape = new THREE.Shape(lastLoop);
+    for (const w of wells) {
+      const hole = new THREE.Path();
+      hole.moveTo(w.at.x, w.at.y);
+      hole.lineTo(w.at.x + w.size.x, w.at.y);
+      hole.lineTo(w.at.x + w.size.x, w.at.y + w.size.y);
+      hole.lineTo(w.at.x, w.at.y + w.size.y);
+      hole.closePath();
+      shape.holes.push(hole);
+    }
+    const g = new THREE.ShapeGeometry(shape);
+    g.translate(0, 0, size.z);
+    return g;
+  }
+  let indices = data.indices;
+  if (mode === "open") {
+    const kept: number[] = [];
+    for (let i = 0; i + 2 < indices.length; i += 3)
+      if (indices[i] !== topCentre)
+        kept.push(indices[i], indices[i + 1], indices[i + 2]);
+    indices = new Uint32Array(kept);
+  }
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
-  g.setIndex(new THREE.BufferAttribute(data.indices, 1));
+  g.setIndex(new THREE.BufferAttribute(indices, 1));
   g.computeVertexNormals();
   return g;
 }
@@ -283,6 +332,8 @@ function Shell({
   surface,
   xray = true,
   offset = 2,
+  mode = "full",
+  wells,
 }: {
   size: Fit["shell"]["outer"];
   style: Fit["shell"]["style"];
@@ -293,11 +344,13 @@ function Shell({
   xray?: boolean;
   /** Depth push. The deck plate uses less, so it wins over the top face of the base. */
   offset?: number;
+  mode?: "full" | "open" | "deck";
+  wells?: Wells;
 }) {
   const look = surfaceLook(surface);
   const geometry = useMemo(
-    () => surfaceGeometry(size, style, profile),
-    [size.x, size.y, size.z, style, profile],
+    () => surfaceGeometry(size, style, profile, mode, wells),
+    [size.x, size.y, size.z, style, profile, mode, wells],
   );
   const edges = useMemo(
     () => new THREE.EdgesGeometry(geometry, 25),
@@ -419,7 +472,8 @@ const Model = memo(function Model({
   surfaces,
   xray = true,
   workshop,
-}: SceneProps) {
+  portal,
+}: SceneProps & { portal?: RefObject<HTMLDivElement | null> }) {
   const ctx = useMemo(() => makeCtx(), []);
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   useEffect(() => () => ctx.dispose(), [ctx]);
@@ -436,10 +490,6 @@ const Model = memo(function Model({
   const hz = hinge?.kind === "hinge" ? hinge.from.z : fit.shell.lid.at.z;
   const out = fit.shell.outer;
   const lidSize = fit.shell.lid.size;
-  const deckPlate = useMemo(
-    () => ({ x: out.x, y: out.y, z: 0.01 }),
-    [out.x, out.y],
-  );
 
   return (
     // Engine space is z up; three is y up. Rotate once here and centre the base.
@@ -452,17 +502,31 @@ const Model = memo(function Model({
           profile
           surface={surfaces?.floor}
           xray={xray}
+          mode="open"
         />
         <Shell
-          size={deckPlate}
+          size={out}
           style={fit.shell.style}
           colour={colours.deck}
-          profile={false}
-          z={out.z}
+          profile
           surface={surfaces?.deck}
           xray={xray}
           offset={1}
+          mode="deck"
+          wells={fit.shell.wells}
         />
+        {!xray &&
+          fit.shell.wells.map((w) => (
+            // The floor of each well, dark, so a solid shell does not show
+            // the board through the gaps around the keyboard and trackpad.
+            <mesh
+              key={`${w.at.x}-${w.at.y}`}
+              position={[w.at.x + w.size.x / 2, w.at.y + w.size.y / 2, w.at.z - 0.05]}
+            >
+              <planeGeometry args={[w.size.x, w.size.y]} />
+              <meshBasicMaterial color={token("color-opening")} side={THREE.DoubleSide} />
+            </mesh>
+          ))}
         <Openings fit={fit} />
         {workshop && !table && <Workshop out={out} />}
         {table && (
@@ -512,13 +576,16 @@ const Model = memo(function Model({
                 rotation-x={Math.PI}
               >
                 <planeGeometry args={[panelBox.size.x, panelBox.size.y]} />
-                <meshStandardMaterial color={token("color-opening")} roughness={0.15} metalness={0} />
+                <meshStandardMaterial color={token("color-opening")} roughness={0.4} metalness={0} />
               </mesh>
             )}
             {screen && panelBox && (
               // The panel faces down when the lid is shut; its top edge is the one away from the hinge.
               <Html
                 transform
+                // A fixed target: without it Html mounts on the canvas wrapper,
+                // remounts once events connect, and React 19 wipes the new root.
+                portal={portal as RefObject<HTMLElement>}
                 position={[
                   panelBox.at.x + panelBox.size.x / 2,
                   panelBox.at.y + panelBox.size.y / 2,
@@ -560,7 +627,9 @@ function Reflections() {
 
 export function Scene(props: SceneProps) {
   const bg = token("color-bg");
+  const overlay = useRef<HTMLDivElement | null>(null);
   return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
     <Canvas
       // The orbit camera never sits closer than 120mm or farther than 2500mm
       // (below); near:far used to span 1 to 20000mm, 400x wider than the
@@ -577,7 +646,7 @@ export function Scene(props: SceneProps) {
       dpr={[1, 2]}
       onPointerMissed={() => props.onHover(null)}
     >
-      <color attach="background" args={[props.workshop ? token("shop-wall") : bg]} />
+      <color attach="background" args={[props.workshop ? token("shop-wall") : props.table ? token("cafe-wall") : bg]} />
       <Reflections />
       {props.workshop ? (
         <>
@@ -600,7 +669,7 @@ export function Scene(props: SceneProps) {
           <directionalLight position={[-400, 300, -300]} intensity={0.5} />
         </>
       )}
-      <Model {...props} />
+      <Model {...props} portal={overlay} />
       <OrbitControls
         makeDefault
         target={props.camera?.target ?? [0, 30, 0]}
@@ -608,5 +677,11 @@ export function Scene(props: SceneProps) {
         maxDistance={2500}
       />
     </Canvas>
+      {/* The on-screen page mounts here, over the canvas. */}
+      <div
+        ref={overlay}
+        style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
+      />
+    </div>
   );
 }

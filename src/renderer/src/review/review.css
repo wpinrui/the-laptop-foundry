@@ -518,5 +518,13 @@
 }
 
 .rs-filters select {
+  /* Site styling, not the builder's dark picker, which would otherwise apply. */
+  flex: none;
+  width: auto;
   font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 2px 4px;
 }

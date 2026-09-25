@@ -306,9 +306,10 @@ input[type="range"] {
   position: absolute;
   top: var(--space-4);
   right: var(--space-4);
-  width: 19rem;
+  width: 20rem;
   max-height: calc(100% - 5rem);
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -328,7 +329,7 @@ input[type="range"] {
 
 .m-grid {
   display: grid;
-  grid-template-columns: 1fr 4.5rem 4.5rem;
+  grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem;
   gap: var(--space-1) var(--space-2);
 }
 
@@ -351,7 +352,7 @@ input[type="range"] {
 
 .m-battery {
   display: grid;
-  grid-template-columns: 1fr repeat(4, 3.5rem);
+  grid-template-columns: minmax(0, 1fr) repeat(4, 3rem);
   gap: var(--space-1) var(--space-2);
 }
 
@@ -414,7 +415,7 @@ input[type="range"] {
 
 .m-games {
   display: grid;
-  grid-template-columns: 1fr repeat(3, 4.5rem);
+  grid-template-columns: minmax(0, 1fr) repeat(3, 4.25rem);
   gap: var(--space-1) var(--space-2);
 }
 

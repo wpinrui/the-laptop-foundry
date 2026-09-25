@@ -59,4 +59,40 @@
   --space-3: 0.75rem;
   --space-4: 1rem;
   --radius: 6px;
+
+  /* Review site eras. The 2006 site is a light portal, 2016 flat, 2026 editorial. */
+  --site06-bg: #e9edf2;
+  --site06-page: #ffffff;
+  --site06-head: #1d4f91;
+  --site06-head-2: #6f9fd8;
+  --site06-text: #222222;
+  --site06-muted: #666666;
+  --site06-link: #0645ad;
+  --site06-rule: #b9c6d6;
+  --site06-row: #f2f5f9;
+  --site16-bg: #f4f4f4;
+  --site16-page: #ffffff;
+  --site16-head: #2b2f36;
+  --site16-accent: #e5532d;
+  --site16-text: #2a2a2a;
+  --site16-muted: #7a7a7a;
+  --site16-rule: #e2e2e2;
+  --site16-row: #fafafa;
+  --site26-bg: #fbfaf7;
+  --site26-page: #fbfaf7;
+  --site26-head: #111111;
+  --site26-accent: #3b5bdb;
+  --site26-text: #1a1a1a;
+  --site26-muted: #6b6b6b;
+  --site26-rule: #e6e3dc;
+  --site26-row: #f3f1ec;
+  /* Score piece: poor, fair, good, great. */
+  --score-poor: #c9463d;
+  --score-fair: #d99a2b;
+  --score-good: #3f9d5a;
+  --score-great: #1f8f7a;
+  --score-glow: #ffd766;
+  /* Panel simulation overlays. */
+  --panel-glare: #ffffff;
+  --panel-tn-shift: #203050;
 }

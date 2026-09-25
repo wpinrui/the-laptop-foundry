@@ -1,0 +1,509 @@
+/* ------------------------------------------------------------ shared */
+
+.rs {
+  min-height: 100%;
+  background: var(--rs-bg);
+  color: var(--rs-text);
+}
+
+.rs button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.rs-page {
+  background: var(--rs-page);
+}
+
+.rs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0 1.25em;
+}
+
+.rs-table caption {
+  text-align: left;
+  font-weight: 700;
+  padding-bottom: 0.25em;
+}
+
+.rs-table th,
+.rs-table td {
+  text-align: right;
+  padding: 0.3em 0.5em;
+  border-bottom: 1px solid var(--rs-rule);
+}
+
+.rs-table th:first-child,
+.rs-table td:first-child {
+  text-align: left;
+}
+
+.rs-table tr.rs-me td {
+  font-weight: 700;
+  background: var(--rs-row);
+}
+
+.rs-link {
+  color: var(--rs-link) !important;
+  text-decoration: underline;
+}
+
+.rs-specs {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 0 0 1em;
+}
+
+.rs-specs div {
+  display: grid;
+  grid-template-columns: 9em 1fr;
+  gap: 0.75em;
+  padding: 0.25em 0;
+  border-bottom: 1px solid var(--rs-rule);
+}
+
+.rs-specs dt {
+  color: var(--rs-muted);
+}
+
+.rs-specs dd {
+  margin: 0;
+}
+
+.rs-proscons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1em;
+}
+
+.rs-proscons ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.rs-pros li::marker {
+  content: "+  ";
+  color: var(--score-good);
+  font-weight: 700;
+}
+
+.rs-cons li::marker {
+  content: "-  ";
+  color: var(--score-poor);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------ rating piece */
+
+.rs-rating {
+  --rs-tone: var(--score-fair);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2em;
+  align-items: center;
+  padding: 1.5em 0 2em;
+}
+
+.rs-rating.poor { --rs-tone: var(--score-poor); }
+.rs-rating.fair { --rs-tone: var(--score-fair); }
+.rs-rating.good { --rs-tone: var(--score-good); }
+.rs-rating.great { --rs-tone: var(--score-great); }
+
+.rs-ring {
+  width: var(--rs-size);
+  height: var(--rs-size);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--rs-tone) var(--rs-score), var(--rs-rule) 0);
+  animation: rs-fill 1.1s ease-out both;
+}
+
+.rs-rating.great .rs-ring {
+  box-shadow:
+    0 0 0 0.35em var(--score-glow),
+    0 0 2.5em var(--score-glow);
+  animation:
+    rs-fill 1.1s ease-out both,
+    rs-pulse 2.4s ease-in-out 1.1s infinite;
+}
+
+.rs-ring-inner {
+  width: 78%;
+  height: 78%;
+  border-radius: 50%;
+  background: var(--rs-page);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding-top: calc(var(--rs-size) * 0.26);
+  color: var(--rs-tone);
+}
+
+.rs-ring-inner b {
+  font-size: calc(var(--rs-size) * 0.3);
+  line-height: 1;
+  font-weight: 800;
+}
+
+.rs-ring-inner span {
+  font-size: calc(var(--rs-size) * 0.12);
+  font-weight: 700;
+}
+
+@keyframes rs-fill {
+  from {
+    transform: scale(0.6) rotate(-90deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes rs-pulse {
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.rs-bars {
+  flex: 1;
+  min-width: 16em;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.rs-bars li {
+  display: grid;
+  grid-template-columns: 11em 1fr 3em;
+  gap: 0.5em;
+  align-items: center;
+}
+
+.rs-bars i {
+  display: block;
+  height: 0.55em;
+  border-radius: 1em;
+  background: var(--score-fair);
+}
+
+.rs-bars li.poor i { background: var(--score-poor); }
+.rs-bars li.good i { background: var(--score-good); }
+.rs-bars li.great i { background: var(--score-great); }
+
+.rs-bars b {
+  text-align: right;
+}
+
+/* ------------------------------------------------------------ 2006: a portal */
+
+.rs-2006 {
+  --rs-bg: var(--site06-bg);
+  --rs-page: var(--site06-page);
+  --rs-text: var(--site06-text);
+  --rs-muted: var(--site06-muted);
+  --rs-link: var(--site06-link);
+  --rs-rule: var(--site06-rule);
+  --rs-row: var(--site06-row);
+  font-family: Verdana, Tahoma, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px;
+}
+
+.rs-2006 .rs-mast {
+  background: linear-gradient(var(--site06-head-2), var(--site06-head));
+  color: var(--site06-page);
+  padding: 10px 12px 0;
+  border: 1px solid var(--site06-head);
+}
+
+.rs-2006 .rs-logo {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.rs-2006 .rs-logo span {
+  font-size: 13px;
+}
+
+.rs-2006 nav {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.rs-2006 nav span {
+  background: var(--site06-page);
+  color: var(--site06-head);
+  padding: 3px 10px;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.rs-2006 .rs-page {
+  border: 1px solid var(--site06-rule);
+  border-top: none;
+  padding: 10px 14px;
+}
+
+.rs-2006 h1 {
+  font-size: 18px;
+  color: var(--site06-head);
+  margin: 4px 0 10px;
+}
+
+.rs-2006 h2 {
+  font-size: 14px;
+  background: var(--site06-row);
+  border-left: 4px solid var(--site06-head);
+  padding: 3px 6px;
+  margin: 16px 0 6px;
+}
+
+.rs-2006 .rs-kicker {
+  color: var(--site06-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.rs-2006 .rs-table th {
+  background: var(--site06-head);
+  color: var(--site06-page);
+}
+
+.rs-2006 .rs-foot {
+  color: var(--site06-muted);
+  font-size: 10px;
+  text-align: center;
+  padding: 8px;
+}
+
+/* ------------------------------------------------------------ 2016: flat */
+
+.rs-2016 {
+  --rs-bg: var(--site16-bg);
+  --rs-page: var(--site16-page);
+  --rs-text: var(--site16-text);
+  --rs-muted: var(--site16-muted);
+  --rs-link: var(--site16-accent);
+  --rs-rule: var(--site16-rule);
+  --rs-row: var(--site16-row);
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.rs-2016 .rs-mast {
+  background: var(--site16-head);
+  color: var(--site16-page);
+  display: flex;
+  align-items: center;
+  gap: 2em;
+  padding: 0.8em 1.5em;
+}
+
+.rs-2016 .rs-logo {
+  font-weight: 800;
+  font-size: 1.3em;
+  border-bottom: 3px solid var(--site16-accent);
+}
+
+.rs-2016 nav {
+  display: flex;
+  gap: 1.5em;
+  text-transform: uppercase;
+  font-size: 0.8em;
+  letter-spacing: 0.08em;
+}
+
+.rs-2016 .rs-page {
+  max-width: 50em;
+  margin: 1.5em auto;
+  padding: 1.5em 2em;
+}
+
+.rs-2016 h1 {
+  font-size: 2em;
+  line-height: 1.2;
+  font-weight: 300;
+}
+
+.rs-2016 h2 {
+  font-size: 1.2em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--site16-accent);
+  margin-top: 2em;
+}
+
+.rs-2016 .rs-kicker {
+  color: var(--site16-accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8em;
+  margin: 0;
+}
+
+.rs-2016 .rs-foot {
+  text-align: center;
+  color: var(--site16-muted);
+  padding: 2em;
+}
+
+/* ------------------------------------------------------------ 2026: editorial */
+
+.rs-2026 {
+  --rs-bg: var(--site26-bg);
+  --rs-page: var(--site26-page);
+  --rs-text: var(--site26-text);
+  --rs-muted: var(--site26-muted);
+  --rs-link: var(--site26-accent);
+  --rs-rule: var(--site26-rule);
+  --rs-row: var(--site26-row);
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.rs-2026 .rs-mast {
+  padding: 1.2em 2em;
+  border-bottom: 1px solid var(--site26-rule);
+  position: sticky;
+  top: 0;
+  background: var(--site26-bg);
+}
+
+.rs-2026 .rs-logo {
+  font-family: system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  font-size: 1.5em;
+}
+
+.rs-2026 .rs-page {
+  max-width: 42em;
+  margin: 0 auto;
+  padding: 3em 1.5em;
+}
+
+.rs-2026 h1 {
+  font-family: system-ui, sans-serif;
+  font-size: 2.6em;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  margin: 0.2em 0 0.8em;
+}
+
+.rs-2026 h2 {
+  font-family: system-ui, sans-serif;
+  font-size: 1.3em;
+  letter-spacing: -0.01em;
+  margin-top: 2.5em;
+}
+
+.rs-2026 .rs-kicker {
+  font-family: system-ui, sans-serif;
+  color: var(--site26-accent);
+  font-weight: 700;
+  margin: 0;
+}
+
+.rs-2026 .rs-table,
+.rs-2026 .rs-specs,
+.rs-2026 .rs-bars {
+  font-family: system-ui, sans-serif;
+  font-size: 0.8em;
+}
+
+.rs-2026 .rs-foot {
+  text-align: center;
+  font-family: system-ui, sans-serif;
+  color: var(--site26-muted);
+  padding: 3em;
+}
+
+/* ------------------------------------------------------------ the screen */
+
+.review-screen {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.review-bar {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+  z-index: 5;
+}
+
+.review-bar button {
+  font: inherit;
+  font-size: var(--font-size-caption);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+}
+
+/* The page as the panel shows it. */
+.panel-page {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-opening);
+}
+
+.panel-page .scroller {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.panel-page .glare,
+.panel-page .shift {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.panel-page .glare {
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    var(--panel-glare) 45%,
+    transparent 60%
+  );
+  mix-blend-mode: screen;
+}
+
+.panel-page .shift {
+  background: linear-gradient(var(--panel-tn-shift), transparent 55%);
+  mix-blend-mode: multiply;
+}
+
+.fullscreen-page {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  overflow-y: auto;
+}

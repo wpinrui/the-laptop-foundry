@@ -564,8 +564,10 @@ export function Builder({
   onSave,
   onBack,
   reroll,
+  onReview,
 }: {
   model: SavedModel;
+  onReview: (m: SavedModel) => void;
   onSave: (m: SavedModel) => void;
   onBack: () => void;
   reroll: (b: Build) => string;
@@ -643,6 +645,15 @@ export function Builder({
             aria-label="model name"
             onChange={(e) => setName(e.target.value)}
           />
+          <button
+            type="button"
+            onClick={() => {
+              pending.current?.();
+              onReview({ ...model, name: name.trim() || model.name, build });
+            }}
+          >
+            Get reviewed
+          </button>
           <button
             type="button"
             className="reroll"

@@ -116,6 +116,7 @@ export function renderUnit(
     part: box.part,
     edge: toModelEdge(box.piece, box.edge),
     hinge: opts.hinge,
+    removable: box.skin,
   };
   const options = box.opts ?? {};
   const mctx: ModelContext = {

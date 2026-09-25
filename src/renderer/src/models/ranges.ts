@@ -32,6 +32,7 @@ export interface ModelInput {
   options: Record<string, OptionValue>;
   edge?: ModelEdge;
   hinge: "barrel" | "full" | "drop";
+  removable?: boolean;
   /** Smallest and largest box seen in this context. */
   min: ModelBox;
   max: ModelBox;
@@ -166,6 +167,7 @@ export function modelRanges(): Map<ModelKey, RoleRange> {
         options,
         edge ?? "",
         key === "hinge" ? hinge : "",
+        !!box.skin,
       ]);
       const had = inputs.get(sig);
       if (had) {
@@ -179,6 +181,7 @@ export function modelRanges(): Map<ModelKey, RoleRange> {
           options,
           edge,
           hinge,
+          removable: box.skin,
           min: mb,
           max: mb,
         });

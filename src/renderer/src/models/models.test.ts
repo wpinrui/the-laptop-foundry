@@ -56,6 +56,7 @@ function contextFor(
     part: input.part,
     edge: input.edge,
     hinge: input.hinge,
+    removable: input.removable,
   };
   return {
     ...base,

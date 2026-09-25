@@ -58,6 +58,8 @@ export interface ModelContext {
   edge?: ModelEdge;
   /** The body's hinge style: full-width cover, two barrels, or a drop hinge. */
   hinge: "barrel" | "full" | "drop";
+  /** A removable battery pack: its underside (-y) is the outside of the laptop. */
+  removable?: boolean;
   materials: Record<MaterialSlot, THREE.Material>;
   /** The only randomness allowed: seeded from the inputs, so the same inputs give the same model. */
   random(): number;

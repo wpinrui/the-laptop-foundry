@@ -744,7 +744,7 @@ export function Builder() {
           aria-label="lid"
           onChange={(e) => setLidAngle(Number(e.target.value))}
         />
-        <Measurements m={measured} />
+        <Measurements m={measured} build={build} fit={fit} set={set} />
         <HoverLabel />
       </main>
     </div>

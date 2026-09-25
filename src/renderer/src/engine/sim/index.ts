@@ -273,7 +273,7 @@ function displayWatts(f: Facts, content: "idle" | "web" | "video"): number {
 function baseWatts(f: Facts): number {
   const old = f.year < 2012;
   let w = old ? 4.5 : 1;
-  if (!old && f.cpu && f.cpu.range[0] >= 45) w += 2;
+  if (!old && f.cpu && f.cpu.range[0] >= 45) w += 4.5;
   w += f.hdds * (old ? 1 : 0.8) + f.ssds * 0.1;
   return w;
 }

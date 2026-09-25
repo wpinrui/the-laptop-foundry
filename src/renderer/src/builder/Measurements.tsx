@@ -1,4 +1,14 @@
-import { type Measurements as M, PROFILES, type Runtime } from "../engine";
+import {
+  type Build,
+  classify,
+  costOf,
+  type DeviceClass,
+  type Fit,
+  type Measurements as M,
+  PROFILES,
+  type Runtime,
+  weightOf,
+} from "../engine";
 import { PROFILE_NAME } from "./Power";
 
 // Raw measurements only, each shown once it can be computed. No ratings.
@@ -18,11 +28,75 @@ const ACTIVITY_NAME: Record<keyof Runtime, string> = {
   load: "Load",
 };
 
-export function Measurements({ m }: { m: M }) {
+function className(c: DeviceClass): string {
+  const words = [
+    c.budget === "midrange" ? "Midrange" : c.budget === "low" ? "Low" : c.budget === "premium" ? "Premium" : "",
+    c.body,
+    c.performance ?? "",
+  ].filter(Boolean);
+  const text = words.join(" ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function Price({
+  build,
+  fit,
+  m,
+  set,
+}: {
+  build: Build;
+  fit: Fit;
+  m: M;
+  set: (f: (b: Build) => Build) => void;
+}) {
+  const cost = costOf(build, fit);
+  const kg = weightOf(build, fit);
+  const cls = classify(build, fit, m, kg);
+  return (
+    <>
+      <b className="m-class">{className(cls)}</b>
+      <div className="m-grid">
+        <span>Cost</span>
+        <b>${int(cost.total)}</b>
+        <span />
+        <span>Retail</span>
+        <input
+          className="watts price"
+          type="number"
+          min={0}
+          step={10}
+          aria-label="retail price"
+          value={build.price ?? ""}
+          onChange={(e) => {
+            const v = e.target.value === "" ? undefined : Number(e.target.value);
+            set((b) => ({ ...b, price: v !== undefined && Number.isFinite(v) ? v : undefined }));
+          }}
+        />
+        <span>Weight</span>
+        <b>{kg.toFixed(2)} kg</b>
+        <span />
+      </div>
+    </>
+  );
+}
+
+export function Measurements({
+  m,
+  build,
+  fit,
+  set,
+}: {
+  m: M;
+  build: Build;
+  fit: Fit;
+  set: (f: (b: Build) => Build) => void;
+}) {
   const { performance: perf, cooling: cool, battery } = m;
-  if (!perf) return null;
   return (
     <section className="measurements">
+      <Price build={build} fit={fit} m={m} set={set} />
+      {perf && (
+      <>
       <div className="m-grid">
         {cool && (
           <>
@@ -99,6 +173,8 @@ export function Measurements({ m }: { m: M }) {
             ];
           })}
         </div>
+      )}
+      </>
       )}
     </section>
   );

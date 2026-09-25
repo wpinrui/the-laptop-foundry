@@ -1,6 +1,8 @@
 import type { Layout, Node, Plan } from "../types";
 
 // Floor trees list children front to rear (split y) and left to right (split x).
+// Hinge mounts align to their outer side so they always sit at the rear corners,
+// whatever else in their row grows or collapses.
 // Cross-axis, every child stretches to its parent, so a zone reaches an outer
 // edge exactly when it is the first or last child on the way down that axis.
 
@@ -51,6 +53,7 @@ const floorA: Node = {
               pack: "x",
               grow: 0,
               edge: "rear",
+              align: "start",
             },
           ],
         },
@@ -104,6 +107,7 @@ const floorA: Node = {
               pack: "x",
               grow: 0,
               edge: "rear",
+              align: "end",
             },
           ],
         },
@@ -213,7 +217,14 @@ const floorB: Node = {
     {
       split: "x",
       children: [
-        { zone: "hinge-l", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "hinge-l",
+          takes: ["hinge"],
+          pack: "x",
+          grow: 0,
+          edge: "rear",
+          align: "start",
+        },
         {
           zone: "battery",
           takes: ["battery"],
@@ -222,7 +233,14 @@ const floorB: Node = {
           edge: "rear",
           align: "centre",
         },
-        { zone: "hinge-r", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "hinge-r",
+          takes: ["hinge"],
+          pack: "x",
+          grow: 0,
+          edge: "rear",
+          align: "end",
+        },
       ],
     },
   ],
@@ -322,7 +340,14 @@ const floorC: Node = {
     {
       split: "x",
       children: [
-        { zone: "hinge-l", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "hinge-l",
+          takes: ["hinge"],
+          pack: "x",
+          grow: 0,
+          edge: "rear",
+          align: "start",
+        },
         {
           zone: "fan-l",
           takes: ["fan", "fin"],
@@ -345,7 +370,14 @@ const floorC: Node = {
           grow: 4,
           edge: "rear",
         },
-        { zone: "hinge-r", takes: ["hinge"], pack: "x", grow: 0, edge: "rear" },
+        {
+          zone: "hinge-r",
+          takes: ["hinge"],
+          pack: "x",
+          grow: 0,
+          edge: "rear",
+          align: "end",
+        },
       ],
     },
   ],

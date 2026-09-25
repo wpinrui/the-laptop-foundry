@@ -369,15 +369,17 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     }
   }
 
-  // Hinge axis: across the hinge mounts, on the base's top face.
+  // Hinge axis: the lid's rotation axis, across the hinge mounts, on the base's
+  // rear top edge. Pivoting there, the closed lid (which lies wholly in front of
+  // and above that edge) only ever moves up and back as it opens, so it never
+  // enters the base at any angle up to fully flat.
   const hinges = placedFloor.filter((u) => u.role === "hinge");
   if (hinges.length >= 2) {
     const [h0, h1] = [hinges[0], hinges[hinges.length - 1]];
-    const y = Math.min(h0.at.y + h0.size.y / 2, h1.at.y + h1.size.y / 2);
     anchors.push({
       kind: "hinge",
-      from: { x: h0.at.x + h0.size.x / 2, y, z: F.z },
-      to: { x: h1.at.x + h1.size.x / 2, y, z: F.z },
+      from: { x: h0.at.x + h0.size.x / 2, y: F.y, z: F.z },
+      to: { x: h1.at.x + h1.size.x / 2, y: F.y, z: F.z },
     });
   }
 

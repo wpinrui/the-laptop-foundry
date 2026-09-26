@@ -10,7 +10,7 @@ Design document for version 0.1.
 
 The player picks a year, builds a laptop from components, and receives a professional review of it with a score.
 
-Version 0.1 has no tycoon features. There is no sales simulation, no capital and no balance. The loop is build, get reviewed, revise, and use the laptop.
+Version 0.1 has no tycoon features. There is no sales simulation, no capital and no balance. The loop is build, get reviewed, duplicate to try again, and use the laptop.
 
 Each place has a feel:
 
@@ -23,9 +23,9 @@ Each place has a feel:
 - The player defines one company name, which covers everything in version 0.1.
 - The company name can be changed at any time. Old reviews show the new name.
 - The player names each laptop model. A name randomiser helps when they have writer's block.
-- A reviewed build can be taken back into the builder, revised and reviewed again.
-- A revision is saved as a new model. Earlier models and their reviews are kept.
-- A revision may move the model to a different year.
+- A model can be edited until it is reviewed. A reviewed model is locked and cannot be edited.
+- Duplicating any model creates a new, independent, unreviewed model with a copy of its build.
+- The player names every model, typing a name or rolling one from the randomiser. There are no placeholder names.
 - The player can delete models to prevent clutter.
 
 ## Years
@@ -142,7 +142,7 @@ An example class is a premium thin and light mixed-use laptop.
 Scoring is deferred past version 0.1. In 0.1 every score is a dice roll.
 
 - Each category score and the overall score are rolled at random.
-- The roll is fixed per model. Reopening a review shows the same scores. A revision is a new model, so it rolls again.
+- The roll is fixed per model. Reopening a review shows the same scores. A duplicate is a new model, so it rolls again.
 - Rivals roll the same way.
 - Pros and cons still come from measurements that stand out against the rivals. There is no score nudge.
 

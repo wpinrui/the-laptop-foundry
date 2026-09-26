@@ -10,7 +10,8 @@ import {
   partsFor,
   type Side,
 } from "../engine";
-import { DragArrow, Dashed, Outline } from "./Arrows";
+import { useRef } from "react";
+import { CornerHandle, DragArrow, Dashed, Outline } from "./Arrows";
 import { OptionChips, type SetBuild, specLine, withPart } from "./Parts";
 import { problemText } from "./problems";
 import type { StageProps } from "./Stages";
@@ -353,7 +354,8 @@ export function SurfaceMarks({
     const r = kb ? rep.kb : rep.pad;
     return (
       <group>
-        <Outline corners={corners} handles={!kb} />
+        <Outline corners={corners} />
+        {!kb && rep.pad && <PadHandles corners={corners} pad={rep.pad} set={set} locked={locked} />}
         <Dashed a={[o.x / 2, 4, top]} b={[o.x / 2, o.y - 4, top]} />
         {r && (
           <DragArrow
@@ -441,6 +443,43 @@ export function SurfaceMarks({
         />
       )}
     </group>
+  );
+}
+
+type PadRep = NonNullable<Fit["place"]["pad"]>;
+
+/**
+ * The trackpad's corner squares. A corner drag resizes it about the centre
+ * line, so width grows on both sides; the front corners move the front edge
+ * and the rear corners the rear edge, the front edge staying where it is.
+ */
+function PadHandles({ corners, pad, set, locked }: { corners: V3[]; pad: PadRep; set: SetBuild; locked: boolean }) {
+  const start = useRef({ w: pad.w, d: pad.d, y: pad.y });
+  const clampTo = (v: number, [lo, hi]: [number, number]) => Math.round(Math.min(hi, Math.max(lo, v)));
+  return (
+    <>
+      {corners.map((c, i) => {
+        const sx = i === 1 || i === 2 ? 1 : -1;
+        const rear = i >= 2;
+        return (
+          <CornerHandle
+            key={i}
+            at={c}
+            disabled={locked}
+            onStart={() => {
+              start.current = { w: pad.w, d: pad.d, y: pad.y };
+            }}
+            onDrag={(dx, dy) => {
+              const s0 = start.current;
+              const w = clampTo(s0.w + 2 * sx * dx, pad.w0);
+              const d = clampTo(s0.d + (rear ? dy : -dy), pad.d0);
+              const y = rear ? Math.max(pad.range[0], s0.y - (d - s0.d)) : s0.y;
+              set((b) => setPlace(b, (p) => ({ ...p, pad: { ...p.pad, w, d, ...(rear ? { y } : {}) } })));
+            }}
+          />
+        );
+      })}
+    </>
   );
 }
 

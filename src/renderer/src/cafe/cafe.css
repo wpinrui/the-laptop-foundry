@@ -1,8 +1,94 @@
 .cafe {
+  --u: min(calc(100vw / 1440), calc(100vh / 810));
   position: relative;
   height: 100vh;
   overflow: hidden;
   background: var(--cafe-wall);
+}
+
+.cafe-world {
+  position: absolute;
+  inset: 0;
+  transition: filter 200ms ease-out;
+}
+
+/* Pause: the scene blurs and darkens behind the menu. */
+.cafe-world.paused {
+  filter: blur(calc(12 * var(--u))) brightness(0.55);
+}
+
+.fd.fd-over {
+  background: transparent;
+  animation: cafe-fade 200ms ease-out both;
+}
+
+@keyframes cafe-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.cafe-full {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ground);
+}
+
+/* The aim dot: the one thing on screen while walking. */
+.cafe-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ground) 80%, transparent);
+  pointer-events: none;
+}
+
+.cafe-prompts {
+  position: absolute;
+  left: calc(50% + 32 * var(--u));
+  top: calc(50% + 32 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--u));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+
+.cafe-prompts.on {
+  opacity: 1;
+  transition-duration: 100ms;
+}
+
+.cafe-prompt {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(22 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-shadow: 0 1px 6px color-mix(in srgb, var(--ground) 70%, transparent);
+}
+
+.cafe-key {
+  display: grid;
+  place-items: center;
+  width: calc(30 * var(--u));
+  height: calc(30 * var(--u));
+  border: 1.5px solid var(--text);
+  background: color-mix(in srgb, var(--ground) 45%, transparent);
+  font-size: calc(20 * var(--u));
+  line-height: 1;
+  text-shadow: none;
 }
 
 .desk {

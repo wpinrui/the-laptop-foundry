@@ -456,6 +456,8 @@ export interface BuildPart {
 
 export type SpendKey = Category | "packing" | "material";
 
+export type PadFinish = "glass" | "matte";
+
 export interface Build {
   /** The builder stage the player was last on, to reopen there. */
   stage?: string;
@@ -481,6 +483,8 @@ export interface Build {
   keys?: KeySpec;
   /** The screen bezel's colour, hex. Absent means the lid's own. */
   bezel?: string;
+  /** The trackpad's colour and surface. Absent means the stock pad (glass from 2015, matte plastic before). */
+  pad?: { colour: string; finish: PadFinish };
   marks?: Mark[];
 }
 

@@ -8,7 +8,6 @@ import {
   Competitors,
   contentsOf,
   jump,
-  PhotoRow,
   type Photos,
   Ring,
   SectionBody,
@@ -559,34 +558,118 @@ function Site2016({ review, onOpen, onHome, photos }: SiteProps) {
 
 // ------------------------------------------------------------------ 2026
 
-/** One column, verdict first. */
-function SiteColumn({ review, onOpen, onHome, photos, era }: SiteProps & { era: Era }) {
+function Site2026({ review, onOpen, onHome, photos }: SiteProps) {
+  const root = useRef<HTMLDivElement>(null);
   const s = review.scores.overall;
+  const contents = [
+    { id: "rs-verdict", title: "Verdict" },
+    ...contentsOf(review, ["Specifications"], ["Rating", "Competitors"]),
+  ].filter((c) => c.id !== slug("Competitors") || review.peers.length > 0);
+  const current = useCurrent(
+    root,
+    contents.map((c) => c.id),
+  );
+  const energy = review.energy && (
+    <div className="rs-stats">
+      <div>
+        <span>Idle draw</span>
+        <b>
+          {num(review.energy.idle, 1)}
+          <small> W</small>
+        </b>
+      </div>
+      <div>
+        <span>Load draw</span>
+        <b>
+          {num(review.energy.load, 0)}
+          <small> W</small>
+        </b>
+      </div>
+      <div>
+        <span>Battery</span>
+        <b>
+          {num(review.energy.wh, review.energy.wh % 1 ? 1 : 0)}
+          <small> Wh</small>
+        </b>
+      </div>
+    </div>
+  );
   return (
-    <div className={`rs rs-${era}`}>
-      <div className="rs-frame">
-        <Masthead era={era} onHome={onHome} />
-        <article className="rs-page">
-          <p className="rs-kicker">Review</p>
-          <h1>{review.headline}</h1>
-          <p className="rs-dek">{review.dek}</p>
-          <PhotoRow ids={["studio/hero"]} photos={photos} review={review} />
-          {review.verdict.map((p) => (
-            <p key={p}>{p}</p>
-          ))}
-          <div className="rs-proscons">
-            <ul className="rs-pros">
-              {review.pros.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-            <ul className="rs-cons">
-              {review.cons.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
+    <div className="rs rs-2026" ref={root}>
+      <Masthead era={2026} onHome={onHome} />
+      <div className="rs-top">
+        <div className="rs-kicker">
+          <span>Review</span>
+          <span>{longDate(review.date)}</span>
+        </div>
+        <h1>{review.headline}</h1>
+        <div className="rs-dek">{review.dek}</div>
+        {photos?.["studio/hero"] && (
+          <div className="rs-hero rs-photo">
+            <img src={photos["studio/hero"]} alt="The test unit" />
           </div>
-          <h2>Specifications</h2>
+        )}
+        <div className="rs-verdict" id="rs-verdict">
+          <div className="rs-verdict-text">
+            {review.verdict.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
+            <div className="rs-pc">
+              <div>
+                <div className="rs-pc-title rs-pro">Pros</div>
+                {review.pros.map((p) => (
+                  <div key={p} className="rs-pc-row">
+                    <span className="rs-pro">+</span>
+                    {p}
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div className="rs-pc-title rs-con">Cons</div>
+                {review.cons.map((p) => (
+                  <div key={p} className="rs-pc-row">
+                    <span className="rs-con">-</span>
+                    {p}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className={`rs-scorecard rs-${band(s)}`}>
+            <div className="rs-scorecard-head">
+              <Ring score={s} size={128} decimals={1} />
+              <div>
+                <div className="rs-scorecard-word">{bandWord(s)}</div>
+                <div className="rs-scorecard-meta">
+                  {`${review.company} ${review.model}`}
+                  <br />
+                  {cap(review.kind)}
+                </div>
+              </div>
+            </div>
+            <CategoryBars review={review} className="rs-cats-card" />
+            <div className="rs-price">
+              <span>Price</span>
+              <b>{review.price ? `$${num(review.price)}` : "Not announced"}</b>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="rs-body">
+        <nav className="rs-rail">
+          {contents.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={c.id === current ? "rs-on" : undefined}
+              onClick={() => jump(root.current, c.id)}
+            >
+              {c.title}
+            </button>
+          ))}
+        </nav>
+        <article className="rs-main">
+          <h2 id={slug("Specifications")}>Specifications</h2>
           <Specs review={review} />
           {review.sections.map((sec) => (
             <section key={sec.id}>
@@ -594,23 +677,26 @@ function SiteColumn({ review, onOpen, onHome, photos, era }: SiteProps & { era: 
               <SectionBody
                 section={sec}
                 review={review}
-                era={era}
+                era={2026}
                 photos={photos}
                 onOpen={onOpen}
-                slots={{ "case-intro": <p>{sec.paragraphs[0]}</p> }}
+                slots={{ "case-intro": <p>{sec.paragraphs[0]}</p>, energy }}
               />
             </section>
           ))}
-          <h2>Rating</h2>
-          <div className="rs-rating">
-            <Ring score={s} size={140} decimals={era === 2026 ? 1 : 0} />
-            <CategoryBars review={review} />
+          <h2 id={slug("Rating")}>Rating</h2>
+          <div className={`rs-rating rs-${band(s)}`}>
+            <CategoryBars review={review} className="rs-cats-rating" />
+            <div className="rs-overall">
+              <span>Overall</span>
+              <b>{`${num(s, 1)}%`}</b>
+            </div>
           </div>
-          <h2>Competitors</h2>
-          <Competitors review={review} onOpen={onOpen} />
+          {review.peers.length > 0 && <h2 id={slug("Competitors")}>Competitors</h2>}
+          <Competitors review={review} onOpen={onOpen} decimals={1} />
         </article>
-        <footer className="rs-foot">{`${PUBLICATION} ${review.year}`}</footer>
       </div>
+      <footer className="rs-foot">{`${PUBLICATION} ${review.year}`}</footer>
     </div>
   );
 }
@@ -630,5 +716,5 @@ export function ReviewSite({
   const era = eraOf(review.year);
   if (era === 2006) return <Site2006 review={review} onOpen={onOpen} onHome={onHome} photos={photos} />;
   if (era === 2016) return <Site2016 review={review} onOpen={onOpen} onHome={onHome} photos={photos} />;
-  return <SiteColumn review={review} onOpen={onOpen} onHome={onHome} photos={photos} era={era} />;
+  return <Site2026 review={review} onOpen={onOpen} onHome={onHome} photos={photos} />;
 }

@@ -61,9 +61,6 @@ function clamp(v: number, lo: number, hi: number): number {
  * Solve a build into an assembly. Pure and deterministic: the same build
  * always gives the same fit. No rendering dependency.
  */
-/** How far the keyboard and trackpad sit below the top surface of the top case, in mm. */
-const DECK_RECESS = 0.4;
-
 export function solve(build: Build, content: Content = CONTENT): Fit {
   const idx = indexContent(content);
   const body = idx.bodies.get(build.body);
@@ -369,14 +366,9 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       size: { ...fill.size, z: layer },
     });
     for (const u of units) {
-      // Recessed a real step below the top surface, into the deck structure
-      // under it (never deeper than that structure), so the top case's lip
-      // over the well edge is never coplanar with the keys or the pad.
-      const recess = Math.min(DECK_RECESS, era.deckExtra);
-      boxes.push(unitBox({ ...u, at: { ...u.at, z: F.z - u.size.z - recess } }, "deck"));
-      // The well's floor sits just under the recessed unit, inside the deck structure.
+      boxes.push(unitBox({ ...u, at: { ...u.at, z: F.z - u.size.z } }, "deck"));
       wells.push({
-        at: { x: u.at.x, y: u.at.y, z: Math.min(topWall, F.z - u.size.z - recess - 0.25) },
+        at: { x: u.at.x, y: u.at.y, z: topWall },
         size: { x: u.size.x, y: u.size.y, z: off.top },
       });
     }

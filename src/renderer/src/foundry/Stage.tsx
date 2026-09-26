@@ -101,12 +101,6 @@ function Fader({
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       mesh.castShadow = true;
-      // Dithering breaks up 8-bit banding in the dark, slow gradients on large faces such as the lid.
-      for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material])
-        if (!mat.dithering) {
-          mat.dithering = true;
-          mat.needsUpdate = true;
-        }
     });
     // The laptop's materials are shared, so fading them fights the model's own
     // material state and flickers the shell. Swap instantly instead.
@@ -286,23 +280,18 @@ export function Stage({ build, stageKey, view }: { build: Build | null; stageKey
         flat
         shadows
         dpr={[1, 2]}
-        // The camera stays 700 to 860 mm from the laptop and the fog closes at
-        // 3400 mm. A near plane of 10 mm spent the depth buffer's precision on
-        // space the camera never sees, and the sub-mm layers in the trackpad
-        // and the lid (glass 0.06 mm over the panel) z-fought. Sized to the
-        // real range, the depth step at the laptop is about 25 times finer.
-        camera={{ fov: 30, near: 250, far: 4000, position: [0, 500, 800] }}
+        camera={{ fov: 30, near: 10, far: 6000, position: [0, 500, 800] }}
       >
         <Atmosphere />
         <Reflections intensity={0.12} />
         <Lights />
         <mesh rotation-x={-Math.PI / 2} receiveShadow>
           <planeGeometry args={[20000, 20000]} />
-          <meshStandardMaterial color={floor} roughness={1} dithering />
+          <meshStandardMaterial color={floor} roughness={1} />
         </mesh>
         <mesh position={[0, PLINTH_H / 2, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[PLINTH_R, PLINTH_R, PLINTH_H, 96]} />
-          <meshStandardMaterial color={token("stage-plinth")} roughness={0.55} metalness={0.3} dithering />
+          <meshStandardMaterial color={token("stage-plinth")} roughness={0.55} metalness={0.3} />
         </mesh>
         <group ref={turntable} position={[0, PLINTH_H, 0]}>
           {slots.map((s) => (

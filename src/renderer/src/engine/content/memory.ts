@@ -118,3 +118,23 @@ export const MEMORY: Part[] = [
     needs: ["mem:on-package"],
   },
 ];
+
+// ---------------------------------------------------------------- lab figures
+
+/**
+ * Memory timing per part. Transfer rate in MT/s; width of one channel in
+ * bits; whether the part is always dual channel (soldered and LPCAMM2 run a
+ * 128-bit bus); measured read over theoretical peak; latency in ns.
+ */
+export const MEMORY_LAB: Record<
+  string,
+  { mts: number; bits: number; fixedDual: boolean; efficiency: number; latency: number }
+> = {
+  "ddr2-667-sodimm": { mts: 667, bits: 64, fixedDual: false, efficiency: 0.55, latency: 95 },
+  "ddr4-2133-sodimm": { mts: 2133, bits: 64, fixedDual: false, efficiency: 0.8, latency: 85 },
+  "lpddr3-soldered": { mts: 1866, bits: 64, fixedDual: true, efficiency: 0.75, latency: 110 },
+  "ddr5-5600-sodimm": { mts: 5600, bits: 64, fixedDual: false, efficiency: 0.75, latency: 100 },
+  lpcamm2: { mts: 7500, bits: 64, fixedDual: true, efficiency: 0.7, latency: 120 },
+  "lpddr5x-soldered": { mts: 7500, bits: 64, fixedDual: true, efficiency: 0.7, latency: 125 },
+  "lpddr5x-on-package": { mts: 8533, bits: 64, fixedDual: true, efficiency: 0.72, latency: 100 },
+};

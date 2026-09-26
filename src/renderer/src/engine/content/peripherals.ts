@@ -112,6 +112,19 @@ export const WIRELESS: Part[] = [
 ];
 export const BLUETOOTH_2006: Size = { x: 15, y: 20, z: 3 };
 
+/**
+ * Wi-Fi throughput in Mbit/s, iperf at 1 m from the era's reference router.
+ * 2006 cards against an 802.11g router; 2016 a 2x2 802.11ac router; 2026 a
+ * 6 GHz router at the widest channel the card supports.
+ */
+export const WIFI_LAB: Record<string, { send: number; receive: number }> = {
+  "wifi-bg": { send: 21, receive: 23 },
+  "wifi-abg": { send: 23, receive: 25 },
+  "wifi-ac": { send: 580, receive: 640 },
+  "wifi-6e": { send: 1450, receive: 1650 },
+  "wifi-7": { send: 1950, receive: 2350 },
+};
+
 // Footprint = (cols - 0.5) x pitch + 4 by rows x pitch + 4. Stack is the height at that travel,
 // at keyboard spend 0 and 1.
 export const KEYBOARDS: Part[] = [

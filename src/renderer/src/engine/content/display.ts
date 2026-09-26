@@ -179,3 +179,164 @@ export function panelThickness(t: PanelType, inches: number): number {
   const f = Math.min(1, Math.max(0, (inches - 12.1) / (17 - 12.1)));
   return lo + (hi - lo) * f;
 }
+
+// ---------------------------------------------------------------- lab figures
+
+/** What a review lab measures on a panel at its native settings. */
+export interface PanelLab {
+  /** Centre brightness at maximum, cd/m2. */
+  centre: number;
+  /** Nine zones, row by row from the top left, cd/m2. */
+  distribution: number[];
+  /** Mean of the nine zones, cd/m2. */
+  average: number;
+  /** Dimmest zone over brightest, %. */
+  uniformity: number;
+  /** Centre brightness over black level; Infinity on OLED. */
+  contrast: number;
+  /** Black level at maximum brightness, cd/m2. 0 on OLED. */
+  black: number;
+  /** ColorChecker DeltaE 2000, uncalibrated. */
+  deltaE: { avg: number; max: number };
+  /** Gamut coverage, %. */
+  coverage: { srgb: number; p3: number };
+  /** Response times, ms. */
+  response: { blackWhite: number; greyGrey: number };
+  /** Backlight flicker: frequency in Hz and the brightness level (%) at and below which it flickers. Null when flicker-free. */
+  pwm: { hz: number; below: number } | null;
+  /** Local dimming zones on Mini-LED; null otherwise. */
+  dimmingZones: number | null;
+}
+
+type Range = [number, number];
+
+interface LabProfile {
+  /** Null means infinite (self-emissive). */
+  contrast: Range | null;
+  deltaE: Range;
+  /** Max DeltaE as a multiple of the average. */
+  spread: Range;
+  uniformity: Range;
+  blackWhite: Range;
+  greyGrey: Range;
+  /** Chance the panel flickers, the frequency range and the level at and below which it does. */
+  pwm: { chance: number; hz: Range; below: Range };
+  /** Measured centre over the listed brightness. */
+  centre: Range;
+}
+
+const CCFL_PWM = { chance: 0.4, hz: [2000, 25000] as Range, below: [60, 90] as Range };
+
+// Keyed by era and panel type; each panel picks deterministically within the ranges.
+const LAB: Record<string, LabProfile> = {
+  // CCFL: the inverter dims at a high frequency, if at all.
+  "2006:tn-matte": { contrast: [300, 450], deltaE: [8, 11], spread: [1.6, 2], uniformity: [70, 82], blackWhite: [8, 16], greyGrey: [25, 40], pwm: CCFL_PWM, centre: [0.95, 1.05] },
+  "2006:tn-glossy": { contrast: [350, 500], deltaE: [9, 12], spread: [1.6, 2], uniformity: [70, 82], blackWhite: [8, 16], greyGrey: [25, 40], pwm: CCFL_PWM, centre: [0.95, 1.05] },
+  "2006:ips-type": { contrast: [400, 600], deltaE: [6, 8], spread: [1.5, 1.9], uniformity: [78, 88], blackWhite: [20, 30], greyGrey: [35, 50], pwm: CCFL_PWM, centre: [0.95, 1.05] },
+  // Cheap LED-backlit TN flickers at a low frequency.
+  "2016:tn-led": { contrast: [300, 500], deltaE: [8, 11], spread: [1.6, 2.1], uniformity: [75, 85], blackWhite: [10, 16], greyGrey: [20, 35], pwm: { chance: 0.7, hz: [200, 250], below: [80, 99] }, centre: [0.95, 1.05] },
+  "2016:ips": { contrast: [800, 1200], deltaE: [4, 6], spread: [1.8, 2.3], uniformity: [80, 88], blackWhite: [22, 32], greyGrey: [32, 45], pwm: { chance: 0.35, hz: [200, 1200], below: [20, 50] }, centre: [0.97, 1.07] },
+  "2026:ips": { contrast: [1000, 1600], deltaE: [2, 3.5], spread: [1.8, 2.4], uniformity: [85, 92], blackWhite: [15, 25], greyGrey: [20, 32], pwm: { chance: 0.15, hz: [10000, 30000], below: [20, 40] }, centre: [0.98, 1.08] },
+  // OLED: true black, near-instant pixels, low-frequency PWM short of full brightness.
+  "2026:oled": { contrast: null, deltaE: [1.2, 2.5], spread: [1.8, 2.4], uniformity: [93, 98], blackWhite: [0.5, 1], greyGrey: [0.5, 1], pwm: { chance: 1, hz: [240, 480], below: [99, 100] }, centre: [0.97, 1.05] },
+  // Mini-LED: local dimming for deep blacks, slower pixels, high-frequency PWM.
+  "2026:mini-led": { contrast: [20000, 50000], deltaE: [1.5, 3], spread: [1.8, 2.3], uniformity: [90, 96], blackWhite: [8, 15], greyGrey: [10, 20], pwm: { chance: 1, hz: [5000, 15000], below: [99, 100] }, centre: [1, 1.1] },
+};
+
+function seeded(s: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  let a = h >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const r1 = (v: number) => Math.round(v * 10) / 10;
+const r2 = (v: number) => Math.round(v * 100) / 100;
+
+function eraOf(year: number): number {
+  return year < 2011 ? 2006 : year < 2021 ? 2016 : 2026;
+}
+
+/** Coverage from the listed gamut, e.g. "90% sRGB" or "100% DCI-P3". */
+function coverageOf(gamut: string): { srgb: number; p3: number } {
+  const pct = Number(/([\d.]+)%/.exec(gamut)?.[1] ?? 60);
+  if (/P3/i.test(gamut)) return { srgb: 100, p3: Math.round(pct * 0.99) };
+  // An sRGB-bound panel covers about 72% of its sRGB coverage in DCI-P3.
+  return { srgb: pct, p3: Math.round(pct * 0.72) };
+}
+
+/** Lab figures for a panel. Deterministic per panel id. */
+export function panelLab(p: PanelOption): PanelLab {
+  const type = p.type;
+  const era = eraOf(p.from);
+  const prof = LAB[`${era}:${type}`] ?? LAB["2026:ips"];
+  const rnd = seeded(`lab:${p.id}`);
+  const pick = ([lo, hi]: Range) => lo + (hi - lo) * rnd();
+  const coverage = coverageOf(p.gamut);
+  // In 2016, full-sRGB and wider panels are the better-tuned ones of their kind.
+  const wide = era === 2016 && coverage.srgb >= 95;
+  const topHz = Math.max(...p.refresh);
+
+  const centre = Math.round(p.nits * pick(prof.centre));
+  const uniformity = Math.round(pick(prof.uniformity));
+  // The centre is brightest; one edge or corner zone is dimmest.
+  const lowZone = [0, 1, 2, 3, 5, 6, 7, 8][Math.floor(rnd() * 8)];
+  const u = uniformity / 100;
+  const distribution = Array.from({ length: 9 }, (_, i) => {
+    if (i === 4) return centre;
+    if (i === lowZone) return Math.round(centre * u);
+    return Math.round(centre * (u + (1 - u) * (0.25 + 0.7 * rnd())));
+  });
+  const average = Math.round(distribution.reduce((s, v) => s + v, 0) / 9);
+
+  const contrast = prof.contrast
+    ? Math.round((pick(prof.contrast) * (wide ? 1.1 : 1)) / 10) * 10
+    : Infinity;
+  const black = prof.contrast ? r2(centre / contrast) : 0;
+
+  const avg = r2(pick(prof.deltaE) * (wide ? 0.75 : 1));
+  const deltaE = { avg, max: r2(avg * pick(prof.spread)) };
+
+  let blackWhite = pick(prof.blackWhite);
+  let greyGrey = pick(prof.greyGrey);
+  if (topHz >= 120 && type !== "oled" && type !== "mini-led") {
+    // Overdrive on high-refresh LCDs; Mini-LED ranges already assume it.
+    const f = topHz >= 165 ? 0.3 : 0.45;
+    blackWhite *= f;
+    greyGrey *= f * 0.8;
+  }
+
+  const pwm =
+    rnd() < prof.pwm.chance
+      ? {
+          hz: Math.round(pick(prof.pwm.hz) / 10) * 10,
+          below: Math.round(pick(prof.pwm.below)),
+        }
+      : null;
+
+  const dimmingZones =
+    type === "mini-led" ? Math.round((p.inches * p.inches * 5.5) / 100) * 100 : null;
+
+  return {
+    centre,
+    distribution,
+    average,
+    uniformity,
+    contrast,
+    black,
+    deltaE,
+    coverage,
+    response: { blackWhite: r1(blackWhite), greyGrey: r1(greyGrey) },
+    pwm,
+    dimmingZones,
+  };
+}

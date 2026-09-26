@@ -14,8 +14,11 @@ import {
 } from "../types";
 import { archOf, igpuAt, scoreAt, singleAt } from "./curves";
 import { balancedProfile, partOf, profilesOf, topProfile } from "./profiles";
+import { type Lab, labOf } from "./lab";
 
 export { ARCHS, igpuAt, scoreAt, singleAt } from "./curves";
+export type { Lab, MemoryLab, PanelLab, StorageLab, WifiLab } from "./lab";
+export { labOf } from "./lab";
 export {
   balancedProfile,
   defaultProfiles,
@@ -126,6 +129,8 @@ export interface Measurements {
   performance: Performance | null;
   battery: Battery | null;
   cooling: Cooling | null;
+  /** Display, drive, Wi-Fi and memory lab figures, from the parts alone. */
+  lab: Lab;
 }
 
 // ------------------------------------------------------------------ build facts
@@ -496,6 +501,7 @@ export function simulate(
     performance: null,
     battery: null,
     cooling: null,
+    lab: labOf(build, content),
   };
   if (!f.cpu) return out;
   const p = profiles[top];

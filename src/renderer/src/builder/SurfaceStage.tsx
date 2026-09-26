@@ -13,7 +13,7 @@ import {
   type Side,
 } from "../engine";
 import { Html } from "@react-three/drei";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CornerHandle, DragArrow, Dashed, Outline } from "./Arrows";
 import { OptionChips, type SetBuild, withPart } from "./Parts";
 import { problemText } from "./problems";
@@ -206,65 +206,57 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
       if (after.length > 0) gap = Math.min(...after.map((b) => b.at[e] - (me.at[e] + me.size[e])));
     }
   }
-  const side = bp?.side ?? sides[0] ?? "left";
   // Walls the layout offers, then any wall a port sits on that it no longer does.
   const walls = [...sides, ...build.ports.map((p) => p.side).filter((s) => !sides.includes(s))].filter(
     (s, i, a) => a.indexOf(s) === i,
   );
+  // The player picks a wall first, then configures the ports on it.
+  const [wall, setWall] = useState<Side>(bp?.side ?? sides[0] ?? "left");
+  useEffect(() => {
+    if (bp && bp.side !== wall) setWall(bp.side);
+  }, [bp?.side]);
+  const onWall = build.ports.map((p, i) => ({ p, i })).filter((x) => x.p.side === wall);
+  const pickWall = (w: Side) => {
+    setWall(w);
+    const first = build.ports.findIndex((p) => p.side === w);
+    onPort(first >= 0 ? first : -1);
+  };
   const add = (id: string) => {
-    set((b) => ({ ...b, ports: [...b.ports, { part: id, side }] }));
+    set((b) => ({ ...b, ports: [...b.ports, { part: id, side: wall }] }));
     onPort(build.ports.length);
   };
+  const shown = bp && bp.side === wall;
   return (
     <>
+      <Chips>
+        {walls.map((w) => (
+          <Chip caps key={w} on={w === wall} onClick={() => pickWall(w)}>
+            {SIDE_NAME[w]}
+          </Chip>
+        ))}
+      </Chips>
       <div className="bd-port-walls">
-        {build.ports.length === 0 && <span className="bd-note">No ports yet. Add one below.</span>}
-        {walls.map((w) => {
-          const on = build.ports.map((p, i) => ({ p, i })).filter((x) => x.p.side === w);
-          if (on.length === 0) return null;
-          return (
-            <div key={w} className="bd-port-wall">
-              <Label>{SIDE_NAME[w]}</Label>
-              {on.map(({ p, i }) => (
-                <button
-                  type="button"
-                  key={`${p.part}-${i}`}
-                  className={["bd-port-item", i === port ? "on" : ""].join(" ")}
-                  onClick={() => onPort(i)}
-                >
-                  <b className="bd-port-icon">
-                    <i className={`bd-port-shape ${portShape(p.part)}`} />
-                  </b>
-                  <span>{CONTENT.parts.find((x) => x.id === p.part)?.name ?? p.part}</span>
-                </button>
-              ))}
-            </div>
-          );
-        })}
+        <div className="bd-port-wall">
+          {onWall.map(({ p, i }) => (
+            <button
+              type="button"
+              key={`${p.part}-${i}`}
+              className={["bd-port-item", i === port ? "on" : ""].join(" ")}
+              onClick={() => onPort(i)}
+            >
+              <b className="bd-port-icon">
+                <i className={`bd-port-shape ${portShape(p.part)}`} />
+              </b>
+              <span>{CONTENT.parts.find((x) => x.id === p.part)?.name ?? p.part}</span>
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="bd-line">
-        <Label>Add to {SIDE_NAME[side].toLowerCase()}</Label>
-        <Dropdown label="Add port" value={null} placeholder="Add port" options={portOptions(build)} onChange={add} />
-      </div>
-      {bp && part && (
+      <Dropdown label="Add port" value={null} placeholder="Add port" options={portOptions(build)} onChange={add} />
+      {shown && bp && part && (
         <>
           <div className="bd-port-head">
             <b>{part.name}</b>
-          </div>
-          <div className="bd-line">
-            <Label>Side</Label>
-            <Chips>
-              {sides.map((s) => (
-                <Chip
-                  caps
-                  key={s}
-                  on={bp.side === s}
-                  onClick={() => set((b) => setPort(b, port, (p) => ({ part: p.part, side: s })))}
-                >
-                  {SIDE_NAME[s]}
-                </Chip>
-              ))}
-            </Chips>
           </div>
           {rep && (
             <>

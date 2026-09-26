@@ -10,7 +10,8 @@ import { token } from "../viewer/theme";
 // never the item. Arrows ignore depth so they always draw on top.
 
 /** Set while an arrow is being dragged, so the scene does not orbit. */
-export const arrowDrag = { on: false };
+/** Set while a handle is dragged; `until` swallows the click that ends a drag. */
+export const arrowDrag = { on: false, until: 0 };
 
 const R = 0.55;
 const CONE_R = 2.1;
@@ -100,6 +101,7 @@ export function DragArrow({
     const up = () => {
       setDrag(false);
       arrowDrag.on = false;
+      arrowDrag.until = performance.now() + 250;
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -260,6 +262,7 @@ export function CornerHandle({
     const up = () => {
       setDrag(false);
       arrowDrag.on = false;
+      arrowDrag.until = performance.now() + 250;
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);

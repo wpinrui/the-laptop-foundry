@@ -101,7 +101,18 @@ const MS: Record<Beat, number> = { published: 0, open: 1200, score: 1200, read: 
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 /** Eases the camera between the beats' views; lets go once the article is up. */
-function Rig({ beat, g, onFree }: { beat: Beat; g: Geometry; onFree: () => void }) {
+function Rig({
+  beat,
+  g,
+  onFree,
+  overlay,
+}: {
+  beat: Beat;
+  g: Geometry;
+  onFree: () => void;
+  /** The on-screen page's layer; the view offset moves the scene, so it must move too. */
+  overlay: RefObject<HTMLDivElement | null>;
+}) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
   const clock = useRef(0);
@@ -146,6 +157,9 @@ function Rig({ beat, g, onFree }: { beat: Beat; g: Geometry; onFree: () => void 
       camera.aspect = size.width / size.height;
       camera.clearViewOffset();
     }
+    // Html in transform mode projects about the viewport centre and ignores the
+    // view offset, so the page layer shifts right by the same amount as the scene.
+    if (overlay.current) overlay.current.style.transform = v.shift > 0.001 ? `translateX(${v.shift * size.width}px)` : "";
     camera.updateProjectionMatrix();
     if (beat === "read" && t >= 1) {
       freed.current = true;
@@ -314,7 +328,7 @@ export function RevealStage({
           />
         </group>
         <Backlight group={laptop} on={backlit} />
-        <Rig beat={beat} g={g} onFree={() => setFree(true)} />
+        <Rig beat={beat} g={g} onFree={() => setFree(true)} overlay={overlay} />
         {free && <OrbitControls makeDefault target={g.screen} minDistance={120} maxDistance={2500} />}
       </Canvas>
       {/* The on-screen page mounts here, over the canvas. */}

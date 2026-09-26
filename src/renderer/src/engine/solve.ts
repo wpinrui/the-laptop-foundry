@@ -532,6 +532,11 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
         u.at.x = mid + x;
         report.cam = { x, range };
         if (player.cam) moved.add(`lid:${u.id}`);
+        // Keep the module against the screen side and clear of the lid's back,
+        // so its back never lies in the lid's outer face and shows through it.
+        const d = Math.min(u.size.z, Math.max(0.5, lidInnerZ - 0.6));
+        u.at.z = lidInnerZ0;
+        u.size.z = d;
       }
       if (u.spacer) continue;
       // A part in the top bezel or the chin must fit its band: height between

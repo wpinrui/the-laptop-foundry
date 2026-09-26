@@ -715,7 +715,7 @@ export function Builder({
   );
   const labelFor = useCallback((b: Box) => {
     const byRole = ROLE_NAME[b.role];
-    return byRole ?? nameOf(b.part) ?? b.role;
+    return byRole ?? nameOf(b.part) ?? "";
   }, []);
 
   const year = build.year;
@@ -745,7 +745,6 @@ export function Builder({
           <button
             type="button"
             disabled={!locked && !!block}
-            title={locked ? undefined : (block ?? undefined)}
             onClick={() => {
               pending.current?.();
               onReview({ ...model, name: name.trim() || model.name, build });
@@ -766,7 +765,6 @@ export function Builder({
         </div>
         {locked && (
           <div className="locked-bar">
-            <span>Reviewed. This model is kept as it was reviewed.</span>
             <button type="button" className="duplicate" onClick={onDuplicate}>
               Duplicate
             </button>
@@ -784,9 +782,7 @@ export function Builder({
               >
                 {t}
                 {n > 0 && (
-                  <span className="tab-count" title={`${n} problems`}>
-                    {n}
-                  </span>
+                  <span className="tab-count">{n}</span>
                 )}
               </button>
             );
@@ -794,14 +790,12 @@ export function Builder({
         </nav>
         {!locked && listed.length > 0 && (
           <div className="problems">
-            <b>{block}. Not ready for review.</b>
             <ul>
               {listed.map((p, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: problems have no id and never reorder within one render
                 <li key={i}>
                   <button type="button" onClick={() => setTab(p.tab)}>
                     <span>{p.text}</span>
-                    <span className="problem-tab">{p.tab}</span>
                   </button>
                 </li>
               ))}
@@ -959,10 +953,9 @@ export function Builder({
         <button
           type="button"
           className={xray ? "xray on" : "xray"}
-          title="X-ray follows the tab until you pick"
           onClick={() => setXrayPin(!xray)}
         >
-          {xrayPin === null ? "X-ray (auto)" : xray ? "X-ray on" : "X-ray off"}
+          X-ray
         </button>
         <input
           className="lid-angle"

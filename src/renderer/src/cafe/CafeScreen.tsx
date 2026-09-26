@@ -159,7 +159,7 @@ function Kiln({
       <div className="kiln-side">
         <b>{name}</b>
         {refuses ? (
-          <span>Not supported on this processor</span>
+          <span>Unsupported</span>
         ) : (
           <>
             <button type="button" disabled={running} onClick={onRun}>
@@ -186,7 +186,7 @@ const ORDER: number[] = (() => {
 })();
 
 /** Ashfall: a mock of the game, redrawn only as often as the simulated frame rate allows. */
-function Ash({ fps, refuses, name }: { fps: number; refuses: boolean; name: string }) {
+function Ash({ fps, refuses }: { fps: number; refuses: boolean }) {
   const last = useRef(0);
   const frame = useRef(0);
   const shown = useRef(0);
@@ -232,7 +232,7 @@ function Ash({ fps, refuses, name }: { fps: number; refuses: boolean; name: stri
   return (
     <div className="ash">
       {refuses ? (
-        <div className="ash-refuse">{name} does not run on this hardware</div>
+        <div className="ash-refuse">Unsupported</div>
       ) : (
         <>
           <canvas ref={ref} width={640} height={360} />
@@ -445,7 +445,7 @@ export function CafeScreen({
                     onRun={() => setKiln({ running: true, progress: 0, elapsed: 0, result: null })}
                   />
                 )}
-                {app === "ash" && <Ash fps={fps} refuses={!ashHigh} name={ash?.name ?? "Ashfall"} />}
+                {app === "ash" && <Ash fps={fps} refuses={!ashHigh} />}
                 {app === "web" && current === INDEX && (
                   <ReviewIndex
                     entries={entries}

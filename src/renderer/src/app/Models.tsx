@@ -63,7 +63,7 @@ export function NameModel({
         />
       </label>
       <button type="button" onClick={() => setName(roll())}>
-        Random name
+        Random
       </button>
       <button type="submit" className="primary" disabled={!name.trim()}>
         Create
@@ -152,17 +152,12 @@ export function Models({
               onClick={() => onOpen(m.id)}
             >
               <b>{m.name}</b>
-              <span>
-                {[yearOf(m), m.reviewed ? "Reviewed" : null]
-                  .filter(Boolean)
-                  .join(", ")}
-              </span>
+              <span>{yearOf(m)}</span>
               {block && <span className="model-block">{block}</span>}
             </button>
             <button
               type="button"
               disabled={!!block}
-              title={block ?? undefined}
               onClick={() => onUse(m.id)}
             >
               Use it
@@ -170,7 +165,6 @@ export function Models({
             <button
               type="button"
               disabled={!m.reviewed && !!block}
-              title={m.reviewed ? undefined : (block ?? undefined)}
               onClick={() => onReview(m.id)}
             >
               {m.reviewed ? "Read review" : "Get reviewed"}
@@ -188,7 +182,7 @@ export function Models({
                 }}
                 onBlur={() => setConfirming(null)}
               >
-                Confirm delete
+                Confirm
               </button>
             ) : (
               <button type="button" onClick={() => setConfirming(m.id)}>

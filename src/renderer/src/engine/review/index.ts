@@ -412,9 +412,6 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
   const c = f.m.cooling;
   const perf = f.m.performance;
   const bat = f.m.battery;
-  const top = f.m.top;
-  const topName = top === "high" ? "High" : top === "medium" ? "Medium" : "Low";
-  const balName = bat ? (bat.balanced === "high" ? "High" : bat.balanced === "medium" ? "Medium" : "Low") : "";
   const sp = f.specs;
   const lower = (xs: string[]) => xs.map((p) => p.toLowerCase()).join(", ");
 
@@ -785,13 +782,6 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
       id: "performance",
       title: "Performance",
       paragraphs: [
-        say("profile", [
-          `We run every performance test on the ${topName} profile, the fastest one ${s.company} enables.`,
-          `All benchmarks use the ${topName} power profile, the most aggressive one available.`,
-          `For performance testing we switch to the ${topName} profile.`,
-          `${s.company}'s fastest setting is the ${topName} profile, and that is what we test on.`,
-          `Our benchmarks run on the ${topName} profile.`,
-        ]),
         bench.multi === null
           ? `${bench.name} refuses to run: the ${cpu} lacks an instruction set it needs.`
           : say("bench", [
@@ -956,11 +946,11 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
         title: "Energy management",
         paragraphs: [
           say("energy1", [
-            `We test battery life on the ${balName} profile at 150 nits. The ${wh} Wh battery lasts ${num(rt.web, 1)} hours browsing over Wi-Fi and ${num(rt.video, 1)} hours of video.`,
-            `On the ${balName} profile at 150 nits, the ${wh} Wh pack gives ${num(rt.web, 1)} hours of web browsing and ${num(rt.video, 1)} hours of video.`,
-            `Battery tests run on the ${balName} profile at 150 nits. Browsing lasts ${num(rt.web, 1)} hours, video ${num(rt.video, 1)} hours, from ${wh} Wh.`,
-            `With its ${wh} Wh battery, the ${s.name} browses for ${num(rt.web, 1)} hours and plays video for ${num(rt.video, 1)} hours on the ${balName} profile.`,
-            `${num(rt.web, 1)} hours of Wi-Fi browsing and ${num(rt.video, 1)} hours of video: that is what ${wh} Wh buys on the ${balName} profile at 150 nits.`,
+            `We test battery life at 150 nits. The ${wh} Wh battery lasts ${num(rt.web, 1)} hours browsing over Wi-Fi and ${num(rt.video, 1)} hours of video.`,
+            `At 150 nits, the ${wh} Wh pack gives ${num(rt.web, 1)} hours of web browsing and ${num(rt.video, 1)} hours of video.`,
+            `Battery tests run at 150 nits. Browsing lasts ${num(rt.web, 1)} hours, video ${num(rt.video, 1)} hours, from ${wh} Wh.`,
+            `With its ${wh} Wh battery, the ${s.name} browses for ${num(rt.web, 1)} hours and plays video for ${num(rt.video, 1)} hours.`,
+            `${num(rt.web, 1)} hours of Wi-Fi browsing and ${num(rt.video, 1)} hours of video: that is what ${wh} Wh buys at 150 nits.`,
           ]),
           say("energy2", [
             `Power draw ranges from ${num(dr.idle, 1)} W at idle to ${num(dr.load, 1)} W under full load, where the battery is flat after ${num(rt.load * 60)} minutes.`,

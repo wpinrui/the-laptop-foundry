@@ -224,9 +224,8 @@ function useUnitsGroup(
           b.at.y + b.size.y / 2,
           b.at.z + b.size.z / 2,
         );
-        const shown = had.failed ? `${label} (could not draw)` : label;
         had.obj.traverse((o) => {
-          o.userData.label = shown;
+          o.userData.label = label;
           o.userData.box = b;
         });
         if (had.failed) failed.push(`${label}: ${had.failed}`);
@@ -242,10 +241,9 @@ function useUnitsGroup(
         obj = dangerBox(b, ctx, e);
       }
       const why = obj.userData.failed as string | undefined;
-      const shown = why ? `${label} (could not draw)` : label;
       if (why) failed.push(`${label}: ${why}`);
       obj.traverse((o) => {
-        o.userData.label = shown;
+        o.userData.label = label;
         o.userData.box = b;
         o.castShadow = true;
       });

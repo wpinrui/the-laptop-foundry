@@ -39,6 +39,8 @@ export interface Unit {
   skin?: boolean;
   /** The part's options, defaults filled in. */
   opts?: Record<string, OptionValue>;
+  /** Index into build.ports for a port unit. */
+  src?: number;
 }
 
 /** A block on the derived mainboard. */
@@ -459,6 +461,7 @@ function emitPorts(
         role: `port:${p.side}` as Role,
         size: portSize(p.side, s.width, s.height, s.depth),
         part: part.id,
+        src: p.i,
       });
     }
     if (s.controller) {

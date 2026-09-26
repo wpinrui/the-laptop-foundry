@@ -29,7 +29,9 @@ import type {
   Fit,
   Opening,
   Piece,
+  PlaceReport,
   Problem,
+  Range,
   Role,
   Route,
   Side,
@@ -41,6 +43,7 @@ import { bezelUnits, emit, spendOf, type Unit } from "./units";
 import { panelOf } from "./screen";
 
 const AXES: Axis[] = ["x", "y", "z"];
+const BLOCK_ROLES = new Set(["cpu", "gpu", "vrm", "chipset", "mem", "m2", "wlan", "bt", "tb"]);
 const EPS = 1e-9;
 
 function tune(t: Tune, spend: number): number {
@@ -97,6 +100,16 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
 
   // Units and the derived mainboard.
   const em = emit(build, idx, era, body);
+  // The player's trackpad size, within reach of the part's own.
+  const player = build.place ?? {};
+  const report: PlaceReport = { ports: build.ports.map(() => null) };
+  const padUnit = em.deck.find((u) => u.role === "pad");
+  const padW0: Range = padUnit ? [Math.round(padUnit.size.x * 0.6), Math.round(padUnit.size.x * 1.4)] : [0, 0];
+  const padD0: Range = padUnit ? [Math.round(padUnit.size.y * 0.6), Math.round(padUnit.size.y * 1.4)] : [0, 0];
+  if (padUnit) {
+    if (player.pad?.w) padUnit.size.x = clamp(player.pad.w, padW0[0], padW0[1]);
+    if (player.pad?.d) padUnit.size.y = clamp(player.pad.d, padD0[0], padD0[1]);
+  }
   const cooler =
     em.fans === 0
       ? era.spreader
@@ -212,6 +225,25 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     if (fill?.min && fill.at && fill.size)
       deckPlaced.push(...placeUnits(fill, flatCtx, 0, 0));
   }
+  // The player moves the keyboard forward from the hinge and sets the
+  // trackpad's gap in front of it. Both stay centred left to right.
+  const K = deckPlaced.find((u) => u.role === "keys");
+  const P = deckPlaced.find((u) => u.role === "pad");
+  if (K) {
+    const MIN_GAP = 2;
+    const front = off.side + 2;
+    const kbMax = Math.max(0, K.at.y - front - (P ? P.size.y + MIN_GAP : 0));
+    const ky = clamp(player.kb?.y ?? 0, 0, kbMax);
+    const autoGap = P ? K.at.y - (P.at.y + P.size.y) : 0;
+    K.at.y -= ky;
+    report.kb = { y: ky, range: [0, kbMax] };
+    if (P) {
+      const gMax = Math.max(MIN_GAP, K.at.y - front - P.size.y);
+      const g = clamp(player.pad?.y ?? autoGap, MIN_GAP, gMax);
+      P.at.y = K.at.y - g - P.size.y;
+      report.pad = { w: P.size.x, d: P.size.y, y: g, w0: padW0, d0: padD0, range: [MIN_GAP, gMax] };
+    }
+  }
   const coverOver = (
     at: { x: number; y: number },
     sz: { x: number; y: number },
@@ -282,6 +314,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   const openings: Opening[] = [];
   const anchors: Anchor[] = [];
   const placedFloor: PlacedUnit[] = [];
+  const moved = new Set<string>();
 
   // Floor.
   for (const zone of zonesOf(layout.floor)) {
@@ -301,6 +334,42 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       size: { ...fill.size, z: room },
     });
     const units = placeUnits(fill, floorCtx, floorZ0, room);
+    // The player's port placement: anywhere along its wall, up and down as far as the shells allow.
+    const shifted = new Map<number, { du: number; dz: number }>();
+    for (const u of units) {
+      if (!u.role.startsWith("port:") || u.src === undefined || !zone.edge) continue;
+      const bp = build.ports[u.src];
+      const side = zone.edge;
+      const e = alongAxis(side);
+      const len = u.size[e];
+      const lo = off.side + floorCtx.ko;
+      const hi = F[e] - off.side - floorCtx.ko;
+      const fromRear = side === "left" || side === "right";
+      // along is to the connector's centre: from the rear on side walls, from the left otherwise.
+      const toAlong = (c: number) => (fromRear ? F.y - c : c);
+      const cRange: Range = [lo + len / 2, Math.max(lo + len / 2, hi - len / 2)];
+      const aRange: Range = fromRear ? [toAlong(cRange[1]), toAlong(cRange[0])] : cRange;
+      const zLo = floorZ0 + floorCtx.lift;
+      const zHi = F.z - Math.max(off.top, pTop) - u.size.z;
+      const hRange: Range | null = zHi > zLo + 0.05 ? [zLo, zHi] : null;
+      const prev = shifted.get(u.src);
+      if (prev) {
+        u.at[e] += prev.du;
+        u.at.z += prev.dz;
+        continue;
+      }
+      const c0 = u.at[e] + len / 2;
+      let c = c0;
+      if (bp?.along !== undefined) c = clamp(fromRear ? F.y - bp.along : bp.along, cRange[0], cRange[1]);
+      const z0 = u.at.z;
+      let z = z0;
+      if (bp?.height !== undefined && hRange) z = clamp(bp.height, hRange[0], hRange[1]);
+      u.at[e] = c - len / 2;
+      u.at.z = z;
+      shifted.set(u.src, { du: c - c0, dz: z - z0 });
+      report.ports[u.src] = { along: toAlong(c), height: z, alongRange: aRange, heightRange: hRange, box: `floor:${u.id}` };
+      if (bp?.along !== undefined || bp?.height !== undefined) moved.add(`floor:${u.id}`);
+    }
     for (const u of units) {
       // A hinge mount hangs under the top wall at the rear, where the lid
       // pivots, not on the floor. The zone's room already clears its height.
@@ -401,6 +470,17 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       size: { ...fill.size, z: lidInnerZ },
     });
     for (const u of placeUnits(fill, flatCtx, lidInnerZ0, lidInnerZ)) {
+      if (u.role === "webcam") {
+        // The player slides the webcam along the top bezel, off the lid's centre line.
+        const lo = fill.at.x;
+        const hi = Math.max(lo, fill.at.x + fill.size.x - u.size.x);
+        const mid = F.x / 2 - u.size.x / 2;
+        const range: Range = [lo - mid, hi - mid];
+        const x = clamp(player.cam?.x ?? u.at.x - mid, range[0], range[1]);
+        u.at.x = mid + x;
+        report.cam = { x, range };
+        if (player.cam) moved.add(`lid:${u.id}`);
+      }
       if (u.spacer) continue;
       boxes.push(
         unitBox({ ...u, at: { ...u.at, y: flipY(u.at.y, u.size.y) } }, "lid"),
@@ -492,7 +572,49 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     });
   }
 
+  // A part the player moved must not run into another.
+  const hits = new Set<string>();
+  const hitAt = (part: string, what: string) => {
+    const k = `${part}|${what}`;
+    if (hits.has(k)) return;
+    hits.add(k);
+    problems.push({ kind: "compat", code: "overlap", part, with: what });
+  };
+  const solid = boxes.filter((b) => b.kind === "unit" && !BLOCK_ROLES.has(String(b.role)));
+  for (const id of moved) {
+    const a = solid.find((b) => b.id === id);
+    if (!a) continue;
+    const hit = solid.find(
+      (b) =>
+        b !== a &&
+        b.piece === a.piece &&
+        a.at.x < b.at.x + b.size.x - 0.05 &&
+        b.at.x < a.at.x + a.size.x - 0.05 &&
+        a.at.y < b.at.y + b.size.y - 0.05 &&
+        b.at.y < a.at.y + a.size.y - 0.05 &&
+        a.at.z < b.at.z + b.size.z - 0.05 &&
+        b.at.z < a.at.z + a.size.z - 0.05,
+    );
+    if (hit) hitAt(a.part ?? a.id, String(hit.role));
+  }
+  // Floor ports against the keyboard and trackpad hanging from the top case.
+  for (const id of moved) {
+    const a = solid.find((b) => b.id === id && b.piece === "floor");
+    if (!a) continue;
+    const hit = solid.find(
+      (b) =>
+        b.piece === "deck" &&
+        a.at.x < b.at.x + b.size.x &&
+        b.at.x < a.at.x + a.size.x &&
+        a.at.y < b.at.y + b.size.y &&
+        b.at.y < a.at.y + a.size.y &&
+        a.at.z + a.size.z > F.z - b.size.z - era.deckExtra,
+    );
+    if (hit) hitAt(a.part ?? a.id, String(hit.role));
+  }
+
   return {
+    place: report,
     min,
     frame: F,
     lidZ,

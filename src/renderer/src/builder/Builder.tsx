@@ -16,11 +16,10 @@ import {
   InsideColumn,
   insideSlots,
   PriceColumn,
-  SurfaceColumn,
-  SurfaceTray,
   YearColumn,
 } from "./Stages";
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
+import { type SurfaceItem, SurfaceColumn, SurfaceMarks, SurfaceTray, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
 import { type ViewName, viewFor } from "./view";
 import "./builder.css";
@@ -184,7 +183,8 @@ export function Builder({
   };
   const idx = STAGES.indexOf(stage);
   const [insideSlot, setInsideSlot] = useState("processor");
-  const [surfaceSlot, setSurfaceSlot] = useState("keyboard");
+  const [surfaceItem, setSurfaceItem] = useState<SurfaceItem>("keyboard");
+  const [port, setPort] = useState(0);
   const [piece, setPiece] = useState<Piece>("lid");
   const [sheet, setSheet] = useState(false);
   const [listOpen, setListOpen] = useState(false);
@@ -238,13 +238,24 @@ export function Builder({
     [inside, selectedBoxes],
   );
 
-  const frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : FRAME[stage];
+  const surface = stage === "surface" && !powering;
+  const portSide = build.ports[port]?.side;
+  let frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : FRAME[stage];
+  if (surface && surfaceItem === "webcam") frame = { view: "screen", shift: 0.2, zoom: 0.9, lift: 0.02 };
+  if (surface && surfaceItem === "ports") frame = { view: "side", shift: 0.15, zoom: 1.05, lift: 0.02 };
   const focus = selectedBoxes[0] ?? emptyBoxes[0];
   const viewName: ViewName = inside && !focus ? "xray" : frame.view;
-  const lidAngle = LID_OPEN;
+  const lidAngle = surface && surfaceItem === "ports" ? 0 : LID_OPEN;
   const view = useMemo(
-    () => viewFor(viewName, fit, lidAngle, { shift: frame.shift, zoom: frame.zoom, lift: frame.lift, part: inside ? focus : undefined }),
-    [viewName, fit, frame, inside, focus],
+    () =>
+      viewFor(viewName, fit, lidAngle, {
+        shift: frame.shift,
+        zoom: frame.zoom,
+        lift: frame.lift,
+        part: inside ? focus : undefined,
+        side: portSide,
+      }),
+    [viewName, fit, frame, inside, focus, lidAngle, portSide],
   );
 
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
@@ -268,6 +279,22 @@ export function Builder({
       if (insideSlots(build).some((s) => s.key === key)) setInsideSlot(key);
     },
     [build],
+  );
+
+  const pickSurface = useCallback(
+    (b: Box) => {
+      if (b.role === "keys") setSurfaceItem("keyboard");
+      else if (b.role === "pad") setSurfaceItem("trackpad");
+      else if (b.role === "webcam") setSurfaceItem("webcam");
+      else if (String(b.role).startsWith("port:")) {
+        const i = fit.place.ports.findIndex((p) => p?.box === b.id);
+        if (i >= 0) {
+          setSurfaceItem("ports");
+          setPort(i);
+        }
+      }
+    },
+    [fit],
   );
 
   const review = () => {
@@ -300,8 +327,10 @@ export function Builder({
       column = <InsideColumn {...props} slot={slot.key} onSlot={setInsideSlot} />;
       break;
     case "surface":
-      column = <SurfaceColumn {...props} slot={surfaceSlot} onSlot={setSurfaceSlot} />;
-      tray = <SurfaceTray {...props} slot={surfaceSlot} />;
+      column = (
+        <SurfaceColumn {...props} item={surfaceItem} onItem={setSurfaceItem} port={port} onPort={setPort} />
+      );
+      tray = <SurfaceTray {...props} item={surfaceItem} port={port} onPort={setPort} />;
       break;
     case "finish":
       column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;
@@ -331,7 +360,7 @@ export function Builder({
         fit={fit}
         year={build.year}
         view={view}
-        resetKey={`${stage}:${stage === "inside" ? slot.key : ""}:${powering}`}
+        resetKey={`${stage}:${stage === "inside" ? slot.key : stage === "surface" ? `${surfaceItem}:${portSide ?? ""}` : ""}:${powering}`}
         lidAngle={lidAngle}
         colours={colours}
         surfaces={surfaces}
@@ -339,10 +368,17 @@ export function Builder({
         screen={screen}
         glow={powering}
         paint={paint}
-        extra={inside ? <SelectionMarks selected={selectedBoxes} empty={emptyBoxes} /> : undefined}
+        extra={
+          inside ? (
+            <SelectionMarks selected={selectedBoxes} empty={emptyBoxes} />
+          ) : surface ? (
+            <SurfaceMarks build={build} fit={fit} set={set} item={surfaceItem} port={port} locked={locked} />
+          ) : undefined
+        }
+        lidExtra={surface && surfaceItem === "webcam" ? <WebcamMarks fit={fit} set={set} locked={locked} /> : undefined}
         labelFor={labelFor}
         onHover={inside ? hoverStore.set : () => {}}
-        onPick={inside ? pick : undefined}
+        onPick={inside ? pick : surface ? pickSurface : undefined}
       />
       <div className={stage === "inside" ? "bd-scrim wide" : "bd-scrim"} />
       {TRAY.has(stage) && !powering && <div className="bd-scrim-bottom" />}

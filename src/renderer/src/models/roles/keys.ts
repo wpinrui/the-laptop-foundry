@@ -313,6 +313,25 @@ function legend(
   }
 }
 
+/** Where a styled legend goes: the cap top's centre and size, in model space. */
+export interface LegendSpot {
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+  y: number;
+  text: string;
+  space: boolean;
+}
+
+const MODS = new Set(["@tab", "@caps", "@shift", "CTRL", "FN", "@win", "ALT", "@bksp", "DEL", "@left", "@right", "@up", "@down", "HOME", "END", "PGUP", "PGDN", "NUM"]);
+
+function keyClass(legend: string): "letters" | "mods" | "accent" {
+  if (legend === "ESC" || legend === "@enter") return "accent";
+  if (MODS.has(legend) || /^F\d+$/.test(legend)) return "mods";
+  return "letters";
+}
+
 function build(
   box: ModelBox,
   options: Record<string, string | number>,
@@ -326,6 +345,10 @@ function build(
   const cols = Number(options.cols) === 19 ? 19 : 15;
   const light = String(options.light ?? "none");
   const lit = light === "backlit" || light === "white" || light.startsWith("rgb");
+  // The player's caps: shape, three colour groups, and legends the viewer draws in a real font.
+  const shape = String(options.keyShape ?? "");
+  const styled = options.legendFont !== undefined;
+  const legends: LegendSpot[] = [];
 
   const W = box.width;
   const H = box.height;
@@ -344,7 +367,8 @@ function build(
   const capH = Math.max(0.6, Math.min(wantCap, yTop - plateTop - 0.2));
   const capBot = yTop - capH;
 
-  const caps = new Buf();
+  const capsBy = { letters: new Buf(), mods: new Buf(), accent: new Buf() };
+  let caps = capsBy.letters;
   const ink = new Buf();
   const switches = new Buf();
   const plate = new Buf();
@@ -361,7 +385,9 @@ function build(
   const TILT = [-0.3, -0.4, -0.2, 0, 0.2, 0.3];
   const DROP = [0.25, 0, 0.15, 0.3, 0.2, 0.15];
   const dish = Math.min(0.35, 0.1 * capH);
-  const cs = 4;
+  const cs = shape === "round" ? 7 : 4;
+  // Corner radius scale by cap shape: square is nearly sharp, round runs to a full circle.
+  const rk = shape === "square" ? 0.3 : shape === "round" ? 20 : 1;
 
   const specs = layout(cols === 19);
   specs.forEach((k, n) => {
@@ -370,6 +396,8 @@ function build(
     const cx = -W / 2 + frame + (k.x + k.w / 2) * px;
     const cz = -D / 2 + frame + k.row * pz + spanD / 2 + k.zf * pz;
     const kd = k.df * spanD;
+    const cls = keyClass(k.legend);
+    caps = capsBy[cls];
 
     let hw0: number, hd0: number, gap: number, rB: number;
     let hwT: number, hdT: number; // top face extents, for legend fitting
@@ -392,9 +420,9 @@ function build(
         return yT - dish * (1 - xn * xn) + tilt * zn;
       };
       lift = 0.05;
-      const r0 = 0.07 * p;
+      const r0 = 0.07 * p * rk;
       rB = r0;
-      const r1 = 0.1 * p;
+      const r1 = 0.1 * p * rk;
       const bp = roundRect(cx, cz, hw0, hd0, r0, cs);
       const mp = roundRect(cx, cz, hw0 - 0.3 * taper, hd0 - 0.3 * taper, (r0 + r1) / 2, cs);
       const tp = roundRect(cx, cz, hw1, hd1, r1, cs);
@@ -425,7 +453,7 @@ function build(
       const yT = yTop - 0.05;
       surf = () => yT;
       lift = 0.035;
-      const r0 = 0.085 * p;
+      const r0 = 0.085 * p * rk;
       rB = r0;
       const bp = roundRect(cx, cz, hw0, hd0, r0, cs);
       const up = roundRect(cx, cz, hw0 - taper, hd0 - taper, r0 - taper * 0.5, cs);
@@ -478,7 +506,9 @@ function build(
       band(target, ringAt(target, bp, capBot), ringAt(target, bp, capBot + skirt), bp, cx, cz);
     }
 
-    if (k.legend) {
+    if (styled) {
+      legends.push({ x: cx, z: cz, w: 2 * hwT, d: 2 * hdT, y: surf(cx, cz) + lift, text: k.legend, space: !k.legend });
+    } else if (k.legend) {
       const single = k.legend.length === 1 || k.legend.startsWith("@");
       let h = single ? (k.legend.startsWith("@") ? 0.19 : 0.21) * p : 0.12 * p;
       const chars = single ? 1 : k.legend.length;
@@ -496,7 +526,11 @@ function build(
   const add = (mesh: THREE.Mesh | undefined) => mesh && kb.add(mesh);
   add(plate.mesh(m.metal, "plate"));
   add(switches.mesh(m.plastic, "switches"));
-  add(caps.mesh(m.body, "caps"));
+  const capMat = (hex: unknown) => (typeof hex === "string" && ctx.tint ? ctx.tint(hex) : m.body);
+  add(capsBy.letters.mesh(capMat(options.capLetters), "caps"));
+  add(capsBy.mods.mesh(capMat(options.capMods), "caps:mods"));
+  add(capsBy.accent.mesh(capMat(options.capAccent), "caps:accent"));
+  if (styled) kb.userData.legends = legends;
   add(ink.mesh(m.plastic, "legends"));
   for (const [id, b] of glow) add(b.mesh(m.glow, id));
   return kb;

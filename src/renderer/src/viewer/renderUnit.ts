@@ -122,6 +122,7 @@ export function renderUnit(
   const mctx: ModelContext = {
     ...base,
     materials: ctx.slots(opts.colour),
+    tint: (hex) => ctx.material(hex),
     random: seeded(seedFor(key, mbox, options, base)),
   };
   const wrapper = new THREE.Group();
@@ -161,6 +162,12 @@ export function disposeUnit(obj: THREE.Object3D): void {
   if (!obj.userData.model) return;
   obj.traverse((o) => {
     (o as THREE.Mesh).geometry?.dispose();
+    // Canvas-drawn overlays (keycap legends) own their material and texture.
+    if (o.userData.own) {
+      const m = (o as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      m.map?.dispose();
+      m.dispose();
+    }
     if (o instanceof THREE.LineSegments)
       (o.material as THREE.Material).dispose();
   });

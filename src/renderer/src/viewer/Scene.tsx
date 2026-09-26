@@ -16,6 +16,7 @@ import * as THREE from "three";
 import type { Box, Build, Fit, Side } from "../engine";
 import { shellSurface } from "../engine";
 import { LID_GROUP } from "../models/roles/hinge";
+import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
 import { type Cuts, portCuts, wallPositions } from "./walls";
 import {
@@ -254,6 +255,7 @@ function useUnitsGroup(
       let obj: THREE.Object3D;
       try {
         obj = renderUnit(b.role, b, { colour: roleColour(b.role, year), year, hinge }, ctx);
+        if (b.role === "keys") attachLegends(obj, b.opts);
       } catch (e) {
         console.error(`unit ${b.id} could not be drawn`, e);
         obj = dangerBox(b, ctx, e);

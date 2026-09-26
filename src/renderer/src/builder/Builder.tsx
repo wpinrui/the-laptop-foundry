@@ -18,6 +18,7 @@ import {
   PriceColumn,
   YearColumn,
 } from "./Stages";
+import { type KeyGroup, KeysColumn, KeysTray } from "./KeysStage";
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { type SurfaceItem, SurfaceColumn, SurfaceMarks, SurfaceTray, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
@@ -100,7 +101,7 @@ const FRAME: Record<Stage, Frame> = {
 };
 
 /** Stages with a tray of cards along the bottom. */
-const TRAY = new Set<Stage>(["chassis", "screen", "surface", "finish"]);
+const TRAY = new Set<Stage>(["chassis", "screen", "surface", "keys", "finish"]);
 
 /** Floor zone roles where an empty slot's part would go. */
 const ZONE_ROLE: Partial<Record<Category, string>> = {
@@ -185,6 +186,7 @@ export function Builder({
   const [insideSlot, setInsideSlot] = useState("processor");
   const [surfaceItem, setSurfaceItem] = useState<SurfaceItem>("keyboard");
   const [port, setPort] = useState(0);
+  const [keyGroup, setKeyGroup] = useState<KeyGroup>("letters");
   const [piece, setPiece] = useState<Piece>("lid");
   const [sheet, setSheet] = useState(false);
   const [listOpen, setListOpen] = useState(false);
@@ -331,6 +333,10 @@ export function Builder({
         <SurfaceColumn {...props} item={surfaceItem} onItem={setSurfaceItem} port={port} onPort={setPort} />
       );
       tray = <SurfaceTray {...props} item={surfaceItem} port={port} onPort={setPort} />;
+      break;
+    case "keys":
+      column = <KeysColumn {...props} group={keyGroup} onGroup={setKeyGroup} />;
+      tray = <KeysTray {...props} />;
       break;
     case "finish":
       column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;

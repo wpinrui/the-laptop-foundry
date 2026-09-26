@@ -241,6 +241,26 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
     }
   }
 
+  // The player's keycaps ride on the keyboard unit's options, for its model.
+  if (build.keys) {
+    const k = build.keys;
+    for (const u of out.deck)
+      if (u.role === "keys")
+        u.opts = {
+          ...u.opts,
+          keyShape: k.shape,
+          capLetters: k.colours.letters,
+          capMods: k.colours.mods,
+          capAccent: k.colours.accent,
+          legendFont: k.legend.font,
+          legendColour: k.legend.colour,
+          legendAlign: k.legend.align,
+          legendCase: k.legend.case,
+          legendSize: k.legend.size,
+          legendWeight: k.legend.weight,
+        };
+  }
+
   // The screen: its active area and thickness from the resolved panel.
   const panel = panelOf(build, idx.content);
   const ptype = panel && idx.panelTypes.get(panel.type);

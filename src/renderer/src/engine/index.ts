@@ -10,6 +10,8 @@ export {
   defaultProfiles,
   type Durability,
   durabilityOf,
+  type Lab,
+  labOf,
   type Measurements,
   type Performance,
   profilesOf,

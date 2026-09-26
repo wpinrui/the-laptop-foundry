@@ -6,8 +6,8 @@ import type { Box, Fit } from "../types";
 // part of the chips' heat to the fin stack, so the vents run hot, and the air
 // they move cools the case over them. The shell then spreads heat sideways by
 // its material and thickness while every cell sheds heat to the room. The shape
-// comes from the layout; the level is anchored to the lumped model's hottest
-// skin spot, so the grid's maximum is the peak skin figure.
+// comes from the layout; the level is anchored to the lumped model's mean case
+// temperature, so the hot spots come out of the shape, as a thermal camera finds them.
 
 export const SURFACE_NX = 24;
 export const SURFACE_NY = 16;
@@ -41,8 +41,8 @@ export interface SurfaceState {
   fan: number;
   /** Share of the chips' heat the fans carry to the fin stack. */
   carried: number;
-  /** Hottest skin spot, °C. */
-  peak: number;
+  /** Mean skin temperature over both faces, °C. */
+  mean: number;
 }
 
 export interface Shell {
@@ -65,11 +65,15 @@ const BASE_SHARE: Record<string, number> = {
 /** Share of the carried heat the exhaust leaves in the case around the fins. */
 const EXHAUST = 0.3;
 /** Share of all heat the internal air spreads evenly over both faces. */
-const AIR = 0.4;
-/** Depth offset, mm, in how a unit splits its heat between the faces: larger splits it more evenly. */
-const DEPTH = 40;
+const AIR = 0.5;
+/** Share of that air heat the deck takes. */
+const AIR_TOP = 0.4;
+/** Depth offset, mm, in how a unit splits its heat between the faces: the heat pipes and air between spread it near evenly. */
+const DEPTH = 400;
 /** Extra cooling of the case over a fan at full speed, per face: the intake side most. */
-const WASH = { top: 1.5, bottom: 11 };
+const WASH = { top: 10, bottom: 40 };
+/** Lateral spreading length, cells: a floor for every shell plus a term for conductive, thicker ones. */
+const SPREAD_LEN = { floor: 4.4, metal: 4 };
 const SWEEPS = 160;
 const OMEGA = 1.7;
 
@@ -172,8 +176,11 @@ function rise(fit: Fit, shell: Shell, s: SurfaceState): Record<Face, Float64Arra
   split(of("fin"), local * s.carried * EXHAUST * chips);
 
   // The internal air warms both faces evenly.
-  const even = (AIR * (chips * (1.1 - s.carried * (1 - EXHAUST)) + s.base)) / (2 * nx * ny);
-  for (const face of ["top", "bottom"] as const) for (let c = 0; c < nx * ny; c++) q[face][c] += even;
+  const even = (AIR * (chips * (1.1 - s.carried * (1 - EXHAUST)) + s.base)) / (nx * ny);
+  for (let c = 0; c < nx * ny; c++) {
+    q.top[c] += AIR_TOP * even;
+    q.bottom[c] += (1 - AIR_TOP) * even;
+  }
 
   // Moving air over the fans cools the case there, the intake side most.
   const fans = of("fan");
@@ -190,17 +197,18 @@ function rise(fit: Fit, shell: Shell, s: SurfaceState): Record<Face, Float64Arra
             h[j * nx + i] = 1 + boost;
         }
     // Spreading length in cells: plastic keeps hot spots tight, metal smears them.
-    const len = 0.8 + 4 * shell.spread[face] ** 2 * Math.sqrt(Math.max(0.3, shell.thickness[face]));
+    const len = SPREAD_LEN.floor + SPREAD_LEN.metal * shell.spread[face] ** 2 * Math.sqrt(Math.max(0.3, shell.thickness[face]));
     res[face] = solveFace(q[face], h, len * len);
   }
   return res;
 }
 
-function anchor(r: Record<Face, Float64Array>, peak: number, ambient: number): SurfaceField {
-  let max = 0;
-  for (const v of r.top) max = Math.max(max, v);
-  for (const v of r.bottom) max = Math.max(max, v);
-  const scale = max > 0 ? Math.max(0, peak - ambient) / max : 0;
+function anchor(r: Record<Face, Float64Array>, mean: number, ambient: number): SurfaceField {
+  let sum = 0;
+  for (const v of r.top) sum += v;
+  for (const v of r.bottom) sum += v;
+  const avg = sum / (r.top.length + r.bottom.length);
+  const scale = avg > 0 ? Math.max(0, mean - ambient) / avg : 0;
   const map = (a: Float64Array) => Array.from(a, (v) => ambient + v * scale);
   return { top: map(r.top), bottom: map(r.bottom) };
 }
@@ -227,8 +235,8 @@ export function surfaceOf(
   load: SurfaceState,
   ambient: number,
 ): Surface {
-  const i = anchor(rise(fit, shell, idle), idle.peak, ambient);
-  const l = anchor(rise(fit, shell, load), load.peak, ambient);
+  const i = anchor(rise(fit, shell, idle), idle.mean, ambient);
+  const l = anchor(rise(fit, shell, load), load.mean, ambient);
   return {
     nx: SURFACE_NX,
     ny: SURFACE_NY,

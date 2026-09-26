@@ -18,8 +18,17 @@ import type { ModelBox, ModelContext, ModelModule } from "../contract";
 //       all metal apart from the full cover, which is body colour.
 // 2026: slim: smaller radii, 0.6 mm plates, body-colour barrel.
 //
+// The lid side of each hinge (the barrel's lid knuckle and leaf, the full
+// cover, the drop hinge's arm and boss) is drawn in the closed pose and sits in
+// a group named LID_GROUP whose origin is the pivot, so the viewer turns it
+// with the lid: rotation.x = -lid angle.
+//
 // Model space: centred, x width, y up out of the keyboard, z depth with the
-// front at +z, 1 unit = 1 mm. Geometry is baked in place; no mesh transforms.
+// front at +z, 1 unit = 1 mm. Geometry is baked in place; the lid group's
+// pivot is the only transform.
+
+/** The group of lid-side parts, turned about its origin (the pivot) with the lid. */
+export const LID_GROUP = "hinge:lid";
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -78,6 +87,16 @@ function build(
     mesh.name = name;
     hinge.add(mesh);
   };
+  // Lid-side parts: baked relative to the pivot, then the group sits at it.
+  const lid = new THREE.Group();
+  lid.name = LID_GROUP;
+  const addLid = (g: THREE.BufferGeometry, mat: THREE.Material, name: string, yp: number, zp: number) => {
+    g.translate(0, -yp, -zp);
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.name = name;
+    lid.add(mesh);
+    lid.position.set(0, yp, zp);
+  };
   const screws = (xs: number[], y0: number, z: number) => {
     const zs = Math.min(z, zF - 0.5 - screwR - 0.2);
     for (const x of xs) add(screw(screwR, screwH, x, y0, zs), m.metal, "screw");
@@ -106,7 +125,8 @@ function build(
     const hole = new THREE.Path();
     hole.absarc(-zp, yp, rs, 0, Math.PI * 2, true);
     s.holes.push(hole);
-    add(profile(s, -x1, x1, old ? 10 : 8), m.body, "cover");
+    // The cover is fixed to the lid's bottom edge and swings with it.
+    addLid(profile(s, -x1, x1, old ? 10 : 8), m.body, "cover", yp, zp);
     add(rod(rs, -x1 + 0.02, x1 - 0.02, yp, zp, 16), m.metal, "shaft");
     // Bracket forward, under the cover's front edge, with two screws.
     const bz0 = zc;
@@ -126,7 +146,15 @@ function build(
     const segs = old ? 24 : 20;
     // Two knuckles, base half and lid half, with a split between.
     add(rod(r, xa, xm - gap / 2, yp, zp, segs), old ? m.metal : m.body, "knuckle:base");
-    add(rod(r, xm + gap / 2, xb, yp, zp, segs), old ? m.metal : m.body, "knuckle:lid");
+    addLid(rod(r, xm + gap / 2, xb, yp, zp, segs), old ? m.metal : m.body, "knuckle:lid", yp, zp);
+    // The lid leaf, closed: along the top from the lid knuckle, forward.
+    addLid(
+      block(xm + gap / 2 + 1, xb - 1, yTop - t, yTop, zp, Math.min(zF - 0.5, zp + 0.6 * D)),
+      m.metal,
+      "leaf:lid",
+      yp,
+      zp,
+    );
     // Pin showing in the split.
     add(rod(0.35 * r, xm - gap / 2 - 0.01, xm + gap / 2 + 0.01, yp, zp, 10), m.metal, "pin");
     // Neck down to the leaf, under the base knuckle, and the leaf running forward.
@@ -158,14 +186,23 @@ function build(
       add(profile(s, xo - cheekT / 2, xo + cheekT / 2, 8), m.metal, "cheek");
     }
     add(rod(rp, -cx - cheekT / 2 - 0.3, cx + cheekT / 2 + 0.3, yp, zp, 14), m.metal, "pin");
-    // The lid arm hangs on the pin between the cheeks, running up and back.
+    // The lid arm hangs on the pin between the cheeks. Closed, it lies
+    // forward over the pivot; opening turns it up and back with the lid.
     const armT = old ? 1.2 : 0.8;
-    add(block(-cx + cheekT, cx - cheekT, yp - rp, Math.min(yTop, yp + re + 0.6), zB, zB + armT), m.body, "arm");
-    add(rod(re * 0.95, -cx + cheekT, cx - cheekT, yp, zp, 16), m.body, "boss");
+    const armTop = Math.min(yTop, yp + re);
+    addLid(
+      block(-cx + cheekT, cx - cheekT, armTop - armT, armTop, zp - rp, Math.min(zF - 0.5, zToe)),
+      m.body,
+      "arm",
+      yp,
+      zp,
+    );
+    addLid(rod(re * 0.95, -cx + cheekT, cx - cheekT, yp, zp, 16), m.body, "boss", yp, zp);
     // Base plate, and its screws forward of the cheeks.
     add(block(-x1 + 1, x1 - 1, yBot, yBot + t, zB, zF - 0.5), m.metal, "plate");
     screws([-0.3 * W, 0, 0.3 * W], yBot + t, (zToe + zF) / 2);
   }
+  if (lid.children.length > 0) hinge.add(lid);
   return hinge;
 }
 

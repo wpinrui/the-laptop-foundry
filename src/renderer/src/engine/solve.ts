@@ -293,6 +293,9 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     });
     const units = placeUnits(fill, floorCtx, floorZ0, room);
     for (const u of units) {
+      // A hinge mount hangs under the top wall at the rear, where the lid
+      // pivots, not on the floor. The zone's room already clears its height.
+      if (u.role === "hinge") u.at.z = Math.max(floorZ0, floorZ0 + room - u.size.z);
       placedFloor.push(u);
       boxes.push(unitBox(u, "floor", zone.edge));
       if (u.skin)

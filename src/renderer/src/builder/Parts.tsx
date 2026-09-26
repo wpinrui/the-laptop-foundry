@@ -11,7 +11,7 @@ import {
   packageGb,
   panelsFor,
   partPrice,
-  partsFor,
+  offeredFor,
   solve,
 } from "../engine";
 import { formatOption, panelLabel } from "./format";
@@ -141,7 +141,7 @@ function rowsFor(slot: Slot, build: Build, fit: Fit): Row[] {
   const year = build.year;
   const current = build.parts[slot.cat]?.[slot.index];
   const ids =
-    slot.cat === "display" ? panelsFor(year).map((p) => p.id) : partsFor(slot.cat, year).map((p) => p.id);
+    slot.cat === "display" ? panelsFor(year).map((p) => p.id) : offeredFor(slot.cat, year).map((p) => p.id);
   if (current && !ids.includes(current.part)) ids.unshift(current.part);
   const before = new Set(fit.problems.map(problemKey));
   const reason = (id: string): string | null => {
@@ -226,7 +226,7 @@ const ON_PACKAGE = "lpddr5x-on-package";
 
 /** Processors of the year that carry their memory on the package. */
 function packageCpus(year: number): Part[] {
-  return partsFor("processor", year).filter((p) => typeof p.info?.onPackageGb === "number");
+  return offeredFor("processor", year).filter((p) => typeof p.info?.onPackageGb === "number");
 }
 
 /** Maker, family and tier, e.g. "Intel Core Ultra 7" for the 258V. */

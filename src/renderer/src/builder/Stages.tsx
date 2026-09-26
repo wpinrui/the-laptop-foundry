@@ -12,7 +12,9 @@ import {
   partsFor,
   profilesOf,
   RIVALS,
+  rivalYear,
   rivalSubject,
+  YEARS,
 } from "../engine";
 import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
@@ -32,8 +34,6 @@ export interface StageProps {
 }
 
 // ------------------------------------------------------------------ year
-
-export const YEARS = [...new Set(CONTENT.eras.map((e) => e.year))];
 
 export function YearColumn({ build, set }: StageProps) {
   return (
@@ -312,7 +312,7 @@ export function PriceColumn({
   const price = build.price ?? snapPrice(cost * 1.45);
   const rivals = useMemo(() => {
     if (!priced) return [];
-    return RIVALS.filter((r) => r.build.year === build.year)
+    return RIVALS.filter((r) => r.build.year === rivalYear(build.year))
       .sort((a, b) => Math.abs((a.build.price ?? 0) - price) - Math.abs((b.build.price ?? 0) - price))
       .slice(0, 3)
       .map((r) => ({ id: r.id, name: r.name, price: r.build.price ?? 0, kg: factsOf(rivalSubject(r)).kg }));

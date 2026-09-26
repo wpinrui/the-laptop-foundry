@@ -58,10 +58,39 @@ const ERA_PRICE: EraPrice[] = [
   },
 ];
 
+/**
+ * The row for a year. Between two rows prices and sizes move in a straight
+ * line; the performance cut-offs move on a log scale, as performance grew.
+ */
 function eraPrice(year: number): EraPrice {
-  let row = ERA_PRICE[0];
-  for (const r of ERA_PRICE) if (r.year <= year) row = r;
-  return row;
+  const first = ERA_PRICE[0];
+  const last = ERA_PRICE[ERA_PRICE.length - 1];
+  if (year <= first.year) return first;
+  if (year >= last.year) return last;
+  const i = ERA_PRICE.findIndex((r) => r.year > year);
+  const a = ERA_PRICE[i - 1];
+  const b = ERA_PRICE[i];
+  if (a.year === year) return a;
+  const t = (year - a.year) / (b.year - a.year);
+  const lin = (x: number, y: number) => x + (y - x) * t;
+  const log = (x: number, y: number) => x * (y / x) ** t;
+  return {
+    year,
+    budget: { low: lin(a.budget.low, b.budget.low), premium: lin(a.budget.premium, b.budget.premium) },
+    body: {
+      thinKg: lin(a.body.thinKg, b.body.thinKg),
+      thinMm: lin(a.body.thinMm, b.body.thinMm),
+      largeKg: lin(a.body.largeKg, b.body.largeKg),
+      largeWidth: lin(a.body.largeWidth, b.body.largeWidth),
+    },
+    perf: {
+      gamingGraphics: log(a.perf.gamingGraphics, b.perf.gamingGraphics),
+      mixedGraphics: log(a.perf.mixedGraphics, b.perf.mixedGraphics),
+      mixedMulti: log(a.perf.mixedMulti, b.perf.mixedMulti),
+    },
+    board: lin(a.board, b.board),
+    assembly: lin(a.assembly, b.assembly),
+  };
 }
 
 // ------------------------------------------------------------------ part costs

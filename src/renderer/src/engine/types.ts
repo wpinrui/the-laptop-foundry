@@ -286,6 +286,8 @@ export interface Part extends Dated {
   packCasing?: Mm;
   /** Descriptive facts for the review and the UI. Never read by the solver. */
   info?: Record<string, OptionValue>;
+  /** Processor and graphics generation, from the generations table. The builder offers a maker's two newest. */
+  gen?: string;
 }
 
 /** Display is chosen from allowed combinations only. */

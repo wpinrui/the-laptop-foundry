@@ -480,19 +480,22 @@
 }
 
 /* Year. */
+/* Every year from 2006 to 2026, read down each column: seven rows by three. */
 .bd-years {
-  display: flex;
-  flex-direction: column;
-  gap: calc(6 * var(--u));
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, auto);
+  column-gap: calc(40 * var(--u));
+  row-gap: calc(4 * var(--u));
 }
 
 .bd-year {
   display: flex;
   align-items: center;
-  gap: calc(22 * var(--u));
+  gap: calc(14 * var(--u));
   font-family: var(--font-display) !important;
   font-weight: 700 !important;
-  font-size: calc(112 * var(--u)) !important;
+  font-size: calc(60 * var(--u)) !important;
   line-height: 0.92 !important;
   color: var(--muted) !important;
   text-align: left;
@@ -504,8 +507,8 @@
 }
 
 .bd-year i {
-  width: calc(14 * var(--u));
-  height: calc(14 * var(--u));
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
   background: var(--accent);
 }
 

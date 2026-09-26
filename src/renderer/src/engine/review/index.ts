@@ -2,7 +2,7 @@ import { type Results, results } from "../bench";
 import { panelOf } from "../screen";
 import { type Content, CONTENT } from "../content";
 import { activeArea } from "../content/display";
-import { type Rival, RIVALS } from "../content/rivals";
+import { type Rival, RIVALS, rivalYear } from "../content/rivals";
 import { classify, costOf, type DeviceClass, weightOf } from "../price";
 import { type Measurements, simulate } from "../sim";
 import { type Specs, specs as specsOf } from "../sim/specs";
@@ -151,7 +151,7 @@ const MAKER_NAMES: Record<string, string> = {
 /** Rivals of the same year and class, widening until there are a few to compare. */
 export function peersOf(f: Facts): Facts[] {
   const all = RIVALS.filter(
-    (r) => r.build.year === f.subject.build.year && r.id !== f.subject.id,
+    (r) => r.build.year === rivalYear(f.subject.build.year) && r.id !== f.subject.id,
   ).map((r) => factsOf(rivalSubject(r)));
   const tiers: ((p: Facts) => boolean)[] = [
     (p) =>

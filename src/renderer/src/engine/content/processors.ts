@@ -125,6 +125,34 @@ const CORES: Record<string, [cores: number, threads: number]> = {
   "snapdragon-x2e-88-100": [18, 18],
 };
 
+// Generations, for the builder's offer of each maker's two newest.
+const GEN: Record<string, string> = {
+  "celeron-m-430": "intel-yonah",
+  "core-duo-u2500": "intel-yonah",
+  "core-duo-t2500": "intel-yonah",
+  "core2-duo-t5500": "intel-merom",
+  "core2-duo-t7600": "intel-merom",
+  "turion64-x2-tl60": "amd-k8",
+  "core-m3-6y30": "intel-skylake",
+  "core-i5-6200u": "intel-skylake",
+  "core-i7-6500u": "intel-skylake",
+  "core-i7-7500u": "intel-kaby-lake",
+  "core-i7-6700hq": "intel-skylake",
+  "core-i7-7700hq": "intel-kaby-lake",
+  "a10-9600p": "amd-2016",
+  "core5-120u": "intel-core-ultra-1",
+  "core-ultra7-258v": "intel-lunar-lake",
+  "core-ultra7-256v": "intel-lunar-lake",
+  "core-ultra5-236v": "intel-lunar-lake",
+  "core-ultra-x9-388h": "intel-panther-lake",
+  "core-ultra9-275hx": "intel-arrow-lake",
+  "ryzen-ai5-340": "amd-ryzen-ai-300",
+  "ryzen-ai9-hx470": "amd-ryzen-ai-400",
+  "ryzen-ai-max-395": "amd-ryzen-ai-300",
+  "ryzen9-9955hx3d": "amd-ryzen-ai-300",
+  "snapdragon-x2e-88-100": "qualcomm-x2",
+};
+
 function clocksOf(id: string): { clock?: CpuClock; gpuClock?: GpuClock } {
   const c = CLOCKS[id];
   if (!c) return {};
@@ -172,6 +200,7 @@ function cpu(
     igpuFeatures: f[1],
     provides,
     info: CORES[id] ? { ...info, cores: CORES[id][0], threads: CORES[id][1] } : info,
+    gen: GEN[id],
   };
 }
 

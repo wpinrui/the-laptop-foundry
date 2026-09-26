@@ -43,7 +43,7 @@ export const PANEL_TYPES: PanelType[] = [
   {
     id: "ips",
     name: "IPS",
-    from: 2012,
+    from: 2010,
     until: 2099,
     thickness: 3.5,
     coverGlass: true,

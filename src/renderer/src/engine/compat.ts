@@ -10,6 +10,7 @@ import type {
 } from "./types";
 import { CATEGORIES, PIECES } from "./types";
 import { screenOf, screenProblems } from "./screen";
+import { isHexColour } from "./look";
 
 const REQUIRED: Category[] = [
   "processor",
@@ -69,15 +70,9 @@ export function checkCompat(
     else if (!era.pieces[m.id].includes(piece))
       out.push({ kind: "compat", code: "wrong-piece", piece, material: m.id });
     const fin = build.finish[piece];
-    const colour = idx.colours.get(fin.colour);
-    if (!colour) out.push({ kind: "compat", code: "unknown", ref: fin.colour });
-    else if (!available(colour, year))
-      out.push({
-        kind: "year",
-        code: "unavailable",
-        what: "colour",
-        ref: colour.id,
-      });
+    // Any colour, in any year: a hex, or a stock colour's name from an older save.
+    if (!isHexColour(fin.colour) && !idx.colours.get(fin.colour))
+      out.push({ kind: "compat", code: "unknown", ref: fin.colour });
     const tex = idx.finishes.get(fin.texture);
     if (!tex) out.push({ kind: "compat", code: "unknown", ref: fin.texture });
     else {

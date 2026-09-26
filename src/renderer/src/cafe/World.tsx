@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { CONTENT, type Fit } from "../engine";
+import { CONTENT, type Decor, type Fit } from "../engine";
 import { Model, Reflections, type Surfaces } from "../viewer/Scene";
 import { token } from "../viewer/theme";
 
@@ -382,6 +382,7 @@ export function World({
   fit,
   year,
   colours,
+  decor,
   surfaces,
   screen,
   seated,
@@ -392,6 +393,7 @@ export function World({
   fit: Fit;
   year: number;
   colours: { floor: string; deck: string; lid: string };
+  decor?: Decor;
   surfaces: Surfaces;
   screen?: { node: ReactNode; width: number; mm: { x: number; y: number } };
   seated: boolean;
@@ -417,6 +419,7 @@ export function World({
             year={year}
             lidAngle={105}
             colours={colours}
+            decor={decor}
             surfaces={surfaces}
             xray={false}
             labelFor={noLabel}

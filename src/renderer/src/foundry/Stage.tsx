@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { type Build, CONTENT, type Fit, SAMPLES, solve } from "../engine";
+import { type Build, CONTENT, colourHex, decorOf, type Fit, SAMPLES, solve } from "../engine";
 import { Model, Reflections, surfacesOf } from "../viewer/Scene";
 import { token } from "../viewer/theme";
 
@@ -111,7 +111,7 @@ function Fader({
 }
 
 function StagedLaptop({ build, fit, lock }: { build: Build; fit: Fit; lock: THREE.Texture }) {
-  const colour = (id: string) => CONTENT.colours.find((c) => c.id === id)?.hex ?? token("slot-plastic");
+  const colour = (id: string) => colourHex(id);
   const colours = useMemo(
     () => ({
       floor: colour(build.finish.floor.colour),
@@ -127,6 +127,7 @@ function StagedLaptop({ build, fit, lock }: { build: Build; fit: Fit; lock: THRE
       year={build.year}
       lidAngle={112}
       colours={colours}
+      decor={decorOf(build)}
       surfaces={surfaces}
       xray={false}
       labelFor={noLabel}

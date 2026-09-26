@@ -9,7 +9,6 @@ import {
   eraFor,
   factsOf,
   type Fit,
-  type Piece,
   partsFor,
   profilesOf,
   RIVALS,
@@ -18,7 +17,7 @@ import {
 import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
-import { materialsFor, toBody, toYear } from "./structure";
+import { toBody, toYear } from "./structure";
 import { Card, Chip, Chips, Label, Line, SliderField, Slider, money, Value } from "./ui";
 
 // The left column of each builder stage, and the tray along the bottom where
@@ -122,6 +121,14 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
         min={0}
         max={100}
         onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, packing: v / 100 } }))}
+      />
+      <SliderField
+        label="Material spend"
+        value={Math.round((build.spend.material ?? 0) * 100)}
+        unit="%"
+        min={0}
+        max={100}
+        onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, material: v / 100 } }))}
       />
       {build.screen && (
         <SliderField
@@ -264,123 +271,6 @@ export function InsideColumn({
         )}
       </Options>
     </div>
-  );
-}
-
-// ------------------------------------------------------------------ finish (stock colours until free colour lands)
-
-const PIECE_NAME: Record<Piece, string> = { lid: "Lid", deck: "Deck", floor: "Bottom" };
-const FINISH_ORDER: Piece[] = ["lid", "deck", "floor"];
-
-export function FinishColumn({
-  build,
-  fit,
-  set,
-  piece,
-  onPiece,
-}: StageProps & { piece: Piece; onPiece: (p: Piece) => void }) {
-  const hex = (id: string) => CONTENT.colours.find((c) => c.id === id)?.hex ?? "";
-  const mat = CONTENT.materials.find((m) => m.id === build.materials[piece]);
-  const finishes = (mat?.finishes ?? []).filter((f) => {
-    const fin = CONTENT.finishes.find((x) => x.id === f);
-    return !fin || available(fin, build.year);
-  });
-  const colours = CONTENT.colours.filter((c) => available(c, build.year) || c.id === build.finish[piece].colour);
-  const flagged = (p: Piece) =>
-    fit.problems.some(
-      (x) =>
-        (x.kind === "compat" && (x.code === "wrong-piece" || x.code === "wrong-finish") && x.piece === p) ||
-        (x.kind === "year" &&
-          (x.ref === build.materials[p] || x.ref === build.finish[p].colour || x.ref === build.finish[p].texture)),
-    );
-  return (
-    <>
-      <div className="bd-pieces">
-        {FINISH_ORDER.map((p) => (
-          <button
-            type="button"
-            key={p}
-            className={["bd-row-item", "bd-piece", p === piece ? "on" : "", flagged(p) ? "warn" : ""].join(" ")}
-            onClick={() => onPiece(p)}
-          >
-            {PIECE_NAME[p]}
-            <span className="bd-swatch-line">
-              {CONTENT.colours.find((c) => c.id === build.finish[p].colour)?.name}
-              <i className="bd-swatch" style={{ background: hex(build.finish[p].colour) }} />
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="bd-rule" />
-      <div className="bd-field">
-        <Label>Finish</Label>
-        <Chips>
-          {finishes.map((f) => (
-            <Chip
-              caps
-              key={f}
-              on={build.finish[piece].texture === f}
-              onClick={() => set((b) => ({ ...b, finish: { ...b.finish, [piece]: { ...b.finish[piece], texture: f } } }))}
-            >
-              {CONTENT.finishes.find((x) => x.id === f)?.name ?? f}
-            </Chip>
-          ))}
-        </Chips>
-      </div>
-      <div className="bd-field">
-        <Label>Colour</Label>
-        <div className="bd-swatches">
-          {colours.map((c) => (
-            <button
-              type="button"
-              key={c.id}
-              title={c.name}
-              className={build.finish[piece].colour === c.id ? "bd-swatch big on" : "bd-swatch big"}
-              style={{ background: c.hex }}
-              onClick={() => set((b) => ({ ...b, finish: { ...b.finish, [piece]: { ...b.finish[piece], colour: c.id } } }))}
-            />
-          ))}
-        </div>
-      </div>
-      <SliderField
-        label="Material spend"
-        value={Math.round((build.spend.material ?? 0) * 100)}
-        unit="%"
-        min={0}
-        max={100}
-        onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, material: v / 100 } }))}
-      />
-    </>
-  );
-}
-
-export function FinishTray({ build, set, piece }: StageProps & { piece: Piece }) {
-  const allowed = materialsFor(build.year, piece);
-  return (
-    <>
-      {CONTENT.materials
-        .filter((m) => available(m, build.year))
-        .map((m) => (
-          <Card
-            key={m.id}
-            width={170}
-            on={build.materials[piece] === m.id}
-            off={!allowed.includes(m.id)}
-            top={m.finishes.map((f) => CONTENT.finishes.find((x) => x.id === f)?.name ?? f).join("  ").toLowerCase()}
-            name={m.name.replace(/ \(.*\)$/, "")}
-            onClick={() =>
-              set((b) => {
-                const first = m.finishes[0] ?? b.finish[piece].texture;
-                return {
-                  ...b,
-                  materials: { ...b.materials, [piece]: m.id },
-                  finish: { ...b.finish, [piece]: { ...b.finish[piece], texture: first } },
-                };
-              })
-            }
-          />
-        ))}
-    </>
   );
 }
 

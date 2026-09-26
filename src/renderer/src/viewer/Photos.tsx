@@ -2,7 +2,7 @@ import { Canvas, createPortal, useThree } from "@react-three/fiber";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { type Build, CONTENT, type Fit, solve } from "../engine";
+import { type Build, colourHex, decorOf, type Fit, solve } from "../engine";
 import { buildShot, SIZE_FRAME, VIEWING_GRID } from "./reviewScenes";
 import {
   heatMaterial,
@@ -100,7 +100,7 @@ function Shooter({
     for (const f of waiting.current.splice(0)) f();
   }, [pose]);
 
-  const colour = (cid: string) => CONTENT.colours.find((c) => c.id === cid)?.hex ?? "";
+  const colour = (cid: string) => colourHex(cid);
   const colours = useMemo(
     () => ({
       floor: colour(build.finish.floor.colour),
@@ -263,6 +263,7 @@ function Shooter({
           year={build.year}
           lidAngle={pose.lid}
           colours={colours}
+          decor={decorOf(build)}
           labelFor={noLabel}
           onHover={noHover}
           surfaces={surfaces}

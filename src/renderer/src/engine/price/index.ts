@@ -290,6 +290,8 @@ function partCost(
 
 // ------------------------------------------------------------------ body
 
+const MARK_COST: Record<string, number> = { etched: 1.5, printed: 0.5, embossed: 2.5 };
+
 /** Dollars per square decimetre of piece face. */
 const MATERIAL: Record<string, number> = {
   plastic: 0.6,
@@ -406,11 +408,28 @@ export function costOf(
       (FINISH[build.finish[piece].texture] ?? 0);
     body += dm2 * rate;
   }
+  // Marks: a laser pass, a print or a press die each.
+  for (const m of build.marks ?? []) body += MARK_COST[m.process] ?? 1;
   add("body", body + 10);
   spend += (build.spend.packing ?? 0) * 60 + (build.spend.material ?? 0) * 80;
   add("spend", spend);
   add("assembly", era.assembly);
   return { total: lines.reduce((s, l) => s + l.usd, 0), lines };
+}
+
+/** What one shell piece costs and weighs: its material and finish over its faces. */
+export function pieceOf(build: Build, fit: Fit, piece: Piece, content: Content = CONTENT): { usd: number; grams: number } {
+  const { x, y, z } = fit.frame;
+  const w = fit.shell.walls;
+  const usd = ((x * y) / 1e4) * ((MATERIAL[build.materials[piece]] ?? 1) + (FINISH[build.finish[piece].texture] ?? 0));
+  const mm3 =
+    piece === "floor"
+      ? x * y * w.bottom
+      : piece === "deck"
+        ? x * y * w.top + 2 * (x + y) * z * w.side
+        : x * y * (w.lid + w.lidFront) + 2 * (x + y) * fit.lidZ * w.lid;
+  const density = content.materials.find((m) => m.id === build.materials[piece])?.density ?? 1.2;
+  return { usd, grams: ((mm3 / 1000) * density * 1.08) };
 }
 
 /** Weight in kilograms: every unit by its box, plus the shell by material. */

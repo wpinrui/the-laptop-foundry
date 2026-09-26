@@ -2,6 +2,7 @@ import { join, normalize, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Menu, net, protocol } from "electron";
 import { registerStore } from "./store";
+import { registerSvgImport } from "./svg";
 
 // The review photo sets' bundled assets (HDRIs, models, textures), served from
 // the built renderer's review-assets folder. A custom scheme, because fetch
@@ -53,6 +54,7 @@ app.whenReady().then(() => {
   // Full screen with no menu bar.
   Menu.setApplicationMenu(null);
   registerStore();
+  registerSvgImport();
   serveAssets();
   createWindow();
   app.on("activate", () => {

@@ -19,6 +19,11 @@ const api = {
     settings: (): Promise<Settings> => ipcRenderer.invoke("store:settings"),
     setSettings: (s: Settings): Promise<Settings> => ipcRenderer.invoke("store:set-settings", s),
   },
+  marks: {
+    /** Opens a file dialog for an SVG mark. Null when cancelled. */
+    importSvg: (): Promise<{ name: string; svg: string } | { error: "too-big" | "not-svg" } | null> =>
+      ipcRenderer.invoke("marks:import-svg"),
+  },
   quit: (): Promise<void> => ipcRenderer.invoke("app:quit"),
 };
 

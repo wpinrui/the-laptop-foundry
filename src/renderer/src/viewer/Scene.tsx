@@ -181,6 +181,47 @@ function makeCtx(): UnitCtx & { dispose(): void } {
 
 // ------------------------------------------------------------------ units
 
+/**
+ * Turns every lid-side hinge part (a LID_GROUP) with the lid, about its own
+ * pivot. The full-width cover is the exception: it is fixed to the lid, which
+ * turns about the engine's hinge axis, so turned about its own pivot it drifted
+ * through the lid's front face as the lid opened. Given the axis (base y, z),
+ * the cover and the shaft inside it turn about that axis with the lid instead.
+ * Barrel and drop hinges keep their pivot, where their base halves hold them.
+ */
+export function turnLidParts(group: THREE.Object3D, lidAngle: number, axis?: [number, number]): void {
+  const angle = (-lidAngle * Math.PI) / 180;
+  group.updateMatrixWorld(true);
+  const toGroup = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
+  const aboutAxis = (o: THREE.Object3D) => {
+    if (!axis || !o.parent) return;
+    const home = (o.userData.home as THREE.Vector3 | undefined) ?? o.position.clone();
+    o.userData.home = home;
+    // A point on the axis, in the parent's frame.
+    const rel = toGroup.clone().multiply(o.parent.matrixWorld);
+    const onAxis = home.clone().applyMatrix4(rel);
+    onAxis.y = axis[0];
+    onAxis.z = axis[1];
+    onAxis.applyMatrix4(rel.clone().invert());
+    o.position.copy(home).sub(onAxis).applyQuaternion(turn).add(onAxis);
+  };
+  const lids: THREE.Object3D[] = [];
+  group.traverse((o) => {
+    if (o.name === LID_GROUP) lids.push(o);
+  });
+  for (const o of lids) {
+    o.rotation.x = angle;
+    if (!o.children.some((c) => c.name === "cover")) continue;
+    aboutAxis(o);
+    const shaft = o.parent?.children.find((c) => c.name === "shaft");
+    if (shaft) {
+      shaft.rotation.x = angle;
+      aboutAxis(shaft);
+    }
+  }
+}
+
 type Live = Map<string, { key: string; ctx: UnitCtx; obj: THREE.Object3D; failed?: string }>;
 
 /**
@@ -281,6 +322,7 @@ function Units({
   year,
   hinge,
   lidAngle,
+  axis,
   onFailed,
 }: {
   boxes: Box[];
@@ -292,6 +334,8 @@ function Units({
   hinge: UnitOpts["hinge"];
   /** Turns the lid side of each hinge mount with the lid, in degrees. */
   lidAngle?: number;
+  /** The lid's hinge axis in base space (y, z); the lid-side parts turn about it. */
+  axis?: [number, number];
   /** Called after each pass with the units that could not be drawn. */
   onFailed?: (failed: string[]) => void;
 }) {
@@ -299,10 +343,8 @@ function Units({
   // Runs after the units effect above, so freshly built hinges turn too.
   useEffect(() => {
     if (lidAngle === undefined) return;
-    group.traverse((o) => {
-      if (o.name === LID_GROUP) o.rotation.x = (-lidAngle * Math.PI) / 180;
-    });
-  }, [group, lidAngle, boxes, ctx, year, hinge]);
+    turnLidParts(group, lidAngle, axis);
+  }, [group, lidAngle, boxes, ctx, year, hinge, axis]);
   const move = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const label = e.object.userData.label as string | undefined;
@@ -503,7 +545,8 @@ function Openings({ fit }: { fit: Fit }) {
   // the outline) to 0.2 mm short of the wall's inner face, so it never
   // reaches the unit behind the wall.
   const proud = 0.2 + SKIN;
-  const w = fit.shell.walls.side - 0.2 + proud;
+  // A wall cut for ports is built offsets.side thick, so that is the depth to stop short of.
+  const w = Math.max(fit.shell.walls.side, fit.shell.offsets.side) - 0.2 + proud;
   const out = fit.shell.outer;
   return (
     <group>
@@ -577,16 +620,21 @@ export const SKIN = 0.4;
  * The panel glass lies in that plane and the webcam's layers step back from it
  * at 0.12 and 0.25 mm, so the face goes between them, clear of all.
  */
-export const LID_FRONT = 0.18;
+export const LID_FRONT = 0.22;
 
 /** Scale for the base shell about its top centre: SKIN out on every side and below. */
 export function baseSkinScale(out: Fit["shell"]["outer"]): [number, number, number] {
   return [1 + (2 * SKIN) / out.x, 1 + (2 * SKIN) / out.y, 1 + SKIN / out.z];
 }
 
-/** Scale for the lid shell about its front face: SKIN out on every side and at the back. */
+/**
+ * Scale for the lid shell about its front edge (y = 0, front face): SKIN out
+ * at the back, and SKIN short at the hinge edge, so that edge never lies in
+ * the deck's plane as the lid passes 90 degrees. Its sides stay put: scaling
+ * them would move the hinge notch's end faces onto the hinge cover ends.
+ */
 export function lidSkinScale(lid: Fit["shell"]["lid"]["size"]): [number, number, number] {
-  return [1 + (2 * SKIN) / lid.x, 1 + (2 * SKIN) / lid.y, 1 + (SKIN - LID_FRONT) / lid.z];
+  return [1, 1 - SKIN / lid.y, 1 + (SKIN - LID_FRONT) / lid.z];
 }
 
 export const Model = memo(function Model({
@@ -638,6 +686,7 @@ export const Model = memo(function Model({
   const hz = hinge?.kind === "hinge" ? hinge.from.z : fit.shell.lid.at.z;
   const out = fit.shell.outer;
   const lidSize = fit.shell.lid.size;
+  const lidAxis = useMemo((): [number, number] => [hy, hz], [hy, hz]);
   // Each port's own model draws its connector face; the wall is cut open over it.
   const cuts = useMemo(() => portCuts(fit), [fit]);
 
@@ -704,17 +753,18 @@ export const Model = memo(function Model({
           year={year}
           hinge={fit.shell.style.hinge}
           lidAngle={lidAngle}
+          axis={lidAxis}
           onFailed={reportBase}
         />
         <Overflow fit={fit} />
         {/* The lid turns about the hinge axis, which runs along x. */}
         <group position={[0, hy, hz]} rotation-x={(-lidAngle * Math.PI) / 180}>
           <group position={[0, -hy, -hz]}>
-            {/* The lid shell sits SKIN mm outside the units on its sides, and
-                SKIN mm behind the back, and LID_FRONT mm back from the front,
-                so the panel glass lies in front of it. */}
-            <group position={[lidSize.x / 2, lidSize.y / 2, fit.shell.lid.at.z + LID_FRONT]} scale={lidSkinScale(lidSize)}>
-              <group position={[-lidSize.x / 2, -lidSize.y / 2, -(fit.shell.lid.at.z + LID_FRONT)]}>
+            {/* The lid shell sits SKIN mm behind the units at its back and
+                LID_FRONT mm back from the front, so the panel glass lies in
+                front of it. */}
+            <group position={[0, 0, fit.shell.lid.at.z + LID_FRONT]} scale={lidSkinScale(lidSize)}>
+              <group position={[0, 0, -(fit.shell.lid.at.z + LID_FRONT)]}>
                 <Shell
                   size={lidSize}
                   style={fit.shell.style}

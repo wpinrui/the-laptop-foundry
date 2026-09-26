@@ -2465,7 +2465,7 @@
   color: #fff;
 }
 
-.os-2026 .os-pin i {
+.os-2026 .os-pin .os-run {
   position: absolute;
   left: 50%;
   bottom: 2px;
@@ -2479,12 +2479,12 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
-.os-2026 .os-pin.on i {
+.os-2026 .os-pin.on .os-run {
   width: 16px;
   background: #6aa8ff;
 }
 
-.os-2026 .os-pin.run i {
+.os-2026 .os-pin.run .os-run {
   width: 6px;
   background: #a9abb3;
 }

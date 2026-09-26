@@ -26,7 +26,6 @@ const PLINTH_H = 50;
 const ELEVATION = 0.42;
 const TARGET_Y = PLINTH_H + 85;
 const EASE_MS = 600;
-const FADE_S = 0.3;
 const ORBIT_SPEED = 0.07;
 const SWAY = 0.55;
 const SWAY_W = 0.12 / SWAY;
@@ -84,30 +83,20 @@ function lockTexture(): THREE.CanvasTexture {
 const noLabel = () => "";
 const noHover = () => {};
 
-/** Fades its meshes in or out, and keeps every mesh casting a shadow. */
+/** Shows or hides its laptop, and keeps every mesh casting a shadow. */
 function Fader({
   show,
-  from,
   onGone,
   children,
 }: {
   show: boolean;
-  /** Opacity on mount: the first laptop is simply there, later ones fade in. */
-  from: number;
   onGone: () => void;
   children: ReactNode;
 }) {
   const group = useRef<THREE.Group>(null);
-  const alpha = useRef(from);
-  const applied = useRef(-1);
-  useFrame((_, dt) => {
+  useFrame(() => {
     const g = group.current;
     if (!g) return;
-    const target = show ? 1 : 0;
-    const a = alpha.current;
-    alpha.current = target > a ? Math.min(1, a + dt / FADE_S) : Math.max(0, a - dt / FADE_S);
-    const next = alpha.current;
-    const fading = next < 1;
     g.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
@@ -118,23 +107,11 @@ function Fader({
           mat.dithering = true;
           mat.needsUpdate = true;
         }
-      if (!fading && applied.current === 1) return;
-      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      for (const m of mats) {
-        if (m.userData.baseOpacity === undefined) {
-          m.userData.baseOpacity = m.opacity;
-          m.userData.baseTransparent = m.transparent;
-        }
-        const transparent = fading || m.userData.baseTransparent;
-        if (m.transparent !== transparent) {
-          m.transparent = transparent;
-          m.needsUpdate = true;
-        }
-        m.opacity = m.userData.baseOpacity * next;
-      }
     });
-    applied.current = next;
-    if (!show && next === 0) onGone();
+    // The laptop's materials are shared, so fading them fights the model's own
+    // material state and flickers the shell. Swap instantly instead.
+    g.visible = show;
+    if (!show) onGone();
   });
   return <group ref={group}>{children}</group>;
 }
@@ -293,11 +270,9 @@ export function Stage({ build, stageKey, view }: { build: Build | null; stageKey
   // under the same lights; the fog and background stay exactly --ground.
   const floor = useMemo(() => new THREE.Color(token("ground")).multiplyScalar(3), []);
   const [slots, setSlots] = useState<Slot[]>(() => [{ key: stageKey, ...stageable(build) }]);
-  const first = useRef(stageKey);
   const current = slots[slots.length - 1]?.key;
-  // A new model joins the plinth and the others fade out beneath it.
+  // A new model joins the plinth and replaces the others.
   if (current !== stageKey) {
-    first.current = "";
     setSlots((s) => [...s.filter((x) => x.key !== stageKey), { key: stageKey, ...stageable(build) }]);
   }
   return (
@@ -334,7 +309,6 @@ export function Stage({ build, stageKey, view }: { build: Build | null; stageKey
             <Fader
               key={s.key}
               show={s.key === stageKey}
-              from={s.key === first.current ? 1 : 0}
               onGone={() => setSlots((all) => all.filter((x) => x.key !== s.key))}
             >
               <StagedLaptop build={s.build} fit={s.fit} lock={lock} />

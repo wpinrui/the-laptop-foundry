@@ -12,8 +12,17 @@ export interface SavedModel {
   reviewed?: number;
 }
 
-export interface SavedData {
+/** One company: one save. */
+export interface SavedCompany {
   version: 1;
-  company: string | null;
+  id: string;
+  name: string;
+  created: number;
+  /** When the company was last loaded or changed. */
+  played: number;
   models: SavedModel[];
+}
+
+export interface Settings {
+  sound: boolean;
 }

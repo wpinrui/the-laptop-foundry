@@ -1,21 +1,28 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { SavedData, SavedModel } from "./store";
+import type { SavedCompany, SavedModel, Settings } from "./store";
 
 /** The typed surface exposed to the renderer as `window.api`. Keep it minimal. */
 const api = {
   versions: process.versions,
   store: {
-    load: (): Promise<SavedData> => ipcRenderer.invoke("store:load"),
-    setCompany: (name: string): Promise<SavedData> =>
-      ipcRenderer.invoke("store:set-company", name),
-    saveModel: (model: SavedModel): Promise<SavedData> =>
-      ipcRenderer.invoke("store:save-model", model),
-    deleteModel: (id: string): Promise<SavedData> =>
-      ipcRenderer.invoke("store:delete-model", id),
+    /** Every save, most recently played first. */
+    companies: (): Promise<SavedCompany[]> => ipcRenderer.invoke("store:companies"),
+    createCompany: (name: string): Promise<SavedCompany> =>
+      ipcRenderer.invoke("store:create-company", name),
+    openCompany: (id: string): Promise<SavedCompany> => ipcRenderer.invoke("store:open-company", id),
+    deleteCompany: (id: string): Promise<SavedCompany[]> =>
+      ipcRenderer.invoke("store:delete-company", id),
+    saveModel: (company: string, model: SavedModel): Promise<SavedCompany> =>
+      ipcRenderer.invoke("store:save-model", company, model),
+    deleteModel: (company: string, id: string): Promise<SavedCompany> =>
+      ipcRenderer.invoke("store:delete-model", company, id),
+    settings: (): Promise<Settings> => ipcRenderer.invoke("store:settings"),
+    setSettings: (s: Settings): Promise<Settings> => ipcRenderer.invoke("store:set-settings", s),
   },
+  quit: (): Promise<void> => ipcRenderer.invoke("app:quit"),
 };
 
 contextBridge.exposeInMainWorld("api", api);
 
 export type Api = typeof api;
-export type { SavedData, SavedModel };
+export type { SavedCompany, SavedModel, Settings };

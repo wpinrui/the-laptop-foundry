@@ -336,7 +336,7 @@ function partOf(content: Content, b: Build, cat: keyof Build["parts"]): Part | u
   return id ? content.parts.find((p) => p.id === id) : undefined;
 }
 
-const PANEL_TYPE: Record<string, string> = {
+export const PANEL_TYPE: Record<string, string> = {
   "tn-matte": "matte TN",
   "tn-glossy": "glossy TN",
   "ips-type": "wide-angle",
@@ -429,7 +429,7 @@ function gpuClockText(part: Part | undefined): string {
   return `, ${c.base} MHz base, ${c.boost} MHz boost`;
 }
 
-function memoryText(content: Content, b: Build): string {
+export function memoryText(content: Content, b: Build): string {
   const bp = b.parts.memory?.[0];
   const part = partOf(content, b, "memory");
   if (!part) return "";
@@ -439,7 +439,7 @@ function memoryText(content: Content, b: Build): string {
   return `${size ? `${size} GB ` : ""}${part.name}`;
 }
 
-function storageText(content: Content, b: Build): string {
+export function storageText(content: Content, b: Build): string {
   return (b.parts.storage ?? [])
     .map((bp) => {
       const p = content.parts.find((x) => x.id === bp.part);

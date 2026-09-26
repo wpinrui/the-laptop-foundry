@@ -77,12 +77,16 @@ export function App() {
   );
 
   // What the stage shows: the laptop that belongs to the screen.
+  const stagedCompany = useMemo((): SavedCompany | null => {
+    if (menu === "list" || menu === "name") return company;
+    if (menu === "load") return companies?.find((c) => c.id === pickedSave) ?? null;
+    return companies?.[0] ?? null;
+  }, [menu, company, companies, pickedSave]);
   const staged = useMemo((): SavedModel | null => {
     if (menu === "list" || menu === "name")
       return company?.models.find((m) => m.id === selected) ?? null;
-    if (menu === "load") return latestModel(companies?.find((c) => c.id === pickedSave));
-    return latestModel(companies?.[0]);
-  }, [menu, company, selected, companies, pickedSave]);
+    return latestModel(stagedCompany);
+  }, [menu, company, selected, stagedCompany]);
 
   if (!companies) return null;
 
@@ -139,6 +143,7 @@ export function App() {
       <Builder
         key={model.id}
         model={model}
+        company={name}
         onSave={(m) => save(m)}
         onBack={() => setOpen(null)}
         onReview={review}
@@ -267,6 +272,8 @@ export function App() {
       <Stage
         build={staged ? (staged.build as Build) : null}
         stageKey={staged ? `${staged.id}:${staged.updated}` : "stock"}
+        maker={stagedCompany?.name ?? ""}
+        model={staged?.name ?? ""}
         view={VIEWS[menu]}
       />
       {menu !== "list" && <div className="fd-scrim" />}

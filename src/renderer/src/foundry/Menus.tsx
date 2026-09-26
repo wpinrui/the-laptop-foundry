@@ -368,6 +368,18 @@ export function SettingsMenu({
             <span>Newsreader</span>
             <small>The Newsreader Project Authors, SIL Open Font License 1.1</small>
           </li>
+          <li>
+            <span>Noto Sans</span>
+            <small>The Noto Project Authors, SIL Open Font License 1.1</small>
+          </li>
+          <li>
+            <span>Source Code Pro</span>
+            <small>Adobe, SIL Open Font License 1.1</small>
+          </li>
+          <li>
+            <span>Wallpaper photo</span>
+            <small>Marek Piwnicki on Unsplash, Unsplash License</small>
+          </li>
         </ul>
         <div className="fd-entries">
           <Entry secondary onClick={() => setCredits(false)} autoFocus>

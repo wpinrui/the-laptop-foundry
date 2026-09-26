@@ -2,6 +2,10 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { type Build, CONTENT, colourHex, decorOf, type Fit, SAMPLES, solve } from "../engine";
+import { legacyLockTexture } from "../os/legacy";
+import { LOOKS } from "../os/Os";
+import { eraOf, ownerOf } from "../os/types";
+import { useOsStill } from "../os/useOsScreen";
 import { Model, Reflections, surfacesOf } from "../viewer/Scene";
 import { token } from "../viewer/theme";
 
@@ -54,32 +58,6 @@ function stageable(build: Build | null): { build: Build; fit: Fit } {
   return { build: stock, fit: solve(stock) };
 }
 
-function lockTexture(): THREE.CanvasTexture {
-  const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 320;
-  const g = c.getContext("2d");
-  if (g) {
-    g.fillStyle = token("ground");
-    g.fillRect(0, 0, 512, 320);
-    const warm = g.createRadialGradient(170, 70, 0, 170, 70, 420);
-    warm.addColorStop(0, token("accent"));
-    warm.addColorStop(1, token("ground"));
-    g.globalAlpha = 0.22;
-    g.fillStyle = warm;
-    g.fillRect(0, 0, 512, 320);
-    const fall = g.createLinearGradient(0, 0, 0, 320);
-    fall.addColorStop(0, token("ground"));
-    fall.addColorStop(1, token("ground-deep"));
-    g.globalAlpha = 0.5;
-    g.fillStyle = fall;
-    g.fillRect(0, 0, 512, 320);
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
 const noLabel = () => "";
 const noHover = () => {};
 
@@ -110,7 +88,21 @@ function Fader({
   return <group ref={group}>{children}</group>;
 }
 
-function StagedLaptop({ build, fit, lock }: { build: Build; fit: Fit; lock: THREE.Texture }) {
+/** The staged laptop's lock screen: its own era's OS, its company as the user. */
+function useLock(build: Build, fit: Fit, maker: string, model: string) {
+  const owner = useMemo(() => ownerOf(build, maker), [build, maker]);
+  const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
+  const aspect = panel ? panel.size.x / Math.max(1, panel.size.y) : 1.6;
+  // Eras whose OS has not landed yet keep the lock screen they had.
+  const legacy = !LOOKS.includes(eraOf(build.year));
+  const still = useOsStill("lock", legacy ? null : build, owner, `${maker} ${model}`.trim(), aspect);
+  const old = useMemo(() => (legacy ? legacyLockTexture() : undefined), [legacy]);
+  useEffect(() => () => old?.dispose(), [old]);
+  return legacy ? old : still;
+}
+
+function StagedLaptop({ build, fit, maker, model }: { build: Build; fit: Fit; maker: string; model: string }) {
+  const lock = useLock(build, fit, maker, model);
   const colour = (id: string) => colourHex(id);
   const colours = useMemo(
     () => ({
@@ -255,20 +247,33 @@ interface Slot {
   key: string;
   build: Build;
   fit: Fit;
+  maker: string;
+  model: string;
 }
 
-export function Stage({ build, stageKey, view }: { build: Build | null; stageKey: string; view: StageView }) {
-  const lock = useMemo(() => lockTexture(), []);
-  useEffect(() => () => lock.dispose(), [lock]);
+export function Stage({
+  build,
+  stageKey,
+  view,
+  maker = "",
+  model = "",
+}: {
+  build: Build | null;
+  stageKey: string;
+  view: StageView;
+  /** The staged laptop's company and model name, for its lock screen. */
+  maker?: string;
+  model?: string;
+}) {
   const turntable = useRef<THREE.Group>(null);
   // The floor is the ground colour lifted to the brightness the mockup shows
   // under the same lights; the fog and background stay exactly --ground.
   const floor = useMemo(() => new THREE.Color(token("ground")).multiplyScalar(3), []);
-  const [slots, setSlots] = useState<Slot[]>(() => [{ key: stageKey, ...stageable(build) }]);
+  const [slots, setSlots] = useState<Slot[]>(() => [{ key: stageKey, ...stageable(build), maker, model }]);
   const current = slots[slots.length - 1]?.key;
   // A new model joins the plinth and replaces the others.
   if (current !== stageKey) {
-    setSlots((s) => [...s.filter((x) => x.key !== stageKey), { key: stageKey, ...stageable(build) }]);
+    setSlots((s) => [...s.filter((x) => x.key !== stageKey), { key: stageKey, ...stageable(build), maker, model }]);
   }
   return (
     <div className="fd-stage">
@@ -301,7 +306,7 @@ export function Stage({ build, stageKey, view }: { build: Build | null; stageKey
               show={s.key === stageKey}
               onGone={() => setSlots((all) => all.filter((x) => x.key !== s.key))}
             >
-              <StagedLaptop build={s.build} fit={s.fit} lock={lock} />
+              <StagedLaptop build={s.build} fit={s.fit} maker={s.maker} model={s.model} />
             </Fader>
           ))}
         </group>

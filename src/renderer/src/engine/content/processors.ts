@@ -97,6 +97,34 @@ const CLOCKS: Record<string, [[number | U, number, number, number], [number | U,
   "snapdragon-x2e-88-100": [[undefined, 4.7, 4.0, 3.7], [undefined, 1700]],
 };
 
+// Cores and threads from the makers' spec sheets; hybrid chips count every core.
+const CORES: Record<string, [cores: number, threads: number]> = {
+  "celeron-m-430": [1, 1],
+  "core-duo-u2500": [2, 2],
+  "core-duo-t2500": [2, 2],
+  "core2-duo-t5500": [2, 2],
+  "core2-duo-t7600": [2, 2],
+  "turion64-x2-tl60": [2, 2],
+  "core-m3-6y30": [2, 4],
+  "core-i5-6200u": [2, 4],
+  "core-i7-6500u": [2, 4],
+  "core-i7-7500u": [2, 4],
+  "core-i7-6700hq": [4, 8],
+  "core-i7-7700hq": [4, 8],
+  "a10-9600p": [4, 4],
+  "core5-120u": [10, 12],
+  "core-ultra7-258v": [8, 8],
+  "core-ultra7-256v": [8, 8],
+  "core-ultra5-236v": [8, 8],
+  "core-ultra-x9-388h": [16, 16],
+  "core-ultra9-275hx": [24, 24],
+  "ryzen-ai5-340": [6, 12],
+  "ryzen-ai9-hx470": [12, 24],
+  "ryzen-ai-max-395": [16, 32],
+  "ryzen9-9955hx3d": [16, 32],
+  "snapdragon-x2e-88-100": [18, 18],
+};
+
 function clocksOf(id: string): { clock?: CpuClock; gpuClock?: GpuClock } {
   const c = CLOCKS[id];
   if (!c) return {};
@@ -143,7 +171,7 @@ function cpu(
     features: f[0],
     igpuFeatures: f[1],
     provides,
-    info,
+    info: CORES[id] ? { ...info, cores: CORES[id][0], threads: CORES[id][1] } : info,
   };
 }
 

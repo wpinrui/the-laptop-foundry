@@ -168,6 +168,8 @@ export interface GameResult {
   edition: number;
   /** Null when the edition refuses to run. */
   runs: GameRun[] | null;
+  /** The features the graphics lacks, when it refuses. */
+  missing?: string[];
 }
 
 export interface Results {
@@ -228,8 +230,9 @@ export function results(
   const gpuScore = c.graphics.sustained;
   const games = GAMES.map((g): GameResult => {
     const name = `${g.name} ${ed}`;
-    if (!has(gpuFeatures, needsFor(g, ed)))
-      return { id: g.id, name, edition: ed, runs: null };
+    const needs = needsFor(g, ed);
+    if (!has(gpuFeatures, needs))
+      return { id: g.id, name, edition: ed, runs: null, missing: needs.filter((n) => !gpuFeatures.includes(n)) };
     const d = demand(ed);
     const gGrow = d.gpu;
     const cpuCap = (perf.single * g.cpu) / d.cpu;

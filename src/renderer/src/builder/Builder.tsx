@@ -21,7 +21,11 @@ import { panelLabel } from "./format";
 import { Measurements } from "./Measurements";
 import { SelectionMarks } from "./Overlay3d";
 import { problemText, STAGE_NAME, STAGES, type Stage, stageOf } from "./problems";
-import { type ScreenKind, screenTexture } from "./screens";
+import { screenTexture } from "./screens";
+import { legacyDeskTexture } from "../os/legacy";
+import { LOOKS } from "../os/Os";
+import { eraOf, ownerOf } from "../os/types";
+import { useBootingScreen } from "../os/useOsScreen";
 import {
   ChassisColumn,
   ChassisTray,
@@ -132,6 +136,7 @@ const LID_OPEN = 110;
 
 export function Builder({
   model,
+  company = "",
   onSave,
   onBack,
   reroll,
@@ -139,6 +144,8 @@ export function Builder({
   onDuplicate,
 }: {
   model: SavedModel;
+  /** The company's name, which the laptop's own OS shows as its maker. */
+  company?: string;
   onReview: (m: SavedModel) => void;
   onDuplicate: () => void;
   onSave: (m: SavedModel) => void;
@@ -298,12 +305,16 @@ export function Builder({
 
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   const ratio = panelBox ? panelBox.size.x / Math.max(1, panelBox.size.y) : 1.6;
-  const screenKind: ScreenKind = powering ? "boot" : stage === "screen" ? "grid" : valid ? "desk" : "off";
+  const grid = stage === "screen";
   const shownName = name.trim() || model.name;
-  const screen = useMemo(
-    () => screenTexture(screenKind, ratio, shownName),
-    [screenKind, ratio, screenKind === "boot" ? shownName : ""],
-  );
+  const gridTexture = useMemo(() => (grid ? screenTexture("grid", ratio, shownName) : undefined), [grid, ratio]);
+  // Once the laptop is valid its own screen boots into the era's desktop.
+  const owner = useMemo(() => ownerOf(build, company), [build, company]);
+  // Eras whose OS has not landed yet keep the plain desktop they had.
+  const legacy = !LOOKS.includes(eraOf(build.year));
+  const booted = useBootingScreen(!grid && valid && !legacy, build, owner, `${company} ${shownName}`.trim(), ratio);
+  const legacyDesk = useMemo(() => (!grid && valid && legacy ? legacyDeskTexture(ratio) : undefined), [grid, valid, legacy, ratio]);
+  const screen = grid ? gridTexture : legacy ? legacyDesk : booted;
 
   const labelFor = useCallback((b: Box) => ROLE_NAME[b.role] ?? nameOf(b.part) ?? "", []);
   const pick = useCallback(

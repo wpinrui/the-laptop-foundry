@@ -82,3 +82,33 @@ export function igpuAt(spec: PowerSpec, watts: number): number {
   const ratio = Math.min(1.5, Math.max(0, watts) / spec.igpu.watts);
   return spec.igpu.score * ratio ** archOf(spec).igpuK;
 }
+
+// Clocks follow the same power law as the score, since the score scales with
+// clock on a fixed core count. The processor is anchored at its real all-core
+// clock at the default sustained power and capped at its all-core boost; below
+// that it falls through base, and further when throttled. Graphics is anchored
+// at its boost clock at the default boost limit.
+
+/** All-core processor clock at a package power, GHz. */
+export function cpuClockAt(spec: PowerSpec, watts: number): number {
+  const c = spec.clock;
+  if (!c || spec.sustained <= 0) return 0;
+  const f = c.sustained * (Math.max(0, watts) / spec.sustained) ** archOf(spec).k;
+  return Math.max(0.4, Math.min(c.allCore, f));
+}
+
+/** Discrete graphics core clock at a board power, MHz. */
+export function gpuClockAt(spec: PowerSpec, watts: number): number {
+  const c = spec.gpuClock;
+  if (!c || spec.boost <= 0) return 0;
+  const ratio = Math.min(1, Math.max(0, watts) / spec.boost);
+  return Math.max(0.1 * c.boost, c.boost * ratio ** archOf(spec).k);
+}
+
+/** Integrated graphics core clock at the processor's package power, MHz. */
+export function igpuClockAt(spec: PowerSpec, watts: number): number {
+  const c = spec.gpuClock;
+  if (!c || spec.boost <= 0) return 0;
+  const ratio = Math.min(1, Math.max(0, watts) / spec.boost);
+  return Math.max(0.1 * c.boost, c.boost * ratio ** archOf(spec).igpuK);
+}

@@ -13,12 +13,12 @@ import {
   type PowerSpec,
   type Shape,
 } from "../types";
-import { archOf, igpuAt, scoreAt, singleAt } from "./curves";
+import { archOf, cpuClockAt, gpuClockAt, igpuAt, igpuClockAt, scoreAt, singleAt } from "./curves";
 import { balancedProfile, partOf, profilesOf, topProfile } from "./profiles";
 import { type Lab, labOf } from "./lab";
 import { type Surface, surfaceOf } from "./surface";
 
-export { ARCHS, igpuAt, scoreAt, singleAt } from "./curves";
+export { ARCHS, cpuClockAt, gpuClockAt, igpuAt, igpuClockAt, scoreAt, singleAt } from "./curves";
 export type { Lab, MemoryLab, PanelLab, StorageLab, WifiLab } from "./lab";
 export { labOf } from "./lab";
 export type { Surface, SurfaceField, SurfaceReadings } from "./surface";
@@ -588,6 +588,10 @@ export interface Timeline {
   multi: number[];
   /** Graphics score (Time Spy scale) each second. */
   graphics: number[];
+  /** Processor all-core clock each second, GHz. */
+  cpuClock: number[];
+  /** Graphics core clock each second, MHz: the discrete part's, or the integrated graphics under a graphics load (0 otherwise). */
+  gpuClock: number[];
 }
 
 /**
@@ -614,5 +618,11 @@ export function timeline(
     db: t.fan.map((x) => noise(c, x)),
     multi: t.cpuW.map((w) => (f.cpu ? scoreAt(f.cpu, w) : 0)),
     graphics: t.cpuW.map((w, i) => graphicsAt(f, w, t.gpuW[i])),
+    cpuClock: t.cpuW.map((w) => (f.cpu ? cpuClockAt(f.cpu, w) : 0)),
+    gpuClock: t.cpuW.map((w, i) => {
+      if (f.gpu) return gpuClockAt(f.gpu, t.gpuW[i]);
+      const igpuBusy = load === "gpu" || load === "stress";
+      return f.cpu && igpuBusy ? igpuClockAt(f.cpu, w) : 0;
+    }),
   };
 }

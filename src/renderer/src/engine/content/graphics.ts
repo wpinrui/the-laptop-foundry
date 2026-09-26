@@ -30,6 +30,36 @@ function pw(
 // The board block includes the memory around the chip. MXM modules are
 // mounted long side along x and stand 5 mm taller for their connector.
 
+// Core clocks, base and boost in MHz. 2006 parts run one fixed clock. RTX 50
+// laptop parts publish a boost range across their power range: boost is its
+// top, base its bottom. AMD gives only the peak for the R7 M460.
+const CLOCKS: Record<string, [number | undefined, number]> = {
+  "geforce-go-7400": [undefined, 450],
+  "radeon-x1400": [undefined, 445],
+  "geforce-go-7600": [undefined, 450],
+  "radeon-x1600": [undefined, 470],
+  "geforce-go-7900-gtx": [undefined, 500],
+  "geforce-940mx": [1122, 1242],
+  "radeon-r7-m460": [undefined, 1125],
+  "geforce-gtx-960m": [1096, 1176],
+  "geforce-gtx-970m": [924, 1038],
+  "geforce-gtx-1060-laptop": [1404, 1670],
+  "geforce-gtx-1070-laptop": [1443, 1645],
+  "geforce-gtx-1080-laptop": [1556, 1733],
+  "rtx-5050-laptop": [1500, 2662],
+  "rtx-5060-laptop": [1455, 2497],
+  "rtx-5070-laptop": [1425, 2347],
+  "rtx-5070ti-laptop": [1447, 2220],
+  "rtx-5080-laptop": [1500, 2287],
+  "rtx-5090-laptop": [1590, 2160],
+};
+
+function clockOf(id: string): Pick<PowerSpec, "gpuClock"> {
+  const c = CLOCKS[id];
+  if (!c) return {};
+  return { gpuClock: c[0] === undefined ? { boost: c[1] } : { base: c[0], boost: c[1] } };
+}
+
 /** First year a discrete part can power down at idle behind the processor's graphics. */
 export const SWITCHABLE_FROM = 2010;
 
@@ -50,7 +80,7 @@ function gpu(
     until,
     shape: { kind: "block", role: "gpu", size, row: 1, hot: true },
     compact: ["x", "y"],
-    power,
+    power: { ...power, ...clockOf(id) },
     features: id.startsWith("rtx")
       ? ["dx9", "dx9c", "dx10", "dx11", "dx12", "dx12u", "rt", "upscaling"]
       : from >= 2012

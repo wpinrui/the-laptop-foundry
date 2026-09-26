@@ -1,4 +1,4 @@
-import type { Part, PowerSpec, Size } from "../types";
+import type { CpuClock, GpuClock, Part, PowerSpec, Size } from "../types";
 
 // Power: range, default sustained and boost limits (typical for the part's
 // class of machine), rated power (sizes the power stage), idle package power.
@@ -62,6 +62,49 @@ const FEATURES: Record<string, [string[], string[]]> = {
   "snapdragon-x2e-88-100": [ARM_2026, [...DX12, "dx12u"]],
 };
 
+// Clocks from the makers' spec sheets: base, single-core boost and all-core
+// boost in GHz (performance cores on hybrid chips), then the typical all-core
+// clock at the default sustained power as reviews measured it. 2006 parts have
+// no turbo. Where a maker gives no all-core figure (most parts from 2024 on)
+// it is taken from review stress tests; Qualcomm publishes no base clock.
+// Integrated graphics clocks are base and boost in MHz; recent Intel, AMD and
+// Qualcomm sheets publish only the peak.
+type U = undefined;
+const CLOCKS: Record<string, [[number | U, number, number, number], [number | U, number]]> = {
+  "celeron-m-430": [[1.73, 1.73, 1.73, 1.73], [undefined, 400]],
+  "core-duo-u2500": [[1.2, 1.2, 1.2, 1.2], [undefined, 400]],
+  "core-duo-t2500": [[2.0, 2.0, 2.0, 2.0], [undefined, 400]],
+  "core2-duo-t5500": [[1.66, 1.66, 1.66, 1.66], [undefined, 400]],
+  "core2-duo-t7600": [[2.33, 2.33, 2.33, 2.33], [undefined, 400]],
+  "turion64-x2-tl60": [[2.0, 2.0, 2.0, 2.0], [undefined, 400]],
+  "core-m3-6y30": [[0.9, 2.2, 2.0, 1.5], [300, 850]],
+  "core-i5-6200u": [[2.3, 2.8, 2.7, 2.6], [300, 1000]],
+  "core-i7-6500u": [[2.5, 3.1, 3.0, 2.7], [300, 1050]],
+  "core-i7-7500u": [[2.7, 3.5, 3.5, 3.1], [300, 1050]],
+  "core-i7-6700hq": [[2.6, 3.5, 3.1, 3.0], [350, 1050]],
+  "core-i7-7700hq": [[2.8, 3.8, 3.4, 3.3], [350, 1100]],
+  "a10-9600p": [[2.4, 3.3, 2.9, 2.4], [undefined, 720]],
+  "core5-120u": [[1.4, 5.0, 4.5, 3.2], [undefined, 1250]],
+  "core-ultra7-258v": [[2.2, 4.8, 4.5, 3.8], [undefined, 1950]],
+  "core-ultra-x9-388h": [[2.1, 5.1, 4.7, 4.2], [undefined, 2500]],
+  "core-ultra9-275hx": [[2.7, 5.4, 5.0, 4.8], [undefined, 1900]],
+  "ryzen-ai5-340": [[2.0, 4.8, 4.5, 3.8], [undefined, 2900]],
+  "ryzen-ai9-hx470": [[2.0, 5.2, 4.8, 4.3], [undefined, 3100]],
+  "ryzen-ai-max-395": [[3.0, 5.1, 5.0, 4.6], [undefined, 2900]],
+  "ryzen9-9955hx3d": [[2.3, 5.4, 5.1, 4.8], [undefined, 2200]],
+  "snapdragon-x2e-88-100": [[undefined, 4.7, 4.0, 3.7], [undefined, 1700]],
+};
+
+function clocksOf(id: string): { clock?: CpuClock; gpuClock?: GpuClock } {
+  const c = CLOCKS[id];
+  if (!c) return {};
+  const [[base, single, allCore, sustained], [gBase, boost]] = c;
+  return {
+    clock: { ...(base === undefined ? {} : { base }), single, allCore, sustained },
+    gpuClock: gBase === undefined ? { boost } : { base: gBase, boost },
+  };
+}
+
 // Package footprint as mounted (x by y), height over the PCB. Sockets stand
 // taller than BGA packages. Platforms with a separate chipset add its block
 // to the board's second row. Integrated graphics belongs to the platform.
@@ -94,7 +137,7 @@ function cpu(
     until,
     shape,
     compact: ["x"],
-    power,
+    power: { ...power, ...clocksOf(id) },
     features: f[0],
     igpuFeatures: f[1],
     provides,

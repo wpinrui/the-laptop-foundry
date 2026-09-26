@@ -159,6 +159,15 @@ interface Facts {
   materialSpend: number;
 }
 
+/** Discrete graphics power. A switchable part is powered down at idle, so it idles at nothing. */
+function graphicsPower(build: Build, content: Content): PowerSpec | undefined {
+  const part = partOf(build, "graphics", content);
+  if (!part?.power) return undefined;
+  const bp = build.parts.graphics?.[0];
+  const switchable = String(bp?.opts?.switchable ?? part.options?.switchable?.[0] ?? "no") === "yes";
+  return switchable ? { ...part.power, idle: 0 } : part.power;
+}
+
 function shapes(p: Part | undefined): Shape[] {
   if (!p) return [];
   return Array.isArray(p.shape) ? p.shape : [p.shape];
@@ -210,7 +219,7 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
   return {
     year: build.year,
     cpu: partOf(build, "processor", content)?.power,
-    gpu: partOf(build, "graphics", content)?.power,
+    gpu: graphicsPower(build, content),
     panel,
     refresh,
     wh,

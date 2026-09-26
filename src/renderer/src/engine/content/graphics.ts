@@ -1,7 +1,9 @@
 import type { Part, PowerSpec, Size } from "../types";
 
 // Power: range, default sustained and boost limits (boost is the dynamic
-// boost a gaming load gets), rated power (sizes the power stage), idle power.
+// boost a gaming load gets), rated power (sizes the power stage), idle power
+// while the chip is awake. Parts from 2010 on can switch off at idle and hand
+// the screen to the processor's graphics; with switching off they idle awake.
 // Scores are Time Spy graphics points at a board power. 2006 parts never ran
 // Time Spy: their figures are scaled from shader throughput.
 
@@ -28,6 +30,9 @@ function pw(
 // The board block includes the memory around the chip. MXM modules are
 // mounted long side along x and stand 5 mm taller for their connector.
 
+/** First year a discrete part can power down at idle behind the processor's graphics. */
+export const SWITCHABLE_FROM = 2010;
+
 function gpu(
   id: string,
   name: string,
@@ -52,6 +57,7 @@ function gpu(
         ? ["dx9", "dx9c", "dx10", "dx11", "dx12"]
         : ["dx9", "dx9c"],
     needs: ["dgpu"],
+    ...(from >= SWITCHABLE_FROM ? { options: { switchable: ["yes", "no"] } } : {}),
     info,
   };
 }
@@ -108,7 +114,7 @@ export const GRAPHICS: Part[] = [
     2016,
     2018,
     { x: 40, y: 40, z: 2 },
-    pw("maxwell", [15, 25], 23, 23, 0.3, [[23, 1050]]),
+    pw("maxwell", [15, 25], 23, 23, 4, [[23, 1050]]),
     { memory: "2 GB" },
   ),
   gpu(
@@ -117,7 +123,7 @@ export const GRAPHICS: Part[] = [
     2016,
     2018,
     { x: 40, y: 40, z: 2 },
-    pw("gcn", [15, 25], 25, 25, 0.5, [[25, 900]]),
+    pw("gcn", [15, 25], 25, 25, 4, [[25, 900]]),
     { memory: "2 GB" },
   ),
   gpu(
@@ -126,7 +132,7 @@ export const GRAPHICS: Part[] = [
     2015,
     2017,
     { x: 55, y: 45, z: 2 },
-    pw("maxwell", [40, 65], 60, 65, 0.3, [[60, 2400]]),
+    pw("maxwell", [40, 65], 60, 65, 7, [[60, 2400]]),
     { memory: "4 GB" },
   ),
   gpu(
@@ -135,7 +141,7 @@ export const GRAPHICS: Part[] = [
     2014,
     2017,
     { x: 55, y: 45, z: 2 },
-    pw("maxwell", [50, 85], 75, 85, 0.3, [[75, 3700]]),
+    pw("maxwell", [50, 85], 75, 85, 8, [[75, 3700]]),
     { memory: "6 GB" },
   ),
   gpu(
@@ -144,7 +150,7 @@ export const GRAPHICS: Part[] = [
     2016,
     2019,
     { x: 55, y: 45, z: 2 },
-    pw("pascal", [60, 90], 80, 90, 0.3, [[80, 3900]]),
+    pw("pascal", [60, 90], 80, 90, 10, [[80, 3900]]),
     { memory: "6 GB" },
   ),
   gpu(
@@ -153,7 +159,7 @@ export const GRAPHICS: Part[] = [
     2016,
     2019,
     { x: 60, y: 55, z: 2 },
-    pw("pascal", [80, 125], 115, 125, 0.3, [[115, 5800]]),
+    pw("pascal", [80, 125], 115, 125, 11, [[115, 5800]]),
     { memory: "8 GB" },
   ),
   gpu(
@@ -162,7 +168,7 @@ export const GRAPHICS: Part[] = [
     2016,
     2019,
     { x: 70, y: 65, z: 2 },
-    pw("pascal", [110, 165], 150, 165, 0.3, [[150, 7000]]),
+    pw("pascal", [110, 165], 150, 165, 12, [[150, 7000]]),
     { memory: "8 GB" },
   ),
   gpu(
@@ -171,7 +177,7 @@ export const GRAPHICS: Part[] = [
     2025,
     2030,
     { x: 55, y: 45, z: 2 },
-    pw("blackwell", [35, 115], 100, 115, 0.3, [[100, 9500]]),
+    pw("blackwell", [35, 115], 100, 115, 7, [[100, 9500]]),
     { memory: "8 GB" },
   ),
   gpu(
@@ -180,7 +186,7 @@ export const GRAPHICS: Part[] = [
     2025,
     2030,
     { x: 55, y: 45, z: 2 },
-    pw("blackwell", [35, 130], 115, 130, 0.3, [[115, 11000]]),
+    pw("blackwell", [35, 130], 115, 130, 8, [[115, 11000]]),
     { memory: "8 GB" },
   ),
   gpu(
@@ -189,7 +195,7 @@ export const GRAPHICS: Part[] = [
     2025,
     2030,
     { x: 55, y: 45, z: 2 },
-    pw("blackwell", [35, 115], 100, 115, 0.3, [[100, 12000]]),
+    pw("blackwell", [35, 115], 100, 115, 9, [[100, 12000]]),
     { memory: "8 GB" },
   ),
   gpu(
@@ -198,7 +204,7 @@ export const GRAPHICS: Part[] = [
     2025,
     2030,
     { x: 60, y: 55, z: 2 },
-    pw("blackwell", [50, 140], 115, 140, 0.3, [[115, 15000]]),
+    pw("blackwell", [50, 140], 115, 140, 10, [[115, 15000]]),
     { memory: "12 GB" },
   ),
   gpu(
@@ -207,7 +213,7 @@ export const GRAPHICS: Part[] = [
     2025,
     2030,
     { x: 70, y: 65, z: 2 },
-    pw("blackwell", [60, 175], 150, 175, 0.3, [[150, 19500]]),
+    pw("blackwell", [60, 175], 150, 175, 12, [[150, 19500]]),
     { memory: "16 GB" },
   ),
   gpu(
@@ -216,7 +222,7 @@ export const GRAPHICS: Part[] = [
     2025,
     2030,
     { x: 75, y: 70, z: 2 },
-    pw("blackwell", [80, 175], 150, 175, 0.3, [[95, 17500], [150, 22000]]),
+    pw("blackwell", [80, 175], 150, 175, 13, [[95, 17500], [150, 22000]]),
     { memory: "24 GB" },
   ),
 ];

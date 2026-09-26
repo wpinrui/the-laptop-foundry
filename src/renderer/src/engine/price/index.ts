@@ -291,6 +291,9 @@ function partCost(
       );
     case "webcam":
       return (FIXED[part.id] ?? 8) + (o("shutter") === "yes" ? 1 : 0);
+    // Switching needs a multiplexer and the drivers to hand the screen over.
+    case "graphics":
+      return (FIXED[part.id] ?? 0) + (o("switchable") === "yes" ? 5 : 0);
     default:
       return FIXED[part.id] ?? 0;
   }

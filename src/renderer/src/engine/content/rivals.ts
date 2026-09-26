@@ -710,7 +710,7 @@ const R2026: Rival[] = [
     price: 3199,
     parts: {
       processor: "core-ultra9-275hx",
-      graphics: "rtx-5080-laptop",
+      graphics: ["rtx-5080-laptop", { switchable: "no" }],
       memory: ["ddr5-5600-sodimm", { capacity: 32, slots: 2 }],
       storage: ["m2-2280-g5", "m2-2280-g4"],
       display: ["2026-16-2560x1600-ips", { refresh: 240 }],
@@ -1253,7 +1253,7 @@ const R2016: Rival[] = [
     price: 1899,
     parts: {
       processor: "core-i7-6700hq",
-      graphics: "geforce-gtx-1070-laptop",
+      graphics: ["geforce-gtx-1070-laptop", { switchable: "no" }],
       memory: ["ddr4-2133-sodimm", { capacity: 16, slots: 2 }],
       storage: [
         ["m2-2280-g3", { capacity: 256 }],
@@ -1321,7 +1321,7 @@ const R2016: Rival[] = [
     price: 2799,
     parts: {
       processor: "core-i7-6700hq",
-      graphics: "geforce-gtx-1080-laptop",
+      graphics: ["geforce-gtx-1080-laptop", { switchable: "no" }],
       memory: ["ddr4-2133-sodimm", { capacity: 32, slots: 2 }],
       storage: [
         ["m2-2280-g3", { capacity: 1024 }],
@@ -1431,7 +1431,7 @@ const R2016: Rival[] = [
     price: 1599,
     parts: {
       processor: "core-i7-6700hq",
-      graphics: "geforce-gtx-1060-laptop",
+      graphics: ["geforce-gtx-1060-laptop", { switchable: "no" }],
       memory: ["ddr4-2133-sodimm", { capacity: 16, slots: 2 }],
       storage: [
         ["m2-2280-sata", { capacity: 256 }],

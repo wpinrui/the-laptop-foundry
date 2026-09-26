@@ -561,7 +561,7 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     .join(", ");
   const specs: [string, string][] = [
     ["Processor", cpu],
-    ["Graphics", gpu],
+    ["Graphics", gpuPart && String(b.parts.graphics?.[0]?.opts?.switchable ?? gpuPart.options?.switchable?.[0] ?? "no") === "yes" ? `${gpu}, switchable` : gpu],
     ["Memory", memoryText(content, b)],
     ["Storage", storageText(content, b)],
     [

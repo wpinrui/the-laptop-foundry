@@ -152,6 +152,8 @@ export interface ZoneNode {
   packFrom?: "start" | "end";
   /** Most units this zone holds. Extra units go to the next zone that takes the role. */
   capacity?: number;
+  /** Keeps its share of the slack when empty, so its neighbours stay put. */
+  keep?: boolean;
 }
 
 export type Node = SplitNode | ZoneNode;

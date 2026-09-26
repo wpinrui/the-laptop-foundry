@@ -27,3 +27,10 @@ a {
   font-size: var(--font-size-caption);
   color: var(--color-text-muted);
 }
+
+/* The on-screen page is a DOM layer over the canvas. Seen from behind the lid
+   it would show through mirrored: hide its back face. drei's Html nests the
+   transformed layer two divs inside the wrapper. */
+.lid-screen > div > div {
+  backface-visibility: hidden;
+}

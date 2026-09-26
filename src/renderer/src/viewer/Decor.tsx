@@ -53,15 +53,46 @@ export function svgAspect(svg: string | undefined): number {
   return w && h ? Number(w[1]) / Math.max(0.001, Number(h[1])) : 1;
 }
 
-/** The mark's width and height in mm. */
+export const outlined = (m: Mark) => m.style === "outline";
+
+/** An outlined mark's line width in mm. */
+export function strokeOf(m: Mark): number {
+  return m.stroke ?? Math.max(0.2, Math.round(m.size * 0.05 * 10) / 10);
+}
+
+/** The mark's width and height in mm, an outline's line included. */
 export function markExtent(m: Mark): { w: number; h: number } {
-  if (m.kind === "svg") return { w: m.size * svgAspect(m.svg), h: m.size };
-  if (!measure) return { w: m.text.length * m.size * 0.6, h: m.size };
+  const line = outlined(m) ? strokeOf(m) : 0;
+  if (m.kind === "svg") return { w: m.size * svgAspect(m.svg) + line, h: m.size + line };
+  if (!measure) return { w: m.text.length * m.size * 0.6 + line, h: m.size + line };
   const px = 100;
   measure.font = fontOf(m, px);
   (measure as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${(m.tracking / 1000) * px}px`;
   const w = measure.measureText(m.text || " ").width / px;
-  return { w: w * m.size, h: m.size * 1.1 };
+  return { w: w * m.size + line, h: m.size * 1.1 + line };
+}
+
+const SHAPES = "path,rect,circle,ellipse,line,polyline,polygon,text,tspan";
+
+/** The SVG with every shape drawn as a line of the mark's width instead of filled, its viewBox grown to hold the line. */
+function outlineSvg(svg: string, m: Mark): string {
+  const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+  const root = doc.documentElement;
+  const vb = (root.getAttribute("viewBox") ?? "0 0 1 1").split(/[\s,]+/).map(Number);
+  const sw = (strokeOf(m) * (vb[3] || 1)) / Math.max(0.1, m.size);
+  for (const el of Array.from(root.querySelectorAll(SHAPES))) {
+    if (el.closest("mask, clipPath, clippath")) continue;
+    el.setAttribute("fill", "none");
+    el.setAttribute("stroke", "#000");
+    el.setAttribute("stroke-width", String(sw));
+    el.setAttribute("stroke-linejoin", "round");
+    el.removeAttribute("stroke-dasharray");
+  }
+  const grown = [vb[0] - sw / 2, vb[1] - sw / 2, vb[2] + sw, vb[3] + sw];
+  root.setAttribute("viewBox", grown.join(" "));
+  root.setAttribute("width", "1024");
+  root.setAttribute("height", String(Math.round((1024 * grown[3]) / grown[2])));
+  return new XMLSerializer().serializeToString(doc);
 }
 
 function svgUrl(svg: string): string {
@@ -84,23 +115,32 @@ function drawFace(face: Face, marks: Mark[], canvas: HTMLCanvasElement, S: numbe
       (g as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${(m.tracking / 1000) * px}px`;
       g.textAlign = "center";
       g.textBaseline = "middle";
+      g.lineWidth = strokeOf(m) * S;
+      g.lineJoin = "round";
+      const paint = (colour: string, x: number, y: number) => {
+        if (outlined(m)) {
+          g.strokeStyle = colour;
+          g.strokeText(m.text, x, y);
+        } else {
+          g.fillStyle = colour;
+          g.fillText(m.text, x, y);
+        }
+      };
       if (m.process === "embossed") {
         // A raised edge: shadow below right, light above left.
         g.globalAlpha = 0.45;
-        g.fillStyle = token("picker-black");
-        g.fillText(m.text, cx + px * 0.04, cy + px * 0.05);
+        paint(token("picker-black"), cx + px * 0.04, cy + px * 0.05);
         g.globalAlpha = 0.35;
-        g.fillStyle = token("picker-white");
-        g.fillText(m.text, cx - px * 0.03, cy - px * 0.03);
+        paint(token("picker-white"), cx - px * 0.03, cy - px * 0.03);
         g.globalAlpha = alpha;
       }
-      g.fillStyle = m.colour;
-      g.fillText(m.text, cx, cy);
+      paint(m.colour, cx, cy);
     } else {
       const img = images.get(m.id);
       if (img?.complete && img.naturalWidth > 0) {
-        const h = m.size * S;
-        const w = h * svgAspect(m.svg);
+        const e = markExtent(m);
+        const h = e.h * S;
+        const w = e.w * S;
         // Tint: the SVG's shape in the mark's colour.
         const tmp = document.createElement("canvas");
         tmp.width = Math.max(1, Math.round(w));
@@ -145,7 +185,7 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
     for (const m of marks)
       if (m.kind === "svg" && m.svg) {
         const img = new Image();
-        const url = svgUrl(m.svg);
+        const url = svgUrl(outlined(m) ? outlineSvg(m.svg, m) : m.svg);
         urls.push(url);
         img.onload = redraw;
         img.src = url;

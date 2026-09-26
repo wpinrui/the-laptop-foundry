@@ -220,11 +220,10 @@ function Lights({ beat, tone, g }: { beat: Beat; tone: Tone; g: Geometry }) {
 /** The lid's angle, eased open when the beat leaves "published". */
 function useLid(open: boolean): number {
   const [angle, setAngle] = useState(open ? LID_OPEN : 0);
+  // Opened from the start (a review already revealed): no lift.
+  const openAtStart = useRef(open);
   useEffect(() => {
-    if (!open) {
-      setAngle(0);
-      return;
-    }
+    if (!open || openAtStart.current) return;
     const start = performance.now();
     let raf = 0;
     const tick = (t: number) => {

@@ -6,9 +6,11 @@ import {
   memo,
   type ReactNode,
   type RefObject,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import * as THREE from "three";
 import type { Box, Build, Fit, Side } from "../engine";
@@ -52,6 +54,8 @@ interface SceneProps {
   xray?: boolean;
   /** A procedural workshop around the laptop: bench, pegboard wall, warm lamp. */
   workshop?: boolean;
+  /** Called with every unit that could not be drawn, as "label: reason". */
+  onFailed?: (failed: string[]) => void;
 }
 
 export type Surfaces = Record<
@@ -175,54 +179,97 @@ function makeCtx(): UnitCtx & { dispose(): void } {
 
 // ------------------------------------------------------------------ units
 
-/** Keeps one object per unit id; rebuilds a unit only when its role, part or size changes. */
+type Live = Map<string, { key: string; ctx: UnitCtx; obj: THREE.Object3D; failed?: string }>;
+
+/**
+ * Keeps one object per unit id; rebuilds a unit only when its role, part or size changes.
+ * The group and the record of what is in it live in one ref, so they can never
+ * part: a memo can be recomputed (Fast Refresh recomputes every one) while a ref
+ * survives, and a fresh empty group beside a full record drew only the units
+ * rebuilt after it. Each pass also re-checks that every kept unit is in the group.
+ */
 function useUnitsGroup(
   boxes: Box[],
   ctx: UnitCtx,
   labelFor: (b: Box) => string,
   year: number,
   hinge: UnitOpts["hinge"],
+  onFailed?: (failed: string[]) => void,
 ): THREE.Group {
-  const group = useMemo(() => new THREE.Group(), []);
-  const live = useRef(new Map<string, { key: string; obj: THREE.Object3D }>());
+  const store = useRef<{ group: THREE.Group; live: Live } | null>(null);
+  if (!store.current) store.current = { group: new THREE.Group(), live: new Map() };
+  const { group, live } = store.current;
+  // Unmount (and Fast Refresh) tears every unit down, so the next pass builds them all afresh.
+  useEffect(
+    () => () => {
+      for (const v of live.values()) disposeUnit(v.obj);
+      live.clear();
+    },
+    [live],
+  );
   useEffect(() => {
     const seen = new Set<string>();
+    const failed: string[] = [];
     for (const b of boxes) {
       seen.add(b.id);
       const key = `${b.role}|${b.part ?? ""}|${b.size.x.toFixed(3)}|${b.size.y.toFixed(3)}|${b.size.z.toFixed(3)}|${JSON.stringify(b.opts ?? {})}|${b.edge ?? ""}|${year}|${hinge}`;
-      const had = live.current.get(b.id);
-      if (had && had.key === key) {
+      let label = b.role as string;
+      try {
+        label = labelFor(b);
+      } catch {}
+      const had = live.get(b.id);
+      if (had && had.key === key && had.ctx === ctx && had.obj.parent === group) {
         had.obj.position.set(
           b.at.x + b.size.x / 2,
           b.at.y + b.size.y / 2,
           b.at.z + b.size.z / 2,
         );
-        had.obj.userData.label = labelFor(b);
+        const shown = had.failed ? `${label} (could not draw)` : label;
+        had.obj.traverse((o) => {
+          o.userData.label = shown;
+          o.userData.box = b;
+        });
+        if (had.failed) failed.push(`${label}: ${had.failed}`);
         continue;
       }
       if (had) disposeUnit(had.obj);
-      const obj = renderUnit(
-        b.role,
-        b,
-        { colour: roleColour(b.role, year), year, hinge },
-        ctx,
-      );
-      obj.userData.label = labelFor(b);
+      // One unit that cannot be built must never stop the rest from drawing.
+      let obj: THREE.Object3D;
+      try {
+        obj = renderUnit(b.role, b, { colour: roleColour(b.role, year), year, hinge }, ctx);
+      } catch (e) {
+        console.error(`unit ${b.id} could not be drawn`, e);
+        obj = dangerBox(b, ctx, e);
+      }
+      const why = obj.userData.failed as string | undefined;
+      const shown = why ? `${label} (could not draw)` : label;
+      if (why) failed.push(`${label}: ${why}`);
       obj.traverse((o) => {
-        o.userData.label = obj.userData.label;
+        o.userData.label = shown;
         o.userData.box = b;
         o.castShadow = true;
       });
       group.add(obj);
-      live.current.set(b.id, { key, obj });
+      live.set(b.id, { key, ctx, obj, failed: why });
     }
-    for (const [id, v] of live.current) {
+    for (const [id, v] of live) {
       if (seen.has(id)) continue;
       disposeUnit(v.obj);
-      live.current.delete(id);
+      live.delete(id);
     }
-  }, [boxes, ctx, group, labelFor, year, hinge]);
+    onFailed?.(failed);
+  }, [boxes, ctx, group, live, labelFor, year, hinge, onFailed]);
   return group;
+}
+
+/** A red stand-in box for a unit that could not be built at all. */
+function dangerBox(b: Box, ctx: UnitCtx, e: unknown): THREE.Object3D {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), ctx.material(ctx.danger));
+  m.position.set(b.at.x + b.size.x / 2, b.at.y + b.size.y / 2, b.at.z + b.size.z / 2);
+  m.scale.set(Math.max(b.size.x, 0.2), Math.max(b.size.y, 0.2), Math.max(b.size.z, 0.2));
+  m.userData.model = true;
+  m.userData.failed = e instanceof Error ? e.message : String(e);
+  return m;
 }
 
 function Units({
@@ -234,6 +281,7 @@ function Units({
   year,
   hinge,
   lidAngle,
+  onFailed,
 }: {
   boxes: Box[];
   ctx: UnitCtx;
@@ -244,15 +292,17 @@ function Units({
   hinge: UnitOpts["hinge"];
   /** Turns the lid side of each hinge mount with the lid, in degrees. */
   lidAngle?: number;
+  /** Called after each pass with the units that could not be drawn. */
+  onFailed?: (failed: string[]) => void;
 }) {
-  const group = useUnitsGroup(boxes, ctx, labelFor, year, hinge);
+  const group = useUnitsGroup(boxes, ctx, labelFor, year, hinge, onFailed);
   // Runs after the units effect above, so freshly built hinges turn too.
   useEffect(() => {
     if (lidAngle === undefined) return;
     group.traverse((o) => {
       if (o.name === LID_GROUP) o.rotation.x = (-lidAngle * Math.PI) / 180;
     });
-  }, [group, lidAngle, boxes, year, hinge]);
+  }, [group, lidAngle, boxes, ctx, year, hinge]);
   const move = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const label = e.object.userData.label as string | undefined;
@@ -516,8 +566,25 @@ export const Model = memo(function Model({
   xray = true,
   workshop,
   portal,
+  onFailed,
 }: SceneProps & { portal?: RefObject<HTMLDivElement | null> }) {
   const ctx = useMemo(() => makeCtx(), []);
+  // Base and lid report their failed units separately; the scene gets them together.
+  const failed = useRef<{ base: string[]; lid: string[] }>({ base: [], lid: [] });
+  const reportBase = useCallback(
+    (f: string[]) => {
+      failed.current.base = f;
+      onFailed?.([...f, ...failed.current.lid]);
+    },
+    [onFailed],
+  );
+  const reportLid = useCallback(
+    (f: string[]) => {
+      failed.current.lid = f;
+      onFailed?.([...failed.current.base, ...f]);
+    },
+    [onFailed],
+  );
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   useEffect(() => () => ctx.dispose(), [ctx]);
   const base = useMemo(
@@ -592,6 +659,7 @@ export const Model = memo(function Model({
           year={year}
           hinge={fit.shell.style.hinge}
           lidAngle={lidAngle}
+          onFailed={reportBase}
         />
         <Overflow fit={fit} />
         {/* The lid turns about the hinge axis, which runs along x. */}
@@ -613,6 +681,7 @@ export const Model = memo(function Model({
               onHover={onHover}
               year={year}
               hinge={fit.shell.style.hinge}
+              onFailed={reportLid}
             />
             {!xray && panelBox && (
               // A solid lid would hide a panel set behind its bezel: show the dark screen glass.
@@ -694,6 +763,15 @@ function ViewShift({ shift }: { shift: number }) {
 export function Scene(props: SceneProps & { shift?: number }) {
   const bg = token("color-bg");
   const overlay = useRef<HTMLDivElement | null>(null);
+  const [failed, setFailed] = useState<string[]>([]);
+  const outer = props.onFailed;
+  const onFailed = useCallback(
+    (f: string[]) => {
+      setFailed((prev) => (prev.join("|") === f.join("|") ? prev : f));
+      outer?.(f);
+    },
+    [outer],
+  );
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
     <Canvas
@@ -736,7 +814,7 @@ export function Scene(props: SceneProps & { shift?: number }) {
           <directionalLight position={[-400, 300, -300]} intensity={0.5} />
         </>
       )}
-      <Model {...props} portal={overlay} />
+      <Model {...props} portal={overlay} onFailed={onFailed} />
       <ViewShift shift={props.shift ?? 0} />
       <OrbitControls
         makeDefault
@@ -750,6 +828,26 @@ export function Scene(props: SceneProps & { shift?: number }) {
         ref={overlay}
         style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
       />
+      {failed.length > 0 && (
+        // A part that cannot be drawn shows as a red box and is named here, never dropped quietly.
+        <div
+          role="alert"
+          style={{
+            position: "absolute",
+            left: 12,
+            bottom: 12,
+            maxWidth: "50%",
+            padding: "6px 10px",
+            borderRadius: 6,
+            background: token("color-surface"),
+            color: token("color-danger"),
+            fontSize: 12,
+            pointerEvents: "none",
+          }}
+        >
+          Could not draw: {failed.join("; ")}
+        </div>
+      )}
     </div>
   );
 }

@@ -288,6 +288,15 @@ input[type="range"] {
   color: var(--color-text-muted);
 }
 
+/* Column labels stay in their own column instead of running into the next. */
+.power-row.head > span,
+.power-row.sub > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .power-row .span2 {
   grid-column: span 2;
 }

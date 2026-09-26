@@ -82,10 +82,10 @@ export function Power({ build, set }: { build: Build; set: SetBuild }) {
       </div>
       <div className={gpu ? "power-row sub gpu" : "power-row sub"}>
         <span />
-        <span>Sustained</span>
-        <span>Boost</span>
-        {gpu && <span>Sustained</span>}
-        {gpu && <span>Boost</span>}
+        <span title="Sustained">Sust.</span>
+        <span title="Boost">Boost</span>
+        {gpu && <span title="Sustained">Sust.</span>}
+        {gpu && <span title="Boost">Boost</span>}
         <span />
       </div>
       {PROFILES.map((id) => {

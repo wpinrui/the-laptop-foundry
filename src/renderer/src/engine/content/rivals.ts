@@ -1,225 +1,27 @@
-import { makeBuild } from "../samples";
-import { MATERIALS } from "./finish";
-import { solve } from "../solve";
-import { migrateScreen } from "../screen";
-import type { Build, Category, OptionValue, Piece, Side, Size } from "../types";
+import type { Side } from "../types";
+import { pick, type Rival, rival, trim } from "./fields/kit";
+import { FIELDS } from "./fields";
 
-// Rivals: six fictional makers, constant across the years. Each rival is a
-// full build from real content, sized to fit, so it runs through the same
-// engine, simulation and review as the player's builds. Each maker's class
-// cells are fixed for every year, though not every cell holds a rival in
-// every year. The same field faces every player build of that year.
+export type { Rival } from "./fields/kit";
+
+// Rivals: real laptops from six real makers, constant across the years. Each
+// rival is a full build from real content, sized to fit, so it runs through the
+// same engine, simulation and review as the player's builds. The same field
+// faces every player build of that year.
 
 export interface Maker {
   id: string;
   name: string;
-  /** Classes the maker competes in, as "body/performance/budget" cells, every year. */
-  competes: string[];
 }
 
 export const MAKERS: Maker[] = [
-  {
-    id: "tarrant",
-    name: "Tarrant",
-    competes: [
-      "medium/gaming/midrange",
-      "medium/gaming/premium",
-      "medium/mixed-use/midrange",
-      "medium/mixed-use/premium",
-      "medium/office/low",
-      "medium/office/midrange",
-      "medium/office/premium",
-      "thin and light/office/midrange",
-      "thin and light/office/premium",
-    ],
-  },
-  {
-    id: "halbrook",
-    name: "Halbrook",
-    competes: [
-      "large/gaming/midrange",
-      "large/gaming/premium",
-      "large/mixed-use/midrange",
-      "large/office/low",
-      "large/office/midrange",
-      "medium/gaming/midrange",
-      "medium/gaming/premium",
-      "medium/office/low",
-      "medium/office/midrange",
-      "thin and light/mixed-use/midrange",
-      "thin and light/office/midrange",
-      "thin and light/office/premium",
-    ],
-  },
-  {
-    id: "denholm",
-    name: "Denholm",
-    competes: [
-      "large/gaming/midrange",
-      "large/gaming/premium",
-      "large/mixed-use/premium",
-      "medium/gaming/midrange",
-      "medium/gaming/premium",
-      "medium/mixed-use/midrange",
-      "medium/mixed-use/premium",
-      "thin and light/gaming/premium",
-      "thin and light/mixed-use/midrange",
-      "thin and light/mixed-use/premium",
-      "thin and light/office/midrange",
-    ],
-  },
-  {
-    id: "quince",
-    name: "Quince",
-    competes: [
-      "large/gaming/midrange",
-      "large/mixed-use/premium",
-      "medium/gaming/premium",
-      "medium/mixed-use/midrange",
-      "medium/mixed-use/premium",
-      "medium/office/low",
-      "medium/office/midrange",
-      "medium/office/premium",
-      "thin and light/mixed-use/midrange",
-      "thin and light/mixed-use/premium",
-      "thin and light/office/premium",
-    ],
-  },
-  {
-    id: "arvane",
-    name: "Arvane",
-    competes: [
-      "large/gaming/midrange",
-      "large/gaming/premium",
-      "medium/gaming/midrange",
-      "medium/gaming/premium",
-      "thin and light/gaming/premium",
-      "thin and light/mixed-use/midrange",
-      "thin and light/mixed-use/premium",
-      "thin and light/office/premium",
-    ],
-  },
-  {
-    id: "ecker",
-    name: "Ecker",
-    competes: [
-      "large/gaming/midrange",
-      "large/gaming/premium",
-      "large/mixed-use/midrange",
-      "large/mixed-use/premium",
-      "large/office/low",
-      "large/office/midrange",
-      "medium/gaming/midrange",
-      "medium/office/low",
-      "medium/office/midrange",
-    ],
-  },
+  { id: "lenovo", name: "Lenovo" },
+  { id: "hp", name: "HP" },
+  { id: "dell", name: "Dell" },
+  { id: "apple", name: "Apple" },
+  { id: "asus", name: "Asus" },
+  { id: "acer", name: "Acer" },
 ];
-
-export interface Rival {
-  id: string;
-  maker: string;
-  name: string;
-  build: Build;
-}
-
-type PartSpec = string | [string, Record<string, OptionValue>];
-
-interface RivalSpec {
-  body: string;
-  layout: string;
-  size: [number, number, number];
-  price: number;
-  parts: Partial<Record<Category, PartSpec | PartSpec[]>>;
-  ports: [string, Side][];
-  materials?: Partial<Record<Piece, string>>;
-  spend?: Build["spend"];
-}
-
-function rival(
-  year: number,
-  maker: string,
-  name: string,
-  spec: RivalSpec,
-): Rival {
-  const build = makeBuild({ year, ...spec });
-  // The listed size is the target; a rival never ships short of its own minimum.
-  const target: Size = { x: spec.size[0], y: spec.size[1], z: spec.size[2] };
-  const min = solve({ ...build, size: target }).min;
-  const up = (v: number) => Math.ceil(v * 2) / 2;
-  const size: Size = {
-    x: up(Math.max(target.x, min.x)),
-    y: up(Math.max(target.y, min.y)),
-    z: up(Math.max(target.z, min.z)),
-  };
-  return {
-    id: `${maker}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-    maker,
-    name,
-    build: { ...build, size, price: spec.price },
-  };
-}
-
-/** Another configuration of an existing rival: same chassis, new price and parts. */
-function trim(
-  base: Rival,
-  name: string,
-  price: number,
-  change: {
-    maker?: string;
-    parts?: Partial<Record<Category, PartSpec | PartSpec[] | null>>;
-    materials?: Partial<Record<Piece, string>>;
-    spend?: Build["spend"];
-  } = {},
-): Rival {
-  const maker = change.maker ?? base.maker;
-  const parts = { ...base.build.parts };
-  for (const [cat, v] of Object.entries(change.parts ?? {}) as [
-    Category,
-    PartSpec | PartSpec[] | null,
-  ][]) {
-    if (v === null) {
-      delete parts[cat];
-      continue;
-    }
-    const single =
-      typeof v === "string" ||
-      (typeof v[0] === "string" && typeof v[1] === "object" && !Array.isArray(v[1]));
-    const list = single ? [v as PartSpec] : (v as PartSpec[]);
-    parts[cat] = list.map((x) =>
-      typeof x === "string" ? { part: x } : { part: x[0], opts: x[1] },
-    );
-  }
-  const materials = { ...base.build.materials, ...change.materials };
-  const texture = (m: string) =>
-    MATERIALS.find((x) => x.id === m)?.finishes[0] ?? "matte";
-  const finish = { ...base.build.finish };
-  for (const piece of Object.keys(change.materials ?? {}) as Piece[])
-    finish[piece] = { ...finish[piece], texture: texture(materials[piece]) };
-  // A new display pick replaces the base's screen spec.
-  const build: Build = migrateScreen({
-    ...base.build,
-    parts,
-    materials,
-    finish,
-    spend: { ...base.build.spend, ...change.spend },
-    price,
-    screen: change.parts?.display !== undefined ? undefined : base.build.screen,
-  });
-  const min = solve(build).min;
-  const up = (v: number) => Math.ceil(v * 2) / 2;
-  const size: Size = {
-    x: up(Math.max(build.size.x, min.x)),
-    y: up(Math.max(build.size.y, min.y)),
-    z: up(Math.max(build.size.z, min.z)),
-  };
-  return {
-    id: `${maker}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-    maker,
-    name,
-    build: { ...build, size },
-  };
-}
 
 // ------------------------------------------------------------------ 2006
 
@@ -255,7 +57,7 @@ const PORTS_2006_BIG: [string, Side][] = [
 ];
 
 const R2006: Rival[] = [
-  rival(2006, "tarrant", "Wardline T62", {
+  rival(2006, "lenovo", "ThinkPad T60", {
     body: "workhorse",
     layout: "b",
     size: [357, 268, 26],
@@ -277,7 +79,7 @@ const R2006: Rival[] = [
     ports: PORTS_2006,
     materials: { lid: "magnesium" },
   }),
-  rival(2006, "tarrant", "Wardline X62s", {
+  rival(2006, "lenovo", "ThinkPad X60s", {
     body: "workhorse",
     layout: "b",
     size: [268, 212, 21],
@@ -298,7 +100,7 @@ const R2006: Rival[] = [
     materials: { floor: "magnesium", deck: "magnesium", lid: "magnesium" },
     spend: { material: 0.5 },
   }),
-  rival(2006, "halbrook", "Carrow 510", {
+  rival(2006, "hp", "Compaq Presario C300", {
     body: "pillow",
     layout: "b",
     size: [358, 262, 30],
@@ -318,7 +120,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006,
   }),
-  rival(2006, "halbrook", "Carrow 720", {
+  rival(2006, "hp", "Pavilion dv6000", {
     body: "pillow",
     layout: "b",
     size: [358, 262, 30],
@@ -340,7 +142,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006,
   }),
-  rival(2006, "halbrook", "Carrow 790 Play", {
+  rival(2006, "hp", "Pavilion dv6000t Special Edition", {
     body: "pillow",
     layout: "b",
     size: [362, 268, 34],
@@ -362,7 +164,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006,
   }),
-  rival(2006, "denholm", "Aurel M1720", {
+  rival(2006, "dell", "XPS M1710", {
     body: "pillow",
     layout: "c",
     size: [394, 287, 34],
@@ -388,7 +190,7 @@ const R2006: Rival[] = [
     ports: PORTS_2006_BIG,
     spend: { packing: 0.5 },
   }),
-  rival(2006, "denholm", "Aurel E1540", {
+  rival(2006, "dell", "Precision M65", {
     body: "workhorse",
     layout: "b",
     size: [357, 262, 28],
@@ -409,7 +211,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006,
   }),
-  rival(2006, "denholm", "Aurel S1310", {
+  rival(2006, "dell", "XPS M1210", {
     body: "workhorse",
     layout: "b",
     size: [280, 228, 22],
@@ -431,7 +233,7 @@ const R2006: Rival[] = [
     materials: { floor: "magnesium", deck: "magnesium", lid: "cfrp" },
     spend: { material: 1, packing: 1, graphics: 1, battery: 1, storage: 1, cooling: 1, keyboard: 1, speakers: 1 },
   }),
-  rival(2006, "quince", "Pomella Pro 15", {
+  rival(2006, "apple", "MacBook Pro 15 (2006)", {
     body: "workhorse",
     layout: "b",
     size: [357, 243, 23],
@@ -454,7 +256,7 @@ const R2006: Rival[] = [
     ports: PORTS_2006_SMALL,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2006, "quince", "Pomella 13", {
+  rival(2006, "apple", "MacBook 13 (2006)", {
     body: "pillow",
     layout: "b",
     size: [325, 227, 28],
@@ -475,7 +277,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006_SMALL,
   }),
-  rival(2006, "arvane", "Vesper W6", {
+  rival(2006, "asus", "W5Fe", {
     body: "workhorse",
     layout: "b",
     size: [280, 230, 24],
@@ -497,7 +299,7 @@ const R2006: Rival[] = [
     materials: { floor: "magnesium", deck: "magnesium", lid: "cfrp" },
     spend: { material: 1, packing: 1, graphics: 1, battery: 1, storage: 1, cooling: 1, keyboard: 1, speakers: 1, processor: 1 },
   }),
-  rival(2006, "arvane", "Vesper G2", {
+  rival(2006, "asus", "G2P", {
     body: "pillow",
     layout: "b",
     size: [364, 272, 36],
@@ -519,7 +321,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006_BIG,
   }),
-  rival(2006, "arvane", "Vesper G7 17", {
+  rival(2006, "asus", "A7J", {
     body: "pillow",
     layout: "c",
     size: [398, 290, 38],
@@ -541,7 +343,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006_BIG,
   }),
-  rival(2006, "ecker", "Loma 1410", {
+  rival(2006, "acer", "TravelMate 3010", {
     body: "pillow",
     layout: "b",
     size: [318, 234, 30],
@@ -560,7 +362,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006_SMALL,
   }),
-  rival(2006, "ecker", "Loma 9800", {
+  rival(2006, "acer", "Aspire 9410", {
     body: "pillow",
     layout: "c",
     size: [396, 290, 36],
@@ -580,7 +382,7 @@ const R2006: Rival[] = [
     },
     ports: PORTS_2006_BIG,
   }),
-  rival(2006, "ecker", "Loma 9920 Media", {
+  rival(2006, "acer", "Aspire 9510", {
     body: "pillow",
     layout: "c",
     size: [396, 290, 36],
@@ -643,7 +445,7 @@ const PORTS_2026_BUDGET: [string, Side][] = [
 ];
 
 const R2026: Rival[] = [
-  rival(2026, "tarrant", "Wardline X14 Carbon", {
+  rival(2026, "lenovo", "ThinkPad X1 Carbon Gen 13", {
     body: "workhorse",
     layout: "a",
     size: [316, 223, 11.5],
@@ -664,7 +466,7 @@ const R2026: Rival[] = [
     ports: [...PORTS_2026, ["usb-a-5g", "left"]],
     materials: { floor: "magnesium", deck: "magnesium", lid: "cfrp" },
   }),
-  rival(2026, "tarrant", "Wardline E16", {
+  rival(2026, "lenovo", "ThinkPad E16 Gen 3", {
     body: "workhorse",
     layout: "a",
     size: [356, 250, 18],
@@ -685,7 +487,7 @@ const R2026: Rival[] = [
     ports: [...PORTS_2026, ["ethernet-1g", "right"]],
     materials: { lid: "aluminium" },
   }),
-  rival(2026, "tarrant", "Wardline P16", {
+  rival(2026, "lenovo", "ThinkPad P16s Gen 4", {
     body: "workhorse",
     layout: "a",
     size: [362, 256, 19],
@@ -706,7 +508,7 @@ const R2026: Rival[] = [
     ports: [...PORTS_2026, ["ethernet-2.5g", "right"]],
     materials: { floor: "aluminium", deck: "magnesium", lid: "aluminium" },
   }),
-  rival(2026, "tarrant", "Wardline Pro 7", {
+  rival(2026, "lenovo", "Legion Pro 7i Gen 10", {
     body: "workhorse",
     layout: "a",
     size: [364, 276, 20],
@@ -728,7 +530,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026_GAMING,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "halbrook", "Carrow 15", {
+  rival(2026, "hp", "OmniBook 3 15", {
     body: "workhorse",
     layout: "a",
     size: [360, 236, 18],
@@ -748,7 +550,7 @@ const R2026: Rival[] = [
     },
     ports: PORTS_2026_BUDGET,
   }),
-  rival(2026, "halbrook", "Carrow Air 14", {
+  rival(2026, "hp", "OmniBook 5 14", {
     body: "workhorse",
     layout: "a",
     size: [313, 220, 14],
@@ -769,7 +571,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "halbrook", "Carrow Play 16", {
+  rival(2026, "hp", "Omen 16", {
     body: "workhorse",
     layout: "a",
     size: [358, 262, 22],
@@ -790,7 +592,7 @@ const R2026: Rival[] = [
     },
     ports: PORTS_2026_GAMING_AMD,
   }),
-  rival(2026, "denholm", "Aurel 14 Studio", {
+  rival(2026, "dell", "XPS 14", {
     body: "blade",
     layout: "a",
     size: [312, 214, 13],
@@ -811,7 +613,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026_THIN,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "denholm", "Aurel 16 Plus", {
+  rival(2026, "dell", "16 Plus", {
     body: "workhorse",
     layout: "a",
     size: [356, 250, 17],
@@ -832,7 +634,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "denholm", "Aurel Forge 18", {
+  rival(2026, "dell", "Alienware 18 Area-51", {
     body: "workhorse",
     layout: "a",
     size: [399, 298, 22],
@@ -854,7 +656,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026_GAMING,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "quince", "Pomella Air 13", {
+  rival(2026, "apple", "MacBook Air 13 (M5)", {
     body: "workhorse",
     layout: "a",
     size: [304, 215, 11],
@@ -879,7 +681,7 @@ const R2026: Rival[] = [
     ],
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "quince", "Pomella 15", {
+  rival(2026, "apple", "MacBook Air 15 (M5)", {
     body: "workhorse",
     layout: "a",
     size: [340, 238, 14],
@@ -900,7 +702,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026_THIN,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "quince", "Pomella Pro 16", {
+  rival(2026, "apple", "MacBook Pro 16 (M5 Max)", {
     body: "workhorse",
     layout: "a",
     size: [356, 248, 17],
@@ -921,7 +723,7 @@ const R2026: Rival[] = [
     ports: [...PORTS_2026_THIN, ["sd-reader-uhs2", "right"], ["hdmi-2.1", "right"]],
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "arvane", "Vesper Neo 14", {
+  rival(2026, "asus", "Zenbook 14 OLED", {
     body: "blade",
     layout: "a",
     size: [312, 220, 14],
@@ -942,7 +744,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026,
     materials: { floor: "magnesium", deck: "magnesium", lid: "aluminium" },
   }),
-  rival(2026, "arvane", "Vesper Edge 14", {
+  rival(2026, "asus", "ROG Zephyrus G14", {
     body: "blade",
     layout: "a",
     size: [311, 222, 15],
@@ -965,7 +767,7 @@ const R2026: Rival[] = [
     materials: { floor: "magnesium", deck: "magnesium", lid: "magnesium" },
     spend: { material: 1, packing: 1, graphics: 1, processor: 1, cooling: 1 },
   }),
-  rival(2026, "arvane", "Vesper Strike 16", {
+  rival(2026, "asus", "ROG Strix G16", {
     body: "blade",
     layout: "a",
     size: [355, 266, 22],
@@ -987,7 +789,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026_GAMING,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "arvane", "Vesper Strike 18", {
+  rival(2026, "asus", "ROG Strix SCAR 18", {
     body: "blade",
     layout: "a",
     size: [399, 294, 24],
@@ -1009,7 +811,7 @@ const R2026: Rival[] = [
     ports: PORTS_2026_GAMING_AMD,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2026, "ecker", "Loma Go 14", {
+  rival(2026, "acer", "Aspire Go 14", {
     body: "workhorse",
     layout: "a",
     size: [320, 222, 17],
@@ -1029,7 +831,7 @@ const R2026: Rival[] = [
     },
     ports: PORTS_2026_BUDGET,
   }),
-  rival(2026, "ecker", "Loma Play 15", {
+  rival(2026, "acer", "Nitro V 15", {
     body: "workhorse",
     layout: "a",
     size: [360, 255, 23],
@@ -1050,7 +852,7 @@ const R2026: Rival[] = [
     },
     ports: PORTS_2026_GAMING_AMD,
   }),
-  rival(2026, "ecker", "Loma 18", {
+  rival(2026, "acer", "Aspire 18", {
     body: "workhorse",
     layout: "a",
     size: [398, 280, 20],
@@ -1070,7 +872,7 @@ const R2026: Rival[] = [
     },
     ports: PORTS_2026_BUDGET,
   }),
-  rival(2026, "ecker", "Loma 18 Pro", {
+  rival(2026, "acer", "Aspire 18 AI", {
     body: "workhorse",
     layout: "a",
     size: [398, 280, 20],
@@ -1135,7 +937,7 @@ const PORTS_2016_GAMING: [string, Side][] = [
 ];
 
 const R2016: Rival[] = [
-  rival(2016, "tarrant", "Wardline T470", {
+  rival(2016, "lenovo", "ThinkPad T460", {
     body: "workhorse",
     layout: "b",
     size: [336, 232, 18],
@@ -1157,7 +959,7 @@ const R2016: Rival[] = [
     ports: PORTS_2016_BIZ,
     materials: { lid: "cfrp" },
   }),
-  rival(2016, "tarrant", "Wardline X14 Carbon", {
+  rival(2016, "lenovo", "ThinkPad X1 Carbon (4th Gen)", {
     body: "workhorse",
     layout: "a",
     size: [333, 229, 13],
@@ -1178,7 +980,7 @@ const R2016: Rival[] = [
     ports: [...PORTS_2016_THIN, ["hdmi-1.4", "left"], ["mini-dp", "right"]],
     materials: { floor: "magnesium", deck: "cfrp", lid: "cfrp" },
   }),
-  rival(2016, "tarrant", "Wardline Y720", {
+  rival(2016, "lenovo", "Legion Y720", {
     body: "workhorse",
     layout: "a",
     size: [380, 265, 21],
@@ -1199,7 +1001,7 @@ const R2016: Rival[] = [
     },
     ports: PORTS_2016_GAMING,
   }),
-  rival(2016, "halbrook", "Carrow 15 Stream", {
+  rival(2016, "hp", "Pavilion 15-aw000", {
     body: "workhorse",
     layout: "b",
     size: [382, 256, 22],
@@ -1228,7 +1030,7 @@ const R2016: Rival[] = [
       ["audio-combo", "right"],
     ],
   }),
-  rival(2016, "halbrook", "Carrow Air 13", {
+  rival(2016, "hp", "Spectre 13 (2016)", {
     body: "blade",
     layout: "a",
     size: [320, 225, 13],
@@ -1249,7 +1051,7 @@ const R2016: Rival[] = [
     ports: PORTS_2016_THIN,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2016, "halbrook", "Carrow Play 17", {
+  rival(2016, "hp", "Omen 17-w200", {
     body: "workhorse",
     layout: "a",
     size: [420, 290, 28],
@@ -1273,7 +1075,7 @@ const R2016: Rival[] = [
     },
     ports: PORTS_2016_GAMING,
   }),
-  rival(2016, "denholm", "Aurel 13 Plus", {
+  rival(2016, "dell", "Inspiron 13 7000", {
     body: "workhorse",
     layout: "a",
     size: [310, 215, 14],
@@ -1295,7 +1097,7 @@ const R2016: Rival[] = [
     ports: PORTS_2016_THIN,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2016, "denholm", "Aurel 15 Studio", {
+  rival(2016, "dell", "XPS 15 9550", {
     body: "workhorse",
     layout: "a",
     size: [357, 235, 17],
@@ -1317,7 +1119,7 @@ const R2016: Rival[] = [
     ports: PORTS_2016,
     materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
-  rival(2016, "denholm", "Aurel Blaze 17", {
+  rival(2016, "dell", "Alienware 17 R4", {
     body: "workhorse",
     layout: "a",
     size: [424, 310, 30],
@@ -1342,7 +1144,7 @@ const R2016: Rival[] = [
     ports: PORTS_2016_GAMING,
     materials: { floor: "magnesium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2016, "quince", "Pomella Pro 15", {
+  rival(2016, "apple", "MacBook Pro 15 (2016)", {
     body: "workhorse",
     layout: "a",
     size: [349, 241, 12],
@@ -1370,7 +1172,7 @@ const R2016: Rival[] = [
     ],
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2016, "quince", "Pomella 13", {
+  rival(2016, "apple", "MacBook Pro 13 (2016)", {
     body: "workhorse",
     layout: "a",
     size: [304, 212, 12],
@@ -1395,7 +1197,7 @@ const R2016: Rival[] = [
     ],
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
-  rival(2016, "arvane", "Vesper Zephyr 14", {
+  rival(2016, "asus", "ROG Zephyrus GX501", {
     body: "blade",
     layout: "a",
     size: [345, 235, 15],
@@ -1427,7 +1229,7 @@ const R2016: Rival[] = [
       speakers: 1,
     },
   }),
-  rival(2016, "arvane", "Vesper Strike 15", {
+  rival(2016, "asus", "ROG Strix GL502VM", {
     body: "blade",
     layout: "a",
     size: [383, 262, 25],
@@ -1451,7 +1253,7 @@ const R2016: Rival[] = [
     },
     ports: PORTS_2016_GAMING,
   }),
-  rival(2016, "ecker", "Loma 17 E", {
+  rival(2016, "acer", "Aspire ES1-731", {
     body: "workhorse",
     layout: "c",
     size: [418, 285, 25],
@@ -1481,7 +1283,7 @@ const R2016: Rival[] = [
       ["audio-combo", "right"],
     ],
   }),
-  rival(2016, "ecker", "Loma 17 V", {
+  rival(2016, "acer", "Aspire E5-774G", {
     body: "workhorse",
     layout: "c",
     size: [418, 285, 25],
@@ -1503,7 +1305,7 @@ const R2016: Rival[] = [
     },
     ports: PORTS_2016,
   }),
-  rival(2016, "ecker", "Loma Nitro 15", {
+  rival(2016, "acer", "Predator 15 G9-593", {
     body: "workhorse",
     layout: "a",
     size: [390, 266, 26],
@@ -1531,96 +1333,93 @@ const R2016: Rival[] = [
 // Further configurations of the chassis above, so the common classes of each
 // year (body, performance and budget) have at least two rivals to compare.
 
-const pick = (list: Rival[], name: string): Rival => {
-  const r = list.find((x) => x.name === name);
-  if (!r) throw new Error(`no rival ${name}`);
-  return r;
-};
-
 const T2006: Rival[] = (() => {
   const b = (n: string) => pick(R2006, n);
   const gtx = "geforce-go-7900-gtx";
   return [
-    trim(b("Wardline X62s"), "Wardline X61", 1449),
-    trim(b("Aurel S1310"), "Aurel S1300", 1299, {
+    trim(b("ThinkPad X60s"), "ThinkPad X60", 1449),
+    trim(b("XPS M1210"), "Latitude D420", 1299, {
       parts: { graphics: null, processor: "core-duo-u2500" },
     }),
-    trim(b("Vesper W6"), "Vesper W4", 1899, {
+    trim(b("W5Fe"), "U5F", 1899, {
       parts: { graphics: null, processor: "core-duo-t2500" },
     }),
-    trim(b("Aurel S1310"), "Aurel S1315", 1549, {
+    trim(b("XPS M1210"), "XPS M1210 (X1600)", 1549, {
       parts: { graphics: "radeon-x1600" },
     }),
-    trim(b("Vesper W6"), "Vesper W5", 1499, {
+    trim(b("W5Fe"), "W7J", 1499, {
       parts: { graphics: "geforce-go-7600", processor: "core-duo-t2500" },
     }),
-    trim(b("Wardline X62s"), "Wardline X62 Media", 1899, {
+    trim(b("ThinkPad X60s"), "ThinkPad Z61t", 1899, {
       parts: { graphics: "radeon-x1600" },
     }),
-    trim(b("Aurel S1310"), "Aurel S1390", 2499, {
+    trim(b("XPS M1210"), "Alienware m5550", 2499, {
       parts: { graphics: gtx, processor: "core2-duo-t7600" },
     }),
-    trim(b("Pomella 13"), "Pomella 13 Lite", 849, {
+    trim(b("MacBook 13 (2006)"), "Aspire 3680", 849, {
+      maker: "acer",
       parts: { processor: "celeron-m-430" },
     }),
-    trim(b("Loma 1410"), "Loma 1420", 1049, {
+    trim(b("TravelMate 3010"), "TravelMate 3020", 1049, {
       parts: { processor: "core-duo-t2500" },
     }),
-    trim(b("Pomella 13"), "Pomella 13 Pro", 1649, {
+    trim(b("MacBook 13 (2006)"), "MacBook 13 Black (2006)", 1649, {
       parts: { processor: "core2-duo-t5500" },
       materials: { lid: "aluminium" },
     }),
-    trim(b("Pomella 13"), "Pomella 13 Plus", 1399, {
+    trim(b("MacBook 13 (2006)"), "A8Jm", 1399, {
+      maker: "asus",
       parts: { graphics: "radeon-x1600" },
     }),
-    trim(b("Aurel E1540"), "Aurel E1520", 1449, {
+    trim(b("Precision M65"), "Latitude D820", 1449, {
       parts: { processor: "core2-duo-t5500" },
     }),
-    trim(b("Wardline T62"), "Wardline T62p", 2199, {
+    trim(b("ThinkPad T60"), "ThinkPad T60p", 2199, {
       parts: { graphics: "radeon-x1600", processor: "core2-duo-t7600" },
     }),
-    trim(b("Aurel E1540"), "Aurel E1560", 1549, {
+    trim(b("Precision M65"), "Inspiron 9400", 1549, {
       parts: { graphics: gtx, processor: "core2-duo-t5500", cooling: "two-fans" },
     }),
-    trim(b("Pomella 13"), "Pomella Play 15", 1499, {
+    trim(b("MacBook 13 (2006)"), "G1", 1499, {
+      maker: "asus",
       parts: { graphics: gtx, cooling: "two-fans" },
     }),
-    trim(b("Aurel E1540"), "Aurel E1580", 1999, {
+    trim(b("Precision M65"), "Precision M90", 1999, {
       parts: { graphics: gtx, cooling: "two-fans" },
     }),
-    trim(b("Aurel E1540"), "Vesper G5", 2099, {
-      maker: "arvane",
+    trim(b("Precision M65"), "G2F", 2099, {
+      maker: "asus",
       parts: { graphics: gtx, cooling: "two-fans" },
       materials: { lid: "magnesium" },
     }),
-    trim(b("Aurel S1310"), "Aurel S1370", 1549, {
+    trim(b("XPS M1210"), "Alienware m5500", 1549, {
       parts: { graphics: gtx, processor: "core2-duo-t5500" },
     }),
-    trim(b("Vesper W6"), "Vesper W6 Plus", 2399, {
+    trim(b("W5Fe"), "W5F", 2399, {
       parts: { battery: ["li-ion-18650", { cells: 6 }] },
     }),
-    trim(b("Vesper W6"), "Vesper W3 Play", 1549, {
+    trim(b("W5Fe"), "W3J", 1549, {
       parts: {
         processor: "core2-duo-t5500",
         battery: ["li-ion-18650", { cells: 6 }],
       },
     }),
-    trim(b("Vesper W6"), "Vesper W6 Studio", 1699, {
+    trim(b("W5Fe"), "V1J", 1699, {
       parts: { graphics: "geforce-go-7600" },
     }),
-    trim(b("Loma 9800"), "Loma 9810", 1099, {
+    trim(b("Aspire 9410"), "Aspire 9420", 1099, {
       parts: { processor: "core2-duo-t5500" },
     }),
-    trim(b("Carrow 720"), "Carrow 740", 1399, {
+    trim(b("Pavilion dv6000"), "Compaq nx9420", 1399, {
       parts: { graphics: "radeon-x1600" },
     }),
-    trim(b("Loma 9920 Media"), "Loma 9950 Studio", 1799, {
+    trim(b("Aspire 9510"), "Aspire 9520", 1799, {
       parts: { processor: "core2-duo-t7600" },
     }),
-    trim(b("Carrow 790 Play"), "Carrow 780 Play", 1549, {
+    trim(b("Pavilion dv6000t Special Edition"), "Pavilion dv9000", 1549, {
       parts: { processor: "core2-duo-t5500" },
     }),
-    trim(b("Loma 9920 Media"), "Loma 9930 Play", 1499, {
+    trim(b("Aspire 9510"), "Aspire 9810", 1499, {
       parts: { graphics: gtx, cooling: "two-fans" },
     }),
   ];
@@ -1629,75 +1428,75 @@ const T2006: Rival[] = (() => {
 const T2016: Rival[] = (() => {
   const b = (n: string) => pick(R2016, n);
   return [
-    trim(b("Wardline X14 Carbon"), "Wardline X14", 1149, {
+    trim(b("ThinkPad X1 Carbon (4th Gen)"), "ThinkPad X1 Carbon (4th Gen, i5)", 1149, {
       parts: { processor: "core-i5-6200u" },
     }),
-    trim(b("Carrow Air 13"), "Carrow Air 13 Plus", 1099, {
+    trim(b("Spectre 13 (2016)"), "Envy 13 (2016)", 1099, {
       parts: { processor: "core-i5-6260u" },
     }),
-    trim(b("Aurel 13 Plus"), "Aurel 13 Iris", 1149, {
+    trim(b("Inspiron 13 7000"), "XPS 13 9350", 1149, {
       parts: { graphics: null, processor: "core-i5-6260u" },
     }),
-    trim(b("Aurel 13 Plus"), "Aurel 13 Pro", 1399, {
+    trim(b("Inspiron 13 7000"), "XPS 13 9350 (i7)", 1399, {
       parts: { graphics: null, processor: "core-i7-6560u" },
     }),
-    trim(b("Pomella 13"), "Pomella 13 Graphic", 1599, {
+    trim(b("MacBook Pro 13 (2016)"), "MacBook Pro 13 Touch Bar (2016)", 1599, {
       parts: { processor: "core-i5-6267u" },
     }),
-    trim(b("Vesper Zephyr 14"), "Aurel Blade 14", 2199, {
-      maker: "denholm",
+    trim(b("ROG Zephyrus GX501"), "Alienware 13 R2", 2199, {
+      maker: "dell",
       parts: { graphics: "geforce-gtx-970m" },
     }),
-    trim(b("Wardline T470"), "Wardline E470", 579, {
+    trim(b("ThinkPad T460"), "ThinkPad E460", 579, {
       parts: { processor: "core-i5-6200u" },
     }),
-    trim(b("Wardline T470"), "Wardline T470p", 999, {
+    trim(b("ThinkPad T460"), "ThinkPad T460p", 999, {
       parts: { graphics: "geforce-940mx" },
     }),
-    trim(b("Carrow 15 Stream"), "Carrow 15 Plus", 799, {
+    trim(b("Pavilion 15-aw000"), "Pavilion 15-au100", 799, {
       parts: { processor: "core-i5-6200u" },
     }),
-    trim(b("Wardline T470"), "Wardline T470s", 1399, {
+    trim(b("ThinkPad T460"), "ThinkPad T460s", 1399, {
       parts: { processor: "core-i7-7500u" },
     }),
-    trim(b("Pomella Pro 15"), "Pomella 15", 1299, {
+    trim(b("MacBook Pro 15 (2016)"), "MacBook Pro 15 (Mid 2015)", 1299, {
       parts: { graphics: null, processor: "core-i7-7500u" },
     }),
-    trim(b("Aurel 15 Studio"), "Aurel 15", 1099, {
+    trim(b("XPS 15 9550"), "Inspiron 15 7560", 1099, {
       parts: { graphics: "geforce-940mx" },
     }),
-    trim(b("Carrow 15 Stream"), "Carrow 15 Home", 849, {
+    trim(b("Pavilion 15-aw000"), "Pavilion 15-ab200", 849, {
       parts: { processor: "core-i5-6200u", graphics: "geforce-gtx-950m" },
     }),
-    trim(b("Vesper Strike 15"), "Vesper Strike 15 Lite", 1149, {
+    trim(b("ROG Strix GL502VM"), "ROG Strix GL502VT", 1149, {
       parts: { graphics: "geforce-gtx-970m" },
     }),
-    trim(b("Wardline Y720"), "Wardline Y520", 1099, {
+    trim(b("Legion Y720"), "IdeaPad Y700", 1099, {
       parts: { graphics: "geforce-gtx-970m" },
     }),
-    trim(b("Carrow Play 17"), "Carrow 17", 579, {
+    trim(b("Omen 17-w200"), "Pavilion 17-g100", 579, {
       parts: { graphics: null, processor: "core-i5-6200u" },
     }),
-    trim(b("Loma 17 E"), "Loma 17 E Plus", 749, {
+    trim(b("Aspire ES1-731"), "Aspire F5-771", 749, {
       parts: { processor: "core-i7-7500u" },
     }),
-    trim(b("Carrow Play 17"), "Carrow 17 Plus", 899, {
+    trim(b("Omen 17-w200"), "Pavilion 17-g150", 899, {
       parts: { graphics: null, processor: "core-i7-6500u" },
     }),
-    trim(b("Carrow Play 17"), "Carrow 17 Media", 999, {
+    trim(b("Omen 17-w200"), "Envy 17-n100", 999, {
       parts: { graphics: "geforce-gtx-950m", processor: "core-i5-6200u" },
     }),
-    trim(b("Aurel Blaze 17"), "Aurel 17 Studio", 1599, {
+    trim(b("Alienware 17 R4"), "Inspiron 17 7778", 1599, {
       parts: { graphics: "geforce-940mx" },
     }),
-    trim(b("Loma 17 V"), "Loma 17 V Nitro", 999, {
+    trim(b("Aspire E5-774G"), "Aspire V Nitro VN7-792G", 999, {
       parts: { graphics: "geforce-gtx-950m", processor: "core-i5-6200u" },
     }),
-    trim(b("Loma 17 V"), "Loma 17 VX", 1249, {
+    trim(b("Aspire E5-774G"), "Aspire V Nitro Black Edition", 1249, {
       parts: { processor: "core-i7-6700hq" },
     }),
-    trim(b("Loma Nitro 15"), "Loma Nitro 15 Lite", 1149),
-    trim(b("Carrow Play 17"), "Carrow Play 17 Lite", 1149, {
+    trim(b("Predator 15 G9-593"), "Predator 15 G9-591", 1149),
+    trim(b("Omen 17-w200"), "Omen 17-w100", 1149, {
       parts: { graphics: "geforce-gtx-970m" },
     }),
   ];
@@ -1706,54 +1505,54 @@ const T2016: Rival[] = (() => {
 const T2026: Rival[] = (() => {
   const b = (n: string) => pick(R2026, n);
   return [
-    trim(b("Wardline X14 Carbon"), "Wardline X14", 1299, {
+    trim(b("ThinkPad X1 Carbon Gen 13"), "ThinkPad T14s Gen 6", 1299, {
       parts: {
         processor: "core5-120u",
         memory: ["lpddr5x-soldered", { capacity: 16 }],
       },
     }),
-    trim(b("Carrow Air 14"), "Carrow Air 14 Pro", 1599, {
+    trim(b("OmniBook 5 14"), "OmniBook Ultra 14", 1599, {
       parts: { processor: "core-ultra7-258v", memory: "lpddr5x-on-package" },
     }),
-    trim(b("Vesper Neo 14"), "Vesper Neo 14 Core", 1399),
-    trim(b("Aurel 14 Studio"), "Aurel 14 Studio RTX", 2499, {
+    trim(b("Zenbook 14 OLED"), "Vivobook S 14", 1399),
+    trim(b("XPS 14"), "XPS 14 (RTX 5060)", 2499, {
       parts: { graphics: "rtx-5060-laptop" },
     }),
-    trim(b("Wardline E16"), "Wardline E16 Pro", 1599, {
+    trim(b("ThinkPad E16 Gen 3"), "ThinkPad T16 Gen 4", 1599, {
       parts: { processor: "core-ultra7-258v", memory: "lpddr5x-on-package" },
     }),
-    trim(b("Pomella 15"), "Pomella 15 Pro", 1699, {
+    trim(b("MacBook Air 15 (M5)"), "MacBook Air 15 (M5, 2 TB)", 1699, {
       parts: { storage: "m2-2280-g5" },
     }),
-    trim(b("Aurel 16 Plus"), "Aurel 16", 1299),
-    trim(b("Wardline P16"), "Wardline P16 Core", 1399),
-    trim(b("Carrow Play 16"), "Carrow Play 16 Lite", 1349, {
+    trim(b("16 Plus"), "Inspiron 16 Plus", 1299),
+    trim(b("ThinkPad P16s Gen 4"), "ThinkPad P16s Gen 4 AMD", 1399),
+    trim(b("Omen 16"), "Victus 16", 1349, {
       parts: { graphics: "rtx-5050-laptop" },
     }),
-    trim(b("Loma 18"), "Carrow 17", 779, {
-      maker: "halbrook",
+    trim(b("Aspire 18"), "OmniBook 3 17", 779, {
+      maker: "hp",
       parts: { processor: "ryzen-ai5-340" },
     }),
-    trim(b("Loma 18"), "Loma 18 Plus", 999, {
+    trim(b("Aspire 18"), "Aspire Lite 18", 999, {
       parts: { processor: "ryzen-ai5-340" },
     }),
-    trim(b("Loma 18 Pro"), "Loma 18 Business", 1199, {
+    trim(b("Aspire 18 AI"), "TravelMate P6 18", 1199, {
       parts: { processor: "core-ultra7-258v", memory: "lpddr5x-on-package" },
     }),
-    trim(b("Loma 18 Pro"), "Carrow 18", 1399, {
-      maker: "halbrook",
+    trim(b("Aspire 18 AI"), "Envy 18", 1399, {
+      maker: "hp",
       parts: { processor: "core-ultra-x9-388h", memory: ["lpddr5x-soldered", { capacity: 32 }] },
     }),
-    trim(b("Loma 18 Pro"), "Loma 18 Studio", 1699, {
+    trim(b("Aspire 18 AI"), "Swift X 18", 1699, {
       parts: { processor: "core-ultra-x9-388h", memory: ["lpddr5x-soldered", { capacity: 32 }] },
     }),
-    trim(b("Aurel Forge 18"), "Aurel 18 Studio", 2299, {
+    trim(b("Alienware 18 Area-51"), "Pro Max 18 Plus", 2299, {
       parts: { graphics: null, processor: "core-ultra-x9-388h", memory: ["lpddr5x-soldered", { capacity: 32 }] },
     }),
-    trim(b("Loma 18 Pro"), "Loma 18 Play", 1399, {
+    trim(b("Aspire 18 AI"), "Nitro V 18", 1399, {
       parts: { graphics: "rtx-5050-laptop" },
     }),
-    trim(b("Vesper Strike 18"), "Vesper Strike 18 Core", 1449, {
+    trim(b("ROG Strix SCAR 18"), "ROG Strix G18", 1449, {
       parts: { graphics: "rtx-5060-laptop" },
     }),
   ];
@@ -1766,7 +1565,8 @@ export const RIVALS: Rival[] = [
   ...T2016,
   ...R2026,
   ...T2026,
-];
+  ...FIELDS,
+].sort((a, b) => a.build.year - b.build.year);
 
 /** Years that have their own field of rivals. */
 export const RIVAL_YEARS: number[] = [...new Set(RIVALS.map((r) => r.build.year))].sort((a, b) => a - b);

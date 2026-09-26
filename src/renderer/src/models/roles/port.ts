@@ -153,12 +153,165 @@ interface Mats {
   accent: THREE.Material;
 }
 
+// ------------------------------------------------------------------ openings
+//
+// The front outline of each connector, shared by its model and by the shell,
+// which cuts the side wall to it. Canonical front view: x across the opening,
+// y up, centred on the box face.
+
+const dcR = (W: number, H: number) => 0.34 * Math.min(W, H);
+const dinR = (W: number, H: number) => 0.42 * Math.min(W, H);
+const audioR = (W: number, H: number) => 0.45 * Math.min(W, H);
+
+function dsubTrap(W: number, H: number, dvi: boolean) {
+  const sw = (dvi ? 0.64 : 0.54) * W;
+  const shH = 0.6 * H;
+  const tap = 0.12 * shH;
+  const trap = (d: number): P2[] => [
+    [-sw / 2 + d, shH / 2 - d],
+    [-sw / 2 + tap + d, -shH / 2 + d],
+    [sw / 2 - tap - d, -shH / 2 + d],
+    [sw / 2 - d, shH / 2 - d],
+  ];
+  return { sw, shH, tap, trap };
+}
+
+function hdmiShape(W: number, H: number) {
+  const w = 0.93 * W;
+  const h = 0.75 * H;
+  const c = 0.28 * h;
+  const outline = (d: number): P2[] => [
+    [-w / 2 + d, h / 2 - d],
+    [-w / 2 + d, -h / 2 + c],
+    [-w / 2 + c, -h / 2 + d],
+    [w / 2 - c, -h / 2 + d],
+    [w / 2 - d, -h / 2 + c],
+    [w / 2 - d, h / 2 - d],
+  ];
+  return { w, h, outline };
+}
+
+function firewireShape(W: number, H: number) {
+  const w = 0.85 * W, h = 0.7 * H;
+  const c = 0.28 * h;
+  const outline = (d: number): P2[] => [
+    [-w / 2 + d, -h / 2 + d],
+    [w / 2 - d, -h / 2 + d],
+    [w / 2 - d, h / 2 - c],
+    [w / 2 - c, h / 2 - d],
+    [-w / 2 + c, h / 2 - d],
+    [-w / 2 + d, h / 2 - c],
+  ];
+  return { w, h, outline };
+}
+
+const usbASize = (W: number, H: number) => ({ w: 0.88 * W, h: 0.72 * H });
+
+function usbCSize(W: number, H: number) {
+  const w = 0.88 * W;
+  return { w, h: Math.min(0.65 * H, 0.4 * w) };
+}
+
+/** The socket of a modular (8P8C, RJ11) jack: its outline and the housing round it. */
+function modularSocket(W: number, H: number, jaw: boolean) {
+  const sh = Math.min(0.3, 0.03 * W);
+  const bw = W - 2 * sh, bh = H - sh;
+  const by = -sh / 2;
+  const ow = 0.74 * W;
+  if (jaw) {
+    // Slim socket above a hinged jaw that drops open for the plug.
+    const top = by + bh / 2 - 0.12 * H;
+    const bot = by - bh / 2 + 0.25;
+    return { sh, bw, bh, by, ow, top, bot, outline: rect(0, (top + bot) / 2, ow, top - bot) };
+  }
+  const oh = 0.68 * H;
+  const oy = by - 0.04 * H;
+  const top = oy + oh / 2;
+  const nw = 0.36 * ow, nh = 0.14 * oh;
+  const bot = oy - oh / 2;
+  const outline: P2[] = [
+    [-ow / 2, top],
+    [-ow / 2, bot + nh],
+    [-nw / 2, bot + nh],
+    [-nw / 2, bot],
+    [nw / 2, bot],
+    [nw / 2, bot + nh],
+    [ow / 2, bot + nh],
+    [ow / 2, top],
+  ];
+  return { sh, bw, bh, by, ow, top, bot, outline };
+}
+
+type Card = "pc-card" | "expresscard-34" | "expresscard-54" | "sd" | "sd-uhs2" | "microsd";
+
+function cardSlotShape(W: number, H: number, card: Card) {
+  const pc = card === "pc-card";
+  const sd = card === "sd" || card === "sd-uhs2" || card === "microsd";
+  const slotW = (pc ? 0.8 : 0.9) * W;
+  const slotH = clamp((sd ? 0.5 : 0.55) * H, 0.6, H - 0.6);
+  const sx = pc ? -0.08 * W : 0;
+  // PC Card: eject button beside the slot.
+  const bx0 = sx + slotW / 2 + 0.6, bx1 = W / 2 - 0.5;
+  const bh = 0.5 * H;
+  return { pc, sd, slotW, slotH, sx, bx0, bx1, bh };
+}
+
+function circlePts(r: number, segs = 24): P2[] {
+  const out: P2[] = [];
+  for (let i = 0; i < segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    out.push([r * Math.cos(a), r * Math.sin(a)]);
+  }
+  return out;
+}
+
+const CARDS: Record<string, Card> = {
+  "pc-card": "pc-card",
+  "expresscard-34": "expresscard-34",
+  "expresscard-54": "expresscard-54",
+  "sd-reader": "sd",
+  "sd-reader-uhs2": "sd-uhs2",
+  "microsd-reader": "microsd",
+};
+
+/**
+ * The outlines a side wall is cut to for a port, in the canonical front view
+ * (x across, y up, centred on the port box's face) for a box W across and H
+ * high. Most ports are one outline; a PC Card slot adds its eject button.
+ */
+export function portOpening(part: string, W: number, H: number): P2[][] {
+  if (part === "dc-jack") return [circlePts(dcR(W, H))];
+  if (part === "vga" || part === "dvi-d") return [dsubTrap(W, H, part === "dvi-d").trap(0)];
+  if (part === "s-video") return [circlePts(dinR(W, H))];
+  if (part.startsWith("hdmi") || part === "mini-dp") return [hdmiShape(W, H).outline(0)];
+  if (part === "ethernet-drop-jaw") return [modularSocket(W, H, true).outline];
+  if (part.startsWith("ethernet") || part === "modem-rj11") return [modularSocket(W, H, false).outline];
+  if (part.startsWith("usb-a")) {
+    const { w, h } = usbASize(W, H);
+    return [rect(0, 0, w, h)];
+  }
+  if (part === "usb-c-10g" || part === "usb4-40g" || part.startsWith("thunderbolt")) {
+    const { w, h } = usbCSize(W, H);
+    return [stadium(0, 0, w, h, 8)];
+  }
+  if (part === "firewire-400") return [firewireShape(W, H).outline(0)];
+  const card = CARDS[part];
+  if (card) {
+    const c = cardSlotShape(W, H, card);
+    const out = [rect(c.sx, 0, c.slotW, c.slotH)];
+    if (c.pc) out.push(rect((c.bx0 + c.bx1) / 2, 0, c.bx1 - c.bx0, c.bh));
+    return out;
+  }
+  if (part === "headphone-mic" || part === "audio-combo") return [circlePts(audioR(W, H))];
+  if (part === "lock-slot") return [rect(0, 0, 0.78 * W, 0.62 * H)];
+  return [rect(0, 0, 0.8 * W, 0.7 * H)];
+}
+
 // ------------------------------------------------------------------ connectors
 
 function dcJack(k: Kit, m: Mats, W: number, H: number, L: number): void {
   const zF = L / 2, zB = -L / 2;
-  const s = Math.min(W, H);
-  const r = 0.34 * s;
+  const r = dcR(W, H);
   const zS = zF - 0.65 * L;
   const sh = shapeOf(rect(0, 0, W, H));
   sh.holes.push(circle(0, 0, r));
@@ -176,15 +329,7 @@ function dsub(k: Kit, m: Mats, W: number, H: number, L: number, dvi: boolean): v
   k.box(m.metal, -0.49 * W, 0.49 * W, -0.47 * H, 0.47 * H, zFl - flT, zFl, "flange");
   k.box(m.plastic, -0.4 * W, 0.4 * W, -0.4 * H, 0.4 * H, zB, zFl - flT, "body");
   // Trapezoid shell, wider at the top.
-  const sw = (dvi ? 0.64 : 0.54) * W;
-  const shH = 0.6 * H;
-  const tap = 0.12 * shH;
-  const trap = (d: number): P2[] => [
-    [-sw / 2 + d, shH / 2 - d],
-    [-sw / 2 + tap + d, -shH / 2 + d],
-    [sw / 2 - tap - d, -shH / 2 + d],
-    [sw / 2 - d, shH / 2 - d],
-  ];
+  const { sw, shH, tap, trap } = dsubTrap(W, H, dvi);
   const t = Math.min(0.45, 0.04 * H);
   const shell = shapeOf(trap(0));
   shell.holes.push(pathOf(trap(t)));
@@ -218,7 +363,7 @@ function dsub(k: Kit, m: Mats, W: number, H: number, L: number, dvi: boolean): v
 function miniDin(k: Kit, m: Mats, W: number, H: number, L: number): void {
   const zF = L / 2, zB = -L / 2;
   const s = Math.min(W, H);
-  const rO = 0.42 * s;
+  const rO = dinR(W, H);
   const rI = rO - Math.max(0.25, 0.03 * s);
   const zS = zF - 0.75 * L;
   k.box(m.plastic, -W / 2, W / 2, -H / 2, H / 2, zB, zF - 1, "body");
@@ -234,17 +379,7 @@ function miniDin(k: Kit, m: Mats, W: number, H: number, L: number): void {
 
 function hdmi(k: Kit, m: Mats, W: number, H: number, L: number): void {
   const zF = L / 2, zB = -L / 2;
-  const w = 0.93 * W;
-  const h = 0.75 * H;
-  const c = 0.28 * h;
-  const outline = (d: number): P2[] => [
-    [-w / 2 + d, h / 2 - d],
-    [-w / 2 + d, -h / 2 + c],
-    [-w / 2 + c, -h / 2 + d],
-    [w / 2 - c, -h / 2 + d],
-    [w / 2 - d, -h / 2 + c],
-    [w / 2 - d, h / 2 - d],
-  ];
+  const { w, h, outline } = hdmiShape(W, H);
   const t = Math.min(0.35, 0.06 * h);
   const zBk = zB + Math.min(1.2, 0.1 * L);
   const shell = shapeOf(outline(0));
@@ -261,38 +396,14 @@ function hdmi(k: Kit, m: Mats, W: number, H: number, L: number): void {
 
 function modular(k: Kit, m: Mats, W: number, H: number, L: number, pins: number, lights: boolean, jaw: boolean): void {
   const zF = L / 2, zB = -L / 2;
-  const sh = Math.min(0.3, 0.03 * W);
-  const bw = W - 2 * sh, bh = H - sh;
-  const by = -sh / 2;
-  const ow = 0.74 * W;
+  const { sh, bw, bh, by, ow, top, bot, outline } = modularSocket(W, H, jaw);
   const zS = zF - 0.7 * L;
   const body = shapeOf(rect(0, by, bw, bh));
-  let top: number;
+  body.holes.push(pathOf(outline));
   if (jaw) {
-    // Slim socket above a hinged jaw that drops open for the plug.
-    top = by + bh / 2 - 0.12 * H;
-    const bot = by - bh / 2 + 0.25;
+    // A hinged jaw under the slim socket drops open for the plug.
     const jawTop = bot + 0.5 * (top - bot);
-    body.holes.push(pathOf(rect(0, (top + bot) / 2, ow, top - bot)));
     k.box(m.plastic, -ow / 2 + 0.15, ow / 2 - 0.15, bot, jawTop - 0.15, zF - Math.min(3, 0.2 * L), zF - 0.1, "jaw");
-  } else {
-    const oh = 0.68 * H;
-    const oy = by - 0.04 * H;
-    top = oy + oh / 2;
-    const nw = 0.36 * ow, nh = 0.14 * oh;
-    const b = oy - oh / 2;
-    body.holes.push(
-      pathOf([
-        [-ow / 2, top],
-        [-ow / 2, b + nh],
-        [-nw / 2, b + nh],
-        [-nw / 2, b],
-        [nw / 2, b],
-        [nw / 2, b + nh],
-        [ow / 2, b + nh],
-        [ow / 2, top],
-      ]),
-    );
   }
   // Link lights sit in their own windows beside the top of the socket.
   const lx = (ow / 2 + bw / 2) / 2;
@@ -312,7 +423,7 @@ function modular(k: Kit, m: Mats, W: number, H: number, L: number, pins: number,
 
 function usbA(k: Kit, m: Mats, W: number, H: number, L: number, tongueMat: THREE.Material, fast: boolean): void {
   const zF = L / 2, zB = -L / 2;
-  const w = 0.88 * W, h = 0.72 * H;
+  const { w, h } = usbASize(W, H);
   const t = Math.min(0.3, 0.05 * h);
   const zBk = zB + Math.min(1.5, 0.12 * L);
   const shell = shapeOf(rect(0, 0, w, h));
@@ -338,7 +449,7 @@ function usbA(k: Kit, m: Mats, W: number, H: number, L: number, tongueMat: THREE
 
 function usbC(k: Kit, m: Mats, W: number, H: number, L: number): void {
   const zF = L / 2, zB = -L / 2;
-  const w = 0.88 * W, h = Math.min(0.65 * H, 0.4 * w);
+  const { w, h } = usbCSize(W, H);
   const t = Math.min(0.25, 0.1 * h);
   const zBk = zB + Math.min(1, 0.12 * L);
   const shell = shapeOf(stadium(0, 0, w, h, 6));
@@ -356,17 +467,8 @@ function usbC(k: Kit, m: Mats, W: number, H: number, L: number): void {
 
 function firewire(k: Kit, m: Mats, W: number, H: number, L: number): void {
   const zF = L / 2, zB = -L / 2;
-  const w = 0.85 * W, h = 0.7 * H;
+  const { w, h, outline } = firewireShape(W, H);
   const t = Math.min(0.25, 0.06 * h);
-  const c = 0.28 * h;
-  const outline = (d: number): P2[] => [
-    [-w / 2 + d, -h / 2 + d],
-    [w / 2 - d, -h / 2 + d],
-    [w / 2 - d, h / 2 - c],
-    [w / 2 - c, h / 2 - d],
-    [-w / 2 + c, h / 2 - d],
-    [-w / 2 + d, h / 2 - c],
-  ];
   const zBk = zB + Math.min(1, 0.1 * L);
   const shell = shapeOf(outline(0));
   shell.holes.push(pathOf(outline(t)));
@@ -378,22 +480,14 @@ function firewire(k: Kit, m: Mats, W: number, H: number, L: number): void {
   k.strips(m.metal, 4, -tw / 2, tw / 2, tt / 2 - 0.1 * h, tt / 2 - 0.1 * h + 0.05, zBk + 0.2 + 0.4 * (tz1 - zBk), tz1 - 0.2, 0.5);
 }
 
-type Card = "pc-card" | "expresscard-34" | "expresscard-54" | "sd" | "sd-uhs2" | "microsd";
-
 function cardSlot(k: Kit, m: Mats, W: number, H: number, L: number, card: Card): void {
   const zF = L / 2, zB = -L / 2;
-  const pc = card === "pc-card";
-  const sd = card === "sd" || card === "sd-uhs2" || card === "microsd";
-  const slotW = (pc ? 0.8 : 0.9) * W;
-  const slotH = clamp((sd ? 0.5 : 0.55) * H, 0.6, H - 0.6);
-  const sx = pc ? -0.08 * W : 0;
+  const { pc, sd, slotW, slotH, sx, bx0, bx1, bh } = cardSlotShape(W, H, card);
   const bezelT = Math.min(1.2, 0.1 * L);
   const zBz = zF - bezelT;
   const bezel = shapeOf(rect(0, 0, W, H));
   bezel.holes.push(pathOf(rect(sx, 0, slotW, slotH)));
   // PC Card: eject button beside the slot.
-  const bx0 = sx + slotW / 2 + 0.6, bx1 = W / 2 - 0.5;
-  const bh = 0.5 * H;
   if (pc) bezel.holes.push(pathOf(rect((bx0 + bx1) / 2, 0, bx1 - bx0, bh)));
   k.prism(m.plastic, bezel, zBz, zF, 2, "bezel");
   // Cage: sheet top and bottom, plastic rails at the sides.
@@ -431,7 +525,7 @@ function audio(k: Kit, m: Mats, W: number, H: number, L: number, metalRing: bool
   const zF = L / 2, zB = -L / 2;
   const s = Math.min(W, H);
   const r = 0.25 * s;
-  const rO = 0.45 * s;
+  const rO = audioR(W, H);
   const collar = Math.min(1, 0.1 * L);
   const zS = zF - 0.6 * L;
   const bw = 0.92 * W, bh = 0.92 * H;

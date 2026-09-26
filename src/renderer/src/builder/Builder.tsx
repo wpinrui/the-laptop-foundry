@@ -634,18 +634,18 @@ export function Builder({
   onBack,
   reroll,
   onReview,
-  onRevise,
+  onDuplicate,
 }: {
   model: SavedModel;
   onReview: (m: SavedModel) => void;
-  onRevise: () => void;
+  onDuplicate: () => void;
   onSave: (m: SavedModel) => void;
   onBack: () => void;
   reroll: (b: Build) => string;
 }) {
   const [build, setBuild] = useState<Build>(() => model.build as Build);
   const [name, setName] = useState(model.name);
-  // A reviewed model is locked so its review never changes. Revise makes a new one.
+  // A reviewed model is locked for good so its review never changes.
   const locked = !!model.reviewed;
 
   // Every change saves shortly after it is made, and leaving saves at once.
@@ -738,6 +738,9 @@ export function Builder({
             aria-label="model name"
             readOnly={locked}
             onChange={(e) => setName(e.target.value)}
+            onBlur={() => {
+              if (!name.trim()) setName(model.name);
+            }}
           />
           <button
             type="button"
@@ -764,8 +767,8 @@ export function Builder({
         {locked && (
           <div className="locked-bar">
             <span>Reviewed. This model is kept as it was reviewed.</span>
-            <button type="button" className="revise" onClick={onRevise}>
-              Revise
+            <button type="button" className="duplicate" onClick={onDuplicate}>
+              Duplicate
             </button>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SavedData, SavedModel } from "../../preload/store";
-import { CompanySetup, Models } from "./app/Models";
+import { CompanySetup, Models, NameModel } from "./app/Models";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
@@ -25,6 +25,8 @@ export function App() {
   const [open, setOpen] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState<Subject | null>(null);
   const [using, setUsing] = useState<Subject | null>(null);
+  // The build waiting for the player to name it before it becomes a model.
+  const [naming, setNaming] = useState<Build | null>(null);
 
   useEffect(() => {
     store().load().then(setData);
@@ -73,22 +75,31 @@ export function App() {
       />
     );
 
-  const create = (build: Build, revisedFrom?: string) => {
-    const now = Date.now();
-    const m: SavedModel = {
-      id: newId(),
-      name: randomName(build.year, inchesOf(build)),
-      build,
-      created: now,
-      updated: now,
-      revisedFrom,
-    };
-    save(m).then(() => setOpen(m.id));
-  };
-  const revise = (id: string) => {
+  const duplicate = (id: string) => {
     const src = data.models.find((m) => m.id === id);
-    if (src) create(structuredClone(src.build) as Build, src.id);
+    if (src) setNaming(structuredClone(src.build) as Build);
   };
+  if (naming)
+    return (
+      <NameModel
+        roll={() => randomName(naming.year, inchesOf(naming))}
+        onCancel={() => setNaming(null)}
+        onCreate={(name) => {
+          const now = Date.now();
+          const m: SavedModel = {
+            id: newId(),
+            name,
+            build: naming,
+            created: now,
+            updated: now,
+          };
+          save(m).then(() => {
+            setNaming(null);
+            setOpen(m.id);
+          });
+        }}
+      />
+    );
 
   const model = open ? data.models.find((m) => m.id === open) : undefined;
   if (model)
@@ -99,7 +110,7 @@ export function App() {
         onSave={save}
         onBack={() => setOpen(null)}
         onReview={review}
-        onRevise={() => revise(model.id)}
+        onDuplicate={() => duplicate(model.id)}
         reroll={(b) => randomName(b.year, inchesOf(b))}
       />
     );
@@ -108,9 +119,9 @@ export function App() {
     <Models
       data={data}
       onCompany={(name) => store().setCompany(name).then(setData)}
-      onNew={() => create(emptyBuild())}
+      onNew={() => setNaming(emptyBuild())}
       onOpen={setOpen}
-      onRevise={revise}
+      onDuplicate={duplicate}
       onDelete={(id) => store().deleteModel(id).then(setData)}
       onReview={(id) => {
         const m = data.models.find((x) => x.id === id);

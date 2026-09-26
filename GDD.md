@@ -20,8 +20,8 @@ Each place has a feel:
 
 ## Company and models
 
-- The player defines one company name, which covers everything in version 0.1.
-- The company name can be changed at any time. Old reviews show the new name.
+- The player can run several companies, each a separate save. New company names one; Load company switches between them.
+- A company is named when it is created.
 - The player names each laptop model. A name randomiser helps when they have writer's block.
 - A model can be edited until it is reviewed. A reviewed model is locked and cannot be edited.
 - Duplicating any model creates a new, independent, unreviewed model with a copy of its build.
@@ -236,7 +236,7 @@ The review follows Notebookcheck's order:
 
 The cafe is where the player uses a laptop they built. Version 0.1 carries a minimal set:
 
-- One of the player's laptops sits on the cafe table.
+- The player walks the cafe in first person and sits at the table where their laptop is.
 - The player can browse the in-game review site and read reviews of any of their laptops and any rival.
 - The player can run the processor benchmark and the demanding game. Both show a mock of the real visuals at the build's simulated speed or frame rate. The games cannot be played.
 - Fan noise is audible in the cafe.
@@ -364,4 +364,3 @@ This is the highest-priority technical requirement. For every combination of cho
 ## Open decisions
 
 - Where the player views benchmark and game results was left open.
-- Navigation between the workshop and the cafe, model management, and first launch were left to buttons and menus with no specification.

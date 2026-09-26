@@ -30,7 +30,6 @@ import {
   Empty,
   Flyout,
   KilnApp,
-  LOOKS,
   lookOf as osLook,
   type RankRow,
   Screen,
@@ -46,7 +45,6 @@ import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
 import { usePhotos } from "../viewer/Photos";
 import { surfacesOf } from "../viewer/Scene";
 import { Cafe } from "./Cafe";
-import { LegacyCafeScreen } from "./LegacyCafeScreen";
 import "./cafe.css";
 
 // The cafe: the laptop on a table, running its own OS and what the
@@ -179,8 +177,6 @@ export function CafeScreen(props: {
   sound: boolean;
   onSound: (on: boolean) => void;
 }) {
-  // Eras whose OS has not landed yet keep the screen they had before.
-  if (!LOOKS.includes(eraOf(props.subject.build.year))) return <LegacyCafeScreen {...props} />;
   return <OsCafeScreen {...props} />;
 }
 
@@ -459,7 +455,7 @@ function OsCafeScreen({
     );
   else if (app === "web")
     win = (
-      <Win app="web" title={webTitle} w={99999} h={99999} {...winProps}>
+      <Win app="web" title={osEra === 2026 ? "Notebookcheck" : webTitle} w={99999} h={99999} {...winProps}>
         <Browser
           era={era}
           title={webTitle}

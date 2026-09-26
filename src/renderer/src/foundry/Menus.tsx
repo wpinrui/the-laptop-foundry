@@ -377,6 +377,10 @@ export function SettingsMenu({
             <small>The Open Sans Project Authors, SIL Open Font License 1.1</small>
           </li>
           <li>
+            <span>Figtree</span>
+            <small>The Figtree Project Authors, SIL Open Font License 1.1</small>
+          </li>
+          <li>
             <span>Source Code Pro</span>
             <small>Adobe, SIL Open Font License 1.1</small>
           </li>

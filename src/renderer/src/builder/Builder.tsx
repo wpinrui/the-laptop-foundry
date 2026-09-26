@@ -22,9 +22,7 @@ import { Measurements } from "./Measurements";
 import { SelectionMarks } from "./Overlay3d";
 import { problemText, STAGE_NAME, STAGES, type Stage, stageOf } from "./problems";
 import { screenTexture } from "./screens";
-import { legacyDeskTexture } from "../os/legacy";
-import { LOOKS } from "../os/Os";
-import { eraOf, ownerOf } from "../os/types";
+import { ownerOf } from "../os/types";
 import { useBootingScreen } from "../os/useOsScreen";
 import {
   ChassisColumn,
@@ -310,11 +308,8 @@ export function Builder({
   const gridTexture = useMemo(() => (grid ? screenTexture("grid", ratio, shownName) : undefined), [grid, ratio]);
   // Once the laptop is valid its own screen boots into the era's desktop.
   const owner = useMemo(() => ownerOf(build, company), [build, company]);
-  // Eras whose OS has not landed yet keep the plain desktop they had.
-  const legacy = !LOOKS.includes(eraOf(build.year));
-  const booted = useBootingScreen(!grid && valid && !legacy, build, owner, `${company} ${shownName}`.trim(), ratio);
-  const legacyDesk = useMemo(() => (!grid && valid && legacy ? legacyDeskTexture(ratio) : undefined), [grid, valid, legacy, ratio]);
-  const screen = grid ? gridTexture : legacy ? legacyDesk : booted;
+  const booted = useBootingScreen(!grid && valid, build, owner, `${company} ${shownName}`.trim(), ratio);
+  const screen = grid ? gridTexture : booted;
 
   const labelFor = useCallback((b: Box) => ROLE_NAME[b.role] ?? nameOf(b.part) ?? "", []);
   const pick = useCallback(

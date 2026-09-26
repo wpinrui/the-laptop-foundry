@@ -5,6 +5,10 @@ import noto700i from "../assets/fonts/noto-sans-latin-700-italic.woff2?inline";
 import open400 from "../assets/fonts/open-sans-latin-400-normal.woff2?inline";
 import open600 from "../assets/fonts/open-sans-latin-600-normal.woff2?inline";
 import open700 from "../assets/fonts/open-sans-latin-700-normal.woff2?inline";
+import fig400 from "../assets/fonts/figtree-latin-400-normal.woff2?inline";
+import fig500 from "../assets/fonts/figtree-latin-500-normal.woff2?inline";
+import fig600 from "../assets/fonts/figtree-latin-600-normal.woff2?inline";
+import fig700 from "../assets/fonts/figtree-latin-700-normal.woff2?inline";
 import code600 from "../assets/fonts/source-code-pro-latin-600-normal.woff2?inline";
 import code700 from "../assets/fonts/source-code-pro-latin-700-normal.woff2?inline";
 import type { Era } from "./types";
@@ -32,7 +36,12 @@ const FACES: Record<Era, Face[]> = {
     ["Open Sans", 600, "normal", open600],
     ["Open Sans", 700, "normal", open700],
   ],
-  2026: [],
+  2026: [
+    ["Figtree", 400, "normal", fig400],
+    ["Figtree", 500, "normal", fig500],
+    ["Figtree", 600, "normal", fig600],
+    ["Figtree", 700, "normal", fig700],
+  ],
 };
 
 const css = (faces: Face[]) =>

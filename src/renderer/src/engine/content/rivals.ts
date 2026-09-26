@@ -1633,13 +1633,16 @@ const T2016: Rival[] = (() => {
       parts: { processor: "core-i5-6200u" },
     }),
     trim(b("Carrow Air 13"), "Carrow Air 13 Plus", 1099, {
-      parts: { graphics: "geforce-940mx" },
+      parts: { processor: "core-i5-6260u" },
+    }),
+    trim(b("Aurel 13 Plus"), "Aurel 13 Iris", 1149, {
+      parts: { graphics: null, processor: "core-i5-6260u" },
     }),
     trim(b("Aurel 13 Plus"), "Aurel 13 Pro", 1399, {
-      parts: { processor: "core-i7-7500u" },
+      parts: { graphics: null, processor: "core-i7-6560u" },
     }),
     trim(b("Pomella 13"), "Pomella 13 Graphic", 1599, {
-      parts: { graphics: "geforce-940mx" },
+      parts: { processor: "core-i5-6267u" },
     }),
     trim(b("Vesper Zephyr 14"), "Aurel Blade 14", 2199, {
       maker: "denholm",
@@ -1682,10 +1685,13 @@ const T2016: Rival[] = (() => {
       parts: { graphics: null, processor: "core-i7-6500u" },
     }),
     trim(b("Carrow Play 17"), "Carrow 17 Media", 999, {
-      parts: { graphics: "geforce-940mx", processor: "core-i5-6200u" },
+      parts: { graphics: "radeon-r7-m460", processor: "core-i5-6200u" },
     }),
     trim(b("Aurel Blaze 17"), "Aurel 17 Studio", 1599, {
       parts: { graphics: "geforce-940mx" },
+    }),
+    trim(b("Loma 17 V"), "Loma 17 V Nitro", 999, {
+      parts: { graphics: "geforce-gtx-950m", processor: "core-i5-6200u" },
     }),
     trim(b("Loma 17 V"), "Loma 17 VX", 1249, {
       parts: { processor: "core-i7-6700hq" },

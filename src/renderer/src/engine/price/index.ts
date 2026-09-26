@@ -46,7 +46,7 @@ const ERA_PRICE: EraPrice[] = [
     year: 2016,
     budget: { low: 600, premium: 1200 },
     body: { thinKg: 1.6, thinMm: 21, largeKg: 2.7, largeWidth: 385 },
-    perf: { gamingGraphics: 3000, mixedGraphics: 1000, mixedMulti: 4000 },
+    perf: { gamingGraphics: 1600, mixedGraphics: 750, mixedMulti: 4000 },
     board: 90,
     assembly: 25,
   },

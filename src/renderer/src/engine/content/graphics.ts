@@ -54,6 +54,28 @@ const CLOCKS: Record<string, [number | undefined, number]> = {
   "rtx-5090-laptop": [1590, 2160],
 };
 
+// Generations, for the builder's offer of each maker's two newest.
+const GEN: Record<string, string> = {
+  "geforce-go-7400": "nvidia-go7",
+  "radeon-x1400": "radeon-x1000",
+  "geforce-go-7600": "nvidia-go7",
+  "radeon-x1600": "radeon-x1000",
+  "geforce-go-7900-gtx": "nvidia-go7",
+  "geforce-940mx": "nvidia-900m",
+  "radeon-r7-m460": "radeon-m400",
+  "geforce-gtx-960m": "nvidia-900m",
+  "geforce-gtx-970m": "nvidia-900m",
+  "geforce-gtx-1060-laptop": "nvidia-pascal",
+  "geforce-gtx-1070-laptop": "nvidia-pascal",
+  "geforce-gtx-1080-laptop": "nvidia-pascal",
+  "rtx-5050-laptop": "nvidia-blackwell",
+  "rtx-5060-laptop": "nvidia-blackwell",
+  "rtx-5070-laptop": "nvidia-blackwell",
+  "rtx-5070ti-laptop": "nvidia-blackwell",
+  "rtx-5080-laptop": "nvidia-blackwell",
+  "rtx-5090-laptop": "nvidia-blackwell",
+};
+
 function clockOf(id: string): Pick<PowerSpec, "gpuClock"> {
   const c = CLOCKS[id];
   if (!c) return {};
@@ -89,6 +111,7 @@ function gpu(
     needs: ["dgpu"],
     ...(from >= SWITCHABLE_FROM ? { options: { switchable: ["yes", "no"] } } : {}),
     info,
+    gen: GEN[id],
   };
 }
 

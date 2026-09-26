@@ -13,6 +13,7 @@ import type {
   Plan,
 } from "../types";
 import { BODIES } from "./bodies";
+import { offeredGenerationIds } from "./chips/gens";
 import { PANEL_TYPES, PANELS } from "./display";
 import { ERAS, eraFor } from "./eras";
 import { COLOURS, FINISHES, MATERIALS } from "./finish";
@@ -128,6 +129,19 @@ export function partsFor(
   );
 }
 
+/**
+ * Parts the builder offers in a year: the year's parts, with processors and
+ * graphics cut to each maker's two newest generations.
+ */
+export function offeredFor(
+  category: Category | "port",
+  year: number,
+  content: Content = CONTENT,
+): Part[] {
+  const gens = offeredGenerationIds(year);
+  return partsFor(category, year, content).filter((p) => !p.gen || gens.has(p.gen));
+}
+
 export function panelsFor(
   year: number,
   content: Content = CONTENT,
@@ -136,3 +150,15 @@ export function panelsFor(
 }
 
 export { eraFor };
+export {
+  GENERATIONS,
+  type Generation,
+  generationOf,
+  offeredGenerations,
+  type Vendor,
+} from "./chips/gens";
+
+/** First and last year a build can be set in. */
+export const FIRST_YEAR = 2006;
+export const LAST_YEAR = 2026;
+export const YEARS: number[] = Array.from({ length: LAST_YEAR - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);

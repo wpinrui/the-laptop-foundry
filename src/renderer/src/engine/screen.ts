@@ -67,25 +67,34 @@ export function ppiOf(diag: number, res: [number, number]): number {
   return Math.round(Math.hypot(res[0], res[1]) / Math.max(1, diag));
 }
 
-/** Highest refresh any maker shipped in the era. */
+/**
+ * Highest refresh any maker shipped by the year: 120 Hz from the 3D gaming
+ * panels of 2010, 144 Hz in 2018, 240 Hz from 2019.
+ */
 export function maxHz(year: number): number {
-  const e = eraYear(year);
-  return e === 2006 ? 60 : e === 2016 ? 120 : 240;
+  return year < 2010 ? 60 : year < 2018 ? 120 : year < 2019 ? 144 : 240;
 }
 
-/** Densest panel the era could make: half again the densest one it sold. */
+/** Panel rows sold in the year; before any were, the latest ones sold before it. */
+function yearRows(year: number, content: Content): PanelOption[] {
+  const sold = content.panels.filter((p) => p.from <= year && year <= p.until);
+  if (sold.length > 0) return sold;
+  const past = content.panels.filter((p) => p.from <= year);
+  const latest = Math.max(...past.map((p) => p.from));
+  return past.filter((p) => p.from === latest);
+}
+
+/** Densest panel the year could make: half again the densest one it sold. */
 export function maxPpi(year: number, content: Content = CONTENT): number {
-  const e = eraYear(year);
-  const rows = content.panels.filter((p) => eraYear(p.from) === e);
+  const rows = yearRows(year, content);
   const top = Math.max(150, ...rows.map((p) => ppiOf(p.inches, p.res)));
   return Math.round(top * 1.5);
 }
 
-/** Refresh rates the era's panels commonly ran at. */
+/** Refresh rates the year's panels commonly ran at. */
 export function commonHz(year: number, content: Content = CONTENT): number[] {
-  const e = eraYear(year);
   const set = new Set<number>([60]);
-  for (const p of content.panels) if (eraYear(p.from) === e) for (const h of p.refresh) set.add(h);
+  for (const p of yearRows(year, content)) for (const h of p.refresh) set.add(h);
   return [...set].sort((a, b) => a - b);
 }
 

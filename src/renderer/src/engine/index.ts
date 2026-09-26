@@ -52,7 +52,9 @@ export {
   type Maker,
   RIVALS,
   type Rival,
+  RIVAL_YEARS,
   rivalsFor,
+  rivalYear,
 } from "./content/rivals";
 export {
   type BarChart,

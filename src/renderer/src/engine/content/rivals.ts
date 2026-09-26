@@ -1762,6 +1762,20 @@ export const RIVALS: Rival[] = [
   ...T2026,
 ];
 
+/** Years that have their own field of rivals. */
+export const RIVAL_YEARS: number[] = [...new Set(RIVALS.map((r) => r.build.year))].sort((a, b) => a - b);
+
+/**
+ * The field a build of this year faces: its own year's, else the nearest
+ * year that has one, the earlier on a tie.
+ */
+export function rivalYear(year: number): number {
+  let best = RIVAL_YEARS[0];
+  for (const y of RIVAL_YEARS) if (Math.abs(y - year) < Math.abs(best - year)) best = y;
+  return best;
+}
+
 export function rivalsFor(year: number): Rival[] {
-  return RIVALS.filter((r) => r.build.year === year);
+  const y = rivalYear(year);
+  return RIVALS.filter((r) => r.build.year === y);
 }

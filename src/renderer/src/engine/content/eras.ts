@@ -86,9 +86,47 @@ export const ERAS: Era[] = [
   },
 ];
 
-export function eraFor(year: number, eras: Era[] = ERAS): Era {
+/** The latest era row at or before the year. */
+function stepEra(year: number, eras: Era[]): Era {
   let pick = eras[0];
   for (const era of eras)
     if (era.year <= year && era.year >= pick.year) pick = era;
   return pick;
+}
+
+/**
+ * The era for a year. On a row's own year it is that row. Between two rows
+ * the measurements (walls, gaps, bezels, board and fan sizes) move in a
+ * straight line from one to the next; which materials go where, and whether
+ * there is a vapour chamber, stay with the earlier row.
+ */
+export function eraFor(year: number, eras: Era[] = ERAS): Era {
+  const a = stepEra(year, eras);
+  const b = eras
+    .filter((e) => e.year > a.year)
+    .reduce<Era | undefined>((m, e) => (!m || e.year < m.year ? e : m), undefined);
+  if (!b || a.year === year || year < a.year) return a;
+  const t = (year - a.year) / (b.year - a.year);
+  const n = (x: number, y: number) => Math.round((x + (y - x) * t) * 100) / 100;
+  const tune = (x: [number, number], y: [number, number]): [number, number] => [n(x[0], y[0]), n(x[1], y[1])];
+  const size = (x: Era["fan"]["min"], y: Era["fan"]["min"]) => ({ x: n(x.x, y.x), y: n(x.y, y.y), z: n(x.z, y.z) });
+  const wall: Era["wall"] = {};
+  for (const [m, w] of Object.entries(a.wall)) wall[m] = b.wall[m] ? tune(w, b.wall[m]) : w;
+  return {
+    ...a,
+    year,
+    wall,
+    gap: tune(a.gap, b.gap),
+    bezel: { side: n(a.bezel.side, b.bezel.side), top: n(a.bezel.top, b.bezel.top), chin: n(a.bezel.chin, b.bezel.chin) },
+    packCasing: n(a.packCasing, b.packCasing),
+    pcb: n(a.pcb, b.pcb),
+    heatPipe: n(a.heatPipe, b.heatPipe),
+    spreader: n(a.spreader, b.spreader),
+    deckExtra: n(a.deckExtra, b.deckExtra),
+    boardMargin: n(a.boardMargin, b.boardMargin),
+    vrmMm2PerWatt: n(a.vrmMm2PerWatt, b.vrmMm2PerWatt),
+    vrmHeight: n(a.vrmHeight, b.vrmHeight),
+    fan: { min: size(a.fan.min, b.fan.min), max: size(a.fan.max, b.fan.max) },
+    finDepth: n(a.finDepth, b.finDepth),
+  };
 }

@@ -1667,7 +1667,7 @@ const T2016: Rival[] = (() => {
       parts: { graphics: "geforce-940mx" },
     }),
     trim(b("Carrow 15 Stream"), "Carrow 15 Home", 849, {
-      parts: { processor: "core-i5-6200u", graphics: "radeon-r7-m460" },
+      parts: { processor: "core-i5-6200u", graphics: "geforce-gtx-950m" },
     }),
     trim(b("Vesper Strike 15"), "Vesper Strike 15 Lite", 1149, {
       parts: { graphics: "geforce-gtx-970m" },
@@ -1685,7 +1685,7 @@ const T2016: Rival[] = (() => {
       parts: { graphics: null, processor: "core-i7-6500u" },
     }),
     trim(b("Carrow Play 17"), "Carrow 17 Media", 999, {
-      parts: { graphics: "radeon-r7-m460", processor: "core-i5-6200u" },
+      parts: { graphics: "geforce-gtx-950m", processor: "core-i5-6200u" },
     }),
     trim(b("Aurel Blaze 17"), "Aurel 17 Studio", 1599, {
       parts: { graphics: "geforce-940mx" },

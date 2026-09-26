@@ -274,9 +274,62 @@ export function drawMark(g: CanvasRenderingContext2D, x: number, y: number, size
 
 export const OS_FONT: Record<Era, string> = {
   2006: '"Noto Sans", sans-serif',
-  2016: '"Noto Sans", sans-serif',
+  2016: '"Open Sans", sans-serif',
   2026: '"Noto Sans", sans-serif',
 };
+
+/** 2016: a glossy orb with a ring of dots turning under it, the maker below. */
+function bootGlass(
+  g: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  H: number,
+  maker: string,
+  font: string,
+  t: number,
+  u: number,
+) {
+  const r = 60 * u;
+  const oy = cy - 50 * u;
+  const halo = g.createRadialGradient(cx, oy, r * 0.6, cx, oy, r * 2.2);
+  halo.addColorStop(0, "rgba(80,170,255,0.45)");
+  halo.addColorStop(1, "rgba(80,170,255,0)");
+  g.fillStyle = halo;
+  g.fillRect(cx - r * 2.4, oy - r * 2.4, r * 4.8, r * 4.8);
+  const orb = g.createRadialGradient(cx, oy - r * 0.4, 0, cx, oy, r);
+  orb.addColorStop(0, "#d6f3ff");
+  orb.addColorStop(0.34, "#4aa3e6");
+  orb.addColorStop(0.62, "#1b5aa8");
+  orb.addColorStop(1, "#0a2448");
+  g.fillStyle = orb;
+  g.beginPath();
+  g.arc(cx, oy, r, 0, Math.PI * 2);
+  g.fill();
+  const gloss = g.createLinearGradient(0, oy - r, 0, oy);
+  gloss.addColorStop(0, "rgba(255,255,255,0.65)");
+  gloss.addColorStop(1, "rgba(255,255,255,0.05)");
+  g.fillStyle = gloss;
+  g.beginPath();
+  g.ellipse(cx, oy - r * 0.45, r * 0.77, r * 0.46, 0, 0, Math.PI * 2);
+  g.fill();
+  drawMark(g, cx, oy, 52 * u, "#fff");
+  // Six dots chase round a ring, fading behind the leader.
+  const ry = oy + r + 56 * u + 22 * u;
+  const lead = (t / 1000) * Math.PI * 1.6;
+  for (let k = 0; k < 6; k++) {
+    const a = lead - k * 0.55;
+    g.fillStyle = `rgba(255,255,255,${(1 - k * 0.14).toFixed(2)})`;
+    g.beginPath();
+    g.arc(cx + Math.sin(a) * 17 * u, ry - Math.cos(a) * 17 * u, 3 * u, 0, Math.PI * 2);
+    g.fill();
+  }
+  g.fillStyle = "rgba(255,255,255,0.5)";
+  g.font = `700 ${Math.round(22 * u)}px ${font}`;
+  g.letterSpacing = `${(3.5 * u).toFixed(1)}px`;
+  g.textAlign = "center";
+  g.fillText(maker.toUpperCase(), cx, H - 51 * u);
+  g.letterSpacing = "0px";
+}
 
 /**
  * The boot screen at `ms` into the boot: the maker's name on black, then the
@@ -312,6 +365,11 @@ export function paintBoot(
   }
   const t = ms - BOOT_NAME_MS;
   g.globalAlpha = Math.min(1, t / 300);
+  if (era === 2016) {
+    bootGlass(g, cx, cy, H, maker, font, t, u);
+    g.globalAlpha = 1;
+    return;
+  }
   // 2006: the mark and the italic wordmark over a trough of sliding blocks.
   g.font = `italic 700 ${Math.round(50 * u)}px ${font}`;
   const tw = g.measureText(wordmark).width;

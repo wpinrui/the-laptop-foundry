@@ -136,6 +136,14 @@
   --site16-l2: #8a6aa8;
   --site16-l3: #5f9557;
   --site16-l4: #b8952e;
+  /* 2026 editorial: white cards, the dek, rival bars and chart lines. */
+  --site26-card: #ffffff;
+  --site26-dek: #3a3a3a;
+  --site26-rival: #b9b3a6;
+  --site26-l1: #b07a4a;
+  --site26-l2: #6f8f5a;
+  --site26-l3: #8a6f9e;
+  --site26-l4: #a39a86;
   /* Very loud on the noise scale, every era. */
   --site-loud: #8c1d18;
   /* Score piece: poor, fair, good, great. */

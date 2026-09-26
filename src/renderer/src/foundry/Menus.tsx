@@ -356,6 +356,14 @@ export function SettingsMenu({
             <span>Source Sans 3</span>
             <small>Adobe, SIL Open Font License 1.1</small>
           </li>
+          <li>
+            <span>Hanken Grotesk</span>
+            <small>The Hanken Grotesk Project Authors, SIL Open Font License 1.1</small>
+          </li>
+          <li>
+            <span>Newsreader</span>
+            <small>The Newsreader Project Authors, SIL Open Font License 1.1</small>
+          </li>
         </ul>
         <div className="fd-entries">
           <Entry secondary onClick={() => setCredits(false)} autoFocus>

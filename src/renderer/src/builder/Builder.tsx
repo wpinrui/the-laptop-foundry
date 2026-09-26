@@ -162,6 +162,7 @@ function Select({
   onChange,
   flagged,
   label,
+  name,
 }: {
   value: string;
   options: { value: string; label: string }[];

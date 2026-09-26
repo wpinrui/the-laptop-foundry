@@ -141,6 +141,8 @@ export function renderUnit(
   } catch (e) {
     console.error(`${key} model failed; showing the placeholder`, e);
     const fallback = placeholder(role, box, opts, ctx);
+    // The viewer lists every unit whose model failed, so it never fails quietly.
+    fallback.userData.failed = e instanceof Error ? e.message : String(e);
     if (import.meta.env.DEV)
       fallback.add(
         new THREE.LineSegments(

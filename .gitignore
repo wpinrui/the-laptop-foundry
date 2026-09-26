@@ -37,3 +37,4 @@ temp/
 
 # Conversation incidents, reviewed in a retro and then deleted
 .incidents/
+*.tsbuildinfo

@@ -11,10 +11,11 @@ import {
   useRef,
 } from "react";
 import * as THREE from "three";
-import type { Box, Build, Fit, WallHole } from "../engine";
+import type { Box, Build, Fit, Side } from "../engine";
 import { shellSurface } from "../engine";
 import { LID_GROUP } from "../models/roles/hinge";
 import { overflowSlabs } from "./overflow";
+import { type Cuts, portCuts, wallPositions } from "./walls";
 import {
   disposeUnit,
   renderUnit,
@@ -293,9 +294,11 @@ function surfaceGeometry(
   profile: boolean,
   mode: "full" | "open" | "deck" = "full",
   wells: Wells = [],
-  holes: WallHole[] = [],
+  cuts: Cuts = {},
+  wallDepth = 0,
 ): THREE.BufferGeometry {
-  const data = shellSurface(size, style, profile, 8, mode === "deck" ? [] : holes);
+  const open = mode === "deck" ? [] : (Object.keys(cuts) as Side[]);
+  const data = shellSurface(size, style, profile, 8, open);
   const count = data.positions.length / 3;
   // shellSurface lays out the rings, then the bottom centre, then the top centre.
   const topCentre = count - 1;
@@ -336,8 +339,22 @@ function surfaceGeometry(
         kept.push(indices[i], indices[i + 1], indices[i + 2]);
     indices = new Uint32Array(kept);
   }
+  // The walls left open are built whole, with their port holes cut through.
+  let positions = data.positions;
+  if (data.walls.length > 0) {
+    const extra: number[] = [];
+    for (const w of data.walls) extra.push(...wallPositions(w, cuts[w.side] ?? [], wallDepth));
+    const all = new Float32Array(positions.length + extra.length);
+    all.set(positions);
+    all.set(extra, positions.length);
+    const idx = new Uint32Array(indices.length + extra.length / 3);
+    idx.set(indices);
+    for (let i = 0; i < extra.length / 3; i++) idx[indices.length + i] = count + i;
+    positions = all;
+    indices = idx;
+  }
   const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
+  g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   g.setIndex(new THREE.BufferAttribute(indices, 1));
   g.computeVertexNormals();
   return g;
@@ -354,7 +371,8 @@ function Shell({
   offset = 2,
   mode = "full",
   wells,
-  holes,
+  cuts,
+  wallDepth,
 }: {
   size: Fit["shell"]["outer"];
   style: Fit["shell"]["style"];
@@ -367,13 +385,15 @@ function Shell({
   offset?: number;
   mode?: "full" | "open" | "deck";
   wells?: Wells;
-  /** Holes cut through the side walls, so a solid shell shows what sits in them. */
-  holes?: WallHole[];
+  /** Port openings cut through the side walls, so a solid shell shows the connectors. */
+  cuts?: Cuts;
+  /** Side wall thickness: how deep the port holes run to the connector faces. */
+  wallDepth?: number;
 }) {
   const look = surfaceLook(surface);
   const geometry = useMemo(
-    () => surfaceGeometry(size, style, profile, mode, wells, holes),
-    [size.x, size.y, size.z, style, profile, mode, wells, holes],
+    () => surfaceGeometry(size, style, profile, mode, wells, cuts, wallDepth),
+    [size.x, size.y, size.z, style, profile, mode, wells, cuts, wallDepth],
   );
   const edges = useMemo(
     () => new THREE.EdgesGeometry(geometry, 25),
@@ -514,10 +534,8 @@ export const Model = memo(function Model({
   const out = fit.shell.outer;
   const lidSize = fit.shell.lid.size;
   // Each port's own model draws its connector face; the wall is cut open over it.
-  const portHoles = useMemo(
-    () => fit.shell.cutouts.filter((o) => o.kind === "port"),
-    [fit],
-  );
+  const cuts = useMemo(() => portCuts(fit), [fit]);
+
 
   return (
     // Engine space is z up; three is y up. Rotate once here and centre the base.
@@ -531,7 +549,8 @@ export const Model = memo(function Model({
           surface={surfaces?.floor}
           xray={xray}
           mode="open"
-          holes={portHoles}
+          cuts={cuts}
+          wallDepth={fit.shell.offsets.side}
         />
         <Shell
           size={out}

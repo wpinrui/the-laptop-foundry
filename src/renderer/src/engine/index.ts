@@ -3,7 +3,7 @@ export { makeBuild, SAMPLES } from "./samples";
 export { solve } from "./solve";
 export * from "./types";
 export { validateContent } from "./validate";
-export { type MeshData, shellSurface, type WallHole } from "./shellGeometry";
+export { type MeshData, shellSurface } from "./shellGeometry";
 export {
   type Battery,
   type Cooling,

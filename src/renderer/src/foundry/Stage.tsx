@@ -21,8 +21,8 @@ export interface StageView {
   mode: StageMode;
 }
 
-const PLINTH_R = 270;
-const PLINTH_H = 50;
+export const PLINTH_R = 270;
+export const PLINTH_H = 50;
 const ELEVATION = 0.42;
 const TARGET_Y = PLINTH_H + 85;
 const EASE_MS = 600;
@@ -187,7 +187,7 @@ function Rig({ view, turntable }: { view: StageView; turntable: RefObject<THREE.
   return null;
 }
 
-function Lights() {
+export function Lights() {
   const spot = useRef<THREE.SpotLight>(null);
   const key = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
@@ -236,7 +236,7 @@ function Lights() {
 }
 
 /** The fog and clear colour: the room fades to the ground colour. */
-function Atmosphere() {
+export function Atmosphere() {
   const scene = useThree((s) => s.scene);
   useEffect(() => {
     const ground = new THREE.Color(token("ground"));

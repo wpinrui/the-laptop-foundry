@@ -166,4 +166,22 @@
   --stage-rim: #86a2ff;
   --stage-fill-sky: #4a382a;
   --stage-fill-ground: #0a0806;
+  /* Builder (Foundry): stages ahead, chip and row lines, the selection glow. */
+  --ahead: #6f655b;
+  --line-chip: rgba(239, 230, 220, 0.22);
+  --line-row: rgba(239, 230, 220, 0.08);
+  --track: rgba(239, 230, 220, 0.14);
+  --hot: #fff1e0;
+  /* The accent and warning as hex, for three.js, which cannot read oklch. */
+  --accent-hex: #f0913d;
+  --warning-hex: #e8c25a;
+  --select-edge: #ffd0a0;
+  --dim-part: #2a2522;
+  --screen-off: #050608;
+  --screen-grid: #0b0d10;
+  --screen-glow: #ffb070;
+  --screen-boot: #2a1b10;
+  --screen-boot-edge: #070504;
+  --screen-desk: #8a5a36;
+  --screen-desk-edge: #1b120c;
 }

@@ -57,10 +57,13 @@ export function ColourPicker({
   value,
   onChange,
   disabled,
+  compact,
 }: {
   value: string;
   onChange: (hex: string) => void;
   disabled?: boolean;
+  /** A shorter colour square, for tight columns. */
+  compact?: boolean;
 }) {
   const [hsv, setHsv] = useState<HSV>(() => rgbToHsv(hexToRgb(value)));
   const [text, setText] = useState<string | null>(null);
@@ -98,7 +101,7 @@ export function ColourPicker({
   const hueHex = rgbToHex(hsvToRgb([h, 1, 1]));
   const hex = rgbToHex(hsvToRgb(hsv));
   return (
-    <div className={disabled ? "bd-picker off" : "bd-picker"}>
+    <div className={["bd-picker", disabled ? "off" : "", compact ? "compact" : ""].join(" ")}>
       <div
         className="bd-sv"
         style={{ "--hue": hueHex } as CSSProperties}

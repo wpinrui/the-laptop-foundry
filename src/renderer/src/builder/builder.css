@@ -1363,3 +1363,122 @@
 .bd-aligns i.on::after {
   background: var(--accent);
 }
+
+.bd-picker.compact .bd-sv {
+  height: calc(104 * var(--u));
+}
+
+/* Finish detail. */
+.bd-finish-detail {
+  display: flex;
+  flex-direction: column;
+  gap: calc(14 * var(--u));
+}
+
+.bd-caps {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+  text-transform: uppercase;
+}
+
+.bd-column.bd-marks {
+  width: calc(440 * var(--u));
+}
+
+/* Marks: surface tabs, the text on its underline, the property grid. */
+.bd-tabs {
+  display: flex;
+  gap: calc(26 * var(--u));
+  border-bottom: 1px solid var(--line);
+}
+
+.bd-tabs button {
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  font-size: calc(20 * var(--u)) !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted) !important;
+  padding-bottom: calc(8 * var(--u)) !important;
+}
+
+.bd-tabs button.on {
+  color: var(--accent) !important;
+  border-bottom: 2px solid var(--accent) !important;
+  padding-bottom: calc(6 * var(--u)) !important;
+}
+
+.bd-mark {
+  display: flex;
+  flex-direction: column;
+  gap: calc(20 * var(--u));
+}
+
+.bd-mark-text {
+  display: block;
+  width: 100%;
+  border-bottom: 2px solid var(--accent) !important;
+  padding-bottom: calc(6 * var(--u)) !important;
+  font-size: calc(40 * var(--u)) !important;
+  line-height: 1.1 !important;
+  color: var(--text) !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-mark-text.svg {
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.bd-mark-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(16 * var(--u)) calc(24 * var(--u));
+}
+
+.bd-mark-grid .bd-field {
+  gap: calc(6 * var(--u));
+}
+
+.bd-cell {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.bd-cell:hover .bd-value {
+  color: var(--accent);
+}
+
+.bd-value.accent {
+  color: var(--accent);
+}
+
+.bd-colour-line {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+}
+
+.bd-colour-line .bd-swatch {
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+}
+
+.bd-badge {
+  font-style: normal;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(13 * var(--u));
+  color: var(--muted);
+  border: 1px solid var(--line-chip);
+  padding: calc(2 * var(--u)) calc(6 * var(--u));
+}
+
+.bd-badge.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}

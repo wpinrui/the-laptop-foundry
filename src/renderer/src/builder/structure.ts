@@ -1,4 +1,4 @@
-import { available, type Build, CONTENT, type Piece, PIECES } from "../engine";
+import { available, type Build, CONTENT, colourHex, type Piece, PIECES } from "../engine";
 
 // Structural choices always hold a valid value for the year. Changing year
 // keeps every part, port, option and spend setting: anything the new year
@@ -41,10 +41,6 @@ function validFinish(b: Build): Pick<Build, "materials" | "finish"> {
       CONTENT.finishes.some((x) => x.id === id && available(x, b.year)),
     );
     if (!finishes.includes(f.texture)) f.texture = finishes[0] ?? f.texture;
-    if (!CONTENT.colours.some((c) => c.id === f.colour && available(c, b.year)))
-      f.colour = (
-        CONTENT.colours.find((c) => available(c, b.year)) ?? CONTENT.colours[0]
-      ).id;
     finish[piece] = f;
   }
   return { materials, finish };
@@ -71,9 +67,8 @@ export function emptyBuild(): Build {
   const year = Math.max(...CONTENT.eras.map((e) => e.year));
   const body = firstBody(year);
   const b = CONTENT.bodies.find((x) => x.id === body);
-  const colour = (
-    CONTENT.colours.find((c) => available(c, year)) ?? CONTENT.colours[0]
-  ).id;
+  // Colours are free hex; a new build starts graphite.
+  const colour = colourHex("graphite").toUpperCase();
   const base: Build = {
     year,
     body,

@@ -1,6 +1,19 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { SavedModel } from "../../../preload/store";
-import { type Box, type Build, CONTENT, type Category, costOf, migrateScreen, type Piece, simulate, solve } from "../engine";
+import {
+  type Box,
+  type Build,
+  CONTENT,
+  type Category,
+  colourHex,
+  costOf,
+  decorOf,
+  type MarkSurface,
+  migrateColours,
+  migrateScreen,
+  simulate,
+  solve,
+} from "../engine";
 import { type Hover, type Paint, surfacesOf } from "../viewer/Scene";
 import { BuilderScene } from "./BuilderScene";
 import { panelLabel } from "./format";
@@ -11,14 +24,14 @@ import { type ScreenKind, screenTexture } from "./screens";
 import {
   ChassisColumn,
   ChassisTray,
-  FinishColumn,
-  FinishTray,
   InsideColumn,
   insideSlots,
   PriceColumn,
   YearColumn,
 } from "./Stages";
+import { type FinishPiece, FinishColumn, FinishTray } from "./FinishStage";
 import { type KeyGroup, KeysColumn, KeysTray } from "./KeysStage";
+import { MarkHandles, MarksColumn, MarksTray } from "./MarksStage";
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { type SurfaceItem, SurfaceColumn, SurfaceMarks, SurfaceTray, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
@@ -101,7 +114,7 @@ const FRAME: Record<Stage, Frame> = {
 };
 
 /** Stages with a tray of cards along the bottom. */
-const TRAY = new Set<Stage>(["chassis", "screen", "surface", "keys", "finish"]);
+const TRAY = new Set<Stage>(["chassis", "screen", "surface", "keys", "finish", "marks"]);
 
 /** Floor zone roles where an empty slot's part would go. */
 const ZONE_ROLE: Partial<Record<Category, string>> = {
@@ -132,7 +145,7 @@ export function Builder({
   reroll: (b: Build) => string;
 }) {
   // Older saves picked a panel row; the builder edits a screen spec.
-  const [build, setBuild] = useState<Build>(() => migrateScreen(model.build as Build));
+  const [build, setBuild] = useState<Build>(() => migrateColours(migrateScreen(model.build as Build)));
   const [name, setName] = useState(model.name);
   // A reviewed model is locked for good so its review never changes.
   const locked = !!model.reviewed;
@@ -187,7 +200,10 @@ export function Builder({
   const [surfaceItem, setSurfaceItem] = useState<SurfaceItem>("keyboard");
   const [port, setPort] = useState(0);
   const [keyGroup, setKeyGroup] = useState<KeyGroup>("letters");
-  const [piece, setPiece] = useState<Piece>("lid");
+  const [piece, setPiece] = useState<FinishPiece>("lid");
+  const [markSurface, setMarkSurface] = useState<MarkSurface>("lid");
+  const [markSel, setMarkSel] = useState<string | null>(null);
+  const [markNote, setMarkNote] = useState<string | null>(null);
   const [sheet, setSheet] = useState(false);
   const [listOpen, setListOpen] = useState(false);
 
@@ -215,12 +231,13 @@ export function Builder({
     }
   }, [stage, valid, build, fit, locked, set]);
 
-  const hex = (id: string) => CONTENT.colours.find((c) => c.id === id)?.hex ?? "";
+  const hex = (id: string) => colourHex(id);
   const colours = useMemo(
     () => ({ floor: hex(build.finish.floor.colour), deck: hex(build.finish.deck.colour), lid: hex(build.finish.lid.colour) }),
     [build.finish],
   );
   const surfaces = useMemo(() => surfacesOf(build), [build]);
+  const decor = useMemo(() => decorOf(build), [build]);
 
   // Inside: the selected slot's part, and where an empty slot's part goes.
   const slot = insideSlots(build).find((s) => s.key === insideSlot) ?? insideSlots(build)[0];
@@ -245,9 +262,14 @@ export function Builder({
   let frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : FRAME[stage];
   if (surface && surfaceItem === "webcam") frame = { view: "screen", shift: 0.2, zoom: 0.9, lift: 0.02 };
   if (surface && surfaceItem === "ports") frame = { view: "side", shift: 0.15, zoom: 1.05, lift: 0.02 };
+  const marking = stage === "marks" && !powering;
+  if (marking && markSurface === "palm") frame = { view: "deck", shift: 0.18, lift: 0.012 };
+  if (marking && markSurface === "bottom") frame = { view: "bottom", shift: 0.18 };
+  if (marking && markSurface === "bezel") frame = { view: "screen", shift: 0.2, zoom: 1.05, lift: 0.01 };
+  const flip = marking && markSurface === "bottom";
   const focus = selectedBoxes[0] ?? emptyBoxes[0];
   const viewName: ViewName = inside && !focus ? "xray" : frame.view;
-  const lidAngle = surface && surfaceItem === "ports" ? 0 : LID_OPEN;
+  const lidAngle = (surface && surfaceItem === "ports") || flip ? 0 : LID_OPEN;
   const view = useMemo(
     () =>
       viewFor(viewName, fit, lidAngle, {
@@ -342,6 +364,33 @@ export function Builder({
       column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;
       tray = <FinishTray {...props} piece={piece} />;
       break;
+    case "marks":
+      column = (
+        <>
+          <MarksColumn
+            {...props}
+            surface={markSurface}
+            onSurface={(s) => {
+              setMarkSurface(s);
+              setMarkSel((build.marks ?? []).find((m) => m.surface === s)?.id ?? null);
+            }}
+            selected={markSel}
+            onSelect={setMarkSel}
+          />
+          {markNote && <span className="bd-note">{markNote}</span>}
+        </>
+      );
+      tray = (
+        <MarksTray
+          {...props}
+          surface={markSurface}
+          selected={markSel}
+          onSelect={setMarkSel}
+          defaultText={(shownName.split(" ")[0] ?? "").toUpperCase()}
+          onNote={setMarkNote}
+        />
+      );
+      break;
     case "price":
       column = (
         <PriceColumn
@@ -366,7 +415,7 @@ export function Builder({
         fit={fit}
         year={build.year}
         view={view}
-        resetKey={`${stage}:${stage === "inside" ? slot.key : stage === "surface" ? `${surfaceItem}:${portSide ?? ""}` : ""}:${powering}`}
+        resetKey={`${stage}:${stage === "inside" ? slot.key : stage === "surface" ? `${surfaceItem}:${portSide ?? ""}` : stage === "marks" ? markSurface : ""}:${powering}`}
         lidAngle={lidAngle}
         colours={colours}
         surfaces={surfaces}
@@ -379,9 +428,19 @@ export function Builder({
             <SelectionMarks selected={selectedBoxes} empty={emptyBoxes} />
           ) : surface ? (
             <SurfaceMarks build={build} fit={fit} set={set} item={surfaceItem} port={port} locked={locked} />
+          ) : marking && (markSurface === "palm" || markSurface === "bottom") ? (
+            <MarkHandles build={build} fit={fit} set={set} selected={markSel} locked={locked} />
           ) : undefined
         }
-        lidExtra={surface && surfaceItem === "webcam" ? <WebcamMarks fit={fit} set={set} locked={locked} /> : undefined}
+        lidExtra={
+          surface && surfaceItem === "webcam" ? (
+            <WebcamMarks fit={fit} set={set} locked={locked} />
+          ) : marking && (markSurface === "lid" || markSurface === "bezel") ? (
+            <MarkHandles build={build} fit={fit} set={set} selected={markSel} locked={locked} />
+          ) : undefined
+        }
+        decor={decor}
+        flip={flip}
         labelFor={labelFor}
         onHover={inside ? hoverStore.set : () => {}}
         onPick={inside ? pick : surface ? pickSurface : undefined}

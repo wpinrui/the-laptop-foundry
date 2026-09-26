@@ -6,7 +6,7 @@ import { PLINTH_H } from "../foundry/Stage";
 // angle round the laptop (az), an elevation (el), a distance as a multiple of
 // the laptop's larger plan side (k), and a target point.
 
-export type ViewName = "hero" | "deck" | "keys" | "lid" | "side" | "screen" | "part" | "front" | "finish" | "xray";
+export type ViewName = "hero" | "deck" | "keys" | "lid" | "side" | "screen" | "part" | "front" | "finish" | "xray" | "bottom";
 
 export interface View {
   az: number;
@@ -122,6 +122,13 @@ export function viewFor(
       t = [0, p.y, p.z + 20];
       break;
     }
+    case "bottom":
+      // The laptop is turned over onto its lid: the bottom faces up.
+      az = Math.PI;
+      el = 1.12;
+      k = 2.05;
+      t = [0, PLINTH_H + H + fit.lidZ, 0];
+      break;
     case "xray":
       az = -0.42;
       el = 0.86;

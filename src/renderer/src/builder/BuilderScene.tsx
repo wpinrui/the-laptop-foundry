@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import type { Box, Fit } from "../engine";
+import type { Box, Decor, Fit } from "../engine";
 import { Atmosphere, Lights, PLINTH_H, PLINTH_R } from "../foundry/Stage";
 import { type Hover, Model, type Paint, Reflections, type Surfaces } from "../viewer/Scene";
 import { token } from "../viewer/theme";
@@ -106,7 +106,12 @@ export function BuilderScene({
   labelFor = noLabel,
   onHover,
   onPick,
+  decor,
+  flip,
 }: {
+  decor?: Decor;
+  /** Turn the laptop over onto its lid, to show the bottom. */
+  flip?: boolean;
   fit: Fit;
   year: number;
   view: View;
@@ -179,7 +184,10 @@ export function BuilderScene({
           <cylinderGeometry args={[PLINTH_R, PLINTH_R, PLINTH_H, 96]} />
           <meshStandardMaterial color={token("stage-plinth")} roughness={0.55} metalness={0.3} />
         </mesh>
-        <group position={[0, PLINTH_H, 0]}>
+        <group
+          position={[0, flip ? PLINTH_H + fit.shell.outer.z + fit.lidZ : PLINTH_H, 0]}
+          rotation-x={flip ? Math.PI : 0}
+        >
           <Model
             fit={fit}
             year={year}
@@ -197,6 +205,7 @@ export function BuilderScene({
                 : undefined
             }
             lockScreen={screen}
+            decor={decor}
             paint={paint}
             extra={extra}
             lidExtra={lidExtra}

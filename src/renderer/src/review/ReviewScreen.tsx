@@ -1,7 +1,8 @@
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import {
   type Build,
-  CONTENT,
+  colourHex,
+  decorOf,
   type PanelOption,
   panelOf,
   RIVALS,
@@ -92,8 +93,7 @@ export function ReviewScreen({
   const fit = useMemo(() => solve(build), [build]);
   const panel = panelOf(build);
   const look = lookOf(panel);
-  const colour = (id: string) =>
-    CONTENT.colours.find((c) => c.id === id)?.hex ?? "";
+  const colour = (id: string) => colourHex(id);
   const surfaces = useMemo(() => surfacesOf(build), [build]);
   const colours = useMemo(
     () => ({
@@ -147,6 +147,7 @@ export function ReviewScreen({
         year={build.year}
         lidAngle={105}
         colours={colours}
+        decor={decorOf(build)}
         surfaces={surfaces}
         xray={false}
         workshop

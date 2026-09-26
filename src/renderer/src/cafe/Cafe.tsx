@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import type { Fit } from "../engine";
+import type { Decor, Fit } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
 import type { Surfaces } from "../viewer/Scene";
 import { type Aim, World } from "./World";
@@ -57,6 +57,7 @@ export function Cafe({
   fit,
   year,
   colours,
+  decor,
   surfaces,
   page,
   shoot,
@@ -69,6 +70,7 @@ export function Cafe({
   fit: Fit;
   year: number;
   colours: { floor: string; deck: string; lid: string };
+  decor?: Decor;
   surfaces: Surfaces;
   page?: Page;
   shoot: ReactNode;
@@ -194,6 +196,7 @@ export function Cafe({
           fit={fit}
           year={year}
           colours={colours}
+          decor={decor}
           surfaces={surfaces}
           screen={page && !full ? page : undefined}
           seated={seated}

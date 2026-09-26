@@ -3,6 +3,8 @@ import {
   CONTENT,
   gameEdition,
   KILNBENCH,
+  colourHex,
+  decorOf,
   panelOf,
   PROFILES,
   type ProfileId,
@@ -497,7 +499,7 @@ export function CafeScreen({
     </div>
   ) : null;
 
-  const colour = (id: string) => CONTENT.colours.find((c) => c.id === id)?.hex ?? "";
+  const colour = (id: string) => colourHex(id);
   const surfaces = useMemo(() => surfacesOf(build), [build]);
   const colours = useMemo(
     () => ({
@@ -512,6 +514,7 @@ export function CafeScreen({
       fit={fit}
       year={build.year}
       colours={colours}
+      decor={decorOf(build)}
       surfaces={surfaces}
       page={look && page ? { node: page, width: look.width, height: look.height, mm: look.mm } : undefined}
       shoot={shoot}

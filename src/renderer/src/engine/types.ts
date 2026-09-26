@@ -423,6 +423,30 @@ export interface KeySpec {
   };
 }
 
+export type MarkSurface = "lid" | "palm" | "bottom" | "bezel";
+
+/** A mark on the case: text, or an SVG the player imported. Sizes in mm. */
+export interface Mark {
+  id: string;
+  surface: MarkSurface;
+  kind: "text" | "svg";
+  /** The text, or the SVG's name. */
+  text: string;
+  /** Sanitised SVG markup. */
+  svg?: string;
+  font: string;
+  /** Text height, or the SVG's height. */
+  size: number;
+  /** Letter spacing in thousandths of the size. */
+  tracking: number;
+  weight: number;
+  colour: string;
+  process: "etched" | "printed" | "embossed";
+  /** Offset of the mark's centre from the surface's centre, right and up as the surface is read. */
+  x: number;
+  y: number;
+}
+
 export interface BuildPart {
   part: string;
   opts?: Record<string, OptionValue>;
@@ -451,6 +475,9 @@ export interface Build {
   place?: Placement;
   /** Keycap shape, colours and legends. Absent means the keyboard's stock caps. */
   keys?: KeySpec;
+  /** The screen bezel's colour, hex. Absent means the lid's own. */
+  bezel?: string;
+  marks?: Mark[];
 }
 
 // ---------------------------------------------------------------- fit

@@ -13,9 +13,10 @@ import {
   useState,
 } from "react";
 import * as THREE from "three";
-import type { Box, Build, Fit, Side } from "../engine";
+import type { Box, Build, Decor, Fit, Side } from "../engine";
 import { shellSurface } from "../engine";
 import { LID_GROUP } from "../models/roles/hinge";
+import { BaseMarks, LidDecor } from "./Decor";
 import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
 import { type Cuts, portCuts, wallPositions } from "./walls";
@@ -65,6 +66,8 @@ interface SceneProps {
   floorless?: boolean;
   /** Draws the listed units in the accent colour and, when dim, everything else dark. */
   paint?: Paint;
+  /** The bezel colour and the player's marks. */
+  decor?: Decor;
   /** Extra objects in the base's engine space (mm, z up), such as selection outlines. */
   extra?: ReactNode;
   /** Extra objects in the lid's engine space, closed position; they turn with the lid. */
@@ -651,6 +654,7 @@ export const Model = memo(function Model({
   paint,
   extra,
   lidExtra,
+  decor,
 }: SceneProps & { portal?: RefObject<HTMLDivElement | null> }) {
   const ctx = useMemo(() => makeCtx(), []);
   // Base and lid report their failed units separately; the scene gets them together.
@@ -735,6 +739,7 @@ export const Model = memo(function Model({
           onFailed={reportBase}
           paint={paint}
         />
+        <BaseMarks fit={fit} marks={decor?.marks} />
         {extra}
         <Overflow fit={fit} />
         {/* The lid turns about the hinge axis, which runs along x. */}
@@ -759,6 +764,7 @@ export const Model = memo(function Model({
               onFailed={reportLid}
               paint={paint}
             />
+            <LidDecor fit={fit} bezel={decor?.bezel} marks={decor?.marks} />
             {lidExtra}
             {!xray && panelBox && (
               // A solid lid would hide a panel set behind its bezel: show the dark screen glass.

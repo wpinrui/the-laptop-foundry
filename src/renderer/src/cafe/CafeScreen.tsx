@@ -3,6 +3,7 @@ import {
   CONTENT,
   gameEdition,
   KILNBENCH,
+  panelOf,
   PROFILES,
   type ProfileId,
   RIVALS,
@@ -339,7 +340,7 @@ export function CafeScreen({
 
   const plug = useCallback(() => setPlugged((v) => !v), []);
 
-  const look = lookOf(CONTENT.panels.find((p) => p.id === build.parts.display?.[0]?.part));
+  const look = lookOf(panelOf(build));
   const era = eraOf(build.year);
   const current = history[history.length - 1];
   const entries = useMemo(() => {

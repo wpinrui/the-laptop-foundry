@@ -1,5 +1,5 @@
 import { type Content, CONTENT } from "../content";
-import { activeArea } from "../content/display";
+import { panelBaseCost, panelOf, type ResolvedPanel } from "../screen";
 import type { Measurements } from "../sim";
 import {
   type Build,
@@ -233,17 +233,6 @@ const LIGHT: Record<string, number> = {
   "rgb-per-key": 40,
 };
 
-/** Panel dollars per square decimetre, and per megapixel. */
-const PANEL: Record<string, { dm2: number; mp: number }> = {
-  "tn-matte": { dm2: 18, mp: 20 },
-  "tn-glossy": { dm2: 19, mp: 20 },
-  "tn-led": { dm2: 6, mp: 8 },
-  "ips-type": { dm2: 30, mp: 25 },
-  ips: { dm2: 7, mp: 8 },
-  oled: { dm2: 16, mp: 8 },
-  "mini-led": { dm2: 30, mp: 10 },
-};
-
 function batteryWh(part: Part, bp: BuildPart): number {
   const cells = opt(part, bp, "cells");
   if (cells !== undefined) return Number(part.info?.[`wh${cells}`] ?? 0);
@@ -348,6 +337,11 @@ export interface Cost {
   lines: CostLine[];
 }
 
+/** Cost price of a resolved screen: the panel, plus the premium when it is custom. */
+export function screenPrice(panel: ResolvedPanel): number {
+  return panelBaseCost(panel, panel.hz) + panel.premium;
+}
+
 /** Cost price of one chosen part, in the year's nominal dollars. */
 export function partPrice(
   cat: Category,
@@ -355,19 +349,7 @@ export function partPrice(
   year: number,
   content: Content = CONTENT,
 ): number {
-  if (cat === "display") {
-    const panel = content.panels.find((p) => p.id === bp.part);
-    if (!panel) return 0;
-    const a = activeArea(panel);
-    const rate = PANEL[panel.type] ?? { dm2: 10, mp: 10 };
-    const mp = (panel.res[0] * panel.res[1]) / 1e6;
-    const hz = Number(bp.opts?.refresh ?? panel.refresh[0]);
-    return (
-      ((a.x * a.y) / 1e4) * rate.dm2 +
-      mp * rate.mp +
-      Math.max(0, (hz - 60) / 60) * 15
-    );
-  }
+  if (cat === "display") return 0;
   const p = content.parts.find((x) => x.id === bp.part);
   return p ? partCost(cat, p, bp, year) : 0;
 }
@@ -385,6 +367,14 @@ export function costOf(
   };
   let spend = 0;
   for (const cat of CATEGORIES) {
+    if (cat === "display") {
+      const panel = panelOf(build, content);
+      if (!panel) continue;
+      const c = screenPrice(panel);
+      add(cat, c);
+      spend += (build.spend.display ?? 0) * (15 + 0.3 * c);
+      continue;
+    }
     const list = build.parts[cat] ?? [];
     let catCost = 0;
     for (const bp of list) {

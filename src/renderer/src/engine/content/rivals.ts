@@ -1,6 +1,7 @@
 import { makeBuild } from "../samples";
 import { MATERIALS } from "./finish";
 import { solve } from "../solve";
+import { migrateScreen } from "../screen";
 import type { Build, Category, OptionValue, Piece, Side, Size } from "../types";
 
 // Rivals: six fictional makers, constant across the years. Each rival is a
@@ -195,14 +196,16 @@ function trim(
   const finish = { ...base.build.finish };
   for (const piece of Object.keys(change.materials ?? {}) as Piece[])
     finish[piece] = { ...finish[piece], texture: texture(materials[piece]) };
-  const build: Build = {
+  // A new display pick replaces the base's screen spec.
+  const build: Build = migrateScreen({
     ...base.build,
     parts,
     materials,
     finish,
     spend: { ...base.build.spend, ...change.spend },
     price,
-  };
+    screen: change.parts?.display !== undefined ? undefined : base.build.screen,
+  });
   const min = solve(build).min;
   const up = (v: number) => Math.ceil(v * 2) / 2;
   const size: Size = {

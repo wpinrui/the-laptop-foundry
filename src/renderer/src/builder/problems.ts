@@ -1,4 +1,4 @@
-import { type Build, CONTENT, type Category, type Problem, solve } from "../engine";
+import { type Build, CONTENT, type Category, KIND_NAME, type Problem, solve } from "../engine";
 import { panelLabel } from "./format";
 
 // Fit problems in words, and the builder stage each one belongs to.
@@ -34,6 +34,13 @@ const CAT_NAME: Record<Category, string> = {
   speakers: "speakers",
 };
 
+const SCREEN_LIMIT = {
+  refresh: "Refresh too high for the year",
+  density: "Resolution too dense for the year",
+  size: "Screen size out of range",
+  resolution: "Resolution too low",
+} as const;
+
 const AXIS_NAME = { x: "width", y: "depth", z: "height" } as const;
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
@@ -52,7 +59,7 @@ function partName(id: string): string {
 }
 
 function partStage(id: string): Stage {
-  if (CONTENT.panels.some((p) => p.id === id)) return "screen";
+  if (CONTENT.panels.some((p) => p.id === id) || id in KIND_NAME) return "screen";
   return stageOfCategory(CONTENT.parts.find((p) => p.id === id)?.category);
 }
 
@@ -77,6 +84,8 @@ export function stageOf(p: Problem): Stage {
       return "finish";
     case "no-charging":
       return "surface";
+    case "screen":
+      return "screen";
     default:
       return "chassis";
   }
@@ -87,8 +96,10 @@ export function problemText(p: Problem): string {
     return p.code === "short"
       ? `${cap(AXIS_NAME[p.axis])} ${p.by.toFixed(1)} mm short`
       : `${cap(AXIS_NAME[p.axis])} ${p.by.toFixed(1)} mm over the body limit`;
-  if (p.kind === "year")
+  if (p.kind === "year") {
+    if (p.what === "panel" && p.ref in KIND_NAME) return `${KIND_NAME[p.ref as keyof typeof KIND_NAME]} panels not made this year`;
     return `${p.what === "part" || p.what === "panel" ? partName(p.ref) : cap(p.what)} not available this year`;
+  }
   switch (p.code) {
     case "needs":
       return `${partName(p.part)} needs ${p.needs}`;
@@ -112,6 +123,8 @@ export function problemText(p: Problem): string {
       return `${partName(p.part)} on a side without ports`;
     case "unknown":
       return `Unknown part ${p.ref}`;
+    case "screen":
+      return SCREEN_LIMIT[p.what];
   }
 }
 

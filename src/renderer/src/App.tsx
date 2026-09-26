@@ -5,7 +5,7 @@ import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
 import { emptyBuild } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
-import { type Build, CONTENT, type Subject } from "./engine";
+import { type Build, screenOf, type Subject } from "./engine";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { Stage, type StageView } from "./foundry/Stage";
@@ -14,8 +14,7 @@ import { ReviewScreen } from "./review/ReviewScreen";
 const store = () => window.api.store;
 
 function inchesOf(b: Build): number | undefined {
-  const id = b.parts.display?.[0]?.part;
-  return CONTENT.panels.find((p) => p.id === id)?.inches;
+  return screenOf(b)?.diag;
 }
 
 type Menu = "start" | "new" | "load" | "settings" | "list" | "name";

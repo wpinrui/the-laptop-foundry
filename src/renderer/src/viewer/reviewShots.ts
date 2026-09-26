@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { type Build, CONTENT, type Fit, RIVALS, simulate, solve } from "../engine";
+import { type Build, type Fit, panelOf, RIVALS, simulate, solve } from "../engine";
 import { AMBIENT } from "../engine/sim";
 import { eraOf, setAssetResolver } from "./reviewScenes";
 
@@ -34,7 +34,7 @@ export interface PanelLook {
 }
 
 export function panelLook(build: Build): PanelLook {
-  const panel = CONTENT.panels.find((p) => p.id === build.parts.display?.[0]?.part);
+  const panel = panelOf(build);
   const type = panel?.type ?? "";
   return {
     glossy: type.includes("glossy") || type === "oled",

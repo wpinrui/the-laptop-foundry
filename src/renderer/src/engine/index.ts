@@ -1,6 +1,7 @@
 export * from "./content";
 export { makeBuild, SAMPLES } from "./samples";
 export { solve } from "./solve";
+export * from "./screen";
 export * from "./types";
 export { validateContent } from "./validate";
 export { type MeshData, shellSurface } from "./shellGeometry";
@@ -28,6 +29,7 @@ export {
   classify,
   costOf,
   partPrice,
+  screenPrice,
   type DeviceClass,
   type PerfClass,
   weightOf,

@@ -9,6 +9,7 @@ import type {
   Problem,
 } from "./types";
 import { CATEGORIES, PIECES } from "./types";
+import { screenOf, screenProblems } from "./screen";
 
 const REQUIRED: Category[] = [
   "processor",
@@ -100,6 +101,13 @@ export function checkCompat(
   const chosen: Part[] = [];
   const provided = new Set<string>();
   for (const cat of CATEGORIES) {
+    if (cat === "display") {
+      // The screen is a spec now; older saves hold a panel row, read as one.
+      const spec = screenOf(build, idx.content);
+      if (!spec) out.push({ kind: "compat", code: "missing", category: cat });
+      else out.push(...screenProblems(spec, year, idx.content));
+      continue;
+    }
     const list = build.parts[cat] ?? [];
     if (REQUIRED.includes(cat) && list.length === 0)
       out.push({ kind: "compat", code: "missing", category: cat });
@@ -107,33 +115,6 @@ export function checkCompat(
     if (list.length > max)
       out.push({ kind: "compat", code: "too-many", category: cat, max });
     for (const bp of list) {
-      if (cat === "display") {
-        const panel = idx.panels.get(bp.part);
-        if (!panel) {
-          out.push({ kind: "compat", code: "unknown", ref: bp.part });
-          continue;
-        }
-        if (!available(panel, year))
-          out.push({
-            kind: "year",
-            code: "unavailable",
-            what: "panel",
-            ref: panel.id,
-          });
-        const type = idx.panelTypes.get(panel.type);
-        if (!type)
-          out.push({ kind: "compat", code: "unknown", ref: panel.type });
-        const refresh = bp.opts?.refresh;
-        if (refresh !== undefined && !panel.refresh.includes(Number(refresh)))
-          out.push({
-            kind: "compat",
-            code: "bad-option",
-            part: panel.id,
-            option: "refresh",
-            value: refresh,
-          });
-        continue;
-      }
       const part = idx.parts.get(bp.part);
       if (!part || part.category !== cat) {
         out.push({ kind: "compat", code: "unknown", ref: bp.part });

@@ -174,8 +174,77 @@
 }
 
 .bd-column.bd-screen {
-  width: calc(520 * var(--u));
   top: calc(104 * var(--u));
+}
+
+.bd-input {
+  font-family: var(--font-display) !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500 !important;
+  font-size: calc(17 * var(--u)) !important;
+  color: var(--text) !important;
+  border-bottom: 1px solid var(--line-chip) !important;
+  text-align: center;
+}
+
+.bd-input::placeholder {
+  color: var(--muted);
+}
+
+.bd-input:focus {
+  border-bottom-color: var(--accent) !important;
+}
+
+.bd-chip-edit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(4 * var(--u));
+}
+
+.bd-res {
+  gap: calc(2 * var(--u));
+}
+
+.bd-res-rows {
+  display: flex;
+  flex-direction: column;
+  margin-top: calc(6 * var(--u));
+}
+
+.bd-res-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: calc(7 * var(--u)) calc(12 * var(--u)) !important;
+  font-family: var(--font-display) !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500 !important;
+  font-size: calc(17 * var(--u)) !important;
+  color: var(--text) !important;
+  text-align: left;
+}
+
+.bd-res-row span:last-child {
+  color: var(--muted);
+}
+
+.bd-res-row:hover {
+  color: var(--accent) !important;
+}
+
+.bd-res-row.on {
+  background: var(--accent-wash) !important;
+  color: var(--accent) !important;
+}
+
+.bd-res-row.on span:last-child {
+  color: var(--accent);
+}
+
+.bd-res-row.warn,
+.bd-res-row.warn span:last-child,
+.bd-res-row .warn {
+  color: var(--warning) !important;
 }
 
 .bd-column.bd-price {

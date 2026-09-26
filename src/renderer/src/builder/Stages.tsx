@@ -6,6 +6,7 @@ import {
   CONTENT,
   type Category,
   costOf,
+  eraFor,
   factsOf,
   type Fit,
   type Piece,
@@ -123,6 +124,18 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
         max={100}
         onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, packing: v / 100 } }))}
       />
+      {build.screen && (
+        <SliderField
+          label="Bezel"
+          value={build.screen.bezel}
+          unit="mm"
+          digits={1}
+          min={eraFor(build.year).bezel.side}
+          max={20}
+          step={0.5}
+          onChange={(v) => set((b) => (b.screen ? { ...b, screen: { ...b.screen, bezel: v } } : b))}
+        />
+      )}
       {body && (
         <Line label="Hinge">
           <Value v={HINGE_NAME[body.style.hinge]} />
@@ -251,17 +264,6 @@ export function InsideColumn({
           <PowerLimit build={build} set={set} cat={current.cat} />
         )}
       </Options>
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------ screen (display pick until the free screen lands)
-
-export function ScreenColumn({ build, fit, set }: StageProps) {
-  const slot: Slot = { key: "display", name: "Display", cat: "display", index: 0, optional: false };
-  return (
-    <div className="bd-single">
-      <Options slot={slot} build={build} fit={fit} set={set} />
     </div>
   );
 }

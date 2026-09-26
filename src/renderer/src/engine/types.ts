@@ -354,6 +354,22 @@ export interface Profile {
 
 // ---------------------------------------------------------------- build
 
+export type ScreenKind = "tn" | "ips" | "oled" | "mini-led";
+
+/** The screen as the player specifies it. */
+export interface ScreenSpec {
+  /** Diagonal, inches. */
+  diag: number;
+  ratio: [number, number];
+  res: [number, number];
+  hz: number;
+  panel: ScreenKind;
+  /** TN before 2010 came matte or glossy. */
+  surface?: "matte" | "glossy";
+  /** Side bezel, active area edge to the lid's outer edge, mm. */
+  bezel: number;
+}
+
 export interface BuildPart {
   part: string;
   opts?: Record<string, OptionValue>;
@@ -376,6 +392,8 @@ export interface Build {
   power?: Record<ProfileId, Profile>;
   /** Retail price in the year's nominal US dollars, as the player set it. */
   price?: number;
+  /** The screen spec. Older saves chose a row under parts.display instead. */
+  screen?: ScreenSpec;
 }
 
 // ---------------------------------------------------------------- fit
@@ -461,6 +479,7 @@ export type Problem =
   | { kind: "compat"; code: "layout-not-on-body"; layout: string }
   | { kind: "compat"; code: "port-side"; part: string; side: Side }
   | { kind: "compat"; code: "unknown"; ref: string }
+  | { kind: "compat"; code: "screen"; what: "refresh" | "density" | "size" | "resolution" }
   | {
       kind: "year";
       code: "unavailable";

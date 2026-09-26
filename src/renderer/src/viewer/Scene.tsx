@@ -338,7 +338,7 @@ const LAP = 1.5;
  * draws instead; "deck" is that top face alone, with the keyboard and
  * trackpad wells cut out so a solid shell does not cover them.
  */
-function surfaceGeometry(
+export function surfaceGeometry(
   size: Fit["shell"]["outer"],
   style: Fit["shell"]["style"],
   profile: boolean,
@@ -383,9 +383,13 @@ function surfaceGeometry(
   }
   let indices = data.indices;
   if (mode === "open") {
+    // The deck plate draws the whole flat top, so every flat triangle at the
+    // top is left out here, not just the centre fan: a flat ring kept at the
+    // top sat exactly in the deck plate's plane and z-fought it.
+    const atTop = (v: number) => data.positions[v * 3 + 2] >= size.z - 1e-3;
     const kept: number[] = [];
     for (let i = 0; i + 2 < indices.length; i += 3)
-      if (indices[i] !== topCentre)
+      if (indices[i] !== topCentre && !(atTop(indices[i]) && atTop(indices[i + 1]) && atTop(indices[i + 2])))
         kept.push(indices[i], indices[i + 1], indices[i + 2]);
     indices = new Uint32Array(kept);
   }
@@ -393,7 +397,14 @@ function surfaceGeometry(
   let positions = data.positions;
   if (data.walls.length > 0) {
     const extra: number[] = [];
-    for (const w of data.walls) extra.push(...wallPositions(w, cuts[w.side] ?? [], wallDepth));
+    for (const w of data.walls) {
+      const tri = wallPositions(w, cuts[w.side] ?? [], wallDepth);
+      for (let i = 0; i + 8 < tri.length; i += 9) {
+        // As above: the deck plate owns the flat top, including the wall's rim.
+        const flatTop = mode === "open" && tri[i + 2] >= size.z - 1e-3 && tri[i + 5] >= size.z - 1e-3 && tri[i + 8] >= size.z - 1e-3;
+        if (!flatTop) for (let k = 0; k < 9; k++) extra.push(tri[i + k]);
+      }
+    }
     const all = new Float32Array(positions.length + extra.length);
     all.set(positions);
     all.set(extra, positions.length);
@@ -488,7 +499,11 @@ function Shell({
 
 function Openings({ fit }: { fit: Fit }) {
   const colour = token("color-opening");
-  const w = fit.shell.walls.side + 0.4;
+  // The dark block runs from 0.2 mm proud of the drawn shell (SKIN outside
+  // the outline) to 0.2 mm short of the wall's inner face, so it never
+  // reaches the unit behind the wall.
+  const proud = 0.2 + SKIN;
+  const w = fit.shell.walls.side - 0.2 + proud;
   const out = fit.shell.outer;
   return (
     <group>
@@ -496,18 +511,20 @@ function Openings({ fit }: { fit: Fit }) {
         // A port's model draws its own opening; an opaque block here would
         // hide the connector face and read as a brick poking out of the wall.
         if (o.kind === "port") return null;
-        const du = o.u[1] - o.u[0];
-        const dz = o.z[1] - o.z[0];
+        // Short of each end by 0.3 mm, so the block never ends in the plane of
+        // the next wall or of the unit's own top and bottom.
+        const du = o.u[1] - o.u[0] - 0.6;
+        const dz = o.z[1] - o.z[0] - 0.6;
         const uc = (o.u[0] + o.u[1]) / 2;
         const zc = (o.z[0] + o.z[1]) / 2;
         const pos: [number, number, number] =
           o.side === "left"
-            ? [w / 2 - 0.2, uc, zc]
+            ? [w / 2 - proud, uc, zc]
             : o.side === "right"
-              ? [out.x - w / 2 + 0.2, uc, zc]
+              ? [out.x - w / 2 + proud, uc, zc]
               : o.side === "front"
-                ? [uc, w / 2 - 0.2, zc]
-                : [uc, out.y - w / 2 + 0.2, zc];
+                ? [uc, w / 2 - proud, zc]
+                : [uc, out.y - w / 2 + proud, zc];
         const scale: [number, number, number] =
           o.side === "left" || o.side === "right" ? [w, du, dz] : [du, w, dz];
         return (
@@ -551,6 +568,26 @@ function Overflow({ fit }: { fit: Fit }) {
 }
 
 // ------------------------------------------------------------------ scene
+
+/** How far the drawn shells stand off the units inside them, in mm. */
+export const SKIN = 0.4;
+
+/**
+ * How far the lid shell's front face sits behind the lid's front plane, in mm.
+ * The panel glass lies in that plane and the webcam's layers step back from it
+ * at 0.12 and 0.25 mm, so the face goes between them, clear of all.
+ */
+export const LID_FRONT = 0.18;
+
+/** Scale for the base shell about its top centre: SKIN out on every side and below. */
+export function baseSkinScale(out: Fit["shell"]["outer"]): [number, number, number] {
+  return [1 + (2 * SKIN) / out.x, 1 + (2 * SKIN) / out.y, 1 + SKIN / out.z];
+}
+
+/** Scale for the lid shell about its front face: SKIN out on every side and at the back. */
+export function lidSkinScale(lid: Fit["shell"]["lid"]["size"]): [number, number, number] {
+  return [1 + (2 * SKIN) / lid.x, 1 + (2 * SKIN) / lid.y, 1 + (SKIN - LID_FRONT) / lid.z];
+}
 
 export const Model = memo(function Model({
   fit,
@@ -609,6 +646,11 @@ export const Model = memo(function Model({
     // Engine space is z up; three is y up. Rotate once here and centre the base.
     <group rotation-x={ENGINE_ROTATION_X}>
       <group position={baseOffset(out)}>
+        {/* The base shell is drawn SKIN mm outside the engine's outline (sides
+            and bottom; the top stays), so a unit set flush against the inside
+            of a wall never shares the wall's plane. */}
+        <group position={[out.x / 2, out.y / 2, out.z]} scale={baseSkinScale(out)}>
+        <group position={[-out.x / 2, -out.y / 2, -out.z]}>
         <Shell
           size={out}
           style={fit.shell.style}
@@ -631,6 +673,8 @@ export const Model = memo(function Model({
           mode="deck"
           wells={fit.shell.wells}
         />
+        </group>
+        </group>
         {!xray &&
           fit.shell.wells.map((w) => (
             // The floor of each well, dark, so a solid shell does not show
@@ -666,15 +710,22 @@ export const Model = memo(function Model({
         {/* The lid turns about the hinge axis, which runs along x. */}
         <group position={[0, hy, hz]} rotation-x={(-lidAngle * Math.PI) / 180}>
           <group position={[0, -hy, -hz]}>
-            <Shell
-              size={lidSize}
-              style={fit.shell.style}
-              colour={colours.lid}
-              profile={false}
-              z={fit.shell.lid.at.z}
-              surface={surfaces?.lid}
-              xray={xray}
-            />
+            {/* The lid shell sits SKIN mm outside the units on its sides, and
+                SKIN mm behind the back, and LID_FRONT mm back from the front,
+                so the panel glass lies in front of it. */}
+            <group position={[lidSize.x / 2, lidSize.y / 2, fit.shell.lid.at.z + LID_FRONT]} scale={lidSkinScale(lidSize)}>
+              <group position={[-lidSize.x / 2, -lidSize.y / 2, -(fit.shell.lid.at.z + LID_FRONT)]}>
+                <Shell
+                  size={lidSize}
+                  style={fit.shell.style}
+                  colour={colours.lid}
+                  profile={false}
+                  z={fit.shell.lid.at.z + LID_FRONT}
+                  surface={surfaces?.lid}
+                  xray={xray}
+                />
+              </group>
+            </group>
             <Units
               boxes={lid}
               ctx={ctx}

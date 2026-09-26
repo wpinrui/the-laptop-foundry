@@ -188,10 +188,10 @@ function Early({ s, d: dur }: { s: Specs; d: M["durability"] }) {
     ]);
   const p = s.ports;
   if (p) {
-    rows.push(["Ports", `${p.total} connectors`]);
+    rows.push(["Ports", `${p.total}`]);
     for (const side of p.sides)
       rows.push([
-        `${SIDE[side.side] ?? side.side} side`,
+        SIDE[side.side] ?? side.side,
         `${side.connectors}${side.charges ? ", charges" : ""}`,
       ]);
   }

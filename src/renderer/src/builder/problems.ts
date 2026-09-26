@@ -24,6 +24,7 @@ const CAT_NAME: Record<Category, string> = {
 };
 
 const AXIS_NAME = { x: "width", y: "depth", z: "height" } as const;
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 const FRONT = new Set<string>(["display", "keyboard", "trackpad", "webcam"]);
 
@@ -70,31 +71,31 @@ export function tabOf(p: Problem): Tab {
 export function problemText(p: Problem): string {
   if (p.kind === "geometry")
     return p.code === "short"
-      ? `Body ${AXIS_NAME[p.axis]} is ${p.by.toFixed(1)} mm too small`
-      : `Parts need ${p.by.toFixed(1)} mm more ${AXIS_NAME[p.axis]} than this body allows`;
+      ? `${cap(AXIS_NAME[p.axis])} ${p.by.toFixed(1)} mm short`
+      : `${cap(AXIS_NAME[p.axis])} ${p.by.toFixed(1)} mm over the body limit`;
   if (p.kind === "year")
-    return `${p.what === "part" || p.what === "panel" ? partName(p.ref) : `This ${p.what}`} is not available this year`;
+    return `${p.what === "part" || p.what === "panel" ? partName(p.ref) : cap(p.what)} not available this year`;
   switch (p.code) {
     case "needs":
       return `${partName(p.part)} needs ${p.needs}`;
     case "no-room":
       return `No room for ${partName(p.part)}`;
     case "missing":
-      return `No ${CAT_NAME[p.category]} chosen`;
+      return `No ${CAT_NAME[p.category]}`;
     case "too-many":
-      return `Too many ${CAT_NAME[p.category]} parts, at most ${p.max}`;
+      return `At most ${p.max} ${CAT_NAME[p.category]}`;
     case "bad-option":
       return `${partName(p.part)} cannot use that ${p.option}`;
     case "no-charging":
-      return "No port can charge the laptop";
+      return "No charging port";
     case "wrong-piece":
-      return `That material cannot be used for the ${p.piece}`;
+      return `Material not allowed on the ${p.piece}`;
     case "wrong-finish":
-      return `That finish does not suit the ${p.piece} material`;
+      return `Finish not allowed on the ${p.piece} material`;
     case "layout-not-on-body":
-      return "This layout does not suit the body";
+      return "Layout does not fit the body";
     case "port-side":
-      return `${partName(p.part)} is on a side this layout has no ports on`;
+      return `${partName(p.part)} on a side without ports`;
     case "unknown":
       return `Unknown part ${p.ref}`;
   }
@@ -108,9 +109,9 @@ export function blockReason(problems: Problem[]): string | null {
   ).length;
   const rest = problems.length - missing;
   if (rest === 0)
-    return missing === 1 ? problemText(problems[0]) : `${missing} required parts missing`;
+    return missing === 1 ? problemText(problems[0]) : `${missing} parts missing`;
   if (problems.length === 1) return problemText(problems[0]);
-  return `${problems.length} fit problems to fix`;
+  return `${problems.length} problems`;
 }
 
 /** Block reason for a saved build; unreadable builds count as blocked. */
@@ -118,6 +119,6 @@ export function buildBlock(build: unknown): string | null {
   try {
     return blockReason(solve(build as Build).problems);
   } catch {
-    return "This build cannot be read";
+    return "Unreadable build";
   }
 }

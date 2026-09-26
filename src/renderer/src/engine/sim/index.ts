@@ -339,7 +339,7 @@ function baseWatts(f: Facts): number {
 
 // ------------------------------------------------------------------ time stepping
 
-type Load = "idle" | "cpu" | "gpu" | "stress";
+export type Load = "idle" | "cpu" | "gpu" | "stress";
 
 interface Trace {
   cpuW: number[];
@@ -598,7 +598,7 @@ export function timeline(
   build: Build,
   fit: Fit,
   profile: ProfileId,
-  load: "idle" | "cpu" | "gpu",
+  load: Load,
   seconds: number = DURATION,
   content: Content = CONTENT,
 ): Timeline {

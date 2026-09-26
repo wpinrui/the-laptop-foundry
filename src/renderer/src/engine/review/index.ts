@@ -8,6 +8,9 @@ import { type Measurements, simulate } from "../sim";
 import { type Specs, specs as specsOf } from "../sim/specs";
 import { solve } from "../solve";
 import type { Build, Fit, PanelOption, Part, Side } from "../types";
+import { type Chart, chartsFor } from "./charts";
+
+export type * from "./charts";
 
 // The review: dice-roll scores, pros and cons against the rivals of the same
 // year and class, and text assembled from hand-written templates. Pure data;
@@ -265,14 +268,20 @@ export function prosAndCons(f: Facts, peers: Facts[]): ProCon {
 export interface Table {
   caption: string;
   columns: string[];
-  rows: { link?: string; subject?: boolean; cells: string[] }[];
+  rows: { link?: string; subject?: boolean; cells: string[]; tones?: (FpsTone | undefined)[] }[];
 }
+
+/** How playable a frame rate is. */
+export type FpsTone = "bad" | "ok" | "good";
+
+const fpsTone = (fps: number): FpsTone => (fps < 30 ? "bad" : fps < 60 ? "ok" : "good");
 
 export interface Section {
   id: string;
   title: string;
   paragraphs: string[];
   tables: Table[];
+  charts?: Chart[];
 }
 
 export interface Review {
@@ -289,6 +298,8 @@ export interface Review {
   sections: Section[];
   scores: Scores;
   price: number | null;
+  /** The reviewed model and its rivals by id, in colour slot order. */
+  field: string[];
 }
 
 const num = (n: number, d = 0) =>
@@ -699,12 +710,12 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
         : "There is no wireless module at all.",
     ],
     tables: [
-      compare("Size and weight", ["Weight", "Thickness", "Ports"], f, peers, (x) => [
+      compare("Size and weight", ["Weight*", "Thickness*", "Ports"], f, peers, (x) => [
         `${num(x.kg, 2)} kg`,
         `${num(x.thickness, 1)} mm`,
         String(x.subject.build.ports.length),
       ]),
-      compare("Durability", ["Drop test", "Lid flex"], f, peers, (x) => [
+      compare("Durability", ["Drop test", "Lid flex*"], f, peers, (x) => [
         `${x.m.durability.dropCm} cm`,
         `${num(x.m.durability.lidFlexMm, 1)} mm`,
       ]),
@@ -813,25 +824,21 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     const bench = f.r.bench;
     const drop = 1 - c.sustained / c.firstRun;
     const native = f.r.games.find((g) => g.runs?.some((x) => x.native))?.runs?.find((x) => x.native);
-    const gameRows: Table["rows"] = (["low", "medium", "high", "ultra"] as const).map((preset) => ({
-      cells: [
-        preset.charAt(0).toUpperCase() + preset.slice(1),
-        ...f.r!.games.map((g) => {
-          const run = g.runs?.find((x) => x.preset === preset && !x.native);
-          return run ? num(run.fps) : "—";
-        }),
-      ],
-    }));
+    const gameRows: Table["rows"] = (["low", "medium", "high", "ultra"] as const).map((preset) => {
+      const runs = f.r!.games.map((g) => g.runs?.find((x) => x.preset === preset && !x.native));
+      return {
+        cells: [preset.charAt(0).toUpperCase() + preset.slice(1), ...runs.map((run) => (run ? num(run.fps) : "—"))],
+        tones: [undefined, ...runs.map((run) => (run ? fpsTone(run.fps) : undefined))],
+      };
+    });
     if (native)
+    {
+      const runs = f.r.games.map((g) => g.runs?.find((x) => x.native));
       gameRows.push({
-        cells: [
-          `Native ${native.res[0]} x ${native.res[1]}`,
-          ...f.r.games.map((g) => {
-            const run = g.runs?.find((x) => x.native);
-            return run ? num(run.fps) : "—";
-          }),
-        ],
+        cells: [`Native ${native.res[0]} x ${native.res[1]}`, ...runs.map((run) => (run ? num(run.fps) : "—"))],
+        tones: [undefined, ...runs.map((run) => (run ? fpsTone(run.fps) : undefined))],
       });
+    }
     sections.push({
       id: "performance",
       title: "Performance",
@@ -892,11 +899,6 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
       ].filter(Boolean),
       tables: [
         { caption: "Games (fps)", columns: ["", ...f.r.games.map((g) => g.name)], rows: gameRows },
-        compare(bench.name, ["Single-core", "Multi-core", "Graphics"], f, peers, (x) => [
-          x.r?.bench.single == null ? "—" : num(x.r.bench.single),
-          x.r?.bench.multi == null ? "—" : num(x.r.bench.multi),
-          x.m.cooling ? num(x.m.cooling.graphics.sustained) : "",
-        ]),
       ],
     });
 
@@ -949,7 +951,7 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
             })),
           ),
         },
-        compare("Noise and temperature", ["Idle", "Load", "Surface"], f, peers, (x) =>
+        compare("Noise and temperature", ["Idle*", "Load*", "Surface*"], f, peers, (x) =>
           x.m.cooling
             ? [
                 `${num(x.m.cooling.noise.idle, 1)} dB(A)`,
@@ -1026,15 +1028,11 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
             `Under maximum load the battery gives up after ${num(rt.load * 60)} minutes, with the system drawing ${num(dr.load, 1)} W.`,
           ]),
         ],
-        tables: [
-          compare("Battery life (hours)", ["Idle", "Web", "Video", "Load"], f, peers, (x) => {
-            const b2 = x.m.battery;
-            const r2 = b2?.runtime[b2.balanced];
-            return r2 ? [num(r2.idle, 1), num(r2.web, 1), num(r2.video, 1), num(r2.load, 1)] : ["", "", "", ""];
-          }),
-        ],
+        tables: [],
       });
   }
+
+  chartsFor(sections, f, peers, content);
 
   const headline = say("headline", [
     `${full} review: ${pc.pros[0]?.toLowerCase() ?? "a solid effort"}`,
@@ -1059,5 +1057,6 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     sections,
     scores: rollScores(s.id),
     price,
+    field: [s.id, ...peers.map((p) => p.subject.id)],
   };
 }

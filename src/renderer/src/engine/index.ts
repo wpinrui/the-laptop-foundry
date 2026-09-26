@@ -52,6 +52,11 @@ export {
   rivalsFor,
 } from "./content/rivals";
 export {
+  type BarChart,
+  type Chart,
+  type DisplayBox,
+  type LineChart,
+  type ScaleChart,
   CATEGORIES as REVIEW_CATEGORIES,
   factsOf,
   laptopKind,

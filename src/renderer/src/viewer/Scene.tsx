@@ -898,8 +898,11 @@ export const Model = memo(function Model({
                 rotation-x={Math.PI}
               >
                 <planeGeometry args={[panelBox.size.x, panelBox.size.y]} />
+                {/* Keyed apart: three compiles a material once, so the dark glass
+                    reused for the lit one never samples the late texture and glows white. */}
                 {lockScreen ? (
                   <meshStandardMaterial
+                    key="lit"
                     color={token("color-opening")}
                     emissive={token("panel-glare")}
                     emissiveMap={lockScreen}
@@ -907,7 +910,7 @@ export const Model = memo(function Model({
                     metalness={0}
                   />
                 ) : (
-                  <meshStandardMaterial color={token("color-opening")} roughness={0.4} metalness={0} />
+                  <meshStandardMaterial key="dark" color={token("color-opening")} roughness={0.4} metalness={0} />
                 )}
               </mesh>
             )}

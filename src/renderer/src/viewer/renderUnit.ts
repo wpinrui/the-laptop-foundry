@@ -33,7 +33,7 @@ export interface UnitOpts {
 
 export interface UnitCtx {
   /** Materials shared across units, by colour. */
-  material(colour: string, kind?: "matte" | "glow"): THREE.Material;
+  material(colour: string, kind?: "matte" | "glow" | "gloss"): THREE.Material;
   /** The engine-owned material slots models draw with. */
   slots(bodyColour: string): Record<MaterialSlot, THREE.Material>;
   /** Colour for a model that breaks its box (dev only). */
@@ -122,7 +122,7 @@ export function renderUnit(
   const mctx: ModelContext = {
     ...base,
     materials: ctx.slots(opts.colour),
-    tint: (hex) => ctx.material(hex),
+    tint: (hex, finish) => ctx.material(hex, finish === "gloss" ? "gloss" : "matte"),
     random: seeded(seedFor(key, mbox, options, base)),
   };
   const wrapper = new THREE.Group();

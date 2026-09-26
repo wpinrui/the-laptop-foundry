@@ -137,7 +137,9 @@ function makeCtx(): UnitCtx & { dispose(): void } {
                 emissiveIntensity: 0.6,
                 roughness: 0.3,
               })
-            : new THREE.MeshStandardMaterial({
+            : kind === "gloss"
+              ? new THREE.MeshStandardMaterial({ color: colour, roughness: 0.08, metalness: 0.05 })
+              : new THREE.MeshStandardMaterial({
                 color: colour,
                 roughness: 0.6,
                 metalness: 0.1,

@@ -261,6 +261,12 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
         };
   }
 
+  // The player's trackpad colour rides on the pad unit's options, for its model.
+  if (build.pad) {
+    const p = build.pad;
+    for (const u of out.deck) if (u.role === "pad") u.opts = { ...u.opts, padColour: p.colour, padFinish: p.finish };
+  }
+
   // The screen: its active area and thickness from the resolved panel.
   const panel = panelOf(build, idx.content);
   const ptype = panel && idx.panelTypes.get(panel.type);

@@ -240,8 +240,12 @@ function build(
   const add = (mesh: THREE.Mesh | undefined) => mesh && pad.add(mesh);
   add(carrier.mesh(m.metal, "carrier"));
   add(rim.mesh(m.body, "rim"));
-  add(surface.mesh(modern ? m.glass : m.plastic, "surface"));
-  add(buttons.mesh(modern ? m.body : m.plastic, "buttons"));
+  // The player's colour, when set, covers the surface and the buttons.
+  const hex = options.padColour;
+  const own =
+    typeof hex === "string" && ctx.tint ? ctx.tint(hex, options.padFinish === "matte" ? "matte" : "gloss") : undefined;
+  add(surface.mesh(own ?? (modern ? m.glass : m.plastic), "surface"));
+  add(buttons.mesh(own ?? (modern ? m.body : m.plastic), "buttons"));
   return pad;
 }
 

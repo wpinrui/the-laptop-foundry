@@ -436,6 +436,10 @@ export interface Mark {
   text: string;
   /** Sanitised SVG markup. */
   svg?: string;
+  /** The preset decal an SVG mark came from, for its badge and glyph. */
+  preset?: string;
+  /** A hover preview drawn faint; never saved. */
+  ghost?: boolean;
   font: string;
   /** Text height, or the SVG's height. */
   size: number;

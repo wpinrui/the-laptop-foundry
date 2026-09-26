@@ -525,7 +525,12 @@ function Shell({
           side={THREE.DoubleSide}
           roughness={look.roughness}
           metalness={look.metalness}
-          polygonOffset
+          // Only the see-through shell is pushed back. A solid shell stands
+          // off every unit by a real gap (SKIN, LID_FRONT, the deck recess),
+          // and a slope-scaled push on it went deeper than the 1.5 mm top
+          // wall at grazing angles, so parts under the top case showed
+          // through it and flickered as the laptop turned.
+          polygonOffset={xray}
           polygonOffsetFactor={offset}
           polygonOffsetUnits={offset}
         />

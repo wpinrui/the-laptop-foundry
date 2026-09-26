@@ -1,6 +1,5 @@
 import { type Content, CONTENT } from "../content";
 import { type Load, timeline, type Timeline } from "../sim";
-import { partOf } from "../sim/profiles";
 import { PROFILES, type ProfileId } from "../types";
 import type { Facts, Section, Table } from "./index";
 
@@ -74,25 +73,6 @@ export type Chart = LineChart | BarChart | ScaleChart | DisplayBox;
 const STEP = 10;
 const LOOP_RUN = 60;
 const PROFILE_NAME: Record<ProfileId, string> = { high: "High", medium: "Medium", low: "Low" };
-
-/** All-core clock at the processor's boost limit, GHz, per architecture. */
-const CLOCK: Record<string, number> = {
-  yonah: 2.0,
-  merom: 2.2,
-  k8: 2.0,
-  "skylake-y": 1.9,
-  "skylake-u": 2.7,
-  "skylake-h": 3.1,
-  "bristol-ridge": 3.0,
-  "raptor-lake-u": 3.4,
-  "lunar-lake": 3.7,
-  "panther-lake": 3.8,
-  "arrow-lake-hx": 4.6,
-  "zen5-mobile": 4.3,
-  "strix-halo": 4.5,
-  "fire-range": 4.8,
-  oryon: 3.8,
-};
 
 const num = (n: number, d = 0) =>
   n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -214,13 +194,8 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
     add("performance", ...perf);
 
     // ---------------------------------------------------------------- emissions
-    const cpu = partOf(f.subject.build, "processor", content)?.power;
     const stress = run(f, c.profile, "stress");
-    const boost = f.m.profiles[c.profile].cpu.boost;
-    const peak = cpu ? (CLOCK[cpu.arch] ?? 3) : 0;
-    const clock = stress.cpuW.map((w) =>
-      boost > 0 ? peak * Math.min(1, Math.max(0.15, w / boost)) ** (1 / 3) : 0,
-    );
+    const clock = stress.cpuClock;
     const me = (values: number[]) => [{ slot: 0, name: fullName(f), values: buckets(values, STEP) }];
     const xMax = stress.cpuW.length / 60;
     add("emissions", {

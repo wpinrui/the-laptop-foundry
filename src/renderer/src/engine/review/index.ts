@@ -397,6 +397,24 @@ export function laptopKind(f: Facts): string {
   return pool[Math.floor(rng(`kind:${f.subject.id}`)() * pool.length)];
 }
 
+/** Processor clocks for the spec table, as a suffix. */
+function cpuClockText(cpu: Part | undefined): string {
+  const c = cpu?.power?.clock;
+  if (!c) return "";
+  const ghz = (n: number) => `${num(n, 2).replace(/0$/, "")} GHz`;
+  if (c.base === c.single) return `, ${ghz(c.single)}`;
+  const base = c.base === undefined ? "" : `${ghz(c.base)} base, `;
+  return `, ${base}${ghz(c.single)} boost (${ghz(c.allCore)} all-core)`;
+}
+
+/** Graphics core clocks for the spec table, as a suffix. */
+function gpuClockText(part: Part | undefined): string {
+  const c = part?.power?.gpuClock;
+  if (!c) return "";
+  if (c.base === undefined) return `, ${c.boost} MHz`;
+  return `, ${c.base} MHz base, ${c.boost} MHz boost`;
+}
+
 function memoryText(content: Content, b: Build): string {
   const bp = b.parts.memory?.[0];
   const part = partOf(content, b, "memory");
@@ -571,8 +589,12 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     })
     .join(", ");
   const specs: [string, string][] = [
-    ["Processor", cpu],
-    ["Graphics", gpuPart && String(b.parts.graphics?.[0]?.opts?.switchable ?? gpuPart.options?.switchable?.[0] ?? "no") === "yes" ? `${gpu}, switchable` : gpu],
+    ["Processor", cpu + cpuClockText(cpuPart)],
+    [
+      "Graphics",
+      (gpuPart && String(b.parts.graphics?.[0]?.opts?.switchable ?? gpuPart.options?.switchable?.[0] ?? "no") === "yes" ? `${gpu}, switchable` : gpu) +
+        gpuClockText(gpuPart ?? cpuPart),
+    ],
     ["Memory", memoryText(content, b)],
     ["Storage", storageText(content, b)],
     [

@@ -333,6 +333,27 @@ export interface PowerSpec {
   single?: number;
   /** Integrated graphics score at a package power. Processors only. */
   igpu?: PowerPoint;
+  /** Real processor clocks. Processors only; hybrid chips give the performance cores. */
+  clock?: CpuClock;
+  /** Real graphics core clocks: the discrete part's, or a processor's integrated graphics. */
+  gpuClock?: GpuClock;
+}
+
+/** Processor clocks, GHz. Base is absent where the maker publishes none. */
+export interface CpuClock {
+  base?: number;
+  /** Highest single-core boost. */
+  single: number;
+  /** All-core boost with every core loaded. */
+  allCore: number;
+  /** Typical all-core clock at the default sustained power, from reviews. */
+  sustained: number;
+}
+
+/** Graphics core clocks, MHz. Base is absent where the maker publishes none. */
+export interface GpuClock {
+  base?: number;
+  boost: number;
 }
 
 export type ProfileId = "high" | "medium" | "low";

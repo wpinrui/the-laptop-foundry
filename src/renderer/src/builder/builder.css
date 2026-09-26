@@ -80,8 +80,20 @@ select {
   max-width: 100%;
 }
 
-select:first-child {
+.pick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pick:first-child {
   flex: 1 1 100%;
+}
+
+.pick-name {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
 }
 
 select.flagged,

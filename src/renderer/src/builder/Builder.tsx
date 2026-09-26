@@ -115,6 +115,47 @@ function nameOf(id: string | undefined): string | undefined {
 
 type SetBuild = (f: (b: Build) => Build) => void;
 
+/** Visible names for the builder's dropdowns, by their key. */
+const FIELD_NAME: Record<string, string> = {
+  body: "Body",
+  layout: "Layout",
+  processor: "Processor",
+  graphics: "Graphics",
+  memory: "Memory",
+  storage: "Storage",
+  "storage 2": "Second drive",
+  battery: "Battery",
+  hotswap: "Swap bay",
+  cooling: "Cooling",
+  optical: "Optical drive",
+  wireless: "Wireless",
+  speakers: "Speakers",
+  display: "Display",
+  keyboard: "Keyboard",
+  trackpad: "Trackpad",
+  webcam: "Webcam",
+  refresh: "Refresh rate",
+  capacity: "Capacity",
+  slots: "Slots",
+  cells: "Cells",
+  wh: "Capacity",
+  pitch: "Key pitch",
+  cols: "Layout",
+  light: "Backlight",
+  mechanism: "Mechanism",
+  buttons: "Buttons",
+  stick: "Pointing stick",
+  material: "Material",
+  finish: "Finish",
+};
+
+function fieldName(key: string): string {
+  const named = FIELD_NAME[key];
+  if (named) return named;
+  const spaced = key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 function Select({
   value,
   options,
@@ -127,20 +168,25 @@ function Select({
   onChange: (v: string) => void;
   flagged?: boolean;
   label: string;
+  /** Shown over the dropdown; defaults to a name for `label`. */
+  name?: string;
 }) {
   return (
-    <select
-      className={flagged ? "flagged" : undefined}
-      value={value}
-      aria-label={label}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <label className="pick">
+      <span className="pick-name">{name ?? fieldName(label)}</span>
+      <select
+        className={flagged ? "flagged" : undefined}
+        value={value}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -261,6 +307,7 @@ function PartRow({
     <div className="row">
       <Select
         label={cat}
+        name={fieldName(slot > 0 ? `${cat} ${slot + 1}` : cat)}
         value={current?.part ?? ""}
         options={choices}
         flagged={flagged}
@@ -476,6 +523,7 @@ function Materials({
             <div className="row">
               <Select
                 label={`${piece} material`}
+                name="Material"
                 value={matId}
                 options={mats.map((m) => ({ value: m.id, label: m.name }))}
                 onChange={(v) =>
@@ -496,6 +544,7 @@ function Materials({
               />
               <Select
                 label={`${piece} finish`}
+                name="Finish"
                 value={build.finish[piece].texture}
                 options={finishes}
                 onChange={(v) =>

@@ -1,3 +1,4 @@
+import { CPU_ARCHS } from "../content/chips/cpus";
 import type { PowerSpec } from "../types";
 
 // One formula per architecture: score = a * P^k, a concave power law that
@@ -43,6 +44,8 @@ export const ARCHS: Record<string, Arch> = {
   curie: { k: 0.5, singleShare: 1, rDie: 1.2, tj: 100, boostSeconds: 0, igpuK: 0 },
   r500: { k: 0.5, singleShare: 1, rDie: 1.2, tj: 100, boostSeconds: 0, igpuK: 0 },
   blackwell: { k: 0.5, singleShare: 1, rDie: 0.12, tj: 87, boostSeconds: 0, igpuK: 0 },
+  // Per core design and class of machine, for the parts built from spec rows.
+  ...CPU_ARCHS,
 };
 
 export function archOf(spec: PowerSpec): Arch {

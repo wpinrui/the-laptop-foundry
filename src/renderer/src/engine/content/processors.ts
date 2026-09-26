@@ -1,4 +1,5 @@
 import type { CpuClock, GpuClock, Part, PowerSpec, Size } from "../types";
+import { CPU_PARTS } from "./chips/cpus";
 
 // Power: range, default sustained and boost limits (typical for the part's
 // class of machine), rated power (sizes the power stage), idle package power.
@@ -219,7 +220,7 @@ const intel2006 = ["platform:intel", "mem:ddr2-sodimm", "dgpu"];
 const amd2006 = ["platform:amd", "mem:ddr2-sodimm", "dgpu"];
 const gma = { platform: "Intel 945", igpu: "GMA 950 (chipset)" };
 
-export const PROCESSORS: Part[] = [
+const CALIBRATED: Part[] = [
   cpu(
     "celeron-m-430",
     "Intel Celeron M 430",
@@ -476,3 +477,8 @@ export const PROCESSORS: Part[] = [
     { platform: "Snapdragon X2", igpu: "Adreno X2-90" },
   ),
 ];
+
+// The hand-calibrated parts above, then every other real part from the spec
+// rows in chips/, derived the same way.
+const calibrated = new Set(CALIBRATED.map((p) => p.id));
+export const PROCESSORS: Part[] = [...CALIBRATED, ...CPU_PARTS.filter((p) => !calibrated.has(p.id))];

@@ -12,6 +12,7 @@ import {
   type Piece,
 } from "../types";
 import { opt } from "../units";
+import { CPU_PRICES, estimatedPrice } from "../content/chips/cpus";
 
 // Cost price, weight and device class. Costs are bill-of-materials figures in
 // the build year's nominal US dollars. Spend never trades anything off, but
@@ -344,9 +345,23 @@ function partCost(
     // Switching needs a multiplexer and the drivers to hand the screen over.
     case "graphics":
       return (FIXED[part.id] ?? 0) + (o("switchable") === "yes" ? 5 : 0);
+    case "processor":
+      return FIXED[part.id] ?? CPU_PRICES[part.id] ?? estimated(part);
     default:
       return FIXED[part.id] ?? 0;
   }
+}
+
+const estimates = new Map<string, number>();
+
+/** A processor with no published price: what its performance went for that year. */
+function estimated(part: Part): number {
+  let v = estimates.get(part.id);
+  if (v === undefined) {
+    v = estimatedPrice(part);
+    estimates.set(part.id, v);
+  }
+  return v;
 }
 
 // ------------------------------------------------------------------ body

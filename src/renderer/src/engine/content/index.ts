@@ -13,7 +13,7 @@ import type {
   Plan,
 } from "../types";
 import { BODIES } from "./bodies";
-import { offeredGenerationIds } from "./chips/gens";
+import { GENERATIONS, generationOf, offeredGenerationIds } from "./chips/gens";
 import { PANEL_TYPES, PANELS } from "./display";
 import { ERAS, eraFor } from "./eras";
 import { COLOURS, FINISHES, MATERIALS } from "./finish";
@@ -139,7 +139,19 @@ export function offeredFor(
   content: Content = CONTENT,
 ): Part[] {
   const gens = offeredGenerationIds(year);
-  return partsFor(category, year, content).filter((p) => !p.gen || gens.has(p.gen));
+  const list = partsFor(category, year, content).filter((p) => !p.gen || gens.has(p.gen));
+  if (!list.some((p) => p.gen)) return list;
+  // Maker by maker, newest generation first, then by name.
+  const vendors = [...new Set(GENERATIONS.map((g) => g.vendor))];
+  const key = (p: Part) => {
+    const g = generationOf(p.gen);
+    return g ? [vendors.indexOf(g.vendor), -g.rank] : [vendors.length, 0];
+  };
+  return [...list].sort((a, b) => {
+    const [va, ra] = key(a);
+    const [vb, rb] = key(b);
+    return va - vb || ra - rb || a.name.localeCompare(b.name, "en", { numeric: true });
+  });
 }
 
 export function panelsFor(

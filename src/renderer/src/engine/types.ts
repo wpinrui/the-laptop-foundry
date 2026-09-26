@@ -370,6 +370,23 @@ export interface ScreenSpec {
   bezel: number;
 }
 
+export interface BuildPort {
+  part: string;
+  side: Side;
+  along?: number;
+  height?: number;
+}
+
+/** Where the player put the keyboard, trackpad and webcam, in mm. Absent parts sit where the layout puts them. */
+export interface Placement {
+  /** Keyboard moved toward the front from its place by the hinge. */
+  kb?: { y: number };
+  /** Trackpad size, and its gap in front of the keyboard. */
+  pad?: { w?: number; d?: number; y?: number };
+  /** Webcam offset from the lid's centre line. */
+  cam?: { x: number };
+}
+
 export interface BuildPart {
   part: string;
   opts?: Record<string, OptionValue>;
@@ -384,7 +401,8 @@ export interface Build {
   /** Outer base size as the player set it. */
   size: Size;
   parts: Partial<Record<Category, BuildPart[]>>;
-  ports: { part: string; side: Side }[];
+  /** Ports. `along` (mm from the rear on a side wall, from the left on the front or rear) and `height` (mm from the bottom to the connector's lower edge) are the player's placement; absent means the automatic one. */
+  ports: BuildPort[];
   materials: Record<Piece, string>;
   finish: Record<Piece, { colour: string; texture: string }>;
   spend: Partial<Record<SpendKey, number>>;
@@ -394,6 +412,7 @@ export interface Build {
   price?: number;
   /** The screen spec. Older saves chose a row under parts.display instead. */
   screen?: ScreenSpec;
+  place?: Placement;
 }
 
 // ---------------------------------------------------------------- fit
@@ -480,6 +499,7 @@ export type Problem =
   | { kind: "compat"; code: "port-side"; part: string; side: Side }
   | { kind: "compat"; code: "unknown"; ref: string }
   | { kind: "compat"; code: "screen"; what: "refresh" | "density" | "size" | "resolution" }
+  | { kind: "compat"; code: "overlap"; part: string; with: string }
   | {
       kind: "year";
       code: "unavailable";
@@ -505,6 +525,16 @@ export interface Fit {
   anchors: Anchor[];
   routes: Route[];
   problems: Problem[];
+  /** Where the movable parts ended up, with the range each may move in, for the builder. */
+  place: PlaceReport;
+}
+
+export interface PlaceReport {
+  kb?: { y: number; range: Range };
+  pad?: { w: number; d: number; y: number; w0: Range; d0: Range; range: Range };
+  cam?: { x: number; range: Range };
+  /** One per build port, in build order. Null when the port was not placed. */
+  ports: ({ along: number; height: number; alongRange: Range; heightRange: Range | null; box: string } | null)[];
 }
 
 export function isZone(n: Node): n is ZoneNode {

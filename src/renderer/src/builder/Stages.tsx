@@ -14,7 +14,6 @@ import {
   profilesOf,
   RIVALS,
   rivalSubject,
-  type Side,
 } from "../engine";
 import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
@@ -265,113 +264,6 @@ export function InsideColumn({
         )}
       </Options>
     </div>
-  );
-}
-
-// ------------------------------------------------------------------ surface
-
-const SIDE_NAME: Record<Side, string> = { left: "Left", right: "Right", rear: "Rear", front: "Front" };
-
-export function surfaceSlots(): Slot[] {
-  return [
-    { key: "keyboard", name: "Keyboard", cat: "keyboard", index: 0, optional: false },
-    { key: "trackpad", name: "Trackpad", cat: "trackpad", index: 0, optional: false },
-    { key: "webcam", name: "Webcam", cat: "webcam", index: 0, optional: true },
-  ];
-}
-
-function portName(id: string): string {
-  return CONTENT.parts.find((p) => p.id === id)?.name ?? id;
-}
-
-export function SurfaceColumn({
-  build,
-  fit,
-  set,
-  slot,
-  onSlot,
-}: StageProps & { slot: string; onSlot: (key: string) => void }) {
-  const slots = surfaceSlots();
-  const layout = CONTENT.layouts.find((l) => l.id === build.layout);
-  const sides = layout?.portSides ?? [];
-  const warn = slotWarn(build, fit);
-  const portsWarn = fit.problems.some(
-    (p) => p.kind === "compat" && (p.code === "no-charging" || p.code === "port-side"),
-  );
-  const current = slots.find((s) => s.key === slot);
-  return (
-    <div className="bd-surface">
-      <SlotList
-        slots={slots}
-        selected={slot}
-        onSelect={onSlot}
-        warn={warn}
-        size="big"
-      >
-        <button
-          type="button"
-          className={["bd-row-item", slot === "ports" ? "on" : "", portsWarn ? "warn" : ""].join(" ")}
-          onClick={() => onSlot("ports")}
-        >
-          Ports<small>{build.ports.length}</small>
-        </button>
-      </SlotList>
-      <div className="bd-rule" />
-      {current ? (
-        <Options slot={current} build={build} fit={fit} set={set} />
-      ) : (
-        <div className="bd-port-list fd-in">
-          {build.ports.map((p, i) => (
-            <div className="bd-port-row" key={`${p.part}-${i}`}>
-              <b>{portName(p.part)}</b>
-              <Chips>
-                {sides.map((s) => (
-                  <Chip
-                    caps
-                    key={s}
-                    on={p.side === s}
-                    onClick={() =>
-                      set((b) => ({ ...b, ports: b.ports.map((x, j) => (j === i ? { ...x, side: s } : x)) }))
-                    }
-                  >
-                    {SIDE_NAME[s]}
-                  </Chip>
-                ))}
-                <Chip caps onClick={() => set((b) => ({ ...b, ports: b.ports.filter((_, j) => j !== i) }))}>
-                  Remove
-                </Chip>
-              </Chips>
-            </div>
-          ))}
-          {fit.problems
-            .filter((p) => p.kind === "compat" && (p.code === "no-charging" || p.code === "port-side"))
-            .map((p) => (
-              <span key={problemText(p)} className="bd-note">
-                {problemText(p)}
-              </span>
-            ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function SurfaceTray({ build, set, slot }: StageProps & { slot: string }) {
-  if (slot !== "ports") return null;
-  const layout = CONTENT.layouts.find((l) => l.id === build.layout);
-  const side = layout?.portSides[0] ?? "left";
-  return (
-    <>
-      {partsFor("port", build.year).map((p) => (
-        <Card
-          key={p.id}
-          width={130}
-          name={p.name}
-          aside={build.ports.filter((x) => x.part === p.id).length}
-          onClick={() => set((b) => ({ ...b, ports: [...b.ports, { part: p.id, side }] }))}
-        />
-      ))}
-    </>
   );
 }
 

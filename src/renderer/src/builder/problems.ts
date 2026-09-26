@@ -41,6 +41,25 @@ const SCREEN_LIMIT = {
   resolution: "Resolution too low",
 } as const;
 
+const ROLE_WORD: Record<string, string> = {
+  keys: "keyboard",
+  pad: "trackpad",
+  board: "mainboard",
+  battery: "battery",
+  fan: "fan",
+  fin: "fin stack",
+  drive: "drive",
+  odd: "optical drive",
+  spk: "speaker",
+  hinge: "hinge",
+  "port:left": "next port",
+  "port:right": "next port",
+  "port:rear": "next port",
+  "port:front": "next port",
+  kblight: "keyboard light",
+  webcam: "webcam",
+};
+
 const AXIS_NAME = { x: "width", y: "depth", z: "height" } as const;
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
@@ -86,6 +105,8 @@ export function stageOf(p: Problem): Stage {
       return "surface";
     case "screen":
       return "screen";
+    case "overlap":
+      return "surface";
     default:
       return "chassis";
   }
@@ -125,6 +146,8 @@ export function problemText(p: Problem): string {
       return `Unknown part ${p.ref}`;
     case "screen":
       return SCREEN_LIMIT[p.what];
+    case "overlap":
+      return `${partName(p.part)} runs into the ${ROLE_WORD[p.with] ?? p.with}`;
   }
 }
 

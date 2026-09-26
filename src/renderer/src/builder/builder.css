@@ -1133,3 +1133,102 @@
 .power .profile input {
   accent-color: var(--accent-hex);
 }
+
+/* Surface: the selected item's details, and the port silhouettes in the tray. */
+.bd-surface-detail {
+  display: flex;
+  flex-direction: column;
+  gap: calc(18 * var(--u));
+  padding-top: calc(20 * var(--u));
+  border-top: 1px solid var(--line);
+}
+
+.bd-centred {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(16 * var(--u));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.bd-centred i {
+  width: calc(18 * var(--u));
+  border-top: 2px dashed var(--accent);
+}
+
+.bd-port-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(6 * var(--u));
+  max-height: calc(120 * var(--u));
+  overflow-y: auto;
+}
+
+.bd-port-pick .bd-chip {
+  padding: calc(5 * var(--u)) calc(9 * var(--u)) !important;
+  font-size: calc(14 * var(--u)) !important;
+}
+
+.bd-port-head b {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(28 * var(--u));
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.bd-remove {
+  font-size: calc(17 * var(--u)) !important;
+  padding: calc(9 * var(--u)) calc(4 * var(--u)) !important;
+}
+
+.bd-port-shape {
+  display: block;
+  background: var(--screen-off);
+  outline: 1px solid var(--line-strong);
+  width: calc(44 * var(--u));
+  height: calc(16 * var(--u));
+}
+
+.bd-port-shape.pill {
+  width: calc(34 * var(--u));
+  height: calc(11 * var(--u));
+  border-radius: calc(6 * var(--u));
+}
+
+.bd-port-shape.hdmi {
+  width: calc(50 * var(--u));
+  clip-path: polygon(0 0, 100% 0, 100% 60%, 88% 100%, 12% 100%, 0 60%);
+}
+
+.bd-port-shape.wide {
+  width: calc(60 * var(--u));
+  clip-path: polygon(0 0, 100% 0, 92% 100%, 8% 100%);
+}
+
+.bd-port-shape.round,
+.bd-port-shape.ring {
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  border-radius: 50%;
+}
+
+.bd-port-shape.ring {
+  background: transparent;
+  box-shadow: inset 0 0 0 calc(5 * var(--u)) var(--screen-off);
+}
+
+.bd-port-shape.slot {
+  width: calc(60 * var(--u));
+  height: calc(8 * var(--u));
+}
+
+.bd-port-shape.lan {
+  width: calc(40 * var(--u));
+  height: calc(30 * var(--u));
+  clip-path: polygon(0 0, 100% 0, 100% 75%, 70% 75%, 70% 100%, 30% 100%, 30% 75%, 0 75%);
+}

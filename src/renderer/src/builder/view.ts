@@ -38,7 +38,7 @@ export function viewFor(
   name: ViewName,
   fit: Fit,
   lidAngle: number,
-  opt: { shift: number; zoom?: number; lift?: number; part?: Box },
+  opt: { shift: number; zoom?: number; lift?: number; part?: Box; side?: "left" | "right" | "rear" | "front" },
 ): View {
   const o = fit.shell.outer;
   const W = o.x;
@@ -95,12 +95,25 @@ export function viewFor(
       t = [0, p.y, p.z - D * 0.12];
       break;
     }
-    case "side":
-      az = -Math.PI / 2 + 0.34;
+    case "side": {
+      const side = opt.side ?? "left";
       el = 0.14;
       k = 0.95;
-      t = [-W / 2, PLINTH_H + H / 2, 0];
+      if (side === "left") {
+        az = -Math.PI / 2 + 0.34;
+        t = [-W / 2, PLINTH_H + H / 2, 0];
+      } else if (side === "right") {
+        az = Math.PI / 2 - 0.34;
+        t = [W / 2, PLINTH_H + H / 2, 0];
+      } else if (side === "rear") {
+        az = Math.PI - 0.34;
+        t = [0, PLINTH_H + H / 2, -D / 2];
+      } else {
+        az = 0.34;
+        t = [0, PLINTH_H + H / 2, D / 2];
+      }
       break;
+    }
     case "screen": {
       az = 0;
       el = 0.14;

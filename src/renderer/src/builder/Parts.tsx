@@ -209,6 +209,38 @@ export function SlotList({
   );
 }
 
+function optionListsOf(current: BuildPart | undefined): [string, OptionValue[]][] {
+  const out: [string, OptionValue[]][] = [];
+  if (!current) return out;
+  const part = CONTENT.parts.find((p) => p.id === current.part);
+  for (const [k, vs] of Object.entries(part?.options ?? {})) if (vs.length > 1) out.push([k, vs]);
+  return out;
+}
+
+/** The chosen part's options, one row of chips each. */
+export function OptionChips({ cat, index = 0, build, set }: { cat: Category; index?: number; build: Build; set: SetBuild }) {
+  const current = build.parts[cat]?.[index];
+  return (
+    <>
+      {optionListsOf(current).map(([k, vs]) => {
+        const value = current?.opts?.[k] ?? vs[0];
+        return (
+          <div key={k} className="bd-field">
+            <Label>{optionName(k)}</Label>
+            <Chips>
+              {vs.map((v) => (
+                <Chip key={String(v)} on={String(v) === String(value)} onClick={() => set((b) => withOption(b, cat, index, k, v))}>
+                  {formatOption(k, v)}
+                </Chip>
+              ))}
+            </Chips>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 /** The options for one slot, with the chosen part's option chips under them. */
 export function Options({
   slot,
@@ -225,16 +257,7 @@ export function Options({
 }) {
   const rows = useMemo(() => rowsFor(slot, build, fit), [slot, build, fit]);
   const current = build.parts[slot.cat]?.[slot.index];
-  const optionLists: [string, OptionValue[]][] = [];
-  if (current) {
-    if (slot.cat === "display") {
-      const panel = CONTENT.panels.find((p) => p.id === current.part);
-      if (panel && panel.refresh.length > 1) optionLists.push(["refresh", panel.refresh]);
-    } else {
-      const part = CONTENT.parts.find((p) => p.id === current.part);
-      for (const [k, vs] of Object.entries(part?.options ?? {})) if (vs.length > 1) optionLists.push([k, vs]);
-    }
-  }
+  const hasOptions = optionListsOf(current).length > 0;
   return (
     <div className="bd-options fd-in" key={slot.key}>
       <div className="bd-option-rows">
@@ -257,27 +280,9 @@ export function Options({
           );
         })}
       </div>
-      {(optionLists.length > 0 || children) && (
+      {(hasOptions || children) && (
         <div className="bd-option-extra">
-          {optionLists.map(([k, vs]) => {
-            const value = current?.opts?.[k] ?? vs[0];
-            return (
-              <div key={k} className="bd-field">
-                <Label>{optionName(k)}</Label>
-                <Chips>
-                  {vs.map((v) => (
-                    <Chip
-                      key={String(v)}
-                      on={String(v) === String(value)}
-                      onClick={() => set((b) => withOption(b, slot.cat, slot.index, k, v))}
-                    >
-                      {formatOption(k, v)}
-                    </Chip>
-                  ))}
-                </Chips>
-              </div>
-            );
-          })}
+          <OptionChips cat={slot.cat} index={slot.index} build={build} set={set} />
           {children}
         </div>
       )}

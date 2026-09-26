@@ -5,6 +5,7 @@ import type { Box, Fit } from "../engine";
 import { Atmosphere, Lights, PLINTH_H, PLINTH_R } from "../foundry/Stage";
 import { type Hover, Model, type Paint, Reflections, type Surfaces } from "../viewer/Scene";
 import { token } from "../viewer/theme";
+import { arrowDrag } from "./Arrows";
 import type { View } from "./view";
 
 // The builder's scene: the laptop on the Foundry plinth, lit like the menus.
@@ -143,7 +144,7 @@ export function BuilderScene({
       }}
       onPointerMove={(e) => {
         const d = drag.current;
-        if (!d || e.buttons === 0) return;
+        if (!d || e.buttons === 0 || arrowDrag.on) return;
         const dx = e.clientX - d.x;
         const dy = e.clientY - d.y;
         d.x = e.clientX;

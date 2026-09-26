@@ -15,6 +15,7 @@ import {
   solve,
 } from "../engine";
 import { type Hover, type Paint, surfacesOf } from "../viewer/Scene";
+import { arrowDrag } from "./Arrows";
 import { BuilderScene } from "./BuilderScene";
 import { panelLabel } from "./format";
 import { Measurements } from "./Measurements";
@@ -320,6 +321,8 @@ export function Builder({
 
   const pickSurface = useCallback(
     (b: Box) => {
+      // The click that ends a handle drag must not select whatever is under the pointer.
+      if (arrowDrag.on || performance.now() < arrowDrag.until) return;
       if (b.role === "keys") setSurfaceItem("keyboard");
       else if (b.role === "pad") setSurfaceItem("trackpad");
       else if (b.role === "webcam") setSurfaceItem("webcam");

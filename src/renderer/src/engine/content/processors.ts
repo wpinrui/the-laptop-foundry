@@ -1,4 +1,5 @@
 import type { CpuClock, GpuClock, Part, PowerSpec, Size } from "../types";
+import { APPLE_CPUS } from "./chips/apple";
 import { CPU_PARTS } from "./chips/cpus";
 
 // Power: range, default sustained and boost limits (typical for the part's
@@ -481,4 +482,5 @@ const CALIBRATED: Part[] = [
 // The hand-calibrated parts above, then every other real part from the spec
 // rows in chips/, derived the same way.
 const calibrated = new Set(CALIBRATED.map((p) => p.id));
-export const PROCESSORS: Part[] = [...CALIBRATED, ...CPU_PARTS.filter((p) => !calibrated.has(p.id))];
+// Apple silicon last: rivals only, never offered to the player.
+export const PROCESSORS: Part[] = [...CALIBRATED, ...CPU_PARTS.filter((p) => !calibrated.has(p.id)), ...APPLE_CPUS];

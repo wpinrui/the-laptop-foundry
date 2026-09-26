@@ -288,6 +288,8 @@ export interface Part extends Dated {
   info?: Record<string, OptionValue>;
   /** Processor and graphics generation, from the generations table. The builder offers a maker's two newest. */
   gen?: string;
+  /** Only rivals may use it: never listed or offered to the player. */
+  rivalOnly?: boolean;
 }
 
 /** Display is chosen from allowed combinations only. */

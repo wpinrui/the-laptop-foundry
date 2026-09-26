@@ -66,6 +66,10 @@ const BASE_SHARE: Record<string, number> = {
 const EXHAUST = 0.3;
 /** Share of all heat the internal air spreads evenly over both faces. */
 const AIR = 0.4;
+/** Depth offset, mm, in how a unit splits its heat between the faces: larger splits it more evenly. */
+const DEPTH = 40;
+/** Extra cooling of the case over a fan at full speed, per face: the intake side most. */
+const WASH = { top: 1.5, bottom: 11 };
 const SWEEPS = 160;
 const OMEGA = 1.7;
 
@@ -138,8 +142,8 @@ function rise(fit: Fit, shell: Shell, s: SurfaceState): Record<Face, Float64Arra
     if (w <= 0) return;
     const dTop = Math.max(0.5, out.z - (b.at.z + b.size.z));
     const dBot = Math.max(0.5, b.at.z);
-    const wt = 1 / (dTop + 10);
-    const wb = 1 / (dBot + 10);
+    const wt = 1 / (dTop + DEPTH);
+    const wb = 1 / (dBot + DEPTH);
     for (const [face, d, share] of [
       ["top", dTop, wt / (wt + wb)],
       ["bottom", dBot, wb / (wt + wb)],
@@ -176,7 +180,7 @@ function rise(fit: Fit, shell: Shell, s: SurfaceState): Record<Face, Float64Arra
   const res: Record<Face, Float64Array> = { top: q.top, bottom: q.bottom };
   for (const face of ["top", "bottom"] as const) {
     const h = new Float64Array(nx * ny).fill(1);
-    const boost = (face === "bottom" ? 3 : 1.5) * s.fan;
+    const boost = WASH[face] * s.fan;
     for (const f of fans)
       for (let j = 0; j < ny; j++)
         for (let i = 0; i < nx; i++) {

@@ -872,6 +872,9 @@ export const Model = memo(function Model({
               z={fit.shell.lid.at.z}
               surface={surfaces?.lid}
               xray={xray}
+              // No depth push: no unit is flush with the lid's back (there is always a
+              // back wall), and a slope-scaled push sinks it behind the panel's back.
+              offset={0}
               mode="back"
             />
             <LidFront fit={fit} colour={decor?.bezel ?? colours.lid} surface={surfaces?.lid} xray={xray} />

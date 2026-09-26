@@ -13,6 +13,7 @@ import {
 import * as THREE from "three";
 import type { Box, Build, Fit } from "../engine";
 import { shellSurface } from "../engine";
+import { LID_GROUP } from "../models/roles/hinge";
 import { overflowSlabs } from "./overflow";
 import {
   disposeUnit,
@@ -231,6 +232,7 @@ function Units({
   onPick,
   year,
   hinge,
+  lidAngle,
 }: {
   boxes: Box[];
   ctx: UnitCtx;
@@ -239,8 +241,17 @@ function Units({
   onPick?: SceneProps["onPick"];
   year: number;
   hinge: UnitOpts["hinge"];
+  /** Turns the lid side of each hinge mount with the lid, in degrees. */
+  lidAngle?: number;
 }) {
   const group = useUnitsGroup(boxes, ctx, labelFor, year, hinge);
+  // Runs after the units effect above, so freshly built hinges turn too.
+  useEffect(() => {
+    if (lidAngle === undefined) return;
+    group.traverse((o) => {
+      if (o.name === LID_GROUP) o.rotation.x = (-lidAngle * Math.PI) / 180;
+    });
+  }, [group, lidAngle, boxes, year, hinge]);
   const move = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const label = e.object.userData.label as string | undefined;
@@ -551,6 +562,7 @@ export const Model = memo(function Model({
           onPick={onPick}
           year={year}
           hinge={fit.shell.style.hinge}
+          lidAngle={lidAngle}
         />
         <Overflow fit={fit} />
         {/* The lid turns about the hinge axis, which runs along x. */}

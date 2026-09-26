@@ -116,6 +116,13 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   const DB = em.deck.reduce((m, u) => Math.max(m, deckLayer(u)), 0);
   const pTop = profileTop(style);
 
+  // Sustained chip heat, shared over the fans.
+  const sustained = (cat: "processor" | "graphics") => {
+    const part = idx.parts.get(build.parts[cat]?.[0]?.part ?? "");
+    const own = build.power?.high?.[cat === "processor" ? "cpu" : "gpu"]?.sustained;
+    return part?.power ? Math.max(part.power.sustained, own ?? 0) : 0;
+  };
+  const chipWatts = sustained("processor") + sustained("graphics");
   const floorCtx: PlanCtx = {
     gap,
     ko: cornerKeepOut(style, off.side),
@@ -123,6 +130,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     bottom: off.bottom,
     era,
     finDepth: em.finDepth,
+    fanWatts: em.fans > 0 && chipWatts > 0 ? chipWatts / em.fans : undefined,
   };
   const flatCtx: PlanCtx = {
     gap: 0,

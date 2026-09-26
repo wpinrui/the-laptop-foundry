@@ -14,6 +14,7 @@ const WORDS: Record<string, Record<string, string>> = {
   },
   buttons: { clickpad: "Clickpad", separate: "Buttons" },
   stick: { no: "No pointing stick", yes: "Pointing stick" },
+  switchable: { no: "Always on", yes: "Switchable" },
   shutter: { no: "No shutter", yes: "Privacy shutter" },
   bluetooth: { none: "No Bluetooth", "2.0": "Bluetooth 2.0" },
   mechanism: { haptic: "Haptic", mechanical: "Mechanical" },

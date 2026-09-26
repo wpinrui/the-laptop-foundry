@@ -17,6 +17,17 @@ export interface PlanCtx {
   bottom: number;
   era: Era;
   finDepth: number;
+  /** Sustained chip heat each fan carries, W: a fan grows only as far as that needs. */
+  fanWatts?: number;
+}
+
+/**
+ * Fan side, mm, that carries `watts` at full speed with the sink 40 K over the
+ * room and three quarters to spare: the cooling model's airflow term solved for size.
+ */
+export function fanSideFor(watts: number, thickness: number): number {
+  const need = (watts * 1.75) / 40;
+  return 50 * (need / (0.7 * (thickness / 10) ** 0.8)) ** (1 / 1.2);
 }
 
 export interface ZoneFill {
@@ -305,13 +316,14 @@ export function placeUnits(
     const alongRoom =
       (sz[e] - fill.koLo - fill.koHi - Math.max(0, k - 1) * ctx.gap) /
       Math.max(1, k);
-    const side = Math.min(
-      lim.max.x,
-      Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth)),
-    );
     const fz = Math.min(
       lim.max.z,
       Math.max(fans[0]?.size.z ?? lim.min.z, bandH - lift),
+    );
+    const needed = ctx.fanWatts === undefined ? Infinity : fanSideFor(ctx.fanWatts, fz);
+    const side = Math.min(
+      lim.max.x,
+      Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth, needed)),
     );
     const group = k * side + Math.max(0, k - 1) * ctx.gap;
     let u0 = at[e] + fill.koLo + (sz[e] - fill.koLo - fill.koHi - group) / 2;

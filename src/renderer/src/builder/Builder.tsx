@@ -145,6 +145,7 @@ const FIELD_NAME: Record<string, string> = {
   mechanism: "Mechanism",
   buttons: "Buttons",
   stick: "Pointing stick",
+  switchable: "Switching",
   material: "Material",
   finish: "Finish",
 };

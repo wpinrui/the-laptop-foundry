@@ -135,6 +135,26 @@ export function Chip({
   );
 }
 
+/** A multi-select chip: a check square before the label, so it never reads as a single choice. */
+export function Toggle({
+  on,
+  onClick,
+  children,
+  title,
+}: {
+  on: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  title?: string;
+}) {
+  return (
+    <button type="button" title={title} aria-pressed={on} className={on ? "bd-chip caps bd-toggle on" : "bd-chip caps bd-toggle"} onClick={onClick}>
+      <i className="bd-check" />
+      {children}
+    </button>
+  );
+}
+
 export function Chips({ children }: { children: ReactNode }) {
   return <div className="bd-chips">{children}</div>;
 }

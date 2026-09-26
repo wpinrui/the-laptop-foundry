@@ -29,11 +29,11 @@ import {
   PriceColumn,
   YearColumn,
 } from "./Stages";
-import { type FinishPiece, FinishColumn, FinishTray } from "./FinishStage";
-import { type KeyGroup, KeysColumn, KeysTray } from "./KeysStage";
+import { type FinishPiece, FinishColumn } from "./FinishStage";
+import { type KeyGroup, KeysColumn } from "./KeysStage";
 import { MarkHandles, MarksColumn, MarksTray } from "./MarksStage";
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
-import { type SurfaceItem, SurfaceColumn, SurfaceMarks, SurfaceTray, WebcamMarks } from "./SurfaceStage";
+import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, SurfaceTray, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
 import { type ViewName, viewFor } from "./view";
 import "./builder.css";
@@ -199,7 +199,7 @@ export function Builder({
   const [insideSlot, setInsideSlot] = useState("processor");
   const [surfaceItem, setSurfaceItem] = useState<SurfaceItem>("keyboard");
   const [port, setPort] = useState(0);
-  const [keyGroup, setKeyGroup] = useState<KeyGroup>("letters");
+  const [keyGroups, setKeyGroups] = useState<KeyGroup[]>(["letters", "mods", "accent"]);
   const [piece, setPiece] = useState<FinishPiece>("lid");
   const [markSurface, setMarkSurface] = useState<MarkSurface>("lid");
   const [markSel, setMarkSel] = useState<string | null>(null);
@@ -253,7 +253,7 @@ export function Builder({
   }, [fit, slotPart, slot.cat]);
   const inside = stage === "inside" && !powering;
   const paint = useMemo<Paint | undefined>(
-    () => (inside ? { selected: new Set(selectedBoxes.map((b) => b.id)), dim: true } : undefined),
+    () => (inside ? { selected: new Set(selectedBoxes.map((b) => b.id)), dim: false } : undefined),
     [inside, selectedBoxes],
   );
 
@@ -261,13 +261,26 @@ export function Builder({
   const portSide = build.ports[port]?.side;
   let frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : FRAME[stage];
   if (surface && surfaceItem === "webcam") frame = { view: "screen", shift: 0.2, zoom: 0.9, lift: 0.02 };
+  if (surface && surfaceItem === "display") frame = { view: "screen", shift: 0.2, zoom: 1.05, lift: 0.01 };
   if (surface && surfaceItem === "ports") frame = { view: "side", shift: 0.15, zoom: 1.05, lift: 0.02 };
   const marking = stage === "marks" && !powering;
   if (marking && markSurface === "palm") frame = { view: "deck", shift: 0.18, lift: 0.012 };
   if (marking && markSurface === "bottom") frame = { view: "bottom", shift: 0.18 };
   if (marking && markSurface === "bezel") frame = { view: "screen", shift: 0.2, zoom: 1.05, lift: 0.01 };
   const flip = marking && markSurface === "bottom";
-  const focus = selectedBoxes[0] ?? emptyBoxes[0];
+  // Frame every box of the selected part together, such as both fans.
+  const focus = useMemo<Box | undefined>(() => {
+    const all = selectedBoxes.length ? selectedBoxes : emptyBoxes;
+    if (all.length <= 1) return all[0];
+    const lo = { x: Infinity, y: Infinity, z: Infinity };
+    const hi = { x: -Infinity, y: -Infinity, z: -Infinity };
+    for (const b of all)
+      for (const k of ["x", "y", "z"] as const) {
+        lo[k] = Math.min(lo[k], b.at[k]);
+        hi[k] = Math.max(hi[k], b.at[k] + b.size[k]);
+      }
+    return { ...all[0], at: lo, size: { x: hi.x - lo.x, y: hi.y - lo.y, z: hi.z - lo.z } };
+  }, [selectedBoxes, emptyBoxes]);
   const viewName: ViewName = inside && !focus ? "xray" : frame.view;
   const lidAngle = (surface && surfaceItem === "ports") || flip ? 0 : LID_OPEN;
   const view = useMemo(
@@ -310,6 +323,7 @@ export function Builder({
       if (b.role === "keys") setSurfaceItem("keyboard");
       else if (b.role === "pad") setSurfaceItem("trackpad");
       else if (b.role === "webcam") setSurfaceItem("webcam");
+      else if (b.role === "panel") setSurfaceItem("display");
       else if (String(b.role).startsWith("port:")) {
         const i = fit.place.ports.findIndex((p) => p?.box === b.id);
         if (i >= 0) {
@@ -357,12 +371,10 @@ export function Builder({
       tray = <SurfaceTray {...props} item={surfaceItem} port={port} onPort={setPort} />;
       break;
     case "keys":
-      column = <KeysColumn {...props} group={keyGroup} onGroup={setKeyGroup} />;
-      tray = <KeysTray {...props} />;
+      column = <KeysColumn {...props} groups={keyGroups} onGroups={setKeyGroups} />;
       break;
     case "finish":
       column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;
-      tray = <FinishTray {...props} piece={piece} />;
       break;
     case "marks":
       column = (
@@ -423,6 +435,7 @@ export function Builder({
         screen={screen}
         glow={powering}
         paint={paint}
+        problems={!["keys", "finish", "marks"].includes(stage)}
         extra={
           inside ? (
             <SelectionMarks selected={selectedBoxes} empty={emptyBoxes} />
@@ -435,6 +448,8 @@ export function Builder({
         lidExtra={
           surface && surfaceItem === "webcam" ? (
             <WebcamMarks fit={fit} set={set} locked={locked} />
+          ) : surface && surfaceItem === "display" ? (
+            <DisplayMarks fit={fit} set={set} locked={locked} />
           ) : marking && (markSurface === "lid" || markSurface === "bezel") ? (
             <MarkHandles build={build} fit={fit} set={set} selected={markSel} locked={locked} />
           ) : undefined

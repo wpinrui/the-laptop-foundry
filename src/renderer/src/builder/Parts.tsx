@@ -111,7 +111,7 @@ export function specLine(cat: Category, id: string): string {
       return s.kind === "fan" ? (s.count === 0 ? "Fanless" : `${s.count} ${s.count === 1 ? "fan" : "fans"}${s.chamber ? "  vapour chamber" : ""}`) : "";
     }
     default:
-      return two(Object.keys(part.options ?? {}).slice(0, 2).map((k) => range(part, k)));
+      return "";
   }
 }
 
@@ -228,7 +228,7 @@ export function OptionChips({ cat, index = 0, build, set }: { cat: Category; ind
           <div key={k} className="bd-field">
             <Label>{optionName(k)}</Label>
             <Chips>
-              {vs.map((v) => (
+              {[...vs].sort((a, b) => (typeof a === "number" && typeof b === "number" ? a - b : 0)).map((v) => (
                 <Chip key={String(v)} on={String(v) === String(value)} onClick={() => set((b) => withOption(b, cat, index, k, v))}>
                   {formatOption(k, v)}
                 </Chip>

@@ -7,7 +7,8 @@ import { ColourPicker } from "./ColourPicker";
 import type { SetBuild } from "./Parts";
 import type { StageProps } from "./Stages";
 import { sanitiseSvg } from "./svg";
-import { Card, Chip, Chips, Label, Slider, TraySep } from "./ui";
+import { Dropdown } from "./Dropdown";
+import { Card, Label, Slider, TraySep } from "./ui";
 
 // The Marks stage: text and imported SVG marks on the lid, palm rest, bottom
 // and bezel, each with its font, size, tracking, weight, colour, process and
@@ -119,13 +120,15 @@ export function MarksColumn({
             <span className="bd-mark-text svg">{m.text}</span>
           )}
           {m.kind === "text" && (
-            <Chips>
-              {MARK_FONTS.map(([font, name]) => (
-                <Chip key={font} on={m.font === font} style={{ fontFamily: `"${font}"`, textTransform: "none" }} onClick={() => edit((x) => ({ ...x, font }))}>
-                  {name}
-                </Chip>
-              ))}
-            </Chips>
+            <div className="bd-line">
+              <Label>Font</Label>
+              <Dropdown
+                label="Mark font"
+                value={m.font}
+                options={MARK_FONTS.map(([font, name]) => ({ key: font, label: name, style: { fontFamily: `"${font}"` } }))}
+                onChange={(font) => edit((x) => ({ ...x, font }))}
+              />
+            </div>
           )}
           <div className="bd-mark-grid">
             <div className="bd-field">

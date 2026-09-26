@@ -2,7 +2,8 @@ import { available, type Build, CONTENT, colourHex, type Fit, type Piece, pieceO
 import { ColourPicker } from "./ColourPicker";
 import type { StageProps } from "./Stages";
 import { materialsFor } from "./structure";
-import { Card, Chip, Chips, Label, Line, money, Value } from "./ui";
+import { type DropOption, Dropdown } from "./Dropdown";
+import { Chip, Chips, Label, Line, money, Value } from "./ui";
 
 // The Finish stage: lid, deck, bottom and bezel, each any colour; material
 // and surface finish per shell piece, and what the piece adds.
@@ -64,7 +65,22 @@ export function FinishColumn({
         {shell && mat && (
           <>
             <Line label="Material">
-              <b className="bd-caps">{mat.name.replace(/ \(.*\)$/, "")}</b>
+              <Dropdown
+                label="Material"
+                value={mat.id}
+                options={materialOptions(build, shell)}
+                onChange={(id) =>
+                  set((b) => {
+                    const m = CONTENT.materials.find((x) => x.id === id);
+                    if (!m) return b;
+                    return {
+                      ...b,
+                      materials: { ...b.materials, [shell]: m.id },
+                      finish: { ...b.finish, [shell]: { ...b.finish[shell], texture: m.finishes[0] ?? b.finish[shell].texture } },
+                    };
+                  })
+                }
+              />
             </Line>
             <div className="bd-line">
               <Label>Finish</Label>
@@ -105,33 +121,10 @@ export function FinishColumn({
   );
 }
 
-export function FinishTray({ build, set, piece }: StageProps & { piece: FinishPiece }) {
-  if (piece === "bezel") return null;
+/** The year's materials; those the piece cannot take stay listed but unavailable. */
+function materialOptions(build: Build, piece: Piece): DropOption[] {
   const allowed = materialsFor(build.year, piece);
-  return (
-    <>
-      {CONTENT.materials
-        .filter((m) => available(m, build.year))
-        .map((m) => (
-          <Card
-            key={m.id}
-            width={170}
-            on={build.materials[piece] === m.id}
-            off={!allowed.includes(m.id)}
-            top={m.finishes.map((f) => CONTENT.finishes.find((x) => x.id === f)?.name ?? f).join("  ").toLowerCase()}
-            name={m.name.replace(/ \(.*\)$/, "")}
-            onClick={() =>
-              set((b) => {
-                const first = m.finishes[0] ?? b.finish[piece].texture;
-                return {
-                  ...b,
-                  materials: { ...b.materials, [piece]: m.id },
-                  finish: { ...b.finish, [piece]: { ...b.finish[piece], texture: first } },
-                };
-              })
-            }
-          />
-        ))}
-    </>
-  );
+  return CONTENT.materials
+    .filter((m) => available(m, build.year) || m.id === build.materials[piece])
+    .map((m) => ({ key: m.id, label: m.name.replace(/ \(.*\)$/, ""), disabled: !allowed.includes(m.id) && m.id !== build.materials[piece] }));
 }

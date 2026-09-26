@@ -108,6 +108,34 @@
   --site06-fps-bad: #f3c4c0;
   --site06-fps-ok: #f6dfa8;
   --site06-fps-good: #c5e6c5;
+  /* 2016 magazine: the accent wash, header greys, the hero's shade, the bar
+     pastels (the reviewed model blue), temperature steps and chart lines. */
+  --site16-wash: #fdf3ef;
+  --site16-nav: #d6d8db;
+  --site16-field: #3a3f47;
+  --site16-foot: #9da1a7;
+  --site16-hero: #222222;
+  --site16-shade: rgba(0, 0, 0, 0.78);
+  --site16-dek: #e6e6e6;
+  --site16-when: #bdbdbd;
+  --site16-me: #8fb1d6;
+  --site16-p1: #e6d3c4;
+  --site16-p2: #e2d6ea;
+  --site16-p3: #d4e4d1;
+  --site16-p4: #f0e2b6;
+  --site16-p5: #c9d6e3;
+  --site16-pro-wash: #dff1e3;
+  --site16-con-wash: #f8e0dc;
+  --site16-t1: #9cc9e8;
+  --site16-t2: #a9d9a0;
+  --site16-t3: #f2dc6b;
+  --site16-t4: #f3a652;
+  --site16-t5: #ee7d58;
+  --site16-l0: #4a78ad;
+  --site16-l1: #b07c55;
+  --site16-l2: #8a6aa8;
+  --site16-l3: #5f9557;
+  --site16-l4: #b8952e;
   /* Very loud on the noise scale, every era. */
   --site-loud: #8c1d18;
   /* Score piece: poor, fair, good, great. */

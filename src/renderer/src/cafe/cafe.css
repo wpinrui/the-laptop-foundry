@@ -92,3 +92,16 @@
   line-height: 1;
   text-shadow: none;
 }
+
+/* In use the prompts move to the corner, clear of the laptop's screen. */
+.cafe-prompts.using {
+  left: calc(32 * var(--u));
+  top: auto;
+  bottom: calc(32 * var(--u));
+}
+
+/* drei sets pointer-events: auto on the screen layer; outside use mode the
+   screen must not take the pointer. */
+.cafe-overlay:not(.using) * {
+  pointer-events: none !important;
+}

@@ -53,6 +53,8 @@ export const PORTS: Part[] = [
   port("hdmi-1.3", "HDMI", 2006, 2014, "video", 15, 6, 12),
   port("hdmi-1.4", "HDMI 1.4", 2009, 2019, "video", 15, 6, 12),
   port("mini-dp", "Mini DisplayPort", 2010, 2018, "video", 7.5, 5, 10),
+  port("displayport", "DisplayPort", 2009, 2020, "video", 16, 5, 12),
+  port("hdmi-2.0", "HDMI 2.0", 2016, 2022, "video", 15, 6, 12),
   port("hdmi-2.1", "HDMI 2.1", 2020, 2099, "video", 15, 6, 12),
   port("ethernet-100", "Ethernet 100M", 1995, 2012, "network", 16, 14, 21),
   port("ethernet-1g", "Ethernet 1G", 2004, 2099, "network", 16, 14, 21),
@@ -71,11 +73,24 @@ export const PORTS: Part[] = [
   port("usb-a-2.0", "USB-A 2.0", 2001, 2014, "usb", 14, 7, 13.5),
   port("usb-a-5g", "USB-A 5 Gbps", 2010, 2099, "usb", 14, 7, 13.5),
   port("usb-a-10g", "USB-A 10 Gbps", 2014, 2099, "usb", 14, 7, 13.5),
+  port("esata-usb", "eSATA/USB 2.0 combo", 2008, 2013, "usb", 14, 7, 13.5),
+  port("usb-c-5g", "USB-C 5 Gbps", 2015, 2099, "usb", 9.5, 4, 9, {
+    charges: true,
+  }),
   port("usb-c-10g", "USB-C 10 Gbps", 2016, 2099, "usb", 9.5, 4, 9, {
     charges: true,
   }),
   port("usb4-40g", "USB4 40 Gbps", 2020, 2099, "usb", 9.5, 4, 9, {
     charges: true,
+  }),
+  // Thunderbolt 1 and 2 share the Mini DisplayPort socket and need their own controller.
+  port("thunderbolt-1", "Thunderbolt", 2011, 2013, "usb", 7.5, 5, 10, {
+    needs: intel,
+    controller: true,
+  }),
+  port("thunderbolt-2", "Thunderbolt 2", 2013, 2016, "usb", 7.5, 5, 10, {
+    needs: intel,
+    controller: true,
   }),
   // Thunderbolt 3 needs its own controller chip on the board.
   port("thunderbolt-3", "Thunderbolt 3", 2015, 2021, "usb", 9.5, 4, 9, {
@@ -96,7 +111,7 @@ export const PORTS: Part[] = [
   port("pc-card", "PC Card (Type II)", 1995, 2008, "cards", 56, 7, 86),
   port("expresscard-34", "ExpressCard/34", 2005, 2012, "cards", 36, 7, 75),
   port("expresscard-54", "ExpressCard/54", 2005, 2012, "cards", 56, 7, 75),
-  port("sd-reader", "SD card reader", 2004, 2016, "cards", 26, 4, 30),
+  port("sd-reader", "SD card reader", 2004, 2020, "cards", 26, 4, 30),
   port(
     "sd-reader-uhs2",
     "SD card reader (UHS-II)",

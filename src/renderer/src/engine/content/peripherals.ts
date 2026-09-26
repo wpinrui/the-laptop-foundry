@@ -31,6 +31,7 @@ export const OPTICAL: Part[] = [
   odd("bd-writer", "Blu-ray writer", 2006, 2010, 12.7),
   odd("hd-dvd", "HD DVD reader", 2006, 2008, 12.7),
   odd("dvd-rw-slim-2016", "DVD±RW slim", 2011, 2019, 9.5),
+  odd("bd-combo-slim", "Blu-ray reader, DVD±RW slim", 2011, 2019, 9.5),
   odd("dvd-rw-slim", "DVD±RW slim", 2020, 2030, 9.5),
   odd("bd-writer-slim", "Blu-ray writer slim", 2020, 2030, 9.5),
 ];
@@ -68,11 +69,68 @@ export const WIRELESS: Part[] = [
     compact: [],
   },
   {
+    id: "wifi-n-draft",
+    name: "802.11a/g/n draft",
+    category: "wireless",
+    from: 2007,
+    until: 2009,
+    shape: {
+      kind: "block",
+      role: "wlan",
+      size: { x: 30, y: 51, z: 4 },
+      row: 2,
+    },
+    options: { bluetooth: ["none", "2.0"] },
+    compact: [],
+  },
+  {
+    id: "wifi-n-bt3",
+    name: "802.11n + Bluetooth 3.0",
+    category: "wireless",
+    from: 2010,
+    until: 2012,
+    shape: {
+      kind: "block",
+      role: "wlan",
+      size: { x: 30, y: 27, z: 3.5 },
+      row: 2,
+    },
+    compact: [],
+  },
+  {
+    id: "wifi-n-bt4",
+    name: "802.11n + Bluetooth 4.0",
+    category: "wireless",
+    from: 2012,
+    until: 2016,
+    shape: {
+      kind: "block",
+      role: "wlan",
+      size: { x: 30, y: 27, z: 3.5 },
+      row: 2,
+    },
+    compact: [],
+  },
+  {
     id: "wifi-ac",
     name: "802.11ac + Bluetooth 4.1",
     category: "wireless",
     from: 2013,
     until: 2020,
+    shape: {
+      kind: "block",
+      role: "wlan",
+      size: { x: 22, y: 30, z: 3 },
+      row: 2,
+    },
+    compact: [],
+  },
+  {
+    id: "wifi-6",
+    name: "Wi-Fi 6 + Bluetooth 5.1",
+    category: "wireless",
+    from: 2019,
+    until: 2023,
     shape: {
       kind: "block",
       role: "wlan",
@@ -120,7 +178,11 @@ export const BLUETOOTH_2006: Size = { x: 15, y: 20, z: 3 };
 export const WIFI_LAB: Record<string, { send: number; receive: number }> = {
   "wifi-bg": { send: 21, receive: 23 },
   "wifi-abg": { send: 23, receive: 25 },
+  "wifi-n-draft": { send: 85, receive: 100 },
+  "wifi-n-bt3": { send: 150, receive: 180 },
+  "wifi-n-bt4": { send: 190, receive: 230 },
   "wifi-ac": { send: 580, receive: 640 },
+  "wifi-6": { send: 900, receive: 1100 },
   "wifi-6e": { send: 1450, receive: 1650 },
   "wifi-7": { send: 1950, receive: 2350 },
 };
@@ -133,7 +195,7 @@ export const KEYBOARDS: Part[] = [
     name: "2.5 mm travel",
     category: "keyboard",
     from: 1995,
-    until: 2010,
+    until: 2012,
     shape: { kind: "keys", rows: 6, stack: [6.0, 5.0] },
     options: {
       cols: [15, 19],
@@ -188,7 +250,7 @@ export const KEYBOARDS: Part[] = [
     id: "kb-1.5",
     name: "1.5 mm travel",
     category: "keyboard",
-    from: 2015,
+    from: 2012,
     until: 2030,
     shape: { kind: "keys", rows: 6, stack: [3.3, 2.8] },
     options: {
@@ -261,11 +323,11 @@ function pad(
 }
 
 export const TRACKPADS: Part[] = [
-  pad("pad-65x40", 2000, 2010, 65, 40, false),
-  pad("pad-75x45", 2000, 2010, 75, 45, false),
-  pad("pad-85x50", 2003, 2010, 85, 50, false),
-  pad("pad-100x56", 2012, 2019, 100, 56, "clickpad"),
-  pad("pad-105x70", 2014, 2019, 105, 70, "clickpad"),
+  pad("pad-65x40", 2000, 2011, 65, 40, false),
+  pad("pad-75x45", 2000, 2012, 75, 45, false),
+  pad("pad-85x50", 2003, 2012, 85, 50, false),
+  pad("pad-100x56", 2011, 2019, 100, 56, "clickpad"),
+  pad("pad-105x70", 2012, 2019, 105, 70, "clickpad"),
   pad("pad-130x80", 2015, 2019, 130, 80, "clickpad"),
   pad("pad-110x70", 2018, 2030, 110, 70, true),
   pad("pad-125x80", 2018, 2030, 125, 80, true),
@@ -296,8 +358,8 @@ function cam(
 // No webcam is an empty webcam list. A privacy shutter adds 10 mm of width.
 export const WEBCAMS: Part[] = [
   cam("cam-0.3mp", "0.3 MP", 2004, 2009, { x: 25, y: 6, z: 3.5 }, false),
-  cam("cam-1.3mp", "1.3 MP", 2006, 2011, { x: 30, y: 7, z: 4.5 }, false),
-  cam("cam-720p", "720p", 2015, 2030, { x: 20, y: 4, z: 2.8 }, true),
+  cam("cam-1.3mp", "1.3 MP", 2006, 2012, { x: 30, y: 7, z: 4.5 }, false),
+  cam("cam-720p", "720p", 2011, 2030, { x: 20, y: 4, z: 2.8 }, true),
   cam("cam-1080p", "1080p", 2020, 2030, { x: 22, y: 4.5, z: 3 }, true),
   cam(
     "cam-1080p-ir",

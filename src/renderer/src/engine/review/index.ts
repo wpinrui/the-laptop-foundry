@@ -298,6 +298,10 @@ export interface Review {
   sections: Section[];
   scores: Scores;
   price: number | null;
+  /** Publication date in the model's year: month 1 to 12, day of the month. */
+  date: { year: number; month: number; day: number };
+  /** What the site calls this laptop, such as "premium ultrabook". */
+  kind: string;
   /** The reviewed model and its rivals by id, in colour slot order. */
   field: string[];
 }
@@ -477,6 +481,14 @@ function compare(
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const an = (word: string) => `${/^(?:[aeiou]|8|1[18](?:\D|$))/i.test(word) ? "an" : "a"} ${word}`;
+
+/** A publication date in the year, stable per model. */
+function publishedOn(id: string, year: number): Review["date"] {
+  const r = rng(`date:${id}`);
+  const month = 1 + Math.floor(r() * 12);
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return { year, month, day: 1 + Math.floor(r() * days) };
+}
 
 /** Build the whole review for a model or a rival. */
 export function reviewOf(s: Subject, content: Content = CONTENT): Review {
@@ -1079,6 +1091,8 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     sections,
     scores: rollScores(s.id),
     price,
+    date: publishedOn(s.id, b.year),
+    kind,
     field: [s.id, ...peers.map((p) => p.subject.id)],
   };
 }

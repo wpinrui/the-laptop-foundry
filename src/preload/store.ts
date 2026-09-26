@@ -10,6 +10,8 @@ export interface SavedModel {
   /** When the model was first reviewed. A reviewed model is locked: its
    * build never changes, so its review never changes. */
   reviewed?: number;
+  /** When the player first saw the review's score land. The reveal plays only before this. */
+  revealed?: number;
 }
 
 /** One company: one save. */

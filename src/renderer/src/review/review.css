@@ -441,29 +441,244 @@
 /* ------------------------------------------------------------ the screen */
 
 .review-screen {
-  position: relative;
-  height: 100vh;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
 }
 
-.review-bar {
+.rv-overlay {
   position: absolute;
-  top: var(--space-3);
-  left: var(--space-3);
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ the reveal */
+
+.rv-column {
+  gap: calc(18 * var(--u));
+}
+
+.rv-publication {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+
+.rv-model {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(96 * var(--u));
+  line-height: 0.9;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.rv-date {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: calc(18 * var(--u));
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.rv-actions {
+  margin-top: calc(30 * var(--u));
+}
+
+.rv-score-col {
+  width: calc(470 * var(--u));
+  gap: calc(26 * var(--u));
+}
+
+.rv-score-col .rv-actions {
+  margin-top: calc(8 * var(--u));
+}
+
+.rv-score {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(150 * var(--u));
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.rv-great .rv-score {
+  text-shadow: 0 0 calc(40 * var(--u)) color-mix(in srgb, var(--accent-hex) 55%, transparent);
+}
+
+.rv-band {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(44 * var(--u));
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.rv-poor .rv-score,
+.rv-poor .rv-band {
+  color: var(--muted);
+}
+
+.rv-headline {
+  margin: 0;
+  max-width: calc(440 * var(--u));
+  font-size: calc(20 * var(--u));
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.rv-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, calc(206 * var(--u)));
+  gap: calc(8 * var(--u)) calc(28 * var(--u));
+}
+
+.rv-bars li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: calc(6 * var(--u));
+  row-gap: calc(5 * var(--u));
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(15 * var(--u));
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.rv-bars span {
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.rv-bars b {
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.rv-bars li > i {
+  grid-column: 1 / -1;
+  height: max(1px, calc(2 * var(--u)));
+  background: var(--track);
+}
+
+.rv-bars li > i > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  animation: rv-fill 500ms ease-out var(--rv-delay, 0ms) both;
+}
+
+.rv-poor .rv-bars li > i > i {
+  background: var(--muted);
+}
+
+@keyframes rv-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Reading: only Back and F, top left. */
+.rv-bar {
+  position: absolute;
+  left: calc(48 * var(--u));
+  top: calc(40 * var(--u));
   display: flex;
-  gap: var(--space-2);
+  align-items: center;
+  gap: calc(22 * var(--u));
   z-index: 5;
 }
 
-.review-bar button {
-  font: inherit;
-  font-size: var(--font-size-caption);
-  color: var(--color-text);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--space-1) var(--space-3);
+/* With no panel the article is always full screen; Back stays on top of it. */
+.rv-bar-top {
+  z-index: 60;
+}
+
+.fd .rv-back {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(24 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
   cursor: pointer;
+}
+
+.fd .rv-key {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(16 * var(--u));
+  line-height: 1;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  padding: calc(5 * var(--u)) calc(10 * var(--u));
+  cursor: pointer;
+}
+
+.fd .rv-back:hover,
+.fd .rv-back:focus-visible,
+.fd .rv-key:hover,
+.fd .rv-key:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The site mid-load, each era with its own progress mark. */
+.rs-loading {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.rs-progress {
+  display: block;
+  width: 100%;
+  transform-origin: left;
+  animation: rs-load 2300ms ease-out both;
+}
+
+.rs-2006 .rs-progress {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 45%;
+  height: 16px;
+  background: var(--site06-head);
+  animation-timing-function: steps(9, end);
+}
+
+.rs-2016 .rs-progress {
+  height: 4px;
+  background: var(--site16-accent);
+}
+
+.rs-2026 .rs-progress {
+  height: 2px;
+  background: var(--site26-accent);
+}
+
+@keyframes rs-load {
+  from {
+    transform: scaleX(0);
+  }
 }
 
 /* The page as the panel shows it. */

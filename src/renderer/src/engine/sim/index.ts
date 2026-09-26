@@ -15,10 +15,12 @@ import {
 import { archOf, igpuAt, scoreAt, singleAt } from "./curves";
 import { balancedProfile, partOf, profilesOf, topProfile } from "./profiles";
 import { type Lab, labOf } from "./lab";
+import { type Surface, surfaceOf } from "./surface";
 
 export { ARCHS, igpuAt, scoreAt, singleAt } from "./curves";
 export type { Lab, MemoryLab, PanelLab, StorageLab, WifiLab } from "./lab";
 export { labOf } from "./lab";
+export type { Surface, SurfaceField, SurfaceReadings } from "./surface";
 export {
   balancedProfile,
   defaultProfiles,
@@ -84,6 +86,8 @@ export interface Cooling {
   peakDie: number;
   /** Hottest outer surface under combined load. */
   peakSkin: number;
+  /** Surface temperature fields over the base's top and bottom at idle and under the stress test. */
+  surface: Surface;
   /** dB(A). */
   noise: { idle: number; load: number; sustained: number };
 }
@@ -399,7 +403,13 @@ function graphicsAt(f: Facts, cpuW: number, gpuW: number): number {
   return f.cpu ? igpuAt(f.cpu, cpuW) : 0;
 }
 
-function coolingFor(f: Facts, c: Cooler, profiles: Record<ProfileId, Profile>): Cooling {
+function coolingFor(
+  f: Facts,
+  c: Cooler,
+  profiles: Record<ProfileId, Profile>,
+  fit: Fit,
+  build: Build,
+): Cooling {
   const id = topProfile(profiles);
   const p = profiles[id];
   const cpu = f.cpu as PowerSpec;
@@ -413,6 +423,42 @@ function coolingFor(f: Facts, c: Cooler, profiles: Record<ProfileId, Profile>): 
     mean(Array.from({ length: RUN }, (_, i) => gfx(from + i)));
   const peakSink = Math.max(...stress.sink);
   const fanPeak = Math.max(...head(stress.fan));
+  const peakSkin = AMBIENT + (peakSink - AMBIENT) * c.skin;
+  const carried = (fan: number) => {
+    const g = c.active * Math.max(0, fan) ** 0.8;
+    return g > 0 ? Math.min(0.9, g / (g + c.passive)) : 0;
+  };
+  const base = baseWatts(f);
+  const idleFan = idle.fan[idle.fan.length - 1];
+  const loadFan = mean(tail(stress.fan));
+  const walls = fit.shell.walls;
+  const surface = surfaceOf(
+    fit,
+    {
+      spread: {
+        top: SPREAD[build.materials.deck] ?? 0.35,
+        bottom: SPREAD[build.materials.floor] ?? 0.35,
+      },
+      thickness: { top: walls.top, bottom: walls.bottom },
+    },
+    {
+      cpuW: idle.cpuW[idle.cpuW.length - 1],
+      gpuW: idle.gpuW[idle.gpuW.length - 1],
+      base,
+      fan: idleFan,
+      carried: carried(idleFan),
+      peak: AMBIENT + (idle.sink[idle.sink.length - 1] - AMBIENT) * c.skin,
+    },
+    {
+      cpuW: mean(tail(stress.cpuW)),
+      gpuW: mean(tail(stress.gpuW)),
+      base,
+      fan: loadFan,
+      carried: carried(loadFan),
+      peak: peakSkin,
+    },
+    AMBIENT,
+  );
   return {
     profile: id,
     firstRun: multi(head(loop.cpuW)),
@@ -424,7 +470,8 @@ function coolingFor(f: Facts, c: Cooler, profiles: Record<ProfileId, Profile>): 
       : null,
     dieTemp: TRACE.map((at) => ({ at, c: loop.cpuDie[at - 1] })),
     peakDie: Math.max(...loop.cpuDie, ...stress.cpuDie),
-    peakSkin: AMBIENT + (peakSink - AMBIENT) * c.skin,
+    peakSkin,
+    surface,
     noise: {
       idle: noise(c, idle.fan[idle.fan.length - 1]),
       load: noise(c, fanPeak),
@@ -516,7 +563,7 @@ export function simulate(
   );
   const c = cooler(f);
   if (f.wh > 0 && f.panel) out.battery = batteryFor(f, c, profiles, complete);
-  if (complete) out.cooling = coolingFor(f, c, profiles);
+  if (complete) out.cooling = coolingFor(f, c, profiles, fit, build);
   return out;
 }
 

@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { type Build, CONTENT, type Fit, RIVALS, simulate, solve } from "../engine";
 import { AMBIENT } from "../engine/sim";
 import { eraOf, setAssetResolver } from "./reviewScenes";
-import { engineToWorld } from "./space";
 
 // What the game supplies to the review photo sets: local assets, screen
 // images, the thermal camera's heat map and the size photo's rival outlines.
@@ -206,44 +205,39 @@ export function screenTexture(
 
 // ------------------------------------------------------------------ thermal
 
-/** A hot spot on the case: laptop space in mm, weight 0 to 1. */
-interface Spot {
-  at: THREE.Vector3;
-  weight: number;
-}
-
-const HOT: Record<string, number> = { cpu: 1, gpu: 0.9, vrm: 0.45, fan: 0.4, fin: 0.55, battery: 0.15, m2: 0.2 };
-const MAX_SPOTS = 16;
 /** The heat map's fixed scale, so every review's thermal photos read alike. */
 const SCALE_C: [number, number] = [20, 58];
 
+function heatTexture(grid: number[], nx: number, ny: number): THREE.DataTexture {
+  const t = (c: number) => Math.round(255 * Math.min(1, Math.max(0, (c - SCALE_C[0]) / (SCALE_C[1] - SCALE_C[0]))));
+  const tex = new THREE.DataTexture(Uint8Array.from(grid, t), nx, ny, THREE.RedFormat, THREE.UnsignedByteType);
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 /**
- * The unlit false-colour heat map for a build, from the simulation's peak skin
- * temperature, spread over the case around its hot parts.
+ * The unlit false-colour heat map for a build: the simulation's surface
+ * temperatures under the stress test, the deck's on the top half of the base
+ * and the floor's on the bottom half, looked up by position.
  */
 export function heatMaterial(build: Build, fit: Fit): THREE.ShaderMaterial {
   const out = fit.shell.outer;
-  const peakSkin = simulate(build, fit).cooling?.peakSkin ?? AMBIENT + 8;
-  const spots: Spot[] = [];
-  for (const b of fit.boxes) {
-    const w = HOT[b.role as string];
-    if (b.kind !== "unit" || !w || b.piece === "lid") continue;
-    const c = engineToWorld({ x: b.at.x + b.size.x / 2, y: b.at.y + b.size.y / 2, z: b.at.z + b.size.z / 2 }, out);
-    spots.push({ at: c, weight: w });
-  }
-  spots.sort((a, b) => b.weight - a.weight || a.at.x - b.at.x || a.at.z - b.at.z);
-  const used = spots.slice(0, MAX_SPOTS);
-  const pos = Array.from({ length: MAX_SPOTS }, (_, i) => used[i]?.at ?? new THREE.Vector3());
-  const wt = Array.from({ length: MAX_SPOTS }, (_, i) => used[i]?.weight ?? 0);
+  const surface = simulate(build, fit).cooling?.surface;
+  const flat = (c: number) => heatTexture([c], 1, 1);
+  const top = surface ? heatTexture(surface.load.top, surface.nx, surface.ny) : flat(AMBIENT + 3);
+  const bottom = surface ? heatTexture(surface.load.bottom, surface.nx, surface.ny) : flat(AMBIENT + 3);
   const t = (c: number) => (c - SCALE_C[0]) / (SCALE_C[1] - SCALE_C[0]);
-  return new THREE.ShaderMaterial({
+  const mat = new THREE.ShaderMaterial({
     uniforms: {
-      uSpots: { value: pos },
-      uWeights: { value: wt },
+      uTop: { value: top },
+      uBottom: { value: bottom },
       uSize: { value: new THREE.Vector3(out.x, out.y, out.z) },
       uInv: { value: new THREE.Matrix4() },
-      uAmbient: { value: t(AMBIENT + 3) },
-      uPeak: { value: t(peakSkin) },
+      uLid: { value: t(AMBIENT + 2) },
     },
     vertexShader: `
       uniform mat4 uInv;
@@ -258,11 +252,10 @@ export function heatMaterial(build: Build, fit: Fit): THREE.ShaderMaterial {
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
     fragmentShader: `
-      uniform vec3 uSpots[${MAX_SPOTS}];
-      uniform float uWeights[${MAX_SPOTS}];
+      uniform sampler2D uTop;
+      uniform sampler2D uBottom;
       uniform vec3 uSize;
-      uniform float uAmbient;
-      uniform float uPeak;
+      uniform float uLid;
       varying vec3 vL;
       vec3 iron(float t) {
         t = clamp(t, 0., 1.);
@@ -274,19 +267,19 @@ export function heatMaterial(build: Build, fit: Fit): THREE.ShaderMaterial {
         return mix(e, f, (t - .85) / .15);
       }
       void main() {
-        float s2 = pow(uSize.x * 0.13, 2.);
-        float heat = 0.;
-        for (int i = 0; i < ${MAX_SPOTS}; i++) {
-          vec2 d = vL.xz - uSpots[i].xz;
-          heat = max(heat, uWeights[i] * exp(-dot(d, d) / s2));
-        }
-        // The floor runs hottest; the deck a little cooler; the lid near room temperature.
-        float face = vL.y < uSize.z * 0.5 ? 1. : 0.82;
-        if (vL.y > uSize.z + 3. || vL.z < -uSize.y * 0.5 - 3.) face = 0.18;
-        float t = uAmbient + (uPeak - uAmbient) * heat * face;
+        // Laptop space is engine space turned up: x across, y up, z toward the front.
+        vec2 uv = clamp(vec2(vL.x / uSize.x + .5, .5 - vL.z / uSize.y), 0., 1.);
+        float t = vL.y < uSize.z * 0.5 ? texture2D(uBottom, uv).r : texture2D(uTop, uv).r;
+        // The lid stays near room temperature.
+        if (vL.y > uSize.z + 3. || vL.z < -uSize.y * 0.5 - 3.) t = uLid;
         gl_FragColor = vec4(iron(t), 1.);
       }`,
   });
+  mat.addEventListener("dispose", () => {
+    top.dispose();
+    bottom.dispose();
+  });
+  return mat;
 }
 
 // ------------------------------------------------------------------ size

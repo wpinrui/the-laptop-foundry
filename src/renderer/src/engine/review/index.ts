@@ -937,6 +937,18 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
         ]) + (c.peakSkin > 48 ? " That is too hot to rest on a lap." : ""),
       ],
       tables: [
+        {
+          caption: "Surface temperature under load (°C)",
+          columns: ["", "Left", "Centre", "Right"],
+          rows: (["top", "bottom"] as const).flatMap((face) =>
+            c.surface.readings.load[face].map((row, i) => ({
+              cells: [
+                `${face === "top" ? "Top" : "Bottom"}, ${["rear", "middle", "front"][i]}`,
+                ...row.map((v) => num(v, 1)),
+              ],
+            })),
+          ),
+        },
         compare("Noise and temperature", ["Idle", "Load", "Surface"], f, peers, (x) =>
           x.m.cooling
             ? [

@@ -382,7 +382,7 @@ export function CafeScreen({
               }}
             >
               <i className="ico web-ico" />
-              Notebook Ledger
+              Notebookcheck
             </button>
           </div>
           {app !== "desktop" && (

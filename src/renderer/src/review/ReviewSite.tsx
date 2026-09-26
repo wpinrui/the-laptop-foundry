@@ -2,9 +2,9 @@ import { type CSSProperties, useMemo, useState } from "react";
 import { factsOf, type Review, rollScores, type Subject, type Table } from "../engine";
 import "./review.css";
 
-// The in-game review site, Notebook Ledger. Its look follows the model's era.
+// The in-game review site, Notebookcheck (GDD: it publishes the reviews). Its look follows the model's era.
 
-export const PUBLICATION = "Notebook Ledger";
+export const PUBLICATION = "Notebookcheck";
 
 export type Era = 2006 | 2016 | 2026;
 
@@ -17,7 +17,7 @@ function Masthead({ era, onHome }: { era: Era; onHome?: () => void }) {
     return (
       <header className="rs-mast">
         <button type="button" className="rs-logo" onClick={onHome}>
-          NotebookLedger<span>.com</span>
+          Notebookcheck<span>.net</span>
         </button>
         <nav>
           <span>News</span>
@@ -43,7 +43,7 @@ function Masthead({ era, onHome }: { era: Era; onHome?: () => void }) {
   return (
     <header className="rs-mast">
       <button type="button" className="rs-logo" onClick={onHome}>
-        Ledger
+        {PUBLICATION}
       </button>
     </header>
   );

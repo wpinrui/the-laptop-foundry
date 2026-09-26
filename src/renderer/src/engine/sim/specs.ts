@@ -1,4 +1,5 @@
 import { type Content, CONTENT } from "../content";
+import { panelOf } from "../screen";
 import type { Build, BuildPart, OptionValue, Part, Side } from "../types";
 
 // Raw figures that need only the parts themselves, so the builder can show
@@ -118,9 +119,8 @@ export function specs(build: Build, content: Content = CONTENT): Specs {
   }
 
   let display: DisplaySpec | null = null;
-  const disp = build.parts.display?.[0];
-  const panel = disp && content.panels.find((p) => p.id === disp.part);
-  if (disp && panel) {
+  const panel = panelOf(build, content);
+  if (panel) {
     const diag = Math.hypot(panel.res[0], panel.res[1]);
     display = {
       inches: panel.inches,
@@ -129,7 +129,7 @@ export function specs(build: Build, content: Content = CONTENT): Specs {
       ppi: Math.round(diag / panel.inches),
       type: panel.type,
       nits: panel.nits,
-      refresh: Number(disp.opts?.refresh ?? panel.refresh[0] ?? 60),
+      refresh: panel.hz,
       gamut: panel.gamut,
     };
   }

@@ -7,6 +7,7 @@ import {
 } from "./content/peripherals";
 import { PORT_GROUP_ORDER } from "./content/ports";
 import { activeArea, panelThickness } from "./content/display";
+import { panelOf } from "./screen";
 import type { Index } from "./content";
 import type {
   Axis,
@@ -189,7 +190,7 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
       ];
       const before = lists.map((l) => l.length);
       emitOne(cat, f, bp, n);
-      const opts = resolvedOpts(idx, cat, bp);
+      const opts = resolvedOpts(idx, bp);
       lists.forEach((l, i) => {
         for (let k = before[i]; k < l.length; k++) l[k].opts = opts;
       });
@@ -198,28 +199,7 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
 
   function emitOne(cat: Category, f: number, bp: BuildPart, n: number): void {
     {
-      if (cat === "display") {
-        const panel = idx.panels.get(bp.part);
-        if (!panel) return;
-        const type = idx.panelTypes.get(panel.type);
-        if (!type) return;
-        const area = activeArea(panel);
-        const z = panelThickness(type, panel.inches) * f;
-        push({
-          id: `display:${n}`,
-          role: "panel",
-          size: { x: area.x, y: area.y, z },
-          part: panel.id,
-        });
-        if (type.inverter)
-          push({
-            id: `display:${n}:inverter`,
-            role: "inverter",
-            size: { ...type.inverter },
-            part: panel.id,
-          });
-        return;
-      }
+      if (cat === "display") return;
       const part = idx.parts.get(bp.part);
       if (!part || part.category !== cat) return;
       const base = `${cat}:${n}`;
@@ -259,6 +239,23 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
     }
   }
 
+  // The screen: its active area and thickness from the resolved panel.
+  const panel = panelOf(build, idx.content);
+  const ptype = panel && idx.panelTypes.get(panel.type);
+  if (panel && ptype) {
+    const area = activeArea(panel);
+    const z = panelThickness(ptype, panel.inches) * (1 - 0.15 * spendOf(build, "display"));
+    push({
+      id: "display:0",
+      role: "panel",
+      size: { x: area.x, y: area.y, z },
+      part: panel.id,
+      opts: { refresh: panel.hz },
+    });
+    if (ptype.inverter)
+      push({ id: "display:0:inverter", role: "inverter", size: { ...ptype.inverter }, part: panel.id, opts: { refresh: panel.hz } });
+  }
+
   emitPorts(build, idx, out, push);
 
   push({ id: "body:hinge:0", role: "hinge", size: { ...body.hinge } });
@@ -279,13 +276,8 @@ function padStack(mech: string, spend: number): number {
 
 function resolvedOpts(
   idx: Index,
-  cat: Category,
   bp: BuildPart,
 ): Record<string, OptionValue> {
-  if (cat === "display") {
-    const panel = idx.panels.get(bp.part);
-    return { refresh: bp.opts?.refresh ?? panel?.refresh[0] ?? 60 };
-  }
   const part = idx.parts.get(bp.part);
   const out: Record<string, OptionValue> = {};
   if (!part) return out;
@@ -488,32 +480,38 @@ function emitPorts(
   }
 }
 
-/** Bezel reserves: active-area edge to outer shell, less the lid's side offset. */
-export function bezelUnits(era: Era, lidSide: number): Unit[] {
+/**
+ * Bezel reserves: active-area edge to outer shell, less the lid's side offset.
+ * The player's side bezel moves all four; the top and chin keep the era's
+ * extra over the sides (the webcam and the panel's driver board).
+ */
+export function bezelUnits(era: Era, lidSide: number, side?: number): Unit[] {
+  const d = side === undefined ? 0 : Math.max(era.bezel.side, side) - era.bezel.side;
+  const b = { side: era.bezel.side + d, top: era.bezel.top + d, chin: era.bezel.chin + d };
   const r = (v: number) => Math.max(0, v - lidSide);
   return [
     {
       id: "bezel:chin",
       role: "bezel-chin",
-      size: { x: 0, y: r(era.bezel.chin), z: 0 },
+      size: { x: 0, y: r(b.chin), z: 0 },
       spacer: true,
     },
     {
       id: "bezel:left",
       role: "bezel-side",
-      size: { x: r(era.bezel.side), y: 0, z: 0 },
+      size: { x: r(b.side), y: 0, z: 0 },
       spacer: true,
     },
     {
       id: "bezel:right",
       role: "bezel-side",
-      size: { x: r(era.bezel.side), y: 0, z: 0 },
+      size: { x: r(b.side), y: 0, z: 0 },
       spacer: true,
     },
     {
       id: "bezel:top",
       role: "bezel-top",
-      size: { x: 0, y: r(era.bezel.top), z: 0 },
+      size: { x: 0, y: r(b.top), z: 0 },
       spacer: true,
     },
   ];

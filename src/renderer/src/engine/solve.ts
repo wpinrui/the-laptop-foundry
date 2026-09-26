@@ -38,6 +38,7 @@ import type {
   Vec3,
 } from "./types";
 import { bezelUnits, emit, spendOf, type Unit } from "./units";
+import { panelOf } from "./screen";
 
 const AXES: Axis[] = ["x", "y", "z"];
 const EPS = 1e-9;
@@ -82,7 +83,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   const wd = wallFor(era, build.materials.deck, matSpend);
   const wl = wallFor(era, build.materials.lid, matSpend);
   // A panel under cover glass is the lid's front face: no front wall over it.
-  const panel = idx.panels.get(build.parts.display?.[0]?.part ?? "");
+  const panel = panelOf(build, content);
   const coverGlass = !!(panel && idx.panelTypes.get(panel.type)?.coverGlass);
   const walls = {
     bottom: wf,
@@ -107,7 +108,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   const floorUnits: Unit[] = [...em.floor];
   if (em.blocks.length > 0 || hasCpu)
     floorUnits.push({ id: "board", role: "board", size: { ...board.size } });
-  const lidUnits: Unit[] = [...bezelUnits(era, sl), ...em.lid];
+  const lidUnits: Unit[] = [...bezelUnits(era, sl, panel?.bezel), ...em.lid];
 
   // The keyboard and trackpad sit in wells in the top case, flush with the top
   // surface, on the deck structure. Over them the floor runs up to that layer;

@@ -1,5 +1,6 @@
 import { type Content, CONTENT } from "../content";
 import { activeArea } from "../content/display";
+import { panelOf } from "../screen";
 import { solve } from "../solve";
 import {
   type Build,
@@ -193,11 +194,8 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
   const swap = part(first("hotswap")?.part);
   wh += Number(swap?.info?.wh ?? 0);
 
-  const displayBp = first("display");
-  const panel = displayBp
-    ? content.panels.find((p) => p.id === displayBp.part)
-    : undefined;
-  const refresh = Number(displayBp?.opts?.refresh ?? panel?.refresh[0] ?? 60);
+  const panel = panelOf(build, content);
+  const refresh = panel?.hz ?? 60;
 
   let hdds = 0;
   let ssds = 0;

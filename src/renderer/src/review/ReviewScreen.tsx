@@ -3,6 +3,7 @@ import {
   type Build,
   CONTENT,
   type PanelOption,
+  panelOf,
   RIVALS,
   reviewOf,
   rivalSubject,
@@ -89,9 +90,7 @@ export function ReviewScreen({
 
   const build: Build = subject.build;
   const fit = useMemo(() => solve(build), [build]);
-  const panel = CONTENT.panels.find(
-    (p) => p.id === build.parts.display?.[0]?.part,
-  );
+  const panel = panelOf(build);
   const look = lookOf(panel);
   const colour = (id: string) =>
     CONTENT.colours.find((c) => c.id === id)?.hex ?? "";

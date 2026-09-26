@@ -1,4 +1,5 @@
 import { CONTENT, type Content } from "./content";
+import { migrateScreen } from "./screen";
 import type {
   Build,
   BuildPart,
@@ -50,7 +51,7 @@ export function makeBuild(spec: Spec, content: Content = CONTENT): Build {
   };
   const texture = (m: string) =>
     content.materials.find((x) => x.id === m)?.finishes[0] ?? "matte";
-  return {
+  return migrateScreen({
     year: spec.year,
     body: spec.body,
     layout: spec.layout,
@@ -64,7 +65,7 @@ export function makeBuild(spec: Spec, content: Content = CONTENT): Build {
       lid: { colour: "black", texture: texture(mat.lid) },
     },
     spend: { ...spec.spend },
-  };
+  });
 }
 
 export interface Sample {

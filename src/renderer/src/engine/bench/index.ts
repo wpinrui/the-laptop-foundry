@@ -1,4 +1,5 @@
 import { type Content, CONTENT } from "../content";
+import { panelOf } from "../screen";
 import type { Measurements } from "../sim";
 import { singleAt } from "../sim/curves";
 import type { Build, PanelOption, Part } from "../types";
@@ -221,10 +222,7 @@ export function results(
     multi: runs ? c.sustained * edition.scale : null,
   };
 
-  const displayId = build.parts.display?.[0]?.part;
-  const panel: PanelOption | undefined = content.panels.find(
-    (p) => p.id === displayId,
-  );
+  const panel: PanelOption | undefined = panelOf(build, content);
   const ed = gameEdition(year);
   const res = resolutions(ed);
   const gpuScore = c.graphics.sustained;

@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { SavedModel } from "../../../preload/store";
-import { type Box, type Build, CONTENT, type Category, costOf, type Piece, simulate, solve } from "../engine";
+import { type Box, type Build, CONTENT, type Category, costOf, migrateScreen, type Piece, simulate, solve } from "../engine";
 import { type Hover, type Paint, surfacesOf } from "../viewer/Scene";
 import { BuilderScene } from "./BuilderScene";
 import { panelLabel } from "./format";
@@ -16,11 +16,11 @@ import {
   InsideColumn,
   insideSlots,
   PriceColumn,
-  ScreenColumn,
   SurfaceColumn,
   SurfaceTray,
   YearColumn,
 } from "./Stages";
+import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
 import { type ViewName, viewFor } from "./view";
 import "./builder.css";
@@ -43,6 +43,7 @@ const ROLE_NAME: Record<string, string> = {
   tb: "Thunderbolt controller",
   bt: "Bluetooth",
   kblight: "Keyboard light",
+  panel: "Display",
 };
 
 function nameOf(id: string | undefined): string | undefined {
@@ -100,7 +101,7 @@ const FRAME: Record<Stage, Frame> = {
 };
 
 /** Stages with a tray of cards along the bottom. */
-const TRAY = new Set<Stage>(["chassis", "surface", "finish"]);
+const TRAY = new Set<Stage>(["chassis", "screen", "surface", "finish"]);
 
 /** Floor zone roles where an empty slot's part would go. */
 const ZONE_ROLE: Partial<Record<Category, string>> = {
@@ -130,7 +131,8 @@ export function Builder({
   onBack: () => void;
   reroll: (b: Build) => string;
 }) {
-  const [build, setBuild] = useState<Build>(() => model.build as Build);
+  // Older saves picked a panel row; the builder edits a screen spec.
+  const [build, setBuild] = useState<Build>(() => migrateScreen(model.build as Build));
   const [name, setName] = useState(model.name);
   // A reviewed model is locked for good so its review never changes.
   const locked = !!model.reviewed;
@@ -292,6 +294,7 @@ export function Builder({
       break;
     case "screen":
       column = <ScreenColumn {...props} />;
+      tray = <ScreenTray {...props} />;
       break;
     case "inside":
       column = <InsideColumn {...props} slot={slot.key} onSlot={setInsideSlot} />;

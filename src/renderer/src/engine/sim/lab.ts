@@ -1,5 +1,6 @@
 import { type Content, CONTENT } from "../content";
 import { type PanelLab, panelLab } from "../content/display";
+import { panelOf } from "../screen";
 import { MEMORY_LAB } from "../content/memory";
 import { WIFI_LAB } from "../content/peripherals";
 import { type StorageLab, storageLab } from "../content/storage";
@@ -45,8 +46,7 @@ function capacityOf(bp: BuildPart, part: Part | undefined): number {
 export function labOf(build: Build, content: Content = CONTENT): Lab {
   const partOf = (id: string) => content.parts.find((p) => p.id === id);
 
-  const disp = build.parts.display?.[0];
-  const panel = disp && content.panels.find((p) => p.id === disp.part);
+  const panel = panelOf(build, content);
 
   const storage: Lab["storage"] = [];
   for (const bp of build.parts.storage ?? []) {

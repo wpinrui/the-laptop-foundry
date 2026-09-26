@@ -1,4 +1,5 @@
 import { type Results, results } from "../bench";
+import { panelOf } from "../screen";
 import { type Content, CONTENT } from "../content";
 import { activeArea } from "../content/display";
 import { type Rival, RIVALS } from "../content/rivals";
@@ -100,8 +101,7 @@ export function factsOf(s: Subject, content: Content = CONTENT): Facts {
   const fit = solve(s.build);
   const m = simulate(s.build, fit, content);
   const kg = weightOf(s.build, fit, content);
-  const bp = s.build.parts.display?.[0];
-  const panel = bp ? content.panels.find((p) => p.id === bp.part) : undefined;
+  const panel = panelOf(s.build, content);
   const f: Facts = {
     subject: s,
     fit,
@@ -111,7 +111,7 @@ export function factsOf(s: Subject, content: Content = CONTENT): Facts {
     cost: costOf(s.build, fit, content).total,
     cls: classify(s.build, fit, m, kg),
     panel,
-    refresh: Number(bp?.opts?.refresh ?? panel?.refresh[0] ?? 60),
+    refresh: panel?.hz ?? 60,
     thickness: fit.frame.z + fit.lidZ,
     specs: specsOf(s.build, content),
     chargeSides: [

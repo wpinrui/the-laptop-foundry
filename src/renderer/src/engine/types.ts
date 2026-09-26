@@ -438,6 +438,10 @@ export interface Mark {
   svg?: string;
   /** The preset decal an SVG mark came from, for its badge and glyph. */
   preset?: string;
+  /** Solid, or the shape's outline drawn as a line. Absent means fill. */
+  style?: "fill" | "outline";
+  /** The outline's line width in mm; absent means one in proportion to the size. */
+  stroke?: number;
   /** A hover preview drawn faint; never saved. */
   ghost?: boolean;
   font: string;

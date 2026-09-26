@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Build, Fit, Mark, MarkSurface } from "../engine";
-import { faceOf, markExtent } from "../viewer/Decor";
+import { faceOf, markExtent, outlined, strokeOf } from "../viewer/Decor";
 import { token } from "../viewer/theme";
 import { DragArrow, Dashed, Outline } from "./Arrows";
 import { ColourPicker } from "./ColourPicker";
@@ -12,8 +12,8 @@ import { Dropdown } from "./Dropdown";
 import { Card, Chip, Chips, Label, Slider, TraySep } from "./ui";
 
 // The Marks stage: text, imported SVG and preset decal marks on the lid, palm rest, bottom
-// and bezel, each with its font, size, tracking, weight, colour, process and
-// position. Marks are open in every year.
+// and bezel, each with its font, size, tracking, weight, colour, fill or
+// outline, process and position. Marks are open in every year.
 
 export const SURFACES: [MarkSurface, string][] = [
   ["lid", "Lid"],
@@ -220,6 +220,30 @@ export function MarksColumn({
       </span>
     </button>
   );
+  const style = m && (
+    <>
+      <div className="bd-line">
+        <Label>Style</Label>
+        <Chips>
+          <Chip caps on={!outlined(m)} onClick={() => edit((x) => ({ ...x, style: "fill" }))}>
+            Fill
+          </Chip>
+          <Chip caps on={outlined(m)} onClick={() => edit((x) => ({ ...x, style: "outline" }))}>
+            Outline
+          </Chip>
+        </Chips>
+      </div>
+      {outlined(m) && (
+        <div className="bd-field">
+          <div className="bd-line">
+            <Label>Line</Label>
+            <span className="bd-value">{strokeOf(m).toFixed(1)} mm</span>
+          </div>
+          <Slider label="outline width" value={strokeOf(m)} min={0.1} max={4} step={0.1} onChange={(v) => edit((x) => ({ ...x, stroke: v }))} />
+        </div>
+      )}
+    </>
+  );
   const position = m && (
     <button type="button" className="bd-field bd-cell" title="Centre" onClick={() => edit((x) => ({ ...x, x: 0 }))}>
       <Label>Position</Label>
@@ -265,13 +289,14 @@ export function MarksColumn({
             {position}
           </div>
           {colourOpen && <ColourPicker compact value={m.colour} disabled={locked} onChange={(hex) => edit((x) => ({ ...x, colour: hex }))} />}
+          {style}
           <div className="bd-field">
             <Label>Process</Label>
             <div className="bd-process">
               {PROCESSES.map((p) => (
                 <button type="button" key={p} className={p === m.process ? "on" : ""} onClick={() => edit((x) => ({ ...x, process: p }))}>
                   <span className={`bd-process-tile ${p}`} style={{ background: bodyColour, color: p === "embossed" && sameColour(m.colour, bodyColour) ? bodyColour : m.colour }}>
-                    <DecalGlyph decal={decal} className="bd-process-glyph" />
+                    <DecalGlyph decal={decal} className="bd-process-glyph" line={outlined(m) ? strokeOf(m) / m.size : undefined} />
                   </span>
                   <b>{cap(p)}</b>
                 </button>
@@ -340,6 +365,7 @@ export function MarksColumn({
             {position}
           </div>
           {colourOpen && <ColourPicker compact value={m.colour} disabled={locked} onChange={(hex) => edit((x) => ({ ...x, colour: hex }))} />}
+          {style}
           <RemoveMark set={set} id={m.id} onSelect={onSelect} />
         </div>
       )}

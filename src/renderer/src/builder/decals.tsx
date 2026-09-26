@@ -74,11 +74,17 @@ export const DECALS: Decal[] = META.flatMap((m) => {
 
 export const decalById = (id: string | undefined): Decal | undefined => DECALS.find((d) => d.id === id);
 
-/** The decal's glyph, filled with the current colour and fitted to its box. */
-export function DecalGlyph({ decal, className }: { decal: Decal; className?: string }) {
+/** The decal's glyph in the current colour, fitted to its box: filled, or outlined with a line `line` of its height wide. */
+export function DecalGlyph({ decal, className, line }: { decal: Decal; className?: string; line?: number }) {
+  const [x, y, w, h] = decal.vb;
+  const sw = (line ?? 0) * h;
   return (
-    <svg className={className} viewBox={decal.vb.join(" ")} aria-hidden="true">
-      <path fillRule="evenodd" fill="currentColor" d={decal.d} />
+    <svg className={className} viewBox={`${x - sw / 2} ${y - sw / 2} ${w + sw} ${h + sw}`} aria-hidden="true">
+      {line ? (
+        <path fill="none" stroke="currentColor" strokeWidth={sw} strokeLinejoin="round" d={decal.d} />
+      ) : (
+        <path fillRule="evenodd" fill="currentColor" d={decal.d} />
+      )}
     </svg>
   );
 }

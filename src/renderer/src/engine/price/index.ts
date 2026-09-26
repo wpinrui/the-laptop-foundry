@@ -348,6 +348,30 @@ export interface Cost {
   lines: CostLine[];
 }
 
+/** Cost price of one chosen part, in the year's nominal dollars. */
+export function partPrice(
+  cat: Category,
+  bp: BuildPart,
+  year: number,
+  content: Content = CONTENT,
+): number {
+  if (cat === "display") {
+    const panel = content.panels.find((p) => p.id === bp.part);
+    if (!panel) return 0;
+    const a = activeArea(panel);
+    const rate = PANEL[panel.type] ?? { dm2: 10, mp: 10 };
+    const mp = (panel.res[0] * panel.res[1]) / 1e6;
+    const hz = Number(bp.opts?.refresh ?? panel.refresh[0]);
+    return (
+      ((a.x * a.y) / 1e4) * rate.dm2 +
+      mp * rate.mp +
+      Math.max(0, (hz - 60) / 60) * 15
+    );
+  }
+  const p = content.parts.find((x) => x.id === bp.part);
+  return p ? partCost(cat, p, bp, year) : 0;
+}
+
 /** Cost price of the build in the year's nominal dollars. */
 export function costOf(
   build: Build,
@@ -359,28 +383,12 @@ export function costOf(
   const add = (what: CostLine["what"], usd: number) => {
     if (usd > 0) lines.push({ what, usd });
   };
-  const part = (id: string) => content.parts.find((p) => p.id === id);
-
   let spend = 0;
   for (const cat of CATEGORIES) {
     const list = build.parts[cat] ?? [];
     let catCost = 0;
     for (const bp of list) {
-      if (cat === "display") {
-        const panel = content.panels.find((p) => p.id === bp.part);
-        if (!panel) continue;
-        const a = activeArea(panel);
-        const rate = PANEL[panel.type] ?? { dm2: 10, mp: 10 };
-        const mp = (panel.res[0] * panel.res[1]) / 1e6;
-        const hz = Number(bp.opts?.refresh ?? panel.refresh[0]);
-        catCost +=
-          ((a.x * a.y) / 1e4) * rate.dm2 +
-          mp * rate.mp +
-          Math.max(0, (hz - 60) / 60) * 15;
-        continue;
-      }
-      const p = part(bp.part);
-      if (p) catCost += partCost(cat, p, bp, build.year);
+      catCost += partPrice(cat, bp, build.year, content);
     }
     add(cat, catCost);
     // Compacting a part costs more on a dear part.

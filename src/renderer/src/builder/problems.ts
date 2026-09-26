@@ -1,10 +1,21 @@
 import { type Build, CONTENT, type Category, type Problem, solve } from "../engine";
 import { panelLabel } from "./format";
 
-// Fit problems in words, and the builder tab each one belongs to.
+// Fit problems in words, and the builder stage each one belongs to.
 
-export const TABS = ["Body", "Internals", "Display and input", "Finish"] as const;
-export type Tab = (typeof TABS)[number];
+export const STAGES = ["year", "chassis", "screen", "inside", "surface", "keys", "finish", "marks", "price"] as const;
+export type Stage = (typeof STAGES)[number];
+export const STAGE_NAME: Record<Stage, string> = {
+  year: "Year",
+  chassis: "Chassis",
+  screen: "Screen",
+  inside: "Inside",
+  surface: "Surface",
+  keys: "Keys",
+  finish: "Finish",
+  marks: "Marks",
+  price: "Price",
+};
 
 const CAT_NAME: Record<Category, string> = {
   processor: "processor",
@@ -26,11 +37,12 @@ const CAT_NAME: Record<Category, string> = {
 const AXIS_NAME = { x: "width", y: "depth", z: "height" } as const;
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-const FRONT = new Set<string>(["display", "keyboard", "trackpad", "webcam"]);
+const SURFACE = new Set<string>(["keyboard", "trackpad", "webcam", "port"]);
 
-function tabOfCategory(cat: string | undefined): Tab {
-  if (!cat || cat === "port") return "Body";
-  return FRONT.has(cat) ? "Display and input" : "Internals";
+export function stageOfCategory(cat: string | undefined): Stage {
+  if (!cat) return "chassis";
+  if (cat === "display") return "screen";
+  return SURFACE.has(cat) ? "surface" : "inside";
 }
 
 function partName(id: string): string {
@@ -39,32 +51,34 @@ function partName(id: string): string {
   return CONTENT.parts.find((p) => p.id === id)?.name ?? id;
 }
 
-function partTab(id: string): Tab {
-  if (CONTENT.panels.some((p) => p.id === id)) return "Display and input";
-  return tabOfCategory(CONTENT.parts.find((p) => p.id === id)?.category);
+function partStage(id: string): Stage {
+  if (CONTENT.panels.some((p) => p.id === id)) return "screen";
+  return stageOfCategory(CONTENT.parts.find((p) => p.id === id)?.category);
 }
 
-export function tabOf(p: Problem): Tab {
-  if (p.kind === "geometry") return "Body";
+export function stageOf(p: Problem): Stage {
+  if (p.kind === "geometry") return "chassis";
   if (p.kind === "year") {
-    if (p.what === "part" || p.what === "panel") return partTab(p.ref);
-    if (p.what === "body" || p.what === "layout") return "Body";
-    return "Finish";
+    if (p.what === "part" || p.what === "panel") return partStage(p.ref);
+    if (p.what === "body" || p.what === "layout") return "chassis";
+    return "finish";
   }
   switch (p.code) {
     case "needs":
     case "no-room":
     case "bad-option":
     case "port-side":
-      return partTab(p.part);
+      return partStage(p.part);
     case "missing":
     case "too-many":
-      return tabOfCategory(p.category);
+      return stageOfCategory(p.category);
     case "wrong-piece":
     case "wrong-finish":
-      return "Finish";
+      return "finish";
+    case "no-charging":
+      return "surface";
     default:
-      return "Body";
+      return "chassis";
   }
 }
 

@@ -27,6 +27,7 @@ export {
   type Cost,
   classify,
   costOf,
+  partPrice,
   type DeviceClass,
   type PerfClass,
   weightOf,

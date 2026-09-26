@@ -62,6 +62,18 @@ interface SceneProps {
   screenGloss?: number;
   /** Leaves the bottom cover off, to show the internals from below. */
   floorless?: boolean;
+  /** Draws the listed units in the accent colour and, when dim, everything else dark. */
+  paint?: Paint;
+  /** Extra objects in the base's engine space (mm, z up), such as selection outlines. */
+  extra?: ReactNode;
+  /** Extra objects in the lid's engine space, closed position; they turn with the lid. */
+  lidExtra?: ReactNode;
+}
+
+export interface Paint {
+  /** Box ids drawn in the accent colour. */
+  selected: Set<string>;
+  dim: boolean;
 }
 
 export type Surfaces = Record<
@@ -286,7 +298,9 @@ function Units({
   hinge,
   lidAngle,
   onFailed,
+  paint,
 }: {
+  paint?: Paint;
   boxes: Box[];
   ctx: UnitCtx;
   labelFor: (b: Box) => string;
@@ -307,6 +321,19 @@ function Units({
       if (o.name === LID_GROUP) o.rotation.x = (-lidAngle * Math.PI) / 180;
     });
   }, [group, lidAngle, boxes, ctx, year, hinge]);
+  // Selection paint: swap each mesh's material and keep the original to restore.
+  useEffect(() => {
+    const accent = paint ? ctx.material(token("accent-hex")) : null;
+    const dim = paint ? ctx.material(token("dim-part")) : null;
+    group.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      const box = o.userData.box as Box | undefined;
+      if (!mesh.isMesh || !box) return;
+      if (mesh.userData.baseMaterial === undefined) mesh.userData.baseMaterial = mesh.material;
+      const base = mesh.userData.baseMaterial as THREE.Material;
+      mesh.material = !paint ? base : paint.selected.has(box.id) && accent ? accent : paint.dim && dim ? dim : base;
+    });
+  }, [group, paint, boxes, ctx, year, hinge]);
   const move = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const label = e.object.userData.label as string | undefined;
@@ -619,6 +646,9 @@ export const Model = memo(function Model({
   lockScreen,
   screenGloss = 0.35,
   floorless = false,
+  paint,
+  extra,
+  lidExtra,
 }: SceneProps & { portal?: RefObject<HTMLDivElement | null> }) {
   const ctx = useMemo(() => makeCtx(), []);
   // Base and lid report their failed units separately; the scene gets them together.
@@ -701,7 +731,9 @@ export const Model = memo(function Model({
           hinge={fit.shell.style.hinge}
           lidAngle={lidAngle}
           onFailed={reportBase}
+          paint={paint}
         />
+        {extra}
         <Overflow fit={fit} />
         {/* The lid turns about the hinge axis, which runs along x. */}
         <group position={[0, hy, hz]} rotation-x={(-lidAngle * Math.PI) / 180}>
@@ -723,7 +755,9 @@ export const Model = memo(function Model({
               year={year}
               hinge={fit.shell.style.hinge}
               onFailed={reportLid}
+              paint={paint}
             />
+            {lidExtra}
             {!xray && panelBox && (
               // A solid lid would hide a panel set behind its bezel: show the dark screen glass.
               <mesh

@@ -2,7 +2,7 @@ import { type Results, results } from "../bench";
 import { panelOf } from "../screen";
 import { type Content, CONTENT } from "../content";
 import { activeArea } from "../content/display";
-import { type Rival, RIVALS, rivalYear } from "../content/rivals";
+import { MAKERS, type Rival, RIVALS, rivalYear } from "../content/rivals";
 import { classify, costOf, type DeviceClass, weightOf } from "../price";
 import { type Measurements, simulate } from "../sim";
 import { type Specs, specs as specsOf } from "../sim/specs";
@@ -139,14 +139,7 @@ export function rivalSubject(r: Rival): Subject {
   return { id: r.id, name: r.name, company: maker, build: r.build };
 }
 
-const MAKER_NAMES: Record<string, string> = {
-  tarrant: "Tarrant",
-  halbrook: "Halbrook",
-  denholm: "Denholm",
-  quince: "Quince",
-  arvane: "Arvane",
-  ecker: "Ecker",
-};
+const MAKER_NAMES: Record<string, string> = Object.fromEntries(MAKERS.map((m) => [m.id, m.name]));
 
 /** Rivals of the same year and class, widening until there are a few to compare. */
 export function peersOf(f: Facts): Facts[] {

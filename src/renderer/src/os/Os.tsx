@@ -14,7 +14,7 @@ import "./os.css";
 // pictures in textures and photos render the same components still.
 
 /** Eras with a look of their own so far; the rest borrow 2006's. */
-export const LOOKS: Era[] = [2006];
+export const LOOKS: Era[] = [2006, 2016];
 export const lookOf = (era: Era): Era => (LOOKS.includes(era) ? era : 2006);
 
 export const APP_NAME: Record<AppId, string> = {
@@ -159,6 +159,7 @@ export function Taskbar(p: TaskbarProps) {
         )}
       </span>
       <Tray {...p} era={era} />
+      <span className="os-show" />
     </div>
   );
 }
@@ -210,7 +211,7 @@ export function Win({
   className?: string;
 }) {
   return (
-    <div className={`os-win${className ? ` ${className}` : ""}`} style={{ ...vars({ "--ww": w, "--wh": h }), display: hidden ? "none" : undefined }}>
+    <div className={`os-win os-win-${app}${className ? ` ${className}` : ""}`} style={{ ...vars({ "--ww": w, "--wh": h }), display: hidden ? "none" : undefined }}>
       <div className="os-title">
         <Glyph app={app} s={16} />
         <span className="os-title-text">{title}</span>
@@ -530,6 +531,8 @@ export function AshApp({
 // ------------------------------------------------------------------ browser
 
 export function Browser({
+  era,
+  title,
   url,
   canBack,
   canForward,
@@ -548,6 +551,31 @@ export function Browser({
   onReload?: () => void;
   children: ReactNode;
 }) {
+  if (lookOf(era) === 2016)
+    return (
+      <div className="os-web">
+        <div className="wb-nav">
+          <button type="button" className="wb-back" disabled={!canBack} onClick={onBack} aria-label="Back">
+            <i />
+          </button>
+          <button type="button" className="wb-fwd" disabled={!canForward} onClick={onForward} aria-label="Forward">
+            <i />
+          </button>
+          <span className="wb-url">
+            <Glyph app="web" s={14} />
+            <span>{url}</span>
+          </span>
+          <span className="wb-search" />
+        </div>
+        <div className="wb-tabs">
+          <span className="wb-tab">
+            <Glyph app="web" s={14} />
+            <span>{title}</span>
+          </span>
+        </div>
+        <div className="wb-page">{children}</div>
+      </div>
+    );
   return (
     <div className="os-web">
       <div className="wb-nav">
@@ -596,8 +624,50 @@ const TABS: { id: SysGroup["tab"]; label: string }[] = [
   { id: "power", label: "Power" },
 ];
 
-export function SysApp({ groups, onOk }: { era: Era; groups: SysGroup[]; onOk?: () => void }) {
+/** 2016's side pane: each link shows its groups; the first shows them all. */
+const PANES: { label: string; shows: string[] | null }[] = [
+  { label: "System", shows: null },
+  { label: "Display", shows: ["Display"] },
+  { label: "Power Options", shows: ["Battery"] },
+  { label: "Storage", shows: ["Storage", "Memory"] },
+];
+
+function SysPanes({ groups }: { groups: SysGroup[] }) {
+  const [pane, setPane] = useState(0);
+  const shows = PANES[pane].shows;
+  const shown = shows ? groups.filter((g) => shows.includes(g.title)) : groups;
+  return (
+    <div className="os-sys">
+      <div className="sy-nav">
+        {PANES.map((p, k) => (
+          <button key={p.label} type="button" className={k === pane ? "on" : undefined} onClick={() => setPane(k)}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <div className="sy-page">
+        {shown.map((g) => (
+          <div key={g.title} className="sy-group">
+            <div className="sy-head">
+              <span>{g.title}</span>
+              <i />
+            </div>
+            {g.rows.map(([k, v]) => (
+              <div key={k} className="sy-row">
+                <span>{k}</span>
+                <span>{v}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SysApp({ era, groups, onOk }: { era: Era; groups: SysGroup[]; onOk?: () => void }) {
   const [tab, setTab] = useState<SysGroup["tab"]>("general");
+  if (lookOf(era) === 2016) return <SysPanes groups={groups} />;
   const shown = tab === "general" ? groups : groups.filter((g) => g.tab === tab);
   return (
     <div className="os-sys">
@@ -756,7 +826,35 @@ export function Empty() {
   );
 }
 
-export function Lock({ owner, wallpaper, power }: { era: Era; owner: Owner; wallpaper: string; power: Power; now: Date; year: number }) {
+export function Lock({ era, owner, wallpaper, power }: { era: Era; owner: Owner; wallpaper: string; power: Power; now: Date; year: number }) {
+  if (lookOf(era) === 2016)
+    return (
+      <div className="os-lock">
+        <div className="lk-user">
+          <span className="lk-tile">
+            <span>
+              <img src={wallpaper} alt="" />
+            </span>
+          </span>
+          <span className="lk-name">{owner.maker || "Owner"}</span>
+          <span className="lk-pass">
+            <span className="lk-field">{"\u25CF".repeat(5)}</span>
+            <span className="lk-go">
+              <i />
+            </span>
+          </span>
+        </div>
+        {power.battery && (
+          <span className="lk-batt">
+            <Battery pct={power.pct} charging={power.plugged} s={24} />
+            {power.pct}%
+          </span>
+        )}
+        <span className="lk-power">
+          <PowerGlyph s={14} />
+        </span>
+      </div>
+    );
   return (
     <div className="os-lock">
       <div className="lk-band top" />

@@ -373,6 +373,10 @@ export function SettingsMenu({
             <small>The Noto Project Authors, SIL Open Font License 1.1</small>
           </li>
           <li>
+            <span>Open Sans</span>
+            <small>The Open Sans Project Authors, SIL Open Font License 1.1</small>
+          </li>
+          <li>
             <span>Source Code Pro</span>
             <small>Adobe, SIL Open Font License 1.1</small>
           </li>

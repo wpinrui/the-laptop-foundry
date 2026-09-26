@@ -2,6 +2,9 @@ import noto400 from "../assets/fonts/noto-sans-latin-400-normal.woff2?inline";
 import noto600 from "../assets/fonts/noto-sans-latin-600-normal.woff2?inline";
 import noto700 from "../assets/fonts/noto-sans-latin-700-normal.woff2?inline";
 import noto700i from "../assets/fonts/noto-sans-latin-700-italic.woff2?inline";
+import open400 from "../assets/fonts/open-sans-latin-400-normal.woff2?inline";
+import open600 from "../assets/fonts/open-sans-latin-600-normal.woff2?inline";
+import open700 from "../assets/fonts/open-sans-latin-700-normal.woff2?inline";
 import code600 from "../assets/fonts/source-code-pro-latin-600-normal.woff2?inline";
 import code700 from "../assets/fonts/source-code-pro-latin-700-normal.woff2?inline";
 import type { Era } from "./types";
@@ -24,7 +27,11 @@ const FACES: Record<Era, Face[]> = {
     ["Noto Sans", 700, "normal", noto700],
     ["Noto Sans", 700, "italic", noto700i],
   ],
-  2016: [],
+  2016: [
+    ["Open Sans", 400, "normal", open400],
+    ["Open Sans", 600, "normal", open600],
+    ["Open Sans", 700, "normal", open700],
+  ],
   2026: [],
 };
 

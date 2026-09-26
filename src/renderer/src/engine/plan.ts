@@ -155,7 +155,11 @@ export function measure(
     if (isZone(n)) {
       const fill = fills.get(n) as ZoneFill;
       fill.min = zoneMin(fill, ctx);
-      m = fill.min ? { x: fill.min.x, y: fill.min.y } : null;
+      m = fill.min
+        ? { x: fill.min.x, y: fill.min.y }
+        : n.keep
+          ? { x: 0, y: 0 }
+          : null;
     } else {
       const a = n.split;
       const c = other(a);

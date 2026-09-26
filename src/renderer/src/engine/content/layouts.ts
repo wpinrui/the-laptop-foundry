@@ -409,6 +409,8 @@ export const DECK: Plan = {
         pack: "y",
         grow: 1,
         align: "centre",
+        // With no trackpad the palm rest stays, so the keyboard keeps its place by the hinge.
+        keep: true,
       },
       {
         zone: "keyboard",

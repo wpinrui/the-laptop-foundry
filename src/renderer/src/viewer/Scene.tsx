@@ -11,7 +11,7 @@ import {
   useRef,
 } from "react";
 import * as THREE from "three";
-import type { Box, Build, Fit } from "../engine";
+import type { Box, Build, Fit, WallHole } from "../engine";
 import { shellSurface } from "../engine";
 import { LID_GROUP } from "../models/roles/hinge";
 import { overflowSlabs } from "./overflow";
@@ -293,8 +293,9 @@ function surfaceGeometry(
   profile: boolean,
   mode: "full" | "open" | "deck" = "full",
   wells: Wells = [],
+  holes: WallHole[] = [],
 ): THREE.BufferGeometry {
-  const data = shellSurface(size, style, profile);
+  const data = shellSurface(size, style, profile, 8, mode === "deck" ? [] : holes);
   const count = data.positions.length / 3;
   // shellSurface lays out the rings, then the bottom centre, then the top centre.
   const topCentre = count - 1;
@@ -353,6 +354,7 @@ function Shell({
   offset = 2,
   mode = "full",
   wells,
+  holes,
 }: {
   size: Fit["shell"]["outer"];
   style: Fit["shell"]["style"];
@@ -365,11 +367,13 @@ function Shell({
   offset?: number;
   mode?: "full" | "open" | "deck";
   wells?: Wells;
+  /** Holes cut through the side walls, so a solid shell shows what sits in them. */
+  holes?: WallHole[];
 }) {
   const look = surfaceLook(surface);
   const geometry = useMemo(
-    () => surfaceGeometry(size, style, profile, mode, wells),
-    [size.x, size.y, size.z, style, profile, mode, wells],
+    () => surfaceGeometry(size, style, profile, mode, wells, holes),
+    [size.x, size.y, size.z, style, profile, mode, wells, holes],
   );
   const edges = useMemo(
     () => new THREE.EdgesGeometry(geometry, 25),
@@ -509,6 +513,11 @@ export const Model = memo(function Model({
   const hz = hinge?.kind === "hinge" ? hinge.from.z : fit.shell.lid.at.z;
   const out = fit.shell.outer;
   const lidSize = fit.shell.lid.size;
+  // Each port's own model draws its connector face; the wall is cut open over it.
+  const portHoles = useMemo(
+    () => fit.shell.cutouts.filter((o) => o.kind === "port"),
+    [fit],
+  );
 
   return (
     // Engine space is z up; three is y up. Rotate once here and centre the base.
@@ -522,6 +531,7 @@ export const Model = memo(function Model({
           surface={surfaces?.floor}
           xray={xray}
           mode="open"
+          holes={portHoles}
         />
         <Shell
           size={out}
@@ -614,6 +624,7 @@ export const Model = memo(function Model({
                 rotation={[Math.PI, 0, 0]}
                 distanceFactor={(screen.mm.x * 400) / screen.width}
                 zIndexRange={[4, 0]}
+                wrapperClass="lid-screen"
               >
                 {screen.node}
               </Html>

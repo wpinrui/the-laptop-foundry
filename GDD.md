@@ -31,7 +31,7 @@ Each place has a feel:
 ## Years
 
 - The player picks a year from 2006 to 2026. For 0.1, since it is proof of concept, the only years allowed will be 2006, 2016 and 2026.
-- The year gates everything available: parts, bodies, materials, colours and specification options.
+- The year gates everything available: parts, bodies, materials and specification options. Colours, keycap styling and marks are open in every year.
 - Moving a model to a year where a part does not exist makes that part unavailable.
 
 ## Building
@@ -39,9 +39,9 @@ Each place has a feel:
 ### Flow
 
 - The laptop is visible in three dimensions throughout, including its internal layout as it changes. The reference is the engine and car builder in Automation.
-- Building is split into tabs in a suggested order: body and layout, internals, display and inputs, then materials and finish.
-- The player can jump between tabs freely.
-- Fit problems show live on every tab.
+- Building is a fixed line of stages: year, chassis, screen, inside, surface, keys, finish, marks and price.
+- The player can jump between stages freely.
+- Fit problems show live on every stage.
 
 ### Bodies
 
@@ -49,7 +49,7 @@ Each place has a feel:
 - All bodies are standard clamshells. There are no convertibles.
 - The player can scale a body along x, y and z, alone or in combination, in the spirit of SketchUp.
 - Scaling lets a body hold a larger battery, a larger screen, better speakers and similar.
-- The player picks materials and colours. Availability depends on the year.
+- The player picks materials, by year, and any colour for the lid, deck, bottom and bezel.
 
 ### Components
 
@@ -62,14 +62,14 @@ Processors and graphics are real named parts. Everything else is chosen by speci
 | Mainboard | Part of the internals |
 | Memory | Specification |
 | Storage | Hard disk or solid-state drive, at most two in total, limited by the body |
-| Display | Specification: size, resolution, panel type, refresh rate |
+| Display | Free specification: size, ratio, resolution, panel type, refresh rate and bezel. A combination nobody sold that year is a custom panel at a premium; only what no maker could build that year is blocked |
 | Battery | Specification |
 | Hot-swappable battery | Optional |
 | Cooling | No fan, one fan, two fans, or two fans on a vapour chamber |
 | Optical drive | Specification |
-| Ports | Standards, placed by side |
+| Ports | Standards, placed by the player along a side wall and up it |
 | Wireless | Standard |
-| Keyboard | Specification |
+| Keyboard | Specification, plus keycap shape, colours and legends |
 | Trackpad | Specification |
 | Webcam | Specification |
 | Speakers | Specification |
@@ -85,11 +85,17 @@ The operating system is always Windows. The player does not choose it and it aff
 ### Layout and fit
 
 - Every component physically occupies space and is modelled in three dimensions.
-- The player never arranges components by hand.
+- The player never arranges the internals by hand.
+- The player places the keyboard, trackpad, webcam and ports on the laptop, within allowed ranges. Keyboard and trackpad stay centred. A placed part that runs into another is a fit problem.
 - The player chooses a layout, much as an Automation player changes engine layout to fit a car.
 - Layouts are mostly cosmetic, but each sets the minimum x, y and z of the internals. So layout decides what fits.
-- Port placement is part of layout. Reviewers can praise things like charging from both sides.
+- Port placement is the player's. Reviewers can praise things like charging from both sides.
 - A build may not fit. The player then rescales the body or changes parts.
+
+### Keycaps and marks
+
+- The player styles the keycaps: shape, the colours of letters, modifiers and accent keys, and the legends' font, colour, alignment, case, size and weight.
+- The player adds text and imported SVG marks to the lid, palm rest, bottom and bezel, each etched, printed or embossed.
 
 ### Engineering spend
 
@@ -112,7 +118,7 @@ The operating system is always Windows. The player does not choose it and it aff
 
 ### Live measurements
 
-- The builder shows raw measurements live, as soon as each becomes computable. Keyboard and webcam figures appear early. Cooling results appear only once almost everything is in.
+- The builder shows raw measurements once the laptop is complete and has powered on, and keeps them live from then on.
 - Live measurements are exact. They come from the same simulation the reviewer uses.
 - The builder never shows ratings or the overall score. Those are revealed in the review.
 
@@ -352,7 +358,7 @@ This is the highest-priority technical requirement. For every combination of cho
 - Processors and graphics per year, with feature lists and power curve data points
 - Specification options per category, with unlock years
 - Preset bodies with year availability, scaling limits and layouts
-- Materials and colours with year availability
+- Materials with year availability
 - Which of the six makers compete in which classes
 - Rival presets per year and class
 - Processor benchmark editions

@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import { factsOf, laptopKind, type Review, rollScores, type Subject } from "../engine";
-import type { Era } from "./Charts";
+import { type Era, num } from "./Charts";
 import {
   band,
   bandWord,
@@ -14,6 +14,7 @@ import {
   SectionBody,
   Specs,
   slug,
+  useCurrent,
 } from "./blocks";
 import "./review.css";
 
@@ -437,7 +438,126 @@ function Site2006({ review, onOpen, onHome, photos }: SiteProps) {
   );
 }
 
-// ------------------------------------------------------------------ 2016 and 2026
+// ------------------------------------------------------------------ 2016
+
+/** A pros or cons list with round markers. */
+function Marks({ items, sign, title }: { items: string[]; sign: "+" | "-"; title: string }) {
+  return (
+    <div className={sign === "+" ? "rs-pros" : "rs-cons"}>
+      <div className="rs-marks-title">{title}</div>
+      {items.map((p) => (
+        <div key={p} className="rs-mark-row">
+          <span>{sign}</span>
+          {p}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Site2016({ review, onOpen, onHome, photos }: SiteProps) {
+  const root = useRef<HTMLDivElement>(null);
+  const s = review.scores.overall;
+  const casePara = review.sections.find((x) => x.id === "case")?.paragraphs[0];
+  const contents = contentsOf(review, ["Specifications"], ["Verdict", "Competitors"]);
+  const current = useCurrent(
+    root,
+    contents.map((c) => c.id),
+  );
+  const energy = review.energy && (
+    <div className="rs-draw">
+      <div>
+        <span>Idle</span>
+        <b>{`${num(review.energy.idle, 1)} W`}</b>
+      </div>
+      <div>
+        <span>Load</span>
+        <b>{`${num(review.energy.load, 0)} W`}</b>
+      </div>
+    </div>
+  );
+  return (
+    <div className="rs rs-2016" ref={root}>
+      <Masthead era={2016} onHome={onHome} />
+      <div className="rs-hero">
+        {photos?.["studio/hero"] && <img src={photos["studio/hero"]} alt="The test unit" />}
+        <div className="rs-hero-text">
+          <span className="rs-tag">Review</span>
+          <h1>{review.headline}</h1>
+          <div className="rs-dek">{review.dek}</div>
+          <div className="rs-when">{longDate(review.date)}</div>
+        </div>
+      </div>
+      <div className="rs-grid">
+        <article className="rs-main">
+          <p>{review.verdict[0]}</p>
+          {casePara && <p>{casePara}</p>}
+          <h2 id={slug("Specifications")}>Specifications</h2>
+          <Specs review={review} />
+          {review.sections.map((sec) => (
+            <section key={sec.id}>
+              <h2 id={`rs-${sec.id}`}>{sec.title}</h2>
+              <SectionBody
+                section={sec}
+                review={review}
+                era={2016}
+                photos={photos}
+                onOpen={onOpen}
+                slots={{ energy }}
+              />
+            </section>
+          ))}
+          <h2 id={slug("Verdict")}>Verdict</h2>
+          <div className="rs-verdict">
+            <Ring score={s} size={160} />
+            <div>
+              {review.verdict.slice(1).map((p) => (
+                <p key={p}>{p}</p>
+              ))}
+            </div>
+          </div>
+          <div className="rs-marks">
+            <Marks items={review.pros} sign="+" title="Pros" />
+            <Marks items={review.cons} sign="-" title="Cons" />
+          </div>
+          <CategoryBars review={review} className="rs-cats-2col" />
+          {review.peers.length > 0 && <h2 id={slug("Competitors")}>Competitors</h2>}
+          <Competitors review={review} onOpen={onOpen} />
+        </article>
+        <aside className="rs-rail">
+          <div className={`rs-card rs-railrate rs-${band(s)}`}>
+            <Ring score={s} size={130} />
+            <div className="rs-railrate-word">{bandWord(s)}</div>
+            <div className="rs-railrate-model">{`${review.company} ${review.model}`}</div>
+            <div className="rs-railrate-meta">
+              {review.cpu}
+              <br />
+              {review.gpu}
+              <br />
+              {`${cap(review.kind)}, ${longDate(review.date)}`}
+            </div>
+          </div>
+          <div className="rs-card rs-contents">
+            <div className="rs-contents-title">Contents</div>
+            {contents.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={c.id === current ? "rs-on" : undefined}
+                onClick={() => jump(root.current, c.id)}
+              >
+                {c.title}
+              </button>
+            ))}
+          </div>
+        </aside>
+      </div>
+      <footer className="rs-foot">{`${PUBLICATION} ${review.year}`}</footer>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ 2026
 
 /** One column, verdict first. */
 function SiteColumn({ review, onOpen, onHome, photos, era }: SiteProps & { era: Era }) {
@@ -509,5 +629,6 @@ export function ReviewSite({
 }) {
   const era = eraOf(review.year);
   if (era === 2006) return <Site2006 review={review} onOpen={onOpen} onHome={onHome} photos={photos} />;
+  if (era === 2016) return <Site2016 review={review} onOpen={onOpen} onHome={onHome} photos={photos} />;
   return <SiteColumn review={review} onOpen={onOpen} onHome={onHome} photos={photos} era={era} />;
 }

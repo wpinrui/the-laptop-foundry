@@ -352,6 +352,10 @@ export function SettingsMenu({
             <span>Rubik</span>
             <small>The Rubik Project Authors, SIL Open Font License 1.1</small>
           </li>
+          <li>
+            <span>Source Sans 3</span>
+            <small>Adobe, SIL Open Font License 1.1</small>
+          </li>
         </ul>
         <div className="fd-entries">
           <Entry secondary onClick={() => setCredits(false)} autoFocus>

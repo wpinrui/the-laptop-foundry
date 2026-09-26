@@ -932,23 +932,494 @@
   --rs-muted: var(--site16-muted);
   --rs-link: var(--site16-accent);
   --rs-rule: var(--site16-rule);
-  --rs-row: var(--site16-row);
-  --rs-l0: var(--site16-accent);
-  --rs-l1: var(--site06-l1);
-  --rs-l2: var(--site06-l2);
-  --rs-l3: var(--site06-l3);
-  --rs-l4: var(--site06-l4);
-  --rs-t1: var(--site06-t1);
-  --rs-t2: var(--site06-t2);
-  --rs-t3: var(--site06-t3);
-  --rs-t4: var(--site06-t4);
-  --rs-t5: var(--site06-t5);
+  --rs-row: var(--site16-wash);
+  --rs-l0: var(--site16-l0);
+  --rs-l1: var(--site16-l1);
+  --rs-l2: var(--site16-l2);
+  --rs-l3: var(--site16-l3);
+  --rs-l4: var(--site16-l4);
+  --rs-t1: var(--site16-t1);
+  --rs-t2: var(--site16-t2);
+  --rs-t3: var(--site16-t3);
+  --rs-t4: var(--site16-t4);
+  --rs-t5: var(--site16-t5);
   --rs-loud: var(--site-loud);
-  font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 15px;
+  --rs-gap-p: 14px;
+  container-type: inline-size;
+  font-family: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  font-size: 16px;
   line-height: 1.6;
 }
 
+.rs-2016 .rs-link {
+  text-decoration: none;
+}
+
+.rs-2016 .rs-mast {
+  height: 60px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  padding: 0 48px;
+  background: var(--site16-head);
+  color: var(--site16-page);
+}
+
+.rs-2016 .rs-logo {
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.2;
+  border-bottom: 3px solid var(--site16-accent);
+}
+
+.rs-2016 .rs-mast nav {
+  display: flex;
+  gap: 26px;
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--site16-nav);
+}
+
+.rs-2016 .rs-mast nav .rs-on {
+  color: var(--site16-accent);
+}
+
+.rs-2016 .rs-search {
+  margin-left: auto;
+  display: block;
+  width: 200px;
+  height: 30px;
+  border-radius: 2px;
+  background: var(--site16-field);
+}
+
+/* The hero: a full-width studio shot with the headline over a dark fade. */
+.rs-2016 .rs-hero {
+  position: relative;
+  height: 540px;
+  overflow: hidden;
+  background: var(--site16-hero);
+}
+
+.rs-2016 .rs-hero img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+}
+
+.rs-2016 .rs-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent 40%, var(--site16-shade));
+}
+
+.rs-2016 .rs-hero-text {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 44px;
+  width: 1100px;
+  max-width: calc(100% - 48px);
+  margin: 0 auto;
+  color: var(--site16-page);
+}
+
+.rs-2016 .rs-tag {
+  background: var(--site16-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+}
+
+.rs-2016 h1 {
+  font-size: 42px;
+  font-weight: 300;
+  line-height: 1.15;
+  margin: 14px 0 10px;
+  max-width: 880px;
+}
+
+.rs-2016 .rs-dek {
+  font-size: 18px;
+  max-width: 820px;
+  color: var(--site16-dek);
+}
+
+.rs-2016 .rs-when {
+  font-size: 14px;
+  color: var(--site16-when);
+  margin-top: 10px;
+}
+
+/* A 760 px article on white beside a 300 px rail that stays in view. */
+.rs-2016 .rs-grid {
+  width: 1100px;
+  max-width: calc(100% - 48px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 760px) 300px;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 36px 0 60px;
+  align-items: start;
+}
+
+.rs-2016 .rs-main {
+  background: var(--site16-page);
+  padding: 36px 44px;
+  min-width: 0;
+}
+
+.rs-2016 .rs-rail {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@container (max-width: 980px) {
+  .rs-2016 .rs-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rs-2016 .rs-rail {
+    display: none;
+  }
+}
+
+.rs-2016 .rs-card {
+  background: var(--site16-page);
+  border: 1px solid var(--site16-rule);
+}
+
+.rs-2016 .rs-railrate {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.rs-2016 .rs-railrate-word {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--rs-tone);
+}
+
+.rs-2016 .rs-railrate-model {
+  font-weight: 700;
+}
+
+.rs-2016 .rs-railrate-meta {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--site16-muted);
+}
+
+.rs-2016 .rs-contents {
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.rs-2016 .rs-contents-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.rs-2016 .rs-contents button {
+  font-size: 15px;
+  padding: 3px 0;
+}
+
+.rs-2016 .rs-contents .rs-on {
+  color: var(--site16-accent);
+}
+
+.rs-2016 h2 {
+  font-size: 19px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--site16-accent);
+  margin: 44px 0 14px;
+}
+
+.rs-2016 .rs-specs {
+  border-top: 2px solid var(--site16-text);
+}
+
+.rs-2016 .rs-specs div {
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--site16-rule);
+  font-size: 15px;
+}
+
+.rs-2016 .rs-specs dt {
+  font-weight: 600;
+}
+
+/* Photos: two columns, italic captions. */
+.rs-2016 .rs-photos {
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.rs-2016 figcaption {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--site16-muted);
+  margin-top: 6px;
+}
+
+/* Tables: a 2 px rule under the headers, the reviewed model on the wash. */
+.rs-2016 .rs-tablewrap {
+  margin: 18px 0 22px;
+}
+
+.rs-2016 .rs-table {
+  font-size: 14px;
+}
+
+.rs-2016 .rs-table caption {
+  padding-bottom: 8px;
+}
+
+.rs-2016 .rs-table th {
+  padding: 6px 8px;
+  border-bottom: 2px solid var(--site16-text);
+  font-weight: 600;
+}
+
+.rs-2016 .rs-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--site16-rule);
+}
+
+.rs-2016 .rs-table tr.rs-me td {
+  background: var(--site16-wash);
+}
+
+.rs-2016 .rs-games td.rs-fps-good {
+  color: var(--score-good);
+}
+
+.rs-2016 .rs-games td.rs-fps-bad {
+  color: var(--score-poor);
+  font-weight: 600;
+}
+
+/* Bar charts: pastel bars with the value inside, the delta on the right. */
+.rs-2016 .rs-chart {
+  margin: 18px 0 22px;
+}
+
+.rs-2016 .rs-barchart .rs-chart-head {
+  justify-content: center;
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+
+.rs-2016 .rs-barrow {
+  --rs-bar-cols: 230px minmax(0, 1fr) 56px;
+  --rs-bar-gap: 10px;
+  padding: 4px 0;
+}
+
+.rs-2016 .rs-barname {
+  text-align: right;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.rs-2016 .rs-barval {
+  display: none;
+}
+
+.rs-2016 .rs-barfill {
+  height: 26px;
+  padding-left: 6px;
+  font-size: 13px;
+  overflow: visible;
+}
+
+.rs-2016 .rs-barin {
+  display: inline;
+}
+
+.rs-2016 .rs-barfill.rs-b0 { background: var(--site16-me); }
+.rs-2016 .rs-barfill.rs-b1 { background: var(--site16-p1); }
+.rs-2016 .rs-barfill.rs-b2 { background: var(--site16-p2); }
+.rs-2016 .rs-barfill.rs-b3 { background: var(--site16-p3); }
+.rs-2016 .rs-barfill.rs-b4 { background: var(--site16-p4); }
+
+.rs-2016 .rs-bardelta {
+  font-size: 13px;
+}
+
+.rs-2016 .rs-delta {
+  font-weight: 400;
+}
+
+.rs-2016 .rs-lines .rs-chart-head,
+.rs-2016 .rs-scale .rs-chart-head,
+.rs-2016 .rs-display .rs-chart-head {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+/* Temperature grids: 72 by 48 cells with small corners. */
+.rs-2016 .rs-surface {
+  --rs-cell-w: 72px;
+  --rs-cell-h: 48px;
+  --rs-grid-gap: 40px;
+}
+
+.rs-2016 .rs-grid-cells {
+  gap: 4px;
+}
+
+.rs-2016 .rs-grid-cells span {
+  border-radius: 3px;
+  font-size: 14px;
+}
+
+.rs-2016 .rs-grid-title {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+/* Energy: idle and load draw as big light figures. */
+.rs-2016 .rs-draw {
+  display: flex;
+  gap: 40px;
+  margin: 10px 0 6px;
+}
+
+.rs-2016 .rs-draw span {
+  display: block;
+  color: var(--site16-muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rs-2016 .rs-draw b {
+  font-size: 30px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Verdict: the ring beside the text, round markers, the category bars in two columns. */
+.rs-2016 .rs-verdict {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.rs-2016 .rs-marks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 18px 0 26px;
+}
+
+.rs-2016 .rs-marks-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.rs-2016 .rs-mark-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 3px 0;
+}
+
+.rs-2016 .rs-mark-row span {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rs-2016 .rs-pros .rs-mark-row span {
+  background: var(--site16-pro-wash);
+  color: var(--score-good);
+}
+
+.rs-2016 .rs-cons .rs-mark-row span {
+  background: var(--site16-con-wash);
+  color: var(--score-poor);
+}
+
+.rs-2016 .rs-cats-2col {
+  --rs-cat-cols: 140px minmax(0, 1fr) 40px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 32px;
+  font-size: 14px;
+}
+
+.rs-2016 .rs-cats b {
+  font-weight: 400;
+}
+
+.rs-2016 .rs-cats b::after {
+  content: "%";
+}
+
+.rs-2016 .rs-peer {
+  border: 1px solid var(--site16-rule);
+  padding: 14px 16px;
+}
+
+.rs-2016 .rs-peer-name {
+  font-weight: 600;
+}
+
+.rs-2016 .rs-peer-meta {
+  font-size: 14px;
+  color: var(--site16-muted);
+}
+
+.rs-2016 .rs-peer-score {
+  font-size: 24px;
+}
+
+.rs-2016 .rs-foot {
+  background: var(--site16-head);
+  color: var(--site16-foot);
+  text-align: center;
+  padding: 26px;
+  font-size: 14px;
+}
+
+/* The index page and the loading page keep the flat look. */
 .rs-2016 .rs-page {
   max-width: 50em;
   margin: 1.5em auto;
@@ -956,26 +1427,12 @@
   background: var(--site16-page);
 }
 
-.rs-2016 .rs-mast {
-  background: var(--site16-head);
-  color: var(--site16-page);
-  display: flex;
-  align-items: center;
-  gap: 2em;
-  padding: 0.8em 1.5em;
-}
-
-.rs-2016 .rs-mast nav {
-  display: flex;
-  gap: 1.5em;
-}
-
-.rs-2016 .rs-barfill {
-  background: var(--rs-rule);
-}
-
-.rs-2016 .rs-barfill.rs-b0 {
-  background: var(--rs-l0);
+.rs-2016 .rs-kicker {
+  color: var(--site16-accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8em;
+  margin: 0;
 }
 
 /* ------------------------------------------------------------ 2026: editorial */

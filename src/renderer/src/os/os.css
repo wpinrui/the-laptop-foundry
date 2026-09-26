@@ -102,6 +102,15 @@
   bottom: var(--tb);
 }
 
+/* The area spans the desktop, so only what it holds takes the pointer. */
+.os-area {
+  pointer-events: none;
+}
+
+.os-area > * {
+  pointer-events: auto;
+}
+
 .os-bar {
   position: absolute;
   left: 0;

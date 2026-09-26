@@ -406,6 +406,8 @@ export interface Placement {
   pad?: { w?: number; d?: number; y?: number };
   /** Webcam offset from the lid's centre line. */
   cam?: { x: number };
+  /** Display panel: its top edge's distance below the lid's top edge (the top bezel). */
+  panel?: { y: number };
 }
 
 /** Keycaps as the player styled them. Colours are hex. */
@@ -565,6 +567,8 @@ export type Problem =
   | { kind: "compat"; code: "unknown"; ref: string }
   | { kind: "compat"; code: "screen"; what: "refresh" | "density" | "size" | "resolution" }
   | { kind: "compat"; code: "overlap"; part: string; with: string }
+  /** A lid part that does not fit its bezel band: the top bezel above the panel, or the chin below it. */
+  | { kind: "compat"; code: "bezel-fit"; part: string; role: string; band: "top" | "chin" }
   | {
       kind: "year";
       code: "unavailable";
@@ -598,6 +602,7 @@ export interface PlaceReport {
   kb?: { y: number; range: Range };
   pad?: { w: number; d: number; y: number; w0: Range; d0: Range; range: Range };
   cam?: { x: number; range: Range };
+  panel?: { y: number; range: Range };
   /** One per build port, in build order. Null when the port was not placed. */
   ports: ({ along: number; height: number; alongRange: Range; heightRange: Range | null; box: string } | null)[];
 }

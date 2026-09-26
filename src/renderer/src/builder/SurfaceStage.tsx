@@ -12,17 +12,18 @@ import {
 } from "../engine";
 import { useRef } from "react";
 import { CornerHandle, DragArrow, Dashed, Outline } from "./Arrows";
-import { OptionChips, type SetBuild, specLine, withPart } from "./Parts";
+import { OptionChips, type SetBuild, withPart } from "./Parts";
 import { problemText } from "./problems";
 import type { StageProps } from "./Stages";
+import { Dropdown } from "./Dropdown";
 import { Card, Chip, Chips, Label, Line, money, SliderField, Value } from "./ui";
 
 // The Surface stage: keyboard, trackpad, webcam and ports, placed on the 3D
 // laptop with drag arrows. Keyboard and trackpad stay centred left to right;
-// the webcam slides along the top bezel; each port moves along its wall and
-// up and down it.
+// the webcam slides along the top bezel; the display moves up and down the
+// lid; each port moves along its wall and up and down it.
 
-export type SurfaceItem = "keyboard" | "trackpad" | "webcam" | "ports";
+export type SurfaceItem = "keyboard" | "trackpad" | "webcam" | "display" | "ports";
 
 const SIDE_NAME: Record<Side, string> = { left: "Left", right: "Right", rear: "Rear", front: "Front" };
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -81,6 +82,7 @@ export function SurfaceColumn({
     ["keyboard", "Keyboard", partWarn(build, fit, "keyboard")],
     ["trackpad", "Trackpad", partWarn(build, fit, "trackpad")],
     ["webcam", "Webcam", partWarn(build, fit, "webcam")],
+    ["display", "Display", fit.problems.some((p) => p.kind === "compat" && p.code === "bezel-fit")],
     ["ports", "Ports", portsWarn(fit)],
   ];
   const rep = fit.place;
@@ -108,10 +110,14 @@ export function SurfaceColumn({
               </Line>
             )}
             {rep.kb && <Centred />}
+            <PartChips cat="keyboard" build={build} set={set} />
             <OptionChips cat="keyboard" build={build} set={set} />
           </>
         )}
-        {item === "trackpad" && rep.pad && (
+        {item === "trackpad" && (
+          <>
+            <PartChips cat="trackpad" build={build} set={set} />
+            {rep.pad && (
           <>
             <SliderField
               label="Width"
@@ -133,6 +139,8 @@ export function SurfaceColumn({
               <Value v={r1(rep.pad.y)} unit="mm" />
             </Line>
             <Centred />
+          </>
+            )}
             <OptionChips cat="trackpad" build={build} set={set} />
           </>
         )}
@@ -143,12 +151,27 @@ export function SurfaceColumn({
                 <Value v={r1(rep.cam.x)} unit="mm" />
               </Line>
             )}
+            <PartChips cat="webcam" build={build} set={set} />
             <OptionChips cat="webcam" build={build} set={set} />
+          </>
+        )}
+        {item === "display" && rep.panel && (
+          <>
+            <Line label="From top">
+              <Value v={r1(rep.panel.y)} unit="mm" />
+            </Line>
+            <Centred />
           </>
         )}
         {item === "ports" && <PortDetail build={build} fit={fit} set={set} port={port} onPort={onPort} />}
         {fit.problems
-          .filter((p) => p.kind === "compat" && (p.code === "overlap" || (item === "ports" && (p.code === "no-charging" || p.code === "port-side"))))
+          .filter(
+            (p) =>
+              p.kind === "compat" &&
+              (p.code === "overlap" ||
+                p.code === "bezel-fit" ||
+                (item === "ports" && (p.code === "no-charging" || p.code === "port-side"))),
+          )
           .map((p) => (
             <span key={problemText(p)} className="bd-note">
               {problemText(p)}
@@ -259,26 +282,42 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
   );
 }
 
-function PartCards({ build, set, cat, optional }: { build: Build; set: SetBuild; cat: Category; optional?: boolean }) {
+
+
+const PART_LABEL: Partial<Record<Category, string>> = { keyboard: "Travel", trackpad: "Size", webcam: "Camera" };
+
+/** The part itself: chips for a short list, a dropdown for a long one. */
+function PartChips({ cat, build, set }: { cat: Category; build: Build; set: SetBuild }) {
   const current = build.parts[cat]?.[0]?.part ?? "";
-  const list: Part[] = partsFor(cat, build.year);
-  const extra = current && !list.some((p) => p.id === current) ? CONTENT.parts.filter((p) => p.id === current) : [];
-  return (
-    <>
-      {optional && <Card width={150} on={!current} name="None" top="" onClick={() => set((b) => withPart(b, cat, 0, ""))} />}
-      {[...extra, ...list].map((p) => (
-        <Card
-          key={p.id}
-          width={170}
-          on={p.id === current}
-          top={specLine(cat, p.id) || p.name}
-          name={shortName(cat, p)}
-          aside={money(partPrice(cat, build.parts[cat]?.[0]?.part === p.id ? (build.parts[cat]?.[0] ?? { part: p.id }) : { part: p.id }, build.year))}
-          title={p.name}
-          onClick={() => set((b) => withPart(b, cat, 0, p.id))}
+  const list = partsFor(cat, build.year);
+  const choices: { id: string; name: string; price?: number }[] = [
+    ...(cat === "webcam" ? [{ id: "", name: "None" }] : []),
+    ...list.map((p) => ({ id: p.id, name: shortName(cat, p), price: partPrice(cat, { part: p.id }, build.year) })),
+  ];
+  const pick = (id: string) => set((b) => withPart(b, cat, 0, id));
+  if (choices.length > 4)
+    return (
+      <div className="bd-line">
+        <Label>{PART_LABEL[cat]}</Label>
+        <Dropdown
+          label={PART_LABEL[cat] ?? cat}
+          value={current}
+          options={choices.map((c) => ({ key: c.id, label: c.name, aside: c.price === undefined ? undefined : money(c.price) }))}
+          onChange={pick}
         />
-      ))}
-    </>
+      </div>
+    );
+  return (
+    <div className="bd-field">
+      <Label>{PART_LABEL[cat]}</Label>
+      <Chips>
+        {choices.map((c) => (
+          <Chip key={c.id || "none"} on={c.id === current} title={c.price === undefined ? undefined : money(c.price)} onClick={() => pick(c.id)}>
+            {c.name}
+          </Chip>
+        ))}
+      </Chips>
+    </div>
   );
 }
 
@@ -288,9 +327,7 @@ function shortName(cat: Category, p: Part): string {
 }
 
 export function SurfaceTray({ build, set, item, port, onPort }: StageProps & { item: SurfaceItem; port: number; onPort: (i: number) => void }) {
-  if (item === "keyboard") return <PartCards build={build} set={set} cat="keyboard" />;
-  if (item === "trackpad") return <PartCards build={build} set={set} cat="trackpad" />;
-  if (item === "webcam") return <PartCards build={build} set={set} cat="webcam" optional />;
+  if (item !== "ports") return null;
   const layout = CONTENT.layouts.find((l) => l.id === build.layout);
   const side = build.ports[port]?.side ?? layout?.portSides[0] ?? "left";
   return (
@@ -514,6 +551,44 @@ export function WebcamMarks({ fit, set, locked }: { fit: Fit; set: SetBuild; loc
         snaps={[0]}
         disabled={locked}
         onChange={(v) => set((b) => setPlace(b, (p) => ({ ...p, cam: { x: v } })))}
+      />
+    </group>
+  );
+}
+
+/** The display panel's outline and up-down arrow, in the lid's engine space (closed; the screen faces down). */
+export function DisplayMarks({ fit, set, locked }: { fit: Fit; set: SetBuild; locked: boolean }) {
+  const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
+  const r = fit.place.panel;
+  if (!panel || !r) return null;
+  const z = fit.shell.lid.at.z - 0.6;
+  const m = 2;
+  const x0 = panel.at.x - m;
+  const x1 = panel.at.x + panel.size.x + m;
+  const y0 = panel.at.y - m;
+  const y1 = panel.at.y + panel.size.y + m;
+  const o = fit.shell.outer;
+  const cy = (y0 + y1) / 2;
+  return (
+    <group>
+      <Outline
+        corners={[
+          [x0, y0, z],
+          [x1, y0, z],
+          [x1, y1, z],
+          [x0, y1, z],
+        ]}
+      />
+      <Dashed a={[o.x / 2, 4, z]} b={[o.x / 2, o.y - 4, z]} />
+      {/* The top bezel grows toward the hinge, which is +y in the closed lid. */}
+      <DragArrow
+        at={[o.x / 2, cy, z - 2.5]}
+        dir={[0, 1, 0]}
+        reach={30}
+        value={r.y}
+        range={r.range}
+        disabled={locked}
+        onChange={(v) => set((b) => setPlace(b, (p) => ({ ...p, panel: { y: v } })))}
       />
     </group>
   );

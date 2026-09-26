@@ -1510,3 +1510,186 @@
 .bd-res-row .warn {
   color: var(--warning) !important;
 }
+
+/* Multi-select chips: a check square before the label. */
+.bd-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+}
+
+.bd-check {
+  flex: none;
+  width: calc(13 * var(--u));
+  height: calc(13 * var(--u));
+  border: 1px solid var(--line-strong);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bd-toggle.on .bd-check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.bd-toggle.on .bd-check::after {
+  content: "";
+  width: calc(5 * var(--u));
+  height: calc(5 * var(--u));
+  background: var(--ground);
+}
+
+/* The dropdown: a square trigger, and its list over the scene. */
+.bd-drop {
+  display: flex;
+  align-items: baseline;
+  gap: calc(10 * var(--u));
+  width: 100%;
+  box-sizing: border-box;
+  padding: calc(8 * var(--u)) calc(12 * var(--u)) !important;
+  border: 1px solid var(--line-chip) !important;
+  font-family: var(--font-display) !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500 !important;
+  font-size: calc(17 * var(--u)) !important;
+  color: var(--text) !important;
+  text-align: left;
+}
+
+.bd-drop:hover,
+.bd-drop:focus-visible,
+.bd-drop.open {
+  border-color: var(--accent) !important;
+}
+
+.bd-drop.warn {
+  border-color: var(--warning) !important;
+  color: var(--warning) !important;
+}
+
+.bd-drop-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bd-drop small,
+.bd-drop-item small {
+  font-size: calc(15 * var(--u));
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bd-drop-caret {
+  flex: none;
+  align-self: center;
+  width: calc(7 * var(--u));
+  height: calc(7 * var(--u));
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: translateY(calc(-2 * var(--u))) rotate(45deg);
+  color: var(--muted);
+}
+
+.bd-drop.open .bd-drop-caret {
+  transform: translateY(calc(2 * var(--u))) rotate(225deg);
+  color: var(--accent);
+}
+
+.bd-drop-list {
+  position: absolute;
+  z-index: 20;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: calc(4 * var(--u)) 0;
+  background: color-mix(in srgb, var(--ground-deep) 94%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--line-strong);
+  outline: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  user-select: none;
+}
+
+.bd-drop-item {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(12 * var(--u));
+  padding: calc(7 * var(--u)) calc(12 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: calc(17 * var(--u));
+  color: var(--text);
+  cursor: pointer;
+}
+
+.bd-drop-item.active {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.bd-drop-item.on,
+.bd-drop-item.on small {
+  color: var(--accent);
+}
+
+.bd-drop-item.on {
+  background: var(--accent-wash);
+}
+
+.bd-drop-item.off {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* A row of small visual chips, such as key shapes and legend alignment. */
+.bd-chip.bd-visual {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+}
+
+.bd-chip.bd-visual .bd-keycaps i {
+  width: calc(14 * var(--u));
+  height: calc(13 * var(--u));
+}
+
+.bd-chip.bd-visual .bd-aligns i {
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+}
+
+.bd-custom {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(12 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: calc(17 * var(--u));
+  color: var(--accent);
+}
+
+.bd-custom.warn {
+  color: var(--warning);
+}
+
+.bd-custom small {
+  font-size: calc(15 * var(--u));
+}
+
+.bd-line > .bd-drop {
+  width: calc(250 * var(--u));
+}
+
+.bd-custom small.warn {
+  color: var(--warning);
+}

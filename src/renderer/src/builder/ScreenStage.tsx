@@ -23,6 +23,7 @@ import {
 } from "../engine";
 import { panelLab } from "../engine/content/display";
 import type { StageProps } from "./Stages";
+import { Dropdown } from "./Dropdown";
 import { Card, Chip, Chips, Label, money, Slider, Value } from "./ui";
 
 // The Screen stage: a freely specified screen. Standard ratios and
@@ -171,86 +172,75 @@ export function ScreenColumn({ build, set }: StageProps) {
         </Chips>
       </div>
 
-      <div className="bd-field bd-res">
+      <div className="bd-field">
         <Label>Resolution</Label>
-        <div className="bd-res-rows">
-          {list.map((r) => {
-            const on = !!current && !customRes && r[0] === spec.res[0] && r[1] === spec.res[1];
-            return (
-              <button
-                type="button"
-                key={r.join("x")}
-                className={["bd-res-row", on ? "on" : "", on && resWarn ? "warn" : ""].join(" ")}
-                onClick={() => {
-                  setCustomRes(false);
-                  put((s) => ({ ...s, res: r }));
-                }}
-              >
-                <span>
-                  {r[0]} × {r[1]}
-                </span>
-                <span>{ppiOf(spec.diag, r)} ppi</span>
-              </button>
-            );
-          })}
-          <div className={["bd-res-row", customRes || (!!current && !resStandard) ? "on" : "", resWarn && !resStandard ? "warn" : ""].join(" ")}>
+        <Dropdown
+          label="Resolution"
+          value={current ? (customRes || !resStandard ? "custom" : spec.res.join("x")) : null}
+          warn={resWarn}
+          options={[
+            ...list.map((r) => ({ key: r.join("x"), label: `${r[0]} × ${r[1]}`, aside: `${ppiOf(spec.diag, r)} ppi` })),
+            { key: "custom", label: "Custom", aside: "any size" },
+          ]}
+          onChange={(key) => {
+            if (key === "custom") {
+              setCustomRes(true);
+              return;
+            }
+            const r = list.find((x) => x.join("x") === key);
+            if (!r) return;
+            setCustomRes(false);
+            put((s) => ({ ...s, res: r }));
+          }}
+        />
+        {(customRes || (!!current && !resStandard)) && (
+          <div className={resWarn && !resStandard ? "bd-custom warn" : "bd-custom"}>
             <span>
               <NumberBox
                 label="resolution width"
-                value={customRes || (current && !resStandard) ? spec.res[0] : ""}
-                onCommit={(v) => {
-                  setCustomRes(true);
-                  put((s) => ({ ...s, res: [v, s.res[1]] }));
-                }}
+                value={current && !resStandard ? spec.res[0] : ""}
+                onCommit={(v) => put((s) => ({ ...s, res: [v, s.res[1]] }))}
               />
               {" × "}
               <NumberBox
                 label="resolution height"
-                value={customRes || (current && !resStandard) ? spec.res[1] : ""}
-                onCommit={(v) => {
-                  setCustomRes(true);
-                  put((s) => ({ ...s, res: [s.res[0], v] }));
-                }}
+                value={current && !resStandard ? spec.res[1] : ""}
+                onCommit={(v) => put((s) => ({ ...s, res: [s.res[0], v] }))}
               />
             </span>
-            <span className={ppiOf(spec.diag, spec.res) > ppiCap && !resStandard ? "warn" : ""}>
+            <small className={ppiOf(spec.diag, spec.res) > ppiCap && !resStandard ? "warn" : ""}>
               {!resStandard && current ? `${ppiOf(spec.diag, spec.res)} ppi` : ""}
-            </span>
+            </small>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="bd-field">
         <Label>Refresh</Label>
-        <Chips>
-          {hzList.map((h) => {
-            const on = !!current && !customHz && spec.hz === h;
-            return (
-              <Chip
-                key={h}
-                on={on && !hzWarn}
-                warn={on && hzWarn}
-                disabled={h > cap}
-                style={h > cap ? { opacity: 0.45 } : undefined}
-                onClick={() => {
-                  setCustomHz(false);
-                  put((s) => ({ ...s, hz: h }));
-                }}
-              >
-                {h}
-              </Chip>
-            );
-          })}
-          {customHz || (!!current && !hzList.includes(spec.hz)) ? (
-            <span className={hzWarn ? "bd-chip warn bd-chip-edit" : "bd-chip on bd-chip-edit"}>
-              <NumberBox width={44} label="refresh" value={spec.hz} onCommit={(v) => put((s) => ({ ...s, hz: v }))} />
+        <Dropdown
+          label="Refresh"
+          value={current ? (customHz || !hzList.includes(spec.hz) ? "custom" : String(spec.hz)) : null}
+          warn={hzWarn}
+          options={[
+            ...hzList.map((h) => ({ key: String(h), label: `${h} Hz`, aside: h > cap ? "not yet made" : undefined, disabled: h > cap })),
+            { key: "custom", label: "Custom", aside: "any rate" },
+          ]}
+          onChange={(key) => {
+            if (key === "custom") {
+              setCustomHz(true);
+              return;
+            }
+            setCustomHz(false);
+            put((s) => ({ ...s, hz: Number(key) }));
+          }}
+        />
+        {(customHz || (!!current && !hzList.includes(spec.hz))) && (
+          <div className={hzWarn ? "bd-custom warn" : "bd-custom"}>
+            <span>
+              <NumberBox width={44} label="refresh" value={spec.hz} onCommit={(v) => put((s) => ({ ...s, hz: v }))} /> Hz
             </span>
-          ) : (
-            <Chip dashed onClick={() => setCustomHz(true)}>
-              ___
-            </Chip>
-          )}
-        </Chips>
+          </div>
+        )}
         {current && panel.custom && (
           <span className="bd-note">
             {spec.hz} Hz at {spec.res[0]} × {spec.res[1]}: custom panel{"  "}+{money(panel.premium)}

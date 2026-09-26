@@ -64,6 +64,8 @@ interface SceneProps {
   screenGloss?: number;
   /** Leaves the bottom cover off, to show the internals from below. */
   floorless?: boolean;
+  /** Draws fit problems as red slabs. */
+  problems?: boolean;
   /** Draws the listed units in the accent colour and, when dim, everything else dark. */
   paint?: Paint;
   /** The bezel colour and the player's marks. */
@@ -201,6 +203,45 @@ function makeCtx(): UnitCtx & { dispose(): void } {
 
 // ------------------------------------------------------------------ units
 
+/**
+ * Turns every lid-side hinge part (a LID_GROUP) with the lid, about its own
+ * pivot. The full-width cover is the exception: it is fixed to the lid, which
+ * turns about the engine's hinge axis, so turned about its own pivot it pokes
+ * through the lid's back at some angles. Given the axis (base y, z), the cover
+ * and the shaft inside it turn about that axis with the lid instead.
+ */
+export function turnLidParts(group: THREE.Object3D, lidAngle: number, axis?: [number, number]): void {
+  const angle = (-lidAngle * Math.PI) / 180;
+  group.updateMatrixWorld(true);
+  const toGroup = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
+  const aboutAxis = (o: THREE.Object3D) => {
+    if (!axis || !o.parent) return;
+    const home = (o.userData.home as THREE.Vector3 | undefined) ?? o.position.clone();
+    o.userData.home = home;
+    const rel = toGroup.clone().multiply(o.parent.matrixWorld);
+    const onAxis = home.clone().applyMatrix4(rel);
+    onAxis.y = axis[0];
+    onAxis.z = axis[1];
+    onAxis.applyMatrix4(rel.clone().invert());
+    o.position.copy(home).sub(onAxis).applyQuaternion(turn).add(onAxis);
+  };
+  const lids: THREE.Object3D[] = [];
+  group.traverse((o) => {
+    if (o.name === LID_GROUP) lids.push(o);
+  });
+  for (const o of lids) {
+    o.rotation.x = angle;
+    if (!o.children.some((c) => c.name === "cover")) continue;
+    aboutAxis(o);
+    const shaft = o.parent?.children.find((c) => c.name === "shaft");
+    if (shaft) {
+      shaft.rotation.x = angle;
+      aboutAxis(shaft);
+    }
+  }
+}
+
 type Live = Map<string, { key: string; ctx: UnitCtx; obj: THREE.Object3D; failed?: string }>;
 
 /**
@@ -302,6 +343,7 @@ function Units({
   year,
   hinge,
   lidAngle,
+  axis,
   onFailed,
   paint,
 }: {
@@ -315,6 +357,8 @@ function Units({
   hinge: UnitOpts["hinge"];
   /** Turns the lid side of each hinge mount with the lid, in degrees. */
   lidAngle?: number;
+  /** The lid's hinge axis in base space (y, z); the full cover turns about it. */
+  axis?: [number, number];
   /** Called after each pass with the units that could not be drawn. */
   onFailed?: (failed: string[]) => void;
 }) {
@@ -322,10 +366,8 @@ function Units({
   // Runs after the units effect above, so freshly built hinges turn too.
   useEffect(() => {
     if (lidAngle === undefined) return;
-    group.traverse((o) => {
-      if (o.name === LID_GROUP) o.rotation.x = (-lidAngle * Math.PI) / 180;
-    });
-  }, [group, lidAngle, boxes, ctx, year, hinge]);
+    turnLidParts(group, lidAngle, axis);
+  }, [group, lidAngle, boxes, ctx, year, hinge, axis]);
   // Selection paint: swap each mesh's material and keep the original to restore.
   useEffect(() => {
     const accent = paint ? ctx.material(token("accent-hex")) : null;
@@ -378,7 +420,7 @@ function surfaceGeometry(
   size: Fit["shell"]["outer"],
   style: Fit["shell"]["style"],
   profile: boolean,
-  mode: "full" | "open" | "deck" | "walls" | "floor" = "full",
+  mode: "full" | "open" | "deck" | "walls" | "floor" | "back" = "full",
   wells: Wells = [],
   cuts: Cuts = {},
   wallDepth = 0,
@@ -418,13 +460,18 @@ function surfaceGeometry(
     return g;
   }
   let indices = data.indices;
-  if (mode === "open" || mode === "walls" || mode === "floor") {
-    // "walls" also drops the bottom face; "floor" keeps only the bottom face, the cover.
+  if (mode === "open" || mode === "walls" || mode === "floor" || mode === "back") {
+    // "walls" also drops the bottom face; "floor" keeps only the bottom face, the cover;
+    // "back" drops only the bottom face (the lid's front, drawn as the bezel).
     const kept: number[] = [];
     for (let i = 0; i + 2 < indices.length; i += 3) {
       const c = indices[i];
       const keep =
-        mode === "floor" ? c === bottomCentre : c !== topCentre && (mode !== "walls" || c !== bottomCentre);
+        mode === "floor"
+          ? c === bottomCentre
+          : mode === "back"
+            ? c !== bottomCentre
+            : c !== topCentre && (mode !== "walls" || c !== bottomCentre);
       if (keep) kept.push(indices[i], indices[i + 1], indices[i + 2]);
     }
     indices = new Uint32Array(kept);
@@ -473,7 +520,7 @@ function Shell({
   xray?: boolean;
   /** Depth push. The deck plate uses less, so it wins over the top face of the base. */
   offset?: number;
-  mode?: "full" | "open" | "deck" | "walls" | "floor";
+  mode?: "full" | "open" | "deck" | "walls" | "floor" | "back";
   wells?: Wells;
   /** Port openings cut through the side walls, so a solid shell shows the connectors. */
   cuts?: Cuts;
@@ -523,6 +570,67 @@ function Shell({
         </lineSegments>
       )}
     </group>
+  );
+}
+
+/**
+ * The lid's front face (the B panel round the display) in the bezel's own
+ * colour, with the lid's material look. The lid shell leaves this face out, so
+ * the lid colour never shows over it. The panel shows through a hole.
+ */
+function LidFront({
+  fit,
+  colour,
+  surface,
+  xray,
+}: {
+  fit: Fit;
+  colour: string;
+  surface?: Surfaces[keyof Surfaces];
+  xray: boolean;
+}) {
+  const look = surfaceLook(surface);
+  const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
+  const size = fit.shell.lid.size;
+  const style = fit.shell.style;
+  const px = panel?.at.x ?? 0;
+  const py = panel?.at.y ?? 0;
+  const pw = panel?.size.x ?? 0;
+  const ph = panel?.size.y ?? 0;
+  const geometry = useMemo(() => {
+    const data = shellSurface(size, style, false, 8);
+    const n = (data.positions.length / 3 - 2) / 2;
+    const pts: THREE.Vector2[] = [];
+    for (let v = 0; v < n; v++) pts.push(new THREE.Vector2(data.positions[v * 3], data.positions[v * 3 + 1]));
+    const shape = new THREE.Shape(pts);
+    if (pw > 0 && ph > 0) {
+      const hole = new THREE.Path();
+      hole.moveTo(px, py);
+      hole.lineTo(px + pw, py);
+      hole.lineTo(px + pw, py + ph);
+      hole.lineTo(px, py + ph);
+      hole.closePath();
+      shape.holes.push(hole);
+    }
+    return new THREE.ShapeGeometry(shape);
+  }, [size.x, size.y, size.z, style, px, py, pw, ph]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <mesh geometry={geometry} position={[0, 0, fit.shell.lid.at.z]} renderOrder={2}>
+      <meshStandardMaterial
+        key={xray ? "xray" : "solid"}
+        color={colour}
+        transparent={xray}
+        opacity={xray ? 0.22 : 1}
+        depthWrite={!xray}
+        side={THREE.DoubleSide}
+        roughness={look.roughness}
+        metalness={look.metalness}
+        polygonOffset
+        polygonOffsetFactor={2}
+        polygonOffsetUnits={2}
+      />
+    </mesh>
   );
 }
 
@@ -651,6 +759,7 @@ export const Model = memo(function Model({
   lockScreen,
   screenGloss = 0.35,
   floorless = false,
+  problems = true,
   paint,
   extra,
   lidExtra,
@@ -686,6 +795,7 @@ export const Model = memo(function Model({
   const hinge = fit.anchors.find((a) => a.kind === "hinge");
   const hy = hinge?.kind === "hinge" ? hinge.from.y : fit.shell.outer.y;
   const hz = hinge?.kind === "hinge" ? hinge.from.z : fit.shell.lid.at.z;
+  const lidAxis = useMemo((): [number, number] => [hy, hz], [hy, hz]);
   const out = fit.shell.outer;
   const lidSize = fit.shell.lid.size;
   // Each port's own model draws its connector face; the wall is cut open over it.
@@ -736,12 +846,13 @@ export const Model = memo(function Model({
           year={year}
           hinge={fit.shell.style.hinge}
           lidAngle={lidAngle}
+          axis={lidAxis}
           onFailed={reportBase}
           paint={paint}
         />
         <BaseMarks fit={fit} marks={decor?.marks} />
         {extra}
-        <Overflow fit={fit} />
+        {problems && <Overflow fit={fit} />}
         {/* The lid turns about the hinge axis, which runs along x. */}
         <group position={[0, hy, hz]} rotation-x={(-lidAngle * Math.PI) / 180}>
           <group position={[0, -hy, -hz]}>
@@ -753,7 +864,9 @@ export const Model = memo(function Model({
               z={fit.shell.lid.at.z}
               surface={surfaces?.lid}
               xray={xray}
+              mode="back"
             />
+            <LidFront fit={fit} colour={decor?.bezel ?? colours.lid} surface={surfaces?.lid} xray={xray} />
             <Units
               boxes={lid}
               ctx={ctx}
@@ -764,7 +877,7 @@ export const Model = memo(function Model({
               onFailed={reportLid}
               paint={paint}
             />
-            <LidDecor fit={fit} bezel={decor?.bezel} marks={decor?.marks} />
+            <LidDecor fit={fit} marks={decor?.marks} />
             {lidExtra}
             {!xray && panelBox && (
               // A solid lid would hide a panel set behind its bezel: show the dark screen glass.

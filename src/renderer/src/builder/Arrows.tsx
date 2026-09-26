@@ -52,6 +52,9 @@ export function DragArrow({
   const len = Math.max(1, reach - GAP - CONE_H);
 
   // Position along the arrow's line nearest the pointer ray, in mm.
+  // The drag axis in world space, frozen when the drag starts: the arrow moves
+  // with the item it drags, so measuring against its live position fights the drag.
+  const axisAt = useRef<{ o: THREE.Vector3; d: THREE.Vector3 } | null>(null);
   const along = useRef<(x: number, y: number) => number | null>(() => null);
   along.current = (x, y) => {
     const g = group.current;
@@ -60,8 +63,11 @@ export function DragArrow({
     const ndc = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc, camera);
-    const o = g.localToWorld(new THREE.Vector3(0, 0, 0));
-    const d = g.localToWorld(new THREE.Vector3(0, 1, 0)).sub(o).normalize();
+    if (!axisAt.current) {
+      const o0 = g.localToWorld(new THREE.Vector3(0, 0, 0));
+      axisAt.current = { o: o0, d: g.localToWorld(new THREE.Vector3(0, 1, 0)).sub(o0).normalize() };
+    }
+    const { o, d } = axisAt.current;
     const r = ray.ray.direction;
     const w0 = o.clone().sub(ray.ray.origin);
     const b = d.dot(r);
@@ -72,6 +78,7 @@ export function DragArrow({
 
   useEffect(() => {
     if (!drag) return;
+    axisAt.current = null;
     let t0: number | null = null;
     let v0 = latest.current.value;
     const move = (e: PointerEvent) => {

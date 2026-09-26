@@ -101,6 +101,7 @@ export function BuilderScene({
   screen,
   glow,
   paint,
+  problems = true,
   extra,
   lidExtra,
   labelFor = noLabel,
@@ -125,6 +126,7 @@ export function BuilderScene({
   /** A warm light off the screen, for the power on moment. */
   glow?: boolean;
   paint?: Paint;
+  problems?: boolean;
   extra?: ReactNode;
   lidExtra?: ReactNode;
   labelFor?: (b: Box) => string;
@@ -207,6 +209,7 @@ export function BuilderScene({
             lockScreen={screen}
             decor={decor}
             paint={paint}
+            problems={problems}
             extra={extra}
             lidExtra={lidExtra}
           />

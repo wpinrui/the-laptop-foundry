@@ -18,7 +18,7 @@ import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
 import { toBody, toYear } from "./structure";
-import { Card, Chip, Chips, Label, Line, SliderField, Slider, money, Value } from "./ui";
+import { Card, Chip, Chips, Label, Line, SliderField, Slider, money, Toggle, Value } from "./ui";
 
 // The left column of each builder stage, and the tray along the bottom where
 // the stage has one. Every change goes through `set`, which does nothing on a
@@ -100,9 +100,9 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
           );
         })}
       <Chips>
-        <Chip caps on={lock} onClick={() => setLock(!lock)}>
+        <Toggle on={lock} onClick={() => setLock(!lock)}>
           Keep proportions
-        </Chip>
+        </Toggle>
       </Chips>
       <div className="bd-field">
         <Label>Layout</Label>
@@ -300,15 +300,23 @@ export function PriceColumn({
   onReview: () => void;
   onDuplicate: () => void;
 }) {
-  const cost = useMemo(() => (valid ? costOf(build, fit).total : 0), [valid, build, fit]);
+  // Price and cost work as soon as the parts are in, even while fit problems remain.
+  const cost = useMemo(() => {
+    try {
+      return costOf(build, fit).total;
+    } catch {
+      return 0;
+    }
+  }, [build, fit]);
+  const priced = cost > 0;
   const price = build.price ?? snapPrice(cost * 1.45);
   const rivals = useMemo(() => {
-    if (!valid) return [];
+    if (!priced) return [];
     return RIVALS.filter((r) => r.build.year === build.year)
       .sort((a, b) => Math.abs((a.build.price ?? 0) - price) - Math.abs((b.build.price ?? 0) - price))
       .slice(0, 3)
       .map((r) => ({ id: r.id, name: r.name, price: r.build.price ?? 0, kg: factsOf(rivalSubject(r)).kg }));
-  }, [valid, build.year, price]);
+  }, [priced, build.year, price]);
   const lo = Math.max(1, Math.round(cost * 0.5));
   const hi = Math.max(lo + 10, Math.round(cost * 3));
   const margin = price - cost;
@@ -328,7 +336,7 @@ export function PriceColumn({
           </button>
         )}
       </div>
-      {valid && (
+      {priced && (
         <>
           <div className="bd-price-block">
             <span className="bd-price-value">{money(price)}</span>
@@ -377,9 +385,17 @@ export function PriceColumn({
             </button>
           </>
         ) : (
-          <button type="button" className="fd-primary" disabled={!valid} onClick={onReview}>
-            Get reviewed
-          </button>
+          <>
+            <button type="button" className="fd-primary" disabled={!valid} onClick={onReview}>
+              Get reviewed
+            </button>
+            {!valid &&
+              fit.problems.slice(0, 3).map((p) => (
+                <span key={problemText(p)} className="bd-note">
+                  {problemText(p)}
+                </span>
+              ))}
+          </>
         )}
       </div>
     </div>

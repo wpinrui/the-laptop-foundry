@@ -58,12 +58,30 @@ const ROLE_WORD: Record<string, string> = {
   "port:front": "next port",
   kblight: "keyboard light",
   webcam: "webcam",
+  inverter: "inverter",
 };
 
 const AXIS_NAME = { x: "width", y: "depth", z: "height" } as const;
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 const SURFACE = new Set<string>(["keyboard", "trackpad", "webcam", "port"]);
+
+const MEMORY_NEED: Record<string, string> = {
+  "ddr2-sodimm": "DDR2 SO-DIMM slots",
+  "ddr4-sodimm": "DDR4 SO-DIMM slots",
+  "ddr5-sodimm": "DDR5 SO-DIMM slots",
+  lpcamm2: "LPCAMM2 support",
+  "lpddr3-soldered": "soldered LPDDR3",
+  "lpddr5x-soldered": "soldered LPDDR5X",
+  "on-package": "on-package memory",
+};
+
+/** A compat need in plain words: what the other part must offer. */
+function needName(need: string): string {
+  if (need === "dgpu") return "discrete graphics";
+  if (need.startsWith("mem:")) return `a processor with ${MEMORY_NEED[need.slice(4)] ?? need.slice(4)}`;
+  return need;
+}
 
 export function stageOfCategory(cat: string | undefined): Stage {
   if (!cat) return "chassis";
@@ -106,6 +124,7 @@ export function stageOf(p: Problem): Stage {
     case "screen":
       return "screen";
     case "overlap":
+    case "bezel-fit":
       return "surface";
     default:
       return "chassis";
@@ -123,7 +142,7 @@ export function problemText(p: Problem): string {
   }
   switch (p.code) {
     case "needs":
-      return `${partName(p.part)} needs ${p.needs}`;
+      return `${partName(p.part)} needs ${needName(p.needs)}`;
     case "no-room":
       return `No room for ${partName(p.part)}`;
     case "missing":
@@ -148,6 +167,8 @@ export function problemText(p: Problem): string {
       return SCREEN_LIMIT[p.what];
     case "overlap":
       return `${partName(p.part)} runs into the ${ROLE_WORD[p.with] ?? p.with}`;
+    case "bezel-fit":
+      return `${cap(ROLE_WORD[p.role] ?? p.role)} does not fit the ${p.band === "top" ? "top bezel" : "chin"}`;
   }
 }
 

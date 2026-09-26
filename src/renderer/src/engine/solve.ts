@@ -472,6 +472,43 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
   const lidZ0 = F.z;
   const lidInnerZ0 = lidZ0 + walls.lidFront;
   const flipY = (y: number, h: number) => F.y - y - h;
+  // The player's display position: its top edge's distance below the lid's top
+  // edge, keeping the era's least bezel above and below. The panel row, the chin
+  // under it and the top bezel over it follow. Lid-local y runs from the hinge.
+  const lidFills = [...lid.fills.values()];
+  const panelFill = lidFills.find((f) => f.node.zone === "panel");
+  const panelUnit = panelFill?.units.find((u) => u.role === "panel");
+  const bands: { fill: (typeof lidFills)[number]; band: "top" | "chin" }[] = [];
+  if (panelFill?.at && panelFill.size && panelUnit) {
+    const h = panelUnit.size.y;
+    const autoY = panelFill.at.y + (panelFill.size.y - h) / 2;
+    const auto = F.y - autoY - h;
+    const lo = era.bezel.top;
+    const hi = Math.max(lo, F.y - h - era.bezel.chin);
+    const top = player.panel ? clamp(player.panel.y, lo, hi) : auto;
+    report.panel = { y: top, range: [Math.min(lo, top), Math.max(hi, top)] };
+    const y0 = F.y - top - h;
+    const y1 = y0 + h;
+    for (const f of lidFills) {
+      if (!f.at || !f.size) continue;
+      if (f.node.zone === "chin") {
+        bands.push({ fill: f, band: "chin" });
+        if (player.panel) f.size = { ...f.size, y: Math.max(0, y0 - f.at.y) };
+      } else if (f.node.zone === "top-bezel") {
+        bands.push({ fill: f, band: "top" });
+        if (player.panel) {
+          const end = f.at.y + f.size.y;
+          f.at = { ...f.at, y: Math.min(y1, end) };
+          f.size = { ...f.size, y: Math.max(0, end - y1) };
+        }
+      } else if (player.panel && (f.node.zone === "panel" || f.node.zone.startsWith("bezel-"))) {
+        f.at = { ...f.at, y: y0 };
+        f.size = { ...f.size, y: h };
+      }
+    }
+  }
+  const bandOf = (fill: (typeof lidFills)[number]) => bands.find((b) => b.fill === fill)?.band;
+  const seenBand = new Set<string>();
   for (const zone of zonesOf(lidPlan.root)) {
     const fill = lid.fills.get(zone);
     if (!fill?.min || !fill.at || !fill.size) continue;
@@ -497,6 +534,21 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
         if (player.cam) moved.add(`lid:${u.id}`);
       }
       if (u.spacer) continue;
+      // A part in the top bezel or the chin must fit its band: height between
+      // the panel and the lid's inner edge, depth inside the lid, and the lid's width.
+      const band = bandOf(fill);
+      if (band) {
+        const fits =
+          u.size.y <= fill.size.y + 0.05 &&
+          u.size.z <= lidInnerZ + 0.05 &&
+          u.at.x >= sl - 0.05 &&
+          u.at.x + u.size.x <= F.x - sl + 0.05;
+        const key = `${u.role}|${band}`;
+        if (!fits && !seenBand.has(key)) {
+          seenBand.add(key);
+          problems.push({ kind: "compat", code: "bezel-fit", part: u.part ?? u.id, role: u.role, band });
+        }
+      }
       boxes.push(
         unitBox({ ...u, at: { ...u.at, y: flipY(u.at.y, u.size.y) } }, "lid"),
       );

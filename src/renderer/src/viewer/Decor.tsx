@@ -196,38 +196,12 @@ export function BaseMarks({ fit, marks }: { fit: Fit; marks: Mark[] | undefined 
   );
 }
 
-/** The bezel in its own colour, and marks on the lid's back and bezel, in the closed lid's engine space. */
-export function LidDecor({ fit, bezel, marks }: { fit: Fit; bezel?: string; marks: Mark[] | undefined }) {
+/** Marks on the lid's back and bezel, in the closed lid's engine space. The bezel colour is the lid front the Model draws. */
+export function LidDecor({ fit, marks }: { fit: Fit; marks: Mark[] | undefined }) {
   const lid = (marks ?? []).filter((m) => m.surface === "lid");
   const onBezel = (marks ?? []).filter((m) => m.surface === "bezel");
-  const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
-  const frame = useMemo(() => {
-    if (!bezel || !panel) return null;
-    const o = fit.shell.outer;
-    const inset = Math.min(1.5, fit.shell.offsets.lidSide * 0.5);
-    const s = new THREE.Shape();
-    s.moveTo(inset, inset);
-    s.lineTo(o.x - inset, inset);
-    s.lineTo(o.x - inset, o.y - inset);
-    s.lineTo(inset, o.y - inset);
-    s.closePath();
-    const hole = new THREE.Path();
-    hole.moveTo(panel.at.x, panel.at.y);
-    hole.lineTo(panel.at.x + panel.size.x, panel.at.y);
-    hole.lineTo(panel.at.x + panel.size.x, panel.at.y + panel.size.y);
-    hole.lineTo(panel.at.x, panel.at.y + panel.size.y);
-    hole.closePath();
-    s.holes.push(hole);
-    return new THREE.ShapeGeometry(s);
-  }, [bezel, panel, fit]);
-  useEffect(() => () => frame?.dispose(), [frame]);
   return (
     <>
-      {frame && (
-        <mesh geometry={frame} position={[0, 0, fit.shell.lid.at.z - 0.08]} renderOrder={2}>
-          <meshStandardMaterial color={bezel} roughness={0.3} metalness={0.2} side={THREE.DoubleSide} />
-        </mesh>
-      )}
       {lid.length > 0 && <FaceMarks face={faceOf(fit, "lid")} marks={lid} />}
       {onBezel.length > 0 && <FaceMarks face={faceOf(fit, "bezel")} marks={onBezel} />}
     </>

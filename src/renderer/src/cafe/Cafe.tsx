@@ -5,7 +5,8 @@ import type { Surfaces } from "../viewer/Scene";
 import { type Aim, World } from "./World";
 
 // The cafe's first-person shell: pointer lock, the aim dot and prompts, the
-// seated and full-screen modes, and the pause menu. The laptop's own screen
+// use (seated, free cursor on the screen) and full-screen modes, and the pause
+// menu. The laptop's own screen
 // (battery, power profile, apps) stays inside the in-game OS.
 
 interface Page {
@@ -27,12 +28,12 @@ function MouseGlyph() {
   );
 }
 
-function Prompts({ list }: { list: Prompt[] }) {
+function Prompts({ list, using }: { list: Prompt[]; using: boolean }) {
   // The last prompts stay drawn while they fade out.
   const [shown, setShown] = useState(list);
   if (list.length > 0 && list !== shown && JSON.stringify(list) !== JSON.stringify(shown)) setShown(list);
   return (
-    <div className={`cafe-prompts${list.length > 0 ? " on" : ""}`}>
+    <div className={`cafe-prompts${list.length > 0 ? " on" : ""}${using ? " using" : ""}`}>
       {shown.map((p) => (
         <div key={p.label} className="cafe-prompt">
           <span className="cafe-key">{p.key === "mouse" ? <MouseGlyph /> : p.key}</span>
@@ -41,6 +42,17 @@ function Prompts({ list }: { list: Prompt[] }) {
       ))}
     </div>
   );
+}
+
+/** Keys typed into a text field in the OS belong to the OS. */
+function typing(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null;
+  return !!t?.closest?.("input, textarea, [contenteditable='true']");
+}
+
+function blurField() {
+  const a = document.activeElement as HTMLElement | null;
+  if (a?.closest?.("input, textarea, [contenteditable='true']")) a.blur();
 }
 
 function useWindowSize(): [number, number] {
@@ -81,7 +93,8 @@ export function Cafe({
   onLeave: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const [seated, setSeated] = useState(false);
+  // Using: seated at the laptop with the pointer free to work its screen.
+  const [using, setUsing] = useState(false);
   const [full, setFull] = useState(false);
   const [paused, setPaused] = useState(false);
   const [aim, setAim] = useState<Aim>(null);
@@ -125,55 +138,61 @@ export function Cafe({
 
   const resume = useCallback(() => {
     setPaused(false);
-    if (!full) lock();
-  }, [full, lock]);
+    if (!full && !using) lock();
+  }, [full, using, lock]);
 
-  const state = useRef({ seated, full, paused, aim, active, resume });
-  state.current = { seated, full, paused, aim, active, resume };
+  const unlock = useCallback(() => {
+    if (!document.pointerLockElement) return;
+    expectUnlock.current = true;
+    document.exitPointerLock();
+  }, []);
+
+  const state = useRef({ using, full, paused, aim, active, resume, onPlug });
+  state.current = { using, full, paused, aim, active, resume, onPlug };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
-        } else if (s.full) pause();
+        } else if (s.full || s.using) pause();
         return;
       }
-      if (e.repeat || s.paused) return;
+      if (e.repeat || s.paused || typing(e)) return;
       if (e.code === "KeyF") {
         if (s.full) {
           setFull(false);
-          lock();
-        } else if (s.active && (s.aim || s.seated)) {
-          expectUnlock.current = true;
-          document.exitPointerLock();
+          if (!s.using) {
+            blurField();
+            lock();
+          }
+        } else if (s.active && (s.aim || s.using)) {
+          unlock();
           setFull(true);
         }
       } else if (e.code === "KeyE" && s.active) {
-        if (s.seated) setSeated(false);
-        else if (s.aim === "laptop") setSeated(true);
+        if (s.using) {
+          setUsing(false);
+          blurField();
+          lock();
+        } else if (s.aim === "laptop") {
+          unlock();
+          setUsing(true);
+        }
+      } else if (e.code === "KeyC" && (s.using || s.full || (s.active && s.aim === "laptop"))) {
+        s.onPlug();
       }
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [lock, pause]);
+  }, [lock, unlock, pause]);
 
   let prompts: Prompt[] = [];
-  if (active && seated && aim === "port")
-    prompts = [
-      { key: "mouse", label: plugged ? "Unplug" : "Plug in" },
-      { key: "E", label: "Stand" },
-    ];
-  else if (active && seated && aim)
-    prompts = [
-      { key: "E", label: "Stand" },
-      { key: "F", label: "Full screen" },
-    ];
+  const charge = { key: "C", label: plugged ? "Unplug" : "Plug in" };
+  if (active && using)
+    prompts = [{ key: "E", label: "Stand" }, charge, { key: "F", label: "Full screen" }];
   else if (active && aim)
-    prompts = [
-      { key: "E", label: "Sit" },
-      { key: "F", label: "Full screen" },
-    ];
+    prompts = [{ key: "E", label: "Use" }, charge, { key: "F", label: "Full screen" }];
 
   const k = page ? Math.min(w / page.width, h / page.height) : 1;
   return (
@@ -181,13 +200,10 @@ export function Cafe({
     <div
       ref={root}
       className="cafe"
-      onMouseDown={(e) => {
-        if (!active) return;
-        if (!document.pointerLockElement) {
-          lock();
-          return;
-        }
-        if (e.button === 0 && aimRef.current === "port") onPlug();
+      onMouseDown={() => {
+        // In use, clicks belong to the laptop's screen.
+        if (!active || using) return;
+        if (!document.pointerLockElement) lock();
       }}
     >
       {shoot}
@@ -199,7 +215,7 @@ export function Cafe({
           decor={decor}
           surfaces={surfaces}
           screen={page && !full ? page : undefined}
-          seated={seated}
+          seated={using}
           active={active}
           onAim={setAim}
           aimRef={aimRef}
@@ -223,8 +239,8 @@ export function Cafe({
       </div>
       {active && (
         <>
-          <i className="cafe-dot" />
-          <Prompts list={prompts} />
+          {!using && <i className="cafe-dot" />}
+          <Prompts list={prompts} using={using} />
         </>
       )}
       {paused && (

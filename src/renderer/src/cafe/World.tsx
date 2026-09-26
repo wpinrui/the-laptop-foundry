@@ -1,7 +1,7 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { CONTENT, type Decor, type Fit } from "../engine";
+import type { Decor, Fit } from "../engine";
 import { Model, Reflections, type Surfaces } from "../viewer/Scene";
 import { token } from "../viewer/theme";
 
@@ -9,7 +9,7 @@ import { token } from "../viewer/theme";
 // and a bright window, with the player's laptop on the middle table. Units
 // are mm, floor at y = 0, the laptop's table at the origin.
 
-export type Aim = "laptop" | "port" | null;
+export type Aim = "laptop" | null;
 
 const ROOM = { x0: -3500, x1: 3500, z0: -3000, z1: 3600, h: 3000 };
 const EYE = 1620;
@@ -213,22 +213,6 @@ function Lights() {
   );
 }
 
-/** Where each charging port is, in world space, for aiming at it. */
-function chargingPorts(root: THREE.Object3D): THREE.Vector3[] {
-  const found = new Map<unknown, THREE.Box3>();
-  root.traverse((o) => {
-    const box = o.userData.box as { role?: string; part?: string } | undefined;
-    if (!box || !(o as THREE.Mesh).isMesh || !String(box.role).startsWith("port:") || !box.part) return;
-    const part = CONTENT.parts.find((p) => p.id === box.part);
-    const shape = Array.isArray(part?.shape) ? part?.shape[0] : part?.shape;
-    if (shape?.kind !== "port" || !shape.charges) return;
-    const b = found.get(box) ?? new THREE.Box3();
-    b.expandByObject(o);
-    found.set(box, b);
-  });
-  return [...found.values()].map((b) => b.getCenter(new THREE.Vector3()));
-}
-
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -276,7 +260,6 @@ function Player({
   const keys = useRef(new Set<string>());
   const move = useRef({ phase: 0, amount: 0, clock: 0 });
   const settle = useRef<{ from: THREE.Vector3; to: THREE.Vector3; at: number } | null>(null);
-  const ports = useRef<THREE.Vector3[]>([]);
   const aimed = useRef<Aim>(null);
   const bounds = useRef({ box: new THREE.Box3(), at: -10 });
   const ray = useMemo(() => new THREE.Raycaster(), []);
@@ -316,7 +299,6 @@ function Player({
       const to = new THREE.Vector3(...(seated ? SEAT : STAND));
       settle.current = { from: pos.current.clone(), to, at: m.clock };
       if (seated) look.current = lookAngles(to, new THREE.Vector3(...SCREEN_AT));
-      if (seated && laptop.current) ports.current = chargingPorts(laptop.current);
     }
     const s = settle.current;
     let walking = 0;
@@ -359,15 +341,12 @@ function Player({
     if (lap) {
       ray.setFromCamera(new THREE.Vector2(0, 0), camera);
       ray.far = seated ? 1200 : REACH;
-      if (seated) {
-        for (const p of ports.current) if (ray.ray.distanceToPoint(p) < 30) next = "port";
-      }
       // The laptop's bounds are cheap to hit and forgiving to aim at.
       if (m.clock - bounds.current.at > 1) {
         bounds.current = { box: new THREE.Box3().setFromObject(lap), at: m.clock };
       }
       const hit = ray.ray.intersectBox(bounds.current.box, new THREE.Vector3());
-      if (!next && hit && hit.distanceTo(ray.ray.origin) < ray.far) next = "laptop";
+      if (hit && hit.distanceTo(ray.ray.origin) < ray.far) next = "laptop";
     }
     if (next !== aimed.current) {
       aimed.current = next;
@@ -430,9 +409,11 @@ export function World({
         </group>
         <Player seated={seated} active={active} laptop={laptop} onAim={onAim} onClickAim={aimRef} />
       </Canvas>
-      {/* The on-screen page mounts here, over the canvas. */}
+      {/* The on-screen page mounts here, over the canvas. It takes the
+          pointer only while the player is using the laptop. */}
       <div
         ref={overlay}
+        className={`cafe-overlay${seated ? " using" : ""}`}
         style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
       />
     </div>

@@ -8,6 +8,7 @@ import {
   colourHex,
   costOf,
   decorOf,
+  type Mark,
   type MarkSurface,
   migrateColours,
   migrateScreen,
@@ -216,6 +217,8 @@ export function Builder({
   const [markSurface, setMarkSurface] = useState<MarkSurface>("lid");
   const [markSel, setMarkSel] = useState<string | null>(null);
   const [markNote, setMarkNote] = useState<string | null>(null);
+  const [markBrowse, setMarkBrowse] = useState(false);
+  const [markGhost, setMarkGhost] = useState<Mark | null>(null);
   const [sheet, setSheet] = useState(false);
   const [listOpen, setListOpen] = useState(false);
 
@@ -243,7 +246,7 @@ export function Builder({
     [build.finish],
   );
   const surfaces = useMemo(() => surfacesOf(build), [build]);
-  const decor = useMemo(() => decorOf(build), [build]);
+  const decor = useMemo(() => decorOf(markGhost ? { ...build, marks: [...(build.marks ?? []), markGhost] } : build), [build, markGhost]);
 
   // Inside: the selected slot's part, and where an empty slot's part goes.
   const slot = insideSlots(build).find((s) => s.key === insideSlot) ?? insideSlots(build)[0];
@@ -396,6 +399,12 @@ export function Builder({
             }}
             selected={markSel}
             onSelect={setMarkSel}
+            browsing={markBrowse}
+            onBrowse={setMarkBrowse}
+            onGhost={setMarkGhost}
+            bodyColour={
+              markSurface === "palm" ? colours.deck : markSurface === "bottom" ? colours.floor : markSurface === "bezel" ? (build.bezel ?? colours.lid) : colours.lid
+            }
           />
           {markNote && <span className="bd-note">{markNote}</span>}
         </>
@@ -408,6 +417,8 @@ export function Builder({
           onSelect={setMarkSel}
           defaultText={(shownName.split(" ")[0] ?? "").toUpperCase()}
           onNote={setMarkNote}
+          browsing={markBrowse}
+          onBrowse={setMarkBrowse}
         />
       );
       break;

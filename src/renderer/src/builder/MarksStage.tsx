@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Build, Fit, Mark, MarkSurface } from "../engine";
 import { faceOf, markExtent } from "../viewer/Decor";
 import { token } from "../viewer/theme";
 import { DragArrow, Dashed, Outline } from "./Arrows";
 import { ColourPicker } from "./ColourPicker";
+import { type Decal, DECAL_SETS, DECALS, DecalGlyph, decalById } from "./decals";
 import type { SetBuild } from "./Parts";
 import type { StageProps } from "./Stages";
 import { sanitiseSvg } from "./svg";
 import { Dropdown } from "./Dropdown";
-import { Card, Label, Slider, TraySep } from "./ui";
+import { Card, Chip, Chips, Label, Slider, TraySep } from "./ui";
 
-// The Marks stage: text and imported SVG marks on the lid, palm rest, bottom
+// The Marks stage: text, imported SVG and preset decal marks on the lid, palm rest, bottom
 // and bezel, each with its font, size, tracking, weight, colour, process and
 // position. Marks are open in every year.
 
@@ -71,24 +72,162 @@ function limits(fit: Fit, m: Mark): { x: [number, number]; y: [number, number] }
   return { x: [-hx, hx], y: [-hy, hy] };
 }
 
+const clamp = (v: number, [lo, hi]: [number, number]) => Math.min(hi, Math.max(lo, v));
+const sameColour = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/** A preset placed at its default size on the surface's default spot, printed in cream. */
+export function presetMark(fit: Fit, marks: Mark[], surface: MarkSurface, decal: Decal): Mark {
+  const f = faceOf(fit, surface);
+  let x = 0;
+  let y = 0;
+  if (surface === "lid") y = r1(f.h * 0.2);
+  if (surface === "palm") {
+    // Beside the pad, on whichever side is free.
+    const side = r1(f.w * 0.36);
+    x = marks.some((m) => m.surface === "palm" && m.x > 0) ? -side : side;
+    y = r1(-f.h * 0.3);
+  }
+  if (surface === "bezel") y = start(fit, surface).y;
+  const m: Mark = {
+    id: newId(),
+    surface,
+    kind: "svg",
+    text: decal.name,
+    svg: decal.svg,
+    preset: decal.id,
+    font: "Barlow Condensed",
+    tracking: 0,
+    weight: 600,
+    colour: token("text").toUpperCase(),
+    process: "printed",
+    size: decal.size,
+    x,
+    y,
+  };
+  const lim = limits(fit, m);
+  return { ...m, x: clamp(x, lim.x), y: clamp(y, lim.y) };
+}
+
+/** The preset browser: sets of tiles, filtered to the surface or all of them. */
+function PresetBrowser({
+  build,
+  fit,
+  surface,
+  onPick,
+  onGhost,
+}: {
+  build: Build;
+  fit: Fit;
+  surface: MarkSurface;
+  onPick: (d: Decal) => void;
+  onGhost: (m: Mark | null) => void;
+}) {
+  const [all, setAll] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: clears the ghost when the browser closes
+  useEffect(() => () => onGhost(null), []);
+  const marks = build.marks ?? [];
+  const placed = new Set(marks.map((m) => m.preset));
+  const here = (d: Decal) => d.surface === surface;
+  const sets = DECAL_SETS.map(([id, label]) => ({ id, label, items: DECALS.filter((d) => d.set === id && (all || here(d))) })).filter(
+    (g) => g.items.length > 0,
+  );
+  // All: sets with something for this surface first.
+  if (all) sets.sort((a, b) => Number(b.items.some(here)) - Number(a.items.some(here)));
+  const name = SURFACES.find(([s]) => s === surface)?.[1] ?? surface;
+  return (
+    <div className="bd-presets fd-in">
+      <Chips>
+        <Chip caps on={!all} onClick={() => setAll(false)}>
+          {name}
+        </Chip>
+        <Chip caps on={all} onClick={() => setAll(true)}>
+          All
+        </Chip>
+      </Chips>
+      <div className={scrolled ? "bd-preset-list scrolled" : "bd-preset-list"} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}>
+        {sets.map((g) => (
+          <div key={g.id} className="bd-preset-set">
+            <Label>{g.label}</Label>
+            <div className="bd-preset-grid">
+              {g.items.map((d) => (
+                <button
+                  type="button"
+                  key={d.id}
+                  className="bd-preset"
+                  onMouseEnter={() => onGhost({ ...presetMark(fit, marks, surface, d), ghost: true })}
+                  onMouseLeave={() => onGhost(null)}
+                  onClick={() => onPick(d)}
+                >
+                  <span className="bd-preset-tile">
+                    <DecalGlyph decal={d} className="bd-preset-glyph" />
+                    {!here(d) && <small>{SURFACES.find(([s]) => s === d.surface)?.[1]}</small>}
+                    {placed.has(d.id) && <i className="bd-preset-dot" />}
+                  </span>
+                  <b>{d.name}</b>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function MarksColumn({
   build,
+  fit,
   set,
   locked,
   surface,
   onSurface,
   selected,
   onSelect,
+  browsing,
+  onBrowse,
+  onGhost,
+  bodyColour,
 }: StageProps & {
   surface: MarkSurface;
   onSurface: (s: MarkSurface) => void;
   selected: string | null;
   onSelect: (id: string | null) => void;
+  browsing: boolean;
+  onBrowse: (open: boolean) => void;
+  onGhost: (m: Mark | null) => void;
+  /** The chassis colour under this surface, for Body and the process previews. */
+  bodyColour: string;
 }) {
   const [colourOpen, setColourOpen] = useState(false);
   const marks = (build.marks ?? []).filter((m) => m.surface === surface);
   const m = marks.find((x) => x.id === selected) ?? null;
+  const decal = decalById(m?.preset);
   const edit = (f: (x: Mark) => Mark) => m && set((b) => setMark(b, m.id, f));
+  const size = m && (
+    <div className="bd-field">
+      <Label>Size</Label>
+      <span className="bd-value">{m.size.toFixed(1)} mm</span>
+      <Slider label="mark size" value={m.size} min={1.5} max={m.kind === "svg" ? 200 : 60} step={0.5} onChange={(v) => edit((x) => ({ ...x, size: v }))} />
+    </div>
+  );
+  const colour = m && (
+    <button type="button" className="bd-field bd-cell" onClick={() => setColourOpen(!colourOpen)}>
+      <Label>Colour</Label>
+      <span className="bd-value bd-colour-line">
+        <i className="bd-swatch" style={{ background: m.colour }} />
+        {sameColour(m.colour, bodyColour) ? "Body" : m.colour.toUpperCase()}
+      </span>
+    </button>
+  );
+  const position = m && (
+    <button type="button" className="bd-field bd-cell" title="Centre" onClick={() => edit((x) => ({ ...x, x: 0 }))}>
+      <Label>Position</Label>
+      <span className="bd-value">
+        <span className={m.x === 0 ? "accent" : ""}>{r1(m.x)}</span> <span className={m.y === 0 ? "accent" : ""}>{r1(m.y)}</span>
+      </span>
+    </button>
+  );
   return (
     <>
       <div className="bd-tabs">
@@ -98,7 +237,51 @@ export function MarksColumn({
           </button>
         ))}
       </div>
-      {m && (
+      {browsing && (
+        <PresetBrowser
+          build={build}
+          fit={fit}
+          surface={surface}
+          onGhost={onGhost}
+          onPick={(d) => {
+            if (locked) return;
+            const pm = presetMark(fit, build.marks ?? [], surface, d);
+            set((b) => ({ ...b, marks: [...(b.marks ?? []), pm] }));
+            onGhost(null);
+            onBrowse(false);
+            onSelect(pm.id);
+          }}
+        />
+      )}
+      {!browsing && m && decal && (
+        <div key={m.id} className="bd-mark fd-in">
+          <span className="bd-mark-text svg bd-mark-head">
+            <DecalGlyph decal={decal} className="bd-mark-glyph" />
+            {m.text}
+          </span>
+          <div className="bd-mark-grid">
+            {size}
+            {colour}
+            {position}
+          </div>
+          {colourOpen && <ColourPicker compact value={m.colour} disabled={locked} onChange={(hex) => edit((x) => ({ ...x, colour: hex }))} />}
+          <div className="bd-field">
+            <Label>Process</Label>
+            <div className="bd-process">
+              {PROCESSES.map((p) => (
+                <button type="button" key={p} className={p === m.process ? "on" : ""} onClick={() => edit((x) => ({ ...x, process: p }))}>
+                  <span className={`bd-process-tile ${p}`} style={{ background: bodyColour, color: p === "embossed" && sameColour(m.colour, bodyColour) ? bodyColour : m.colour }}>
+                    <DecalGlyph decal={decal} className="bd-process-glyph" />
+                  </span>
+                  <b>{cap(p)}</b>
+                </button>
+              ))}
+            </div>
+          </div>
+          <RemoveMark set={set} id={m.id} onSelect={onSelect} />
+        </div>
+      )}
+      {!browsing && m && !decal && (
         <div key={m.id} className="bd-mark fd-in">
           {m.kind === "text" ? (
             <input
@@ -131,11 +314,7 @@ export function MarksColumn({
             </div>
           )}
           <div className="bd-mark-grid">
-            <div className="bd-field">
-              <Label>Size</Label>
-              <span className="bd-value">{m.size.toFixed(1)} mm</span>
-              <Slider label="mark size" value={m.size} min={1.5} max={60} step={0.5} onChange={(v) => edit((x) => ({ ...x, size: v }))} />
-            </div>
+            {size}
             {m.kind === "text" ? (
               <div className="bd-field">
                 <Label>Tracking</Label>
@@ -153,40 +332,35 @@ export function MarksColumn({
             ) : (
               <span />
             )}
-            <button type="button" className="bd-field bd-cell" onClick={() => setColourOpen(!colourOpen)}>
-              <Label>Colour</Label>
-              <span className="bd-value bd-colour-line">
-                <i className="bd-swatch" style={{ background: m.colour }} />
-                {m.colour.toUpperCase()}
-              </span>
-            </button>
+            {colour}
             <button type="button" className="bd-field bd-cell" onClick={() => edit((x) => ({ ...x, process: PROCESSES[(PROCESSES.indexOf(x.process) + 1) % PROCESSES.length] }))}>
               <Label>Process</Label>
               <span className="bd-value">{cap(m.process)}</span>
             </button>
-            <button type="button" className="bd-field bd-cell" title="Centre" onClick={() => edit((x) => ({ ...x, x: 0 }))}>
-              <Label>Position</Label>
-              <span className="bd-value accent">
-                {r1(m.x)}  {r1(m.y)}
-              </span>
-            </button>
+            {position}
           </div>
           {colourOpen && <ColourPicker compact value={m.colour} disabled={locked} onChange={(hex) => edit((x) => ({ ...x, colour: hex }))} />}
-          <div className="bd-chips">
-            <button
-              type="button"
-              className="fd-text bd-remove"
-              onClick={() => {
-                set((b) => ({ ...b, marks: (b.marks ?? []).filter((x) => x.id !== m.id) }));
-                onSelect(null);
-              }}
-            >
-              Remove
-            </button>
-          </div>
+          <RemoveMark set={set} id={m.id} onSelect={onSelect} />
         </div>
       )}
     </>
+  );
+}
+
+function RemoveMark({ set, id, onSelect }: { set: SetBuild; id: string; onSelect: (id: string | null) => void }) {
+  return (
+    <div className="bd-chips">
+      <button
+        type="button"
+        className="fd-text bd-remove"
+        onClick={() => {
+          set((b) => ({ ...b, marks: (b.marks ?? []).filter((x) => x.id !== id) }));
+          onSelect(null);
+        }}
+      >
+        Remove
+      </button>
+    </div>
   );
 }
 
@@ -200,16 +374,21 @@ export function MarksTray({
   onSelect,
   defaultText,
   onNote,
+  browsing,
+  onBrowse,
 }: StageProps & {
   surface: MarkSurface;
   selected: string | null;
   onSelect: (id: string | null) => void;
   defaultText: string;
   onNote: (n: string | null) => void;
+  browsing: boolean;
+  onBrowse: (open: boolean) => void;
 }) {
   const marks = (build.marks ?? []).filter((m) => m.surface === surface);
   const add = (m: Mark) => {
     set((b) => ({ ...b, marks: [...(b.marks ?? []), m] }));
+    onBrowse(false);
     onSelect(m.id);
   };
   const base = (): Omit<Mark, "kind" | "text"> => ({
@@ -222,16 +401,32 @@ export function MarksTray({
   });
   return (
     <>
-      {marks.map((m) => (
-        <Card
-          key={m.id}
-          width={160}
-          on={m.id === selected}
-          top={<i className={m.id === selected ? "bd-badge on" : "bd-badge"}>{m.kind === "svg" ? "SVG" : "T"}</i>}
-          name={m.text || " "}
-          onClick={() => onSelect(m.id)}
-        />
-      ))}
+      {marks.map((m) => {
+        const on = m.id === selected && !browsing;
+        const decal = decalById(m.preset);
+        return (
+          <Card
+            key={m.id}
+            width={160}
+            on={on}
+            top={
+              decal ? (
+                <span className="bd-card-row">
+                  <i className={on ? "bd-badge solid on" : "bd-badge solid"}>Decal</i>
+                  <DecalGlyph decal={decal} className={on ? "bd-card-glyph on" : "bd-card-glyph"} />
+                </span>
+              ) : (
+                <i className={on ? "bd-badge on" : "bd-badge"}>{m.kind === "svg" ? "SVG" : "T"}</i>
+              )
+            }
+            name={m.text || " "}
+            onClick={() => {
+              onBrowse(false);
+              onSelect(m.id);
+            }}
+          />
+        );
+      })}
       {marks.length > 0 && <TraySep />}
       <Card
         dashed
@@ -256,6 +451,7 @@ export function MarksTray({
         }}
       />
       <Card dashed width={140} name="Add text" onClick={() => !locked && add({ ...base(), kind: "text", text: defaultText })} />
+      <Card dashed on={browsing} width={140} name="Presets" onClick={() => !locked && onBrowse(!browsing)} />
     </>
   );
 }

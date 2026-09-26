@@ -76,7 +76,8 @@ function drawFace(face: Face, marks: Mark[], canvas: HTMLCanvasElement, S: numbe
     const cx = (face.w / 2 + m.x) * S;
     const cy = (face.h / 2 - m.y) * S;
     g.save();
-    g.globalAlpha = m.process === "etched" ? 0.62 : 1;
+    const alpha = (m.process === "etched" ? 0.62 : 1) * (m.ghost ? 0.45 : 1);
+    g.globalAlpha = alpha;
     if (m.kind === "text") {
       const px = m.size * S;
       g.font = fontOf(m, px);
@@ -91,7 +92,7 @@ function drawFace(face: Face, marks: Mark[], canvas: HTMLCanvasElement, S: numbe
         g.globalAlpha = 0.35;
         g.fillStyle = token("picker-white");
         g.fillText(m.text, cx - px * 0.03, cy - px * 0.03);
-        g.globalAlpha = 1;
+        g.globalAlpha = alpha;
       }
       g.fillStyle = m.colour;
       g.fillText(m.text, cx, cy);
@@ -115,7 +116,7 @@ function drawFace(face: Face, marks: Mark[], canvas: HTMLCanvasElement, S: numbe
             g.filter = "brightness(0)";
             g.drawImage(tmp, cx - w / 2 + h * 0.04, cy - h / 2 + h * 0.05);
             g.filter = "none";
-            g.globalAlpha = 1;
+            g.globalAlpha = alpha;
           }
           g.drawImage(tmp, cx - w / 2, cy - h / 2);
         }

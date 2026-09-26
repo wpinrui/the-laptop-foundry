@@ -5,13 +5,14 @@ import { token } from "../viewer/theme";
 import { DragArrow, Dashed, Outline } from "./Arrows";
 import { ColourPicker } from "./ColourPicker";
 import { type Decal, DECAL_SETS, DECALS, DecalGlyph, decalById } from "./decals";
+import { EMOJI, EMOJI_GROUPS, type Emoji, emojiByChar, emojiUrl } from "./emoji";
 import type { SetBuild } from "./Parts";
 import type { StageProps } from "./Stages";
 import { sanitiseSvg } from "./svg";
 import { Dropdown } from "./Dropdown";
 import { Card, Chip, Chips, Label, Slider, TraySep } from "./ui";
 
-// The Marks stage: text, imported SVG and preset decal marks on the lid, palm rest, bottom
+// The Marks stage: text, imported SVG, preset decal and emoji marks on the lid, palm rest, bottom
 // and bezel, each with its font, size, tracking, weight, colour, fill or
 // outline, process and position. Marks are open in every year.
 
@@ -75,8 +76,11 @@ function limits(fit: Fit, m: Mark): { x: [number, number]; y: [number, number] }
 const clamp = (v: number, [lo, hi]: [number, number]) => Math.min(hi, Math.max(lo, v));
 const sameColour = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
-/** A preset placed at its default size on the surface's default spot, printed in cream. */
-export function presetMark(fit: Fit, marks: Mark[], surface: MarkSurface, decal: Decal): Mark {
+/** Which browser is open in the column, if any. */
+export type MarkBrowse = "presets" | "emoji" | null;
+
+/** A placed SVG at the surface's default spot, clamped onto the face. */
+function placeSvg(fit: Fit, marks: Mark[], surface: MarkSurface, fields: Pick<Mark, "text" | "svg" | "size"> & Partial<Mark>): Mark {
   const f = faceOf(fit, surface);
   let x = 0;
   let y = 0;
@@ -92,20 +96,93 @@ export function presetMark(fit: Fit, marks: Mark[], surface: MarkSurface, decal:
     id: newId(),
     surface,
     kind: "svg",
-    text: decal.name,
-    svg: decal.svg,
-    preset: decal.id,
     font: "Barlow Condensed",
     tracking: 0,
     weight: 600,
     colour: token("text").toUpperCase(),
     process: "printed",
-    size: decal.size,
     x,
     y,
+    ...fields,
   };
   const lim = limits(fit, m);
   return { ...m, x: clamp(x, lim.x), y: clamp(y, lim.y) };
+}
+
+/** A preset placed at its default size on the surface's default spot, printed in cream. */
+export function presetMark(fit: Fit, marks: Mark[], surface: MarkSurface, decal: Decal): Mark {
+  return placeSvg(fit, marks, surface, { text: decal.name, svg: decal.svg, preset: decal.id, size: decal.size });
+}
+
+const EMOJI_SIZE: Record<MarkSurface, number> = { lid: 30, palm: 10, bottom: 10, bezel: 4 };
+
+/** An emoji placed like a preset, printed in its own colours. */
+function emojiMark(fit: Fit, marks: Mark[], surface: MarkSurface, e: Emoji): Mark {
+  return placeSvg(fit, marks, surface, { text: e.name, svg: sanitiseSvg(e.svg) ?? "", emoji: e.char, original: true, size: EMOJI_SIZE[surface] });
+}
+
+/** The emoji browser: a search box, groups, and a grid of emoji. */
+function EmojiBrowser({
+  build,
+  fit,
+  surface,
+  onPick,
+  onGhost,
+}: {
+  build: Build;
+  fit: Fit;
+  surface: MarkSurface;
+  onPick: (e: Emoji) => void;
+  onGhost: (m: Mark | null) => void;
+}) {
+  const [group, setGroup] = useState("smileys");
+  const [query, setQuery] = useState("");
+  const [scrolled, setScrolled] = useState(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: clears the ghost when the browser closes
+  useEffect(() => () => onGhost(null), []);
+  const marks = build.marks ?? [];
+  const placed = new Set(marks.map((m) => m.emoji));
+  const words = query.trim().toLowerCase();
+  const list = words ? EMOJI.filter((e) => e.name.toLowerCase().includes(words)) : EMOJI.filter((e) => e.group === group);
+  return (
+    <div className="bd-presets fd-in">
+      <input className="bd-search" aria-label="search emoji" placeholder="Search emoji" value={query} onChange={(e) => setQuery(e.target.value)} />
+      <Chips>
+        {EMOJI_GROUPS.map(([id, label]) => (
+          <Chip
+            caps
+            key={id}
+            on={!words && id === group}
+            onClick={() => {
+              setGroup(id);
+              setQuery("");
+            }}
+          >
+            {label}
+          </Chip>
+        ))}
+      </Chips>
+      <div className={scrolled ? "bd-preset-list scrolled" : "bd-preset-list"} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}>
+        {list.length === 0 && <span className="bd-note">No emoji match that</span>}
+        <div className="bd-emoji-grid">
+          {list.map((e) => (
+            <button
+              type="button"
+              key={e.code}
+              title={e.name}
+              className="bd-emoji"
+              onMouseEnter={() => onGhost({ ...emojiMark(fit, marks, surface, e), ghost: true })}
+              onMouseLeave={() => onGhost(null)}
+              onClick={() => onPick(e)}
+            >
+              <img src={emojiUrl(e)} alt={e.name} />
+              {placed.has(e.char) && <i className="bd-preset-dot" />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** The preset browser: sets of tiles, filtered to the surface or all of them. */
@@ -193,8 +270,8 @@ export function MarksColumn({
   onSurface: (s: MarkSurface) => void;
   selected: string | null;
   onSelect: (id: string | null) => void;
-  browsing: boolean;
-  onBrowse: (open: boolean) => void;
+  browsing: MarkBrowse;
+  onBrowse: (open: MarkBrowse) => void;
   onGhost: (m: Mark | null) => void;
   /** The chassis colour under this surface, for Body and the process previews. */
   bodyColour: string;
@@ -204,6 +281,14 @@ export function MarksColumn({
   const m = marks.find((x) => x.id === selected) ?? null;
   const decal = decalById(m?.preset);
   const edit = (f: (x: Mark) => Mark) => m && set((b) => setMark(b, m.id, f));
+  const place = (pm: Mark) => {
+    if (locked) return;
+    set((b) => ({ ...b, marks: [...(b.marks ?? []), pm] }));
+    onGhost(null);
+    onBrowse(null);
+    onSelect(pm.id);
+  };
+  const emoji = emojiByChar(m?.emoji);
   const size = m && (
     <div className="bd-field">
       <Label>Size</Label>
@@ -216,7 +301,7 @@ export function MarksColumn({
       <Label>Colour</Label>
       <span className="bd-value bd-colour-line">
         <i className="bd-swatch" style={{ background: m.colour }} />
-        {sameColour(m.colour, bodyColour) ? "Body" : m.colour.toUpperCase()}
+        {m.original && !outlined(m) ? "Original" : sameColour(m.colour, bodyColour) ? "Body" : m.colour.toUpperCase()}
       </span>
     </button>
   );
@@ -261,23 +346,13 @@ export function MarksColumn({
           </button>
         ))}
       </div>
-      {browsing && (
-        <PresetBrowser
-          build={build}
-          fit={fit}
-          surface={surface}
-          onGhost={onGhost}
-          onPick={(d) => {
-            if (locked) return;
-            const pm = presetMark(fit, build.marks ?? [], surface, d);
-            set((b) => ({ ...b, marks: [...(b.marks ?? []), pm] }));
-            onGhost(null);
-            onBrowse(false);
-            onSelect(pm.id);
-          }}
-        />
+      {browsing === "presets" && (
+        <PresetBrowser build={build} fit={fit} surface={surface} onGhost={onGhost} onPick={(d) => place(presetMark(fit, build.marks ?? [], surface, d))} />
       )}
-      {!browsing && m && decal && (
+      {browsing === "emoji" && (
+        <EmojiBrowser build={build} fit={fit} surface={surface} onGhost={onGhost} onPick={(e) => place(emojiMark(fit, build.marks ?? [], surface, e))} />
+      )}
+      {browsing === null && m && decal && (
         <div key={m.id} className="bd-mark fd-in">
           <span className="bd-mark-text svg bd-mark-head">
             <DecalGlyph decal={decal} className="bd-mark-glyph" />
@@ -306,7 +381,7 @@ export function MarksColumn({
           <RemoveMark set={set} id={m.id} onSelect={onSelect} />
         </div>
       )}
-      {!browsing && m && !decal && (
+      {browsing === null && m && !decal && (
         <div key={m.id} className="bd-mark fd-in">
           {m.kind === "text" ? (
             <input
@@ -325,7 +400,23 @@ export function MarksColumn({
               }}
             />
           ) : (
-            <span className="bd-mark-text svg">{m.text}</span>
+            <span className="bd-mark-text svg bd-mark-head">
+              {emoji && <img className="bd-mark-glyph" src={emojiUrl(emoji)} alt="" />}
+              {m.text}
+            </span>
+          )}
+          {m.kind === "svg" && (
+            <div className="bd-line">
+              <Label>Ink</Label>
+              <Chips>
+                <Chip caps on={!!m.original} onClick={() => edit((x) => ({ ...x, original: true }))}>
+                  Own colours
+                </Chip>
+                <Chip caps on={!m.original} onClick={() => edit((x) => ({ ...x, original: false }))}>
+                  Mark colour
+                </Chip>
+              </Chips>
+            </div>
           )}
           {m.kind === "text" && (
             <div className="bd-line">
@@ -408,13 +499,13 @@ export function MarksTray({
   onSelect: (id: string | null) => void;
   defaultText: string;
   onNote: (n: string | null) => void;
-  browsing: boolean;
-  onBrowse: (open: boolean) => void;
+  browsing: MarkBrowse;
+  onBrowse: (open: MarkBrowse) => void;
 }) {
   const marks = (build.marks ?? []).filter((m) => m.surface === surface);
   const add = (m: Mark) => {
     set((b) => ({ ...b, marks: [...(b.marks ?? []), m] }));
-    onBrowse(false);
+    onBrowse(null);
     onSelect(m.id);
   };
   const base = (): Omit<Mark, "kind" | "text"> => ({
@@ -428,8 +519,9 @@ export function MarksTray({
   return (
     <>
       {marks.map((m) => {
-        const on = m.id === selected && !browsing;
+        const on = m.id === selected && browsing === null;
         const decal = decalById(m.preset);
+        const emoji = emojiByChar(m.emoji);
         return (
           <Card
             key={m.id}
@@ -441,13 +533,18 @@ export function MarksTray({
                   <i className={on ? "bd-badge solid on" : "bd-badge solid"}>Decal</i>
                   <DecalGlyph decal={decal} className={on ? "bd-card-glyph on" : "bd-card-glyph"} />
                 </span>
+              ) : emoji ? (
+                <span className="bd-card-row">
+                  <i className={on ? "bd-badge on" : "bd-badge"}>Emoji</i>
+                  <img className="bd-card-glyph" src={emojiUrl(emoji)} alt="" />
+                </span>
               ) : (
                 <i className={on ? "bd-badge on" : "bd-badge"}>{m.kind === "svg" ? "SVG" : "T"}</i>
               )
             }
             name={m.text || " "}
             onClick={() => {
-              onBrowse(false);
+              onBrowse(null);
               onSelect(m.id);
             }}
           />
@@ -477,7 +574,8 @@ export function MarksTray({
         }}
       />
       <Card dashed width={140} name="Add text" onClick={() => !locked && add({ ...base(), kind: "text", text: defaultText })} />
-      <Card dashed on={browsing} width={140} name="Presets" onClick={() => !locked && onBrowse(!browsing)} />
+      <Card dashed on={browsing === "presets"} width={140} name="Presets" onClick={() => !locked && onBrowse(browsing === "presets" ? null : "presets")} />
+      <Card dashed on={browsing === "emoji"} width={140} name="Emoji" onClick={() => !locked && onBrowse(browsing === "emoji" ? null : "emoji")} />
     </>
   );
 }

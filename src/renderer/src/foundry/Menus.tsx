@@ -349,6 +349,10 @@ export function SettingsMenu({
             <small>Lucide Contributors, ISC License</small>
           </li>
           <li>
+            <span>Twemoji</span>
+            <small>Twitter, Inc and other contributors, CC-BY 4.0</small>
+          </li>
+          <li>
             <span>Space Mono</span>
             <small>The Space Mono Project Authors, SIL Open Font License 1.1</small>
           </li>

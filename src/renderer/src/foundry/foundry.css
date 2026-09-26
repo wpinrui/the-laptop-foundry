@@ -143,10 +143,11 @@
 }
 
 .fd-entry small {
-  font-family: var(--font-mono);
-  font-weight: 400;
-  font-size: calc(13 * var(--u));
-  letter-spacing: 0;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: calc(17 * var(--u));
+  letter-spacing: 0.02em;
   text-transform: none;
   color: var(--muted);
   margin-top: calc(4 * var(--u));
@@ -231,8 +232,10 @@
 }
 
 .fd-label {
-  font-family: var(--font-mono);
-  font-size: calc(14 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: calc(16 * var(--u));
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
@@ -323,9 +326,11 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  font-family: var(--font-mono);
-  font-size: calc(13 * var(--u));
-  line-height: 1.5;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: calc(17 * var(--u));
+  line-height: 1.3;
   color: var(--muted);
 }
 
@@ -413,10 +418,12 @@
 }
 
 .fd-row small {
-  font-family: var(--font-mono);
-  font-size: calc(13 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: calc(17 * var(--u));
   color: var(--muted);
-  margin-top: calc(4 * var(--u));
+  margin-top: calc(2 * var(--u));
 }
 
 .fd-row small em {
@@ -426,9 +433,10 @@
 }
 
 .fd-row .fd-score {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: calc(28 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: calc(32 * var(--u));
 }
 
 .fd-row.selected {
@@ -467,8 +475,10 @@
 
 .fd-hero > span {
   display: block;
-  font-family: var(--font-mono);
-  font-size: calc(18 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: calc(22 * var(--u));
   color: var(--muted);
   margin-top: calc(4 * var(--u));
 }

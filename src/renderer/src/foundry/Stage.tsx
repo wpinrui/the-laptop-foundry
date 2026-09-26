@@ -112,6 +112,12 @@ function Fader({
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       mesh.castShadow = true;
+      // Dithering breaks up 8-bit banding in the dark, slow gradients on large faces such as the lid.
+      for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material])
+        if (!mat.dithering) {
+          mat.dithering = true;
+          mat.needsUpdate = true;
+        }
       if (!fading && applied.current === 1) return;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const m of mats) {
@@ -226,12 +232,12 @@ function Lights() {
   }, [scene]);
   return (
     <>
-      <hemisphereLight args={[token("stage-fill-sky"), token("stage-fill-ground"), 0.9]} />
+      <hemisphereLight args={[token("stage-fill-sky"), token("stage-fill-ground"), 15]} />
       <directionalLight
         ref={key}
         position={[-700, 1200, 800]}
         color={token("stage-key")}
-        intensity={1.6}
+        intensity={2}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-500}
@@ -247,13 +253,13 @@ function Lights() {
         ref={spot}
         position={[-250, 1500, 350]}
         color={token("stage-key")}
-        intensity={2.2}
+        intensity={1.2}
         angle={0.24}
         penumbra={0.9}
         decay={0}
         distance={0}
       />
-      <directionalLight position={[600, 180, -800]} color={token("stage-rim")} intensity={1.8} />
+      <directionalLight position={[600, 180, -800]} color={token("stage-rim")} intensity={6} />
     </>
   );
 }
@@ -283,6 +289,9 @@ export function Stage({ build, stageKey, view }: { build: Build | null; stageKey
   const lock = useMemo(() => lockTexture(), []);
   useEffect(() => () => lock.dispose(), [lock]);
   const turntable = useRef<THREE.Group>(null);
+  // The floor is the ground colour lifted to the brightness the mockup shows
+  // under the same lights; the fog and background stay exactly --ground.
+  const floor = useMemo(() => new THREE.Color(token("ground")).multiplyScalar(3), []);
   const [slots, setSlots] = useState<Slot[]>(() => [{ key: stageKey, ...stageable(build) }]);
   const first = useRef(stageKey);
   const current = slots[slots.length - 1]?.key;
@@ -293,7 +302,13 @@ export function Stage({ build, stageKey, view }: { build: Build | null; stageKey
   }
   return (
     <div className="fd-stage">
+      {/* Flat: no tone mapping, so the fog and background land exactly on
+          --ground. ACES filmic (the r3f default) pulled every dark value down
+          toward black. Light levels are fitted to the start menu mockup: the
+          floor near the plinth reads about #2a1f19 and a graphite deck in the
+          pool about #3e3635. */}
       <Canvas
+        flat
         shadows
         dpr={[1, 2]}
         // The camera stays 700 to 860 mm from the laptop and the fog closes at
@@ -308,11 +323,11 @@ export function Stage({ build, stageKey, view }: { build: Build | null; stageKey
         <Lights />
         <mesh rotation-x={-Math.PI / 2} receiveShadow>
           <planeGeometry args={[20000, 20000]} />
-          <meshStandardMaterial color={token("ground")} roughness={1} />
+          <meshStandardMaterial color={floor} roughness={1} dithering />
         </mesh>
         <mesh position={[0, PLINTH_H / 2, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[PLINTH_R, PLINTH_R, PLINTH_H, 96]} />
-          <meshStandardMaterial color={token("stage-plinth")} roughness={0.55} metalness={0.3} />
+          <meshStandardMaterial color={token("stage-plinth")} roughness={0.55} metalness={0.3} dithering />
         </mesh>
         <group ref={turntable} position={[0, PLINTH_H, 0]}>
           {slots.map((s) => (

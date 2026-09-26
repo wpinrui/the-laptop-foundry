@@ -193,3 +193,98 @@ export function Dashed({ a, b }: { a: V3; b: V3 }) {
   );
   return <primitive object={line} />;
 }
+
+/**
+ * A corner square the player drags in its own horizontal plane. It reports
+ * the pointer's travel from where the drag began, in the parent's engine space.
+ */
+export function CornerHandle({
+  at,
+  onStart,
+  onDrag,
+  disabled,
+}: {
+  at: V3;
+  onStart: () => void;
+  onDrag: (dx: number, dy: number) => void;
+  disabled?: boolean;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const camera = useThree((s) => s.camera);
+  const gl = useThree((s) => s.gl);
+  const [hot, setHot] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const latest = useRef({ onStart, onDrag });
+  latest.current = { onStart, onDrag };
+  const colour = useMemo(() => token(hot || drag ? "hot" : "accent-hex"), [hot, drag]);
+
+  // Where the pointer ray meets the handle's horizontal plane, in the parent's space.
+  const hit = useRef<(x: number, y: number) => THREE.Vector3 | null>(() => null);
+  hit.current = (x, y) => {
+    const g = group.current;
+    const parent = g?.parent;
+    if (!g || !parent) return null;
+    const rect = gl.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, camera);
+    const o = g.localToWorld(new THREE.Vector3(0, 0, 0));
+    const n = g.localToWorld(new THREE.Vector3(0, 0, 1)).sub(o).normalize();
+    const p = ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(n, o), new THREE.Vector3());
+    return p ? parent.worldToLocal(p) : null;
+  };
+
+  useEffect(() => {
+    if (!drag) return;
+    let p0: THREE.Vector3 | null = null;
+    const move = (e: PointerEvent) => {
+      const p = hit.current(e.clientX, e.clientY);
+      if (!p) return;
+      if (!p0) {
+        p0 = p;
+        latest.current.onStart();
+        return;
+      }
+      latest.current.onDrag(p.x - p0.x, p.y - p0.y);
+    };
+    const up = () => {
+      setDrag(false);
+      arrowDrag.on = false;
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+  }, [drag]);
+
+  const down = (e: ThreeEvent<PointerEvent>) => {
+    if (disabled) return;
+    e.stopPropagation();
+    arrowDrag.on = true;
+    setDrag(true);
+  };
+  return (
+    <group
+      ref={group}
+      position={at}
+      onPointerDown={down}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHot(true);
+      }}
+      onPointerOut={() => setHot(false)}
+    >
+      <mesh renderOrder={11}>
+        <boxGeometry args={[3.2, 3.2, 3.2]} />
+        <meshBasicMaterial color={colour} depthTest={false} transparent />
+      </mesh>
+      {/* A bigger invisible grip, so the corner is easy to catch. */}
+      <mesh>
+        <boxGeometry args={[7, 7, 7]} />
+        <meshBasicMaterial transparent opacity={0} depthTest={false} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}

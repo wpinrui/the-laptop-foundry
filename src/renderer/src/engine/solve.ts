@@ -333,7 +333,21 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       at: { ...fill.at, z: floorZ0 },
       size: { ...fill.size, z: room },
     });
-    const units = placeUnits(fill, floorCtx, floorZ0, room);
+    // A port the player moved leaves its slot: the rest repack without it,
+    // and it sits only where the player put it (measured from its own slot).
+    const isMoved = (u: Unit) => {
+      if (!u.role.startsWith("port:") || u.src === undefined || !zone.edge) return false;
+      const bp = build.ports[u.src];
+      return bp?.along !== undefined || bp?.height !== undefined;
+    };
+    const all = placeUnits(fill, floorCtx, floorZ0, room);
+    let units = all;
+    if (fill.units.some(isMoved)) {
+      const rest = new Map(
+        placeUnits({ ...fill, units: fill.units.filter((u) => !isMoved(u)) }, floorCtx, floorZ0, room).map((u) => [u.id, u]),
+      );
+      units = all.map((u) => (isMoved(u) ? u : (rest.get(u.id) ?? u)));
+    }
     // The player's port placement: anywhere along its wall, up and down as far as the shells allow.
     const shifted = new Map<number, { du: number; dz: number }>();
     for (const u of units) {
@@ -356,6 +370,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       if (prev) {
         u.at[e] += prev.du;
         u.at.z += prev.dz;
+        if (isMoved(u)) moved.add(`floor:${u.id}`);
         continue;
       }
       const c0 = u.at[e] + len / 2;

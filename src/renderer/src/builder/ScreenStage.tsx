@@ -93,8 +93,14 @@ export function ScreenColumn({ build, set }: StageProps) {
   const [customHz, setCustomHz] = useState(false);
 
   const ratioStandard = RATIOS.some((r) => sameRatio(r, spec.ratio));
-  const list = standardResolutions(spec.ratio, spec.diag, year);
-  const resStandard = list.some((r) => r[0] === spec.res[0] && r[1] === spec.res[1]);
+  // The four standard resolutions nearest the current one, low to high.
+  const all = standardResolutions(spec.ratio, spec.diag, year);
+  const px = spec.res[0] * spec.res[1];
+  const list = [...all]
+    .sort((a, b) => Math.abs(a[0] * a[1] - px) - Math.abs(b[0] * b[1] - px))
+    .slice(0, 4)
+    .sort((a, b) => a[0] - b[0]);
+  const resStandard = all.some((r) => r[0] === spec.res[0] && r[1] === spec.res[1]);
   const panel = resolveScreen(spec, year);
   const cap = maxHz(year);
   const ppiCap = maxPpi(year);
@@ -276,8 +282,9 @@ function kindTop(kind: ScreenKind, spec: ScreenSpec, year: number): string {
   const p = resolveScreen({ ...spec, panel: kind }, year);
   const lab = panelLab(p);
   if (lab.dimmingZones) return `${lab.dimmingZones} zones  ${p.nits} nits`;
-  const contrast = Number.isFinite(lab.contrast) ? `${lab.contrast}:1` : "1000000:1";
-  return `${contrast}  ${p.nits} nits`;
+  // OLED has no black level to divide by: brightness alone.
+  if (!Number.isFinite(lab.contrast)) return `${p.nits} nits`;
+  return `${lab.contrast}:1  ${p.nits} nits`;
 }
 
 export function ScreenTray({ build, set }: StageProps) {

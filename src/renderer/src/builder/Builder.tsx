@@ -490,8 +490,9 @@ export function Builder({
       {powering ? (
         <PowerOn name={shownName} stats={stats} onDone={donePowering} />
       ) : (
-        <>
-          <div key={stage} className={`bd-column bd-${stage} fd-in`}>
+        // One body per stage: the column scrolls on its own and always ends above the tray row.
+        <div className={`bd-body bd-${stage}`}>
+          <div key={stage} className="bd-column fd-in">
             {stage === "price" ? column : <fieldset disabled={locked}>{column}</fieldset>}
             {stage === "year" && (
               <div className="bd-actions">
@@ -521,7 +522,7 @@ export function Builder({
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {sheet && measured && (

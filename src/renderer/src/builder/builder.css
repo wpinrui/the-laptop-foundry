@@ -150,125 +150,85 @@
   color: var(--accent) !important;
 }
 
-/* The left column. */
-.bd-column {
+/* The stage body: the column, then the tray row, in one flex column that
+   stops at the design margins, so a tall column can never reach the tray. */
+.bd-body {
   position: absolute;
   left: calc(104 * var(--u));
+  right: calc(56 * var(--u));
   top: calc(110 * var(--u));
+  bottom: calc(48 * var(--u));
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: calc(22 * var(--u));
+  pointer-events: none;
+}
+
+.bd-body > * {
+  pointer-events: auto;
+}
+
+.bd-column {
+  flex: 0 1 auto;
+  min-height: 0;
   width: calc(420 * var(--u));
   display: flex;
   flex-direction: column;
   gap: calc(22 * var(--u));
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
-.bd-column.bd-year {
-  top: 0;
-  bottom: 0;
-  justify-content: center;
-  gap: calc(56 * var(--u));
+.bd-column > fieldset > *,
+.bd-column > * {
+  flex-shrink: 0;
 }
 
-.bd-column.bd-inside {
+.bd-body.bd-screen,
+.bd-body.bd-inside {
   top: calc(104 * var(--u));
+}
+
+.bd-body.bd-inside .bd-column {
   width: calc(760 * var(--u));
 }
 
-.bd-column.bd-screen {
-  top: calc(104 * var(--u));
+.bd-body.bd-marks .bd-column,
+.bd-body.bd-price .bd-column {
+  width: calc(440 * var(--u));
 }
 
-.bd-input {
-  font-family: var(--font-display) !important;
-  font-variant-numeric: tabular-nums;
-  font-weight: 500 !important;
-  font-size: calc(17 * var(--u)) !important;
-  color: var(--text) !important;
-  border-bottom: 1px solid var(--line-chip) !important;
-  text-align: center;
-}
-
-.bd-input::placeholder {
-  color: var(--muted);
-}
-
-.bd-input:focus {
-  border-bottom-color: var(--accent) !important;
-}
-
-.bd-chip-edit {
-  display: inline-flex;
-  align-items: baseline;
-  gap: calc(4 * var(--u));
-}
-
-.bd-res {
-  gap: calc(2 * var(--u));
-}
-
-.bd-res-rows {
-  display: flex;
-  flex-direction: column;
-  margin-top: calc(6 * var(--u));
-}
-
-.bd-res-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: calc(7 * var(--u)) calc(12 * var(--u)) !important;
-  font-family: var(--font-display) !important;
-  font-variant-numeric: tabular-nums;
-  font-weight: 500 !important;
-  font-size: calc(17 * var(--u)) !important;
-  color: var(--text) !important;
-  text-align: left;
-}
-
-.bd-res-row span:last-child {
-  color: var(--muted);
-}
-
-.bd-res-row:hover {
-  color: var(--accent) !important;
-}
-
-.bd-res-row.on {
-  background: var(--accent-wash) !important;
-  color: var(--accent) !important;
-}
-
-.bd-res-row.on span:last-child {
-  color: var(--accent);
-}
-
-.bd-res-row.warn,
-.bd-res-row.warn span:last-child,
-.bd-res-row .warn {
-  color: var(--warning) !important;
-}
-
-.bd-column.bd-price {
+/* Year and Price sit centred in the room above their bottom row. */
+.bd-body.bd-year {
   top: 0;
   bottom: 0;
-  width: calc(440 * var(--u));
   justify-content: center;
+}
+
+.bd-body.bd-year .bd-column {
+  gap: calc(56 * var(--u));
+  overflow: visible;
+}
+
+.bd-body.bd-price {
+  top: calc(80 * var(--u));
+}
+
+.bd-body.bd-price .bd-column {
+  margin: auto 0;
 }
 
 /* Bottom row: tray left, Back and Next right. */
 .bd-bottom {
-  position: absolute;
-  left: calc(104 * var(--u));
-  right: calc(56 * var(--u));
-  bottom: calc(48 * var(--u));
+  flex: none;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   gap: calc(32 * var(--u));
-  pointer-events: none;
-}
-
-.bd-bottom > * {
-  pointer-events: auto;
+  min-width: 0;
 }
 
 .bd-tray {
@@ -623,14 +583,15 @@
 .bd-inside .bd-options {
   margin-left: calc(26 * var(--u));
   border-left: 1px solid var(--line);
-  max-height: calc(620 * var(--u));
 }
 
 .bd-option-rows {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  max-height: calc(430 * var(--u));
+  max-height: calc(340 * var(--u));
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 .bd-screen .bd-option-rows {
@@ -1382,10 +1343,6 @@
   text-transform: uppercase;
 }
 
-.bd-column.bd-marks {
-  width: calc(440 * var(--u));
-}
-
 /* Marks: surface tabs, the text on its underline, the property grid. */
 .bd-tabs {
   display: flex;
@@ -1481,4 +1438,75 @@
 .bd-badge.on {
   color: var(--accent);
   border-color: var(--accent);
+}
+
+/* Screen: inline number entry, and the resolution rows. */
+.bd-input {
+  font-family: var(--font-display) !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500 !important;
+  font-size: calc(17 * var(--u)) !important;
+  color: var(--text) !important;
+  border-bottom: 1px solid var(--line-chip) !important;
+  text-align: center;
+}
+
+.bd-input::placeholder {
+  color: var(--muted);
+}
+
+.bd-input:focus {
+  border-bottom-color: var(--accent) !important;
+}
+
+.bd-chip-edit {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(4 * var(--u));
+}
+
+.bd-res {
+  gap: calc(2 * var(--u));
+}
+
+.bd-res-rows {
+  display: flex;
+  flex-direction: column;
+  margin-top: calc(6 * var(--u));
+}
+
+.bd-res-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: calc(7 * var(--u)) calc(12 * var(--u)) !important;
+  font-family: var(--font-display) !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500 !important;
+  font-size: calc(17 * var(--u)) !important;
+  color: var(--text) !important;
+  text-align: left;
+}
+
+.bd-res-row span:last-child {
+  color: var(--muted);
+}
+
+.bd-res-row:hover {
+  color: var(--accent) !important;
+}
+
+.bd-res-row.on {
+  background: var(--accent-wash) !important;
+  color: var(--accent) !important;
+}
+
+.bd-res-row.on span:last-child {
+  color: var(--accent);
+}
+
+.bd-res-row.warn,
+.bd-res-row.warn span:last-child,
+.bd-res-row .warn {
+  color: var(--warning) !important;
 }

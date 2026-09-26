@@ -13,6 +13,7 @@ import {
 } from "../types";
 import { opt } from "../units";
 import { CPU_PRICES, estimatedPrice } from "../content/chips/cpus";
+import { GPU_PRICES } from "../content/chips/gpus";
 
 // Cost price, weight and device class. Costs are bill-of-materials figures in
 // the build year's nominal US dollars. Spend never trades anything off, but
@@ -344,7 +345,7 @@ function partCost(
       return (FIXED[part.id] ?? 8) + (o("shutter") === "yes" ? 1 : 0);
     // Switching needs a multiplexer and the drivers to hand the screen over.
     case "graphics":
-      return (FIXED[part.id] ?? 0) + (o("switchable") === "yes" ? 5 : 0);
+      return (FIXED[part.id] ?? GPU_PRICES[part.id] ?? 0) + (o("switchable") === "yes" ? 5 : 0);
     case "processor":
       return FIXED[part.id] ?? CPU_PRICES[part.id] ?? estimated(part);
     default:

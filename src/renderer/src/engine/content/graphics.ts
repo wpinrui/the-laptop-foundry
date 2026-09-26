@@ -1,4 +1,5 @@
 import type { Part, PowerSpec, Size } from "../types";
+import { GPU_PARTS } from "./chips/gpus";
 
 // Power: range, default sustained and boost limits (boost is the dynamic
 // boost a gaming load gets), rated power (sizes the power stage), idle power
@@ -115,7 +116,7 @@ function gpu(
   };
 }
 
-export const GRAPHICS: Part[] = [
+const CALIBRATED: Part[] = [
   gpu(
     "geforce-go-7400",
     "NVIDIA GeForce Go 7400",
@@ -279,3 +280,8 @@ export const GRAPHICS: Part[] = [
     { memory: "24 GB" },
   ),
 ];
+
+// The hand-calibrated parts above, then every other real part from the spec
+// rows in chips/.
+const calibrated = new Set(CALIBRATED.map((p) => p.id));
+export const GRAPHICS: Part[] = [...CALIBRATED, ...GPU_PARTS.filter((p) => !calibrated.has(p.id))];

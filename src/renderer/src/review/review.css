@@ -552,3 +552,230 @@
   opacity: 0.75;
   margin-top: 0.25em;
 }
+
+/* ------------------------------------------------------------ charts */
+
+/* Each laptop keeps one colour on the page: s0 is the reviewed model. */
+.rs-2006 {
+  --rs-s0: #1d4f91;
+  --rs-s1: #c46f1a;
+  --rs-s2: #7a5cc0;
+  --rs-s3: #3a9a4a;
+  --rs-s4: #b03a5b;
+  --rs-fps-bad: #f3c4c0;
+  --rs-fps-ok: #f6dfa8;
+  --rs-fps-good: #c5e6c5;
+  --rs-loud: #8c1d18;
+}
+
+.rs-2016 {
+  --rs-s0: #e5532d;
+  --rs-s1: #2b6cb0;
+  --rs-s2: #2f9e7a;
+  --rs-s3: #8a5cc2;
+  --rs-s4: #b8860b;
+  --rs-fps-bad: #fbd5cc;
+  --rs-fps-ok: #fbe8b8;
+  --rs-fps-good: #cdebd9;
+  --rs-loud: #8c1d18;
+}
+
+.rs-2026 {
+  --rs-s0: #3b5bdb;
+  --rs-s1: #c9651f;
+  --rs-s2: #2f9e7a;
+  --rs-s3: #b0417a;
+  --rs-s4: #9a7d0a;
+  --rs-fps-bad: #f6dcd8;
+  --rs-fps-ok: #f5ead0;
+  --rs-fps-good: #dcefe2;
+  --rs-loud: #8c1d18;
+}
+
+.rs-table,
+.rs-chart {
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-2026 .rs-chart {
+  font-family: system-ui, sans-serif;
+  font-size: 0.8em;
+}
+
+.rs-chart {
+  margin: 1em 0 1.5em;
+}
+
+.rs-chart figcaption,
+.rs-barchart caption {
+  font-weight: 700;
+  text-align: left;
+  padding-bottom: 0.25em;
+}
+
+.rs-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.rs-chart text {
+  font-family: inherit;
+  fill: var(--rs-text);
+}
+
+.rs-chart .rs-tick {
+  font-size: 11px;
+  fill: var(--rs-muted);
+}
+
+.rs-chart .rs-axis-title,
+.rs-chart .rs-mark {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.rs-chart .rs-grid {
+  stroke: var(--rs-rule);
+  stroke-width: 1;
+}
+
+.rs-chart .rs-hit {
+  fill: transparent;
+}
+
+.rs-chart .rs-hit:hover {
+  fill: var(--rs-rule);
+  fill-opacity: 0.35;
+}
+
+.rs-swatch {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 2px;
+  margin-right: 0.4em;
+}
+
+.rs-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em 1.2em;
+  margin: 0 0 0.4em;
+  padding: 0;
+}
+
+.rs-legend li.rs-me {
+  font-weight: 700;
+}
+
+.rs-note {
+  margin: 0.2em 0 1em;
+  font-size: 0.8em;
+  color: var(--rs-muted);
+}
+
+.rs-chart .rs-note {
+  margin-bottom: 0;
+}
+
+.rs-barchart {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.rs-barchart th {
+  font-weight: 400;
+  font-size: 0.85em;
+  color: var(--rs-muted);
+  text-align: right;
+  padding: 0 0.5em;
+}
+
+.rs-barchart td {
+  padding: 0.15em 0.5em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rs-barchart td:first-child {
+  text-align: left;
+  white-space: normal;
+  width: 38%;
+}
+
+.rs-barchart td.rs-bar {
+  width: 40%;
+  padding: 0;
+}
+
+.rs-barchart td.rs-bar svg {
+  height: 0.9em;
+}
+
+.rs-barchart tr.rs-me td {
+  font-weight: 700;
+  background: var(--rs-row);
+}
+
+.rs-table td.rs-fps-bad { background: var(--rs-fps-bad); }
+.rs-table td.rs-fps-ok { background: var(--rs-fps-ok); }
+.rs-table td.rs-fps-good { background: var(--rs-fps-good); }
+
+.rs-display-body {
+  display: grid;
+  grid-template-columns: minmax(10em, 16em) 1fr;
+  gap: 1.5em;
+  align-items: start;
+}
+
+.rs-display .rs-zone {
+  fill: var(--rs-s0);
+}
+
+.rs-display .rs-zone-text {
+  font-size: 12px;
+  font-weight: 700;
+  fill: var(--rs-page);
+}
+
+.rs-display dl {
+  margin: 0;
+}
+
+.rs-display dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.15em 0;
+  border-bottom: 1px solid var(--rs-rule);
+}
+
+.rs-display dt {
+  color: var(--rs-muted);
+}
+
+.rs-display dd {
+  margin: 0;
+  text-align: right;
+}
+
+.rs-2006 .rs-chart {
+  border: 1px solid var(--site06-rule);
+  background: var(--site06-row);
+  padding: 6px 8px;
+}
+
+.rs-2006 .rs-chart figcaption,
+.rs-2006 .rs-barchart caption {
+  color: var(--site06-head);
+}
+
+.rs-2016 .rs-chart figcaption,
+.rs-2016 .rs-barchart caption {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.85em;
+}

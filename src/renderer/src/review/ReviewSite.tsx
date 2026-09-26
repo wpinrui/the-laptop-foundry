@@ -1,5 +1,6 @@
 import { type CSSProperties, useMemo, useState } from "react";
 import { factsOf, laptopKind, type Review, rollScores, type Subject, type Table } from "../engine";
+import { ChartView, Note, Swatch } from "./Charts";
 import "./review.css";
 
 // The in-game review site, Notebookcheck (GDD: it publishes the reviews). Its look follows the model's era.
@@ -85,11 +86,17 @@ function Rating({ review }: { review: Review }) {
 function TableView({
   table,
   onOpen,
+  slots,
 }: {
   table: Table;
   onOpen: (id: string) => void;
+  /** Colour slot by laptop id. */
+  slots?: Map<string, number>;
 }) {
+  const slotOf = (row: Table["rows"][number]) =>
+    row.subject ? 0 : row.link !== undefined ? slots?.get(row.link) : undefined;
   return (
+    <>
     <table className="rs-table">
       <caption>{table.caption}</caption>
       <thead>
@@ -105,6 +112,7 @@ function TableView({
             {row.cells.map((cell, j) =>
               j === 0 && row.link ? (
                 <td key={`${j}`}>
+                  {slotOf(row) !== undefined && <Swatch slot={slotOf(row) ?? 0} />}
                   <button
                     type="button"
                     className="rs-link"
@@ -114,13 +122,21 @@ function TableView({
                   </button>
                 </td>
               ) : (
-                <td key={`${j}`}>{cell}</td>
+                <td
+                  key={`${j}`}
+                  className={row.tones?.[j] ? `rs-fps rs-fps-${row.tones[j]}` : undefined}
+                >
+                  {j === 0 && slotOf(row) !== undefined && <Swatch slot={slotOf(row) ?? 0} />}
+                  {cell}
+                </td>
               ),
             )}
           </tr>
         ))}
       </tbody>
     </table>
+    {table.columns.some((c) => c.endsWith("*")) && <Note />}
+    </>
   );
 }
 
@@ -308,6 +324,7 @@ export function ReviewSite({
   photos?: Record<string, string> | null;
 }) {
   const era = eraOf(review.year);
+  const slots = useMemo(() => new Map(review.field.map((id, i) => [id, i])), [review.field]);
   return (
     <div className={`rs rs-${era}`}>
       <Masthead era={era} onHome={onHome} />
@@ -348,8 +365,11 @@ export function ReviewSite({
               <p key={p}>{p}</p>
             ))}
             <Photos ids={PHOTOS_IN[s.id] ?? []} photos={photos} />
+            {s.charts?.map((c) => (
+              <ChartView key={c.caption} chart={c} onOpen={onOpen} />
+            ))}
             {s.tables.map((t) => (
-              <TableView key={t.caption} table={t} onOpen={onOpen} />
+              <TableView key={t.caption} table={t} onOpen={onOpen} slots={slots} />
             ))}
           </section>
         ))}

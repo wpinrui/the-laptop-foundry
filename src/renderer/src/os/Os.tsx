@@ -13,9 +13,8 @@ import "./os.css";
 // the same on every screen. Pure view: the cafe owns the state, and the
 // pictures in textures and photos render the same components still.
 
-/** Eras with a look of their own so far; the rest borrow 2006's. */
-export const LOOKS: Era[] = [2006, 2016];
-export const lookOf = (era: Era): Era => (LOOKS.includes(era) ? era : 2006);
+/** The look an era's laptop shows: its own era's. */
+export const lookOf = (era: Era): Era => era;
 
 export const APP_NAME: Record<AppId, string> = {
   kiln: "Kilnbench",
@@ -124,8 +123,9 @@ function Tray({ era, power, muted, year, now, trayOpen, onTray }: TaskbarProps) 
   return (
     <div className="os-tray">
       <button type="button" className={`os-tray-btn${trayOpen ? " on" : ""}`} onClick={onTray} aria-label="Power and sound">
+        {look === 2026 && <Speaker muted={muted} s={16} />}
         {power.battery && <Battery pct={power.pct} low={low} charging={power.plugged} s={24} />}
-        <Speaker muted={muted} s={16} />
+        {look !== 2026 && <Speaker muted={muted} s={16} />}
       </button>
       <span className="os-clock">
         <span>{c.time}</span>
@@ -135,8 +135,36 @@ function Tray({ era, power, muted, year, now, trayOpen, onTray }: TaskbarProps) 
   );
 }
 
+const PINNED: AppId[] = ["web", "kiln", "ash", "sys"];
+
 export function Taskbar(p: TaskbarProps) {
   const { era, app, minimised, onOpen, onTask } = p;
+  if (lookOf(era) === 2026)
+    return (
+      <div className="os-bar">
+        <span className="os-dock">
+          <button type="button" className="os-start" aria-label="Start">
+            <span className="os-start-tile">
+              <Mark s={14} />
+            </span>
+          </button>
+          {PINNED.map((a) => (
+            <button
+              key={a}
+              type="button"
+              className={`os-pin${a === app ? (minimised ? " run" : " on") : ""}`}
+              onClick={() => (a === app ? onTask?.() : onOpen?.(a))}
+              aria-label={APP_NAME[a]}
+            >
+              <Glyph app={a} s={26} />
+              <i />
+            </button>
+          ))}
+        </span>
+        <Tray {...p} era={era} />
+        <span className="os-show" />
+      </div>
+    );
   return (
     <div className="os-bar">
       <button type="button" className="os-start" aria-label="Start">
@@ -551,6 +579,36 @@ export function Browser({
   onReload?: () => void;
   children: ReactNode;
 }) {
+  if (lookOf(era) === 2026)
+    return (
+      <div className="os-web">
+        <div className="wb-tabs">
+          <span className="wb-tab">
+            <Glyph app="web" s={14} />
+            <span>{title}</span>
+            <i className="wb-x" />
+          </span>
+          <span className="wb-new" />
+        </div>
+        <div className="wb-nav">
+          <button type="button" className="wb-back" disabled={!canBack} onClick={onBack} aria-label="Back">
+            <i />
+          </button>
+          <button type="button" className="wb-fwd" disabled={!canForward} onClick={onForward} aria-label="Forward">
+            <i />
+          </button>
+          <button type="button" className="wb-reload" onClick={onReload} aria-label="Reload">
+            <svg viewBox="0 0 16 16" aria-hidden>
+              <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" />
+            </svg>
+          </button>
+          <span className="wb-url">
+            <span>{url}</span>
+          </span>
+        </div>
+        <div className="wb-page">{children}</div>
+      </div>
+    );
   if (lookOf(era) === 2016)
     return (
       <div className="os-web">
@@ -632,6 +690,47 @@ const PANES: { label: string; shows: string[] | null }[] = [
   { label: "Storage", shows: ["Storage", "Memory"] },
 ];
 
+/** 2026's side list: About shows everything, the rest their own cards. */
+const SETTINGS: { label: string; shows: string[] | null }[] = [
+  { label: "About", shows: null },
+  { label: "Display", shows: ["Display"] },
+  { label: "Battery", shows: ["Battery"] },
+  { label: "Storage", shows: ["Storage", "Memory"] },
+];
+
+function SysSettings({ groups }: { groups: SysGroup[] }) {
+  const [pane, setPane] = useState(0);
+  const shows = SETTINGS[pane].shows;
+  const shown = shows ? groups.filter((g) => shows.includes(g.title)) : groups;
+  return (
+    <div className="os-sys">
+      <div className="sy-nav">
+        {SETTINGS.map((p, k) => (
+          <button key={p.label} type="button" className={k === pane ? "on" : undefined} onClick={() => setPane(k)}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <div className="sy-page">
+        <div className="sy-title">{SETTINGS[pane].label}</div>
+        <div className="sy-cards">
+          {shown.map((g) => (
+            <div key={g.title} className="sy-group">
+              <span className="sy-head">{g.title}</span>
+              {g.rows.map(([k, v]) => (
+                <div key={k} className="sy-row">
+                  <span>{k}</span>
+                  <span>{v}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SysPanes({ groups }: { groups: SysGroup[] }) {
   const [pane, setPane] = useState(0);
   const shows = PANES[pane].shows;
@@ -668,6 +767,7 @@ function SysPanes({ groups }: { groups: SysGroup[] }) {
 export function SysApp({ era, groups, onOk }: { era: Era; groups: SysGroup[]; onOk?: () => void }) {
   const [tab, setTab] = useState<SysGroup["tab"]>("general");
   if (lookOf(era) === 2016) return <SysPanes groups={groups} />;
+  if (lookOf(era) === 2026) return <SysSettings groups={groups} />;
   const shown = tab === "general" ? groups : groups.filter((g) => g.tab === tab);
   return (
     <div className="os-sys">
@@ -704,6 +804,7 @@ export function SysApp({ era, groups, onOk }: { era: Era; groups: SysGroup[]; on
 // ------------------------------------------------------------------ tray
 
 export function Flyout({
+  era,
   power,
   profiles,
   profile,
@@ -724,6 +825,52 @@ export function Flyout({
   onMute: () => void;
 }) {
   const low = power.battery && power.pct < 15 && !power.plugged;
+  if (lookOf(era) === 2026)
+    return (
+      <div className="os-fly">
+        <div className="fl-head">
+          {power.battery && <Battery pct={power.pct} low={low} charging={power.plugged} s={48} />}
+          <span className="fl-level">
+            <b>{power.battery ? `${power.pct}%` : "Mains power"}</b>
+            {power.battery && <span>{power.time}</span>}
+          </span>
+        </div>
+        <div className="fl-mode">
+          <span>Power mode</span>
+          <span className="os-seg" role="radiogroup" aria-label="Power mode">
+            {(["low", "medium", "high"] as ProfileId[])
+              .filter((p) => profiles.includes(p))
+              .map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  role="radio"
+                  aria-checked={p === profile}
+                  className={p === profile ? "on" : undefined}
+                  onClick={() => onProfile(p)}
+                >
+                  {PROFILE_NAME[p]}
+                </button>
+              ))}
+          </span>
+        </div>
+        <div className="fl-sound">
+          <button type="button" onClick={onMute} aria-label={muted ? "Unmute" : "Mute"}>
+            <Speaker muted={muted} s={16} />
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={muted ? 0 : volume}
+            aria-label="Volume"
+            style={vars({ "--v": `${muted ? 0 : volume}%` })}
+            onChange={(e) => onVolume(Number(e.target.value))}
+          />
+          <span className="fl-vol">{muted ? 0 : volume}</span>
+        </div>
+      </div>
+    );
   return (
     <div className="os-fly">
       <div className="fl-head">
@@ -765,7 +912,19 @@ export function Flyout({
   );
 }
 
-export function Toast({ pct }: { era: Era; pct: number }) {
+export function Toast({ era, pct }: { era: Era; pct: number }) {
+  if (lookOf(era) === 2026)
+    return (
+      <div className="os-toast">
+        <span className="to-tile">
+          <Battery pct={pct} low s={24} />
+        </span>
+        <span className="to-words">
+          <b>Battery low</b>
+          <span>{pct}% left. Plug in soon.</span>
+        </span>
+      </div>
+    );
   return (
     <div className="os-toast">
       <div className="to-head">
@@ -826,7 +985,24 @@ export function Empty() {
   );
 }
 
-export function Lock({ era, owner, wallpaper, power }: { era: Era; owner: Owner; wallpaper: string; power: Power; now: Date; year: number }) {
+export function Lock({ era, owner, wallpaper, power, now, year }: { era: Era; owner: Owner; wallpaper: string; power: Power; now: Date; year: number }) {
+  if (lookOf(era) === 2026) {
+    const c = clockOf(now, year);
+    return (
+      <div className="os-lock">
+        <img className="os-wall" src={wallpaper} alt="" />
+        <div className="lk-scrim" />
+        <div className="lk-time">
+          <span>{c.long}</span>
+          <b>{c.short}</b>
+        </div>
+        <span className="lk-status">
+          <Speaker muted={false} s={16} />
+          {power.battery && <Battery pct={power.pct} charging={power.plugged} s={24} />}
+        </span>
+      </div>
+    );
+  }
   if (lookOf(era) === 2016)
     return (
       <div className="os-lock">

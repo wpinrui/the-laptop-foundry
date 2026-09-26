@@ -2,9 +2,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { type Build, CONTENT, colourHex, decorOf, type Fit, SAMPLES, solve } from "../engine";
-import { legacyLockTexture } from "../os/legacy";
-import { LOOKS } from "../os/Os";
-import { eraOf, ownerOf } from "../os/types";
+import { ownerOf } from "../os/types";
 import { useOsStill } from "../os/useOsScreen";
 import { Model, Reflections, surfacesOf } from "../viewer/Scene";
 import { token } from "../viewer/theme";
@@ -93,12 +91,7 @@ function useLock(build: Build, fit: Fit, maker: string, model: string) {
   const owner = useMemo(() => ownerOf(build, maker), [build, maker]);
   const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   const aspect = panel ? panel.size.x / Math.max(1, panel.size.y) : 1.6;
-  // Eras whose OS has not landed yet keep the lock screen they had.
-  const legacy = !LOOKS.includes(eraOf(build.year));
-  const still = useOsStill("lock", legacy ? null : build, owner, `${maker} ${model}`.trim(), aspect);
-  const old = useMemo(() => (legacy ? legacyLockTexture() : undefined), [legacy]);
-  useEffect(() => () => old?.dispose(), [old]);
-  return legacy ? old : still;
+  return useOsStill("lock", build, owner, `${maker} ${model}`.trim(), aspect);
 }
 
 function StagedLaptop({ build, fit, maker, model }: { build: Build; fit: Fit; maker: string; model: string }) {

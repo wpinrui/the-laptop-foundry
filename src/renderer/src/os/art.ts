@@ -275,8 +275,43 @@ export function drawMark(g: CanvasRenderingContext2D, x: number, y: number, size
 export const OS_FONT: Record<Era, string> = {
   2006: '"Noto Sans", sans-serif',
   2016: '"Open Sans", sans-serif',
-  2026: '"Noto Sans", sans-serif',
+  2026: '"Figtree", sans-serif',
 };
+
+/** 2026: the maker's name, then an arc spinner turning under it. */
+function bootDark(g: CanvasRenderingContext2D, W: number, H: number, maker: string, font: string, ms: number, u: number) {
+  g.globalAlpha = Math.min(1, ms / 400);
+  g.fillStyle = "#fff";
+  g.font = `600 ${Math.round(50 * u)}px ${font}`;
+  g.letterSpacing = `${(11 * u).toFixed(1)}px`;
+  // Letter spacing trails the last letter; half of it nudges the name back to centre.
+  g.fillText(maker.toUpperCase(), W / 2 + 5.5 * u, H * 0.44);
+  g.letterSpacing = "0px";
+  if (ms >= BOOT_NAME_MS) {
+    const t = ms - BOOT_NAME_MS;
+    g.globalAlpha = Math.min(1, t / 300);
+    const x = W / 2;
+    const y = H * 0.74;
+    const r = 18.25 * u;
+    const a = (t / 1000) * Math.PI * 2.4;
+    g.lineWidth = 3.5 * u;
+    g.lineCap = "round";
+    g.strokeStyle = "rgba(255,255,255,0.14)";
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.stroke();
+    g.strokeStyle = "#fff";
+    g.beginPath();
+    g.arc(x, y, r, a, a + Math.PI * 0.55);
+    g.stroke();
+    g.strokeStyle = "rgba(255,255,255,0.6)";
+    g.beginPath();
+    g.arc(x, y, r, a + Math.PI * 0.55, a + Math.PI * 0.9);
+    g.stroke();
+    g.lineCap = "butt";
+  }
+  g.globalAlpha = 1;
+}
 
 /** 2016: a glossy orb with a ring of dots turning under it, the maker below. */
 function bootGlass(
@@ -352,6 +387,10 @@ export function paintBoot(
   g.textBaseline = "middle";
   const cx = W / 2;
   const cy = H / 2;
+  if (era === 2026) {
+    bootDark(g, W, H, maker, font, ms, u);
+    return;
+  }
   if (ms < BOOT_NAME_MS) {
     // The maker's name fades up and holds.
     g.globalAlpha = Math.min(1, ms / 400);

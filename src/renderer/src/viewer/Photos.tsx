@@ -5,9 +5,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { type Build, colourHex, decorOf, type Fit, solve } from "../engine";
 import { buildShot, SIZE_FRAME, VIEWING_GRID } from "./reviewScenes";
 import { osShot } from "../os/shots";
-import { legacyShot } from "../os/legacy";
-import { LOOKS } from "../os/Os";
-import { eraOf, ownerOf } from "../os/types";
+import { ownerOf } from "../os/types";
 import {
   heatMaterial,
   OS_SHOT,
@@ -238,12 +236,8 @@ function Shooter({
     const os: Partial<Record<ScreenKind, HTMLCanvasElement>> = {};
     (async () => {
       const owner = ownerOf(build, who.company);
-      const era = eraOf(build.year);
       for (const k of Object.keys(OS_SHOT) as (keyof typeof OS_SHOT)[]) {
-        // Eras whose OS has not landed yet keep the screens they had.
-        os[k] = LOOKS.includes(era)
-          ? await osShot({ shot: OS_SHOT[k], build, owner, model: `${who.company} ${who.name}`.trim(), aspect, outW: 1600 })
-          : legacyShot(k, era, aspect);
+        os[k] = await osShot({ shot: OS_SHOT[k], build, owner, model: `${who.company} ${who.name}`.trim(), aspect, outW: 1600 });
         if (cancelled) return;
       }
       const photos: Record<string, string> = {};

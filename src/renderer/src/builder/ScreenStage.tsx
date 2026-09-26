@@ -93,13 +93,9 @@ export function ScreenColumn({ build, set }: StageProps) {
   const [customHz, setCustomHz] = useState(false);
 
   const ratioStandard = RATIOS.some((r) => sameRatio(r, spec.ratio));
-  // The four standard resolutions nearest the current one, low to high.
+  // Every standard resolution the year could make at this size, low to high.
   const all = standardResolutions(spec.ratio, spec.diag, year);
-  const px = spec.res[0] * spec.res[1];
-  const list = [...all]
-    .sort((a, b) => Math.abs(a[0] * a[1] - px) - Math.abs(b[0] * b[1] - px))
-    .slice(0, 4)
-    .sort((a, b) => a[0] - b[0]);
+  const list = [...all].sort((a, b) => a[0] - b[0]);
   const resStandard = all.some((r) => r[0] === spec.res[0] && r[1] === spec.res[1]);
   const panel = resolveScreen(spec, year);
   const cap = maxHz(year);

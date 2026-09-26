@@ -125,7 +125,7 @@ export function partsFor(
   content: Content = CONTENT,
 ): Part[] {
   return content.parts.filter(
-    (p) => p.category === category && available(p, year),
+    (p) => p.category === category && available(p, year) && !p.rivalOnly,
   );
 }
 

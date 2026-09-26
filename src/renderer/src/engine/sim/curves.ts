@@ -42,6 +42,8 @@ export const ARCHS: Record<string, Arch> = {
   "strix-halo": { k: 0.4, singleShare: 0.5, rDie: 0.25, tj: 100, boostSeconds: 60, igpuK: 0.55 },
   "fire-range": { k: 0.35, singleShare: 0.6, rDie: 0.3, tj: 95, boostSeconds: 60, igpuK: 0.2 },
   oryon: { k: 0.42, singleShare: 0.7, rDie: 1.0, tj: 100, boostSeconds: 30, igpuK: 0.5 },
+  // Apple silicon reaches full single-core speed on a few watts and holds its clocks with no boost window.
+  "apple-m": { k: 0.4, singleShare: 0.3, rDie: 0.8, tj: 105, boostSeconds: 0, igpuK: 0.45 },
   curie: { k: 0.5, singleShare: 1, rDie: 1.2, tj: 100, boostSeconds: 0, igpuK: 0 },
   r500: { k: 0.5, singleShare: 1, rDie: 1.2, tj: 100, boostSeconds: 0, igpuK: 0 },
   blackwell: { k: 0.5, singleShare: 1, rDie: 0.12, tj: 87, boostSeconds: 0, igpuK: 0 },

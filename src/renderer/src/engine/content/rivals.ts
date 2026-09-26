@@ -421,6 +421,13 @@ const PORTS_2026_THIN: [string, Side][] = [
   ["usb-a-5g", "right"],
   ["audio-combo", "right"],
 ];
+// MagSafe (a charging jack) and two USB4 ports on the left, the audio jack on the right.
+const PORTS_2026_MAC: [string, Side][] = [
+  ["dc-jack", "left"],
+  ["usb4-40g", "left"],
+  ["usb4-40g", "left"],
+  ["audio-combo", "right"],
+];
 const PORTS_2026_GAMING: [string, Side][] = [
   ["usb-a-10g", "left"],
   ["usb-c-10g", "left"],
@@ -662,8 +669,8 @@ const R2026: Rival[] = [
     size: [304, 215, 11],
     price: 1299,
     parts: {
-      processor: "snapdragon-x2e-88-100",
-      memory: ["lpddr5x-soldered", { capacity: 16 }],
+      processor: "apple-m5",
+      memory: ["apple-unified", { capacity: 16 }],
       storage: ["m2-2230-g4", { capacity: 512 }],
       display: ["2026-13.5-2256x1504-ips", { refresh: 120 }],
       battery: ["li-po-pouch", { wh: 60, thickness: "slim" }],
@@ -674,11 +681,7 @@ const R2026: Rival[] = [
       webcam: "cam-1080p",
       speakers: "spk-quad",
     },
-    ports: [
-      ["usb4-40g", "left"],
-      ["usb4-40g", "left"],
-      ["audio-combo", "right"],
-    ],
+    ports: PORTS_2026_MAC,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
   rival(2026, "apple", "MacBook Air 15 (M5)", {
@@ -687,19 +690,19 @@ const R2026: Rival[] = [
     size: [340, 238, 14],
     price: 1499,
     parts: {
-      processor: "core-ultra7-258v",
-      memory: "lpddr5x-on-package",
+      processor: "apple-m5",
+      memory: ["apple-unified", { capacity: 16 }],
       storage: "m2-2280-g4",
       display: "2026-15.6-1920x1080-ips",
       battery: ["li-po-pouch", { wh: 75, thickness: "standard" }],
-      cooling: "one-fan",
+      cooling: "fanless",
       wireless: "wifi-7",
       keyboard: ["kb-1.0", { light: "white" }],
       trackpad: ["pad-145x90", { mechanism: "haptic" }],
       webcam: "cam-1080p",
       speakers: "spk-quad",
     },
-    ports: PORTS_2026_THIN,
+    ports: PORTS_2026_MAC,
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
   rival(2026, "apple", "MacBook Pro 16 (M5 Max)", {
@@ -708,8 +711,8 @@ const R2026: Rival[] = [
     size: [356, 248, 17],
     price: 2999,
     parts: {
-      processor: "ryzen-ai-max-395",
-      memory: ["lpddr5x-soldered", { capacity: 64 }],
+      processor: "apple-m5-max",
+      memory: ["apple-unified", { capacity: 64 }],
       storage: ["m2-2280-g5", { capacity: 2048 }],
       display: "2026-16-3200x2000-mini-led",
       battery: ["li-po-pouch", { wh: 99.9, thickness: "standard" }],
@@ -720,7 +723,7 @@ const R2026: Rival[] = [
       webcam: "cam-5mp-ir",
       speakers: "spk-six",
     },
-    ports: [...PORTS_2026_THIN, ["sd-reader-uhs2", "right"], ["hdmi-2.1", "right"]],
+    ports: [...PORTS_2026_MAC, ["usb4-40g", "right"], ["sd-reader-uhs2", "right"], ["hdmi-2.1", "right"]],
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
   }),
   rival(2026, "asus", "Zenbook 14 OLED", {
@@ -1520,6 +1523,13 @@ const T2026: Rival[] = (() => {
     }),
     trim(b("ThinkPad E16 Gen 3"), "ThinkPad T16 Gen 4", 1599, {
       parts: { processor: "core-ultra7-258v", memory: "lpddr5x-on-package" },
+    }),
+    trim(b("ThinkPad E16 Gen 3"), "Latitude 7650", 1649, {
+      maker: "dell",
+      parts: { processor: "core-ultra7-256v", memory: "lpddr5x-on-package" },
+    }),
+    trim(b("OmniBook 3 15"), "OmniBook 5 16", 999, {
+      parts: { processor: "core-ultra5-236v", memory: "lpddr5x-on-package" },
     }),
     trim(b("MacBook Air 15 (M5)"), "MacBook Air 15 (M5, 2 TB)", 1699, {
       parts: { storage: "m2-2280-g5" },

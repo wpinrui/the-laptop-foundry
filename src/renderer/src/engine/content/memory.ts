@@ -319,6 +319,19 @@ export const MEMORY: Part[] = [
     compact: [],
     needs: ["mem:on-package"],
   },
+  {
+    id: "apple-unified",
+    name: "Unified memory",
+    category: "memory",
+    from: 2020,
+    until: 2030,
+    rivalOnly: true,
+    // On the Apple silicon package: no board area.
+    shape: { kind: "none" },
+    compact: [],
+    options: { capacity: [16, 8, 18, 24, 32, 36, 48, 64, 96, 128] },
+    needs: ["mem:apple-unified"],
+  },
 ];
 
 // ---------------------------------------------------------------- lab figures
@@ -351,4 +364,6 @@ export const MEMORY_LAB: Record<
   lpcamm2: { mts: 7500, bits: 64, fixedDual: true, efficiency: 0.7, latency: 120 },
   "lpddr5x-soldered": { mts: 7500, bits: 64, fixedDual: true, efficiency: 0.7, latency: 125 },
   "lpddr5x-on-package": { mts: 8533, bits: 64, fixedDual: true, efficiency: 0.72, latency: 100 },
+  // Base M-series width; Pro and Max chips run wider buses.
+  "apple-unified": { mts: 7500, bits: 64, fixedDual: true, efficiency: 0.8, latency: 100 },
 };

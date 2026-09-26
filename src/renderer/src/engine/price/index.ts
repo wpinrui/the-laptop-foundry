@@ -253,6 +253,7 @@ const MEMORY: Record<string, { gb: number; module: number }> = {
   "lpddr3-soldered": { gb: 7, module: 0 },
   "ddr5-5600-sodimm": { gb: 10, module: 5 },
   lpcamm2: { gb: 12, module: 10 },
+  "apple-unified": { gb: 5, module: 0 },
   "lpddr5x-soldered": { gb: 9, module: 0 },
 };
 

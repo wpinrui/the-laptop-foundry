@@ -406,12 +406,7 @@ export function World({
   const noHover = useMemo(() => () => {}, []);
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      {/* Near 100 mm, not 10: the laptop is seen from 0.6 to 2 m, where a 10 mm
-          near plane left the depth step coarser than the sub-mm gaps between
-          the trackpad glass, the panel and the lid, so they z-fought. The seated
-          eye is never closer than 400 mm to anything, and the room's far
-          corner is under 12 m away. */}
-      <Canvas shadows dpr={[1, 2]} camera={{ fov: 62, near: 100, far: 12000 }}>
+      <Canvas shadows dpr={[1, 2]} camera={{ fov: 62, near: 10, far: 20000 }}>
         <color attach="background" args={[token("cafe-shade")]} />
         <Reflections intensity={0.3} />
         <Lights />

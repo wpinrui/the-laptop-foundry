@@ -181,47 +181,6 @@ function makeCtx(): UnitCtx & { dispose(): void } {
 
 // ------------------------------------------------------------------ units
 
-/**
- * Turns every lid-side hinge part (a LID_GROUP) with the lid, about its own
- * pivot. The full-width cover is the exception: it is fixed to the lid, which
- * turns about the engine's hinge axis, so turned about its own pivot it drifted
- * through the lid's front face as the lid opened. Given the axis (base y, z),
- * the cover and the shaft inside it turn about that axis with the lid instead.
- * Barrel and drop hinges keep their pivot, where their base halves hold them.
- */
-export function turnLidParts(group: THREE.Object3D, lidAngle: number, axis?: [number, number]): void {
-  const angle = (-lidAngle * Math.PI) / 180;
-  group.updateMatrixWorld(true);
-  const toGroup = new THREE.Matrix4().copy(group.matrixWorld).invert();
-  const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
-  const aboutAxis = (o: THREE.Object3D) => {
-    if (!axis || !o.parent) return;
-    const home = (o.userData.home as THREE.Vector3 | undefined) ?? o.position.clone();
-    o.userData.home = home;
-    // A point on the axis, in the parent's frame.
-    const rel = toGroup.clone().multiply(o.parent.matrixWorld);
-    const onAxis = home.clone().applyMatrix4(rel);
-    onAxis.y = axis[0];
-    onAxis.z = axis[1];
-    onAxis.applyMatrix4(rel.clone().invert());
-    o.position.copy(home).sub(onAxis).applyQuaternion(turn).add(onAxis);
-  };
-  const lids: THREE.Object3D[] = [];
-  group.traverse((o) => {
-    if (o.name === LID_GROUP) lids.push(o);
-  });
-  for (const o of lids) {
-    o.rotation.x = angle;
-    if (!o.children.some((c) => c.name === "cover")) continue;
-    aboutAxis(o);
-    const shaft = o.parent?.children.find((c) => c.name === "shaft");
-    if (shaft) {
-      shaft.rotation.x = angle;
-      aboutAxis(shaft);
-    }
-  }
-}
-
 type Live = Map<string, { key: string; ctx: UnitCtx; obj: THREE.Object3D; failed?: string }>;
 
 /**
@@ -322,7 +281,6 @@ function Units({
   year,
   hinge,
   lidAngle,
-  axis,
   onFailed,
 }: {
   boxes: Box[];
@@ -334,8 +292,6 @@ function Units({
   hinge: UnitOpts["hinge"];
   /** Turns the lid side of each hinge mount with the lid, in degrees. */
   lidAngle?: number;
-  /** The lid's hinge axis in base space (y, z); the lid-side parts turn about it. */
-  axis?: [number, number];
   /** Called after each pass with the units that could not be drawn. */
   onFailed?: (failed: string[]) => void;
 }) {
@@ -343,8 +299,10 @@ function Units({
   // Runs after the units effect above, so freshly built hinges turn too.
   useEffect(() => {
     if (lidAngle === undefined) return;
-    turnLidParts(group, lidAngle, axis);
-  }, [group, lidAngle, boxes, ctx, year, hinge, axis]);
+    group.traverse((o) => {
+      if (o.name === LID_GROUP) o.rotation.x = (-lidAngle * Math.PI) / 180;
+    });
+  }, [group, lidAngle, boxes, ctx, year, hinge]);
   const move = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const label = e.object.userData.label as string | undefined;
@@ -380,7 +338,7 @@ const LAP = 1.5;
  * draws instead; "deck" is that top face alone, with the keyboard and
  * trackpad wells cut out so a solid shell does not cover them.
  */
-export function surfaceGeometry(
+function surfaceGeometry(
   size: Fit["shell"]["outer"],
   style: Fit["shell"]["style"],
   profile: boolean,
@@ -425,13 +383,9 @@ export function surfaceGeometry(
   }
   let indices = data.indices;
   if (mode === "open") {
-    // The deck plate draws the whole flat top, so every flat triangle at the
-    // top is left out here, not just the centre fan: a flat ring kept at the
-    // top sat exactly in the deck plate's plane and z-fought it.
-    const atTop = (v: number) => data.positions[v * 3 + 2] >= size.z - 1e-3;
     const kept: number[] = [];
     for (let i = 0; i + 2 < indices.length; i += 3)
-      if (indices[i] !== topCentre && !(atTop(indices[i]) && atTop(indices[i + 1]) && atTop(indices[i + 2])))
+      if (indices[i] !== topCentre)
         kept.push(indices[i], indices[i + 1], indices[i + 2]);
     indices = new Uint32Array(kept);
   }
@@ -439,14 +393,7 @@ export function surfaceGeometry(
   let positions = data.positions;
   if (data.walls.length > 0) {
     const extra: number[] = [];
-    for (const w of data.walls) {
-      const tri = wallPositions(w, cuts[w.side] ?? [], wallDepth);
-      for (let i = 0; i + 8 < tri.length; i += 9) {
-        // As above: the deck plate owns the flat top, including the wall's rim.
-        const flatTop = mode === "open" && tri[i + 2] >= size.z - 1e-3 && tri[i + 5] >= size.z - 1e-3 && tri[i + 8] >= size.z - 1e-3;
-        if (!flatTop) for (let k = 0; k < 9; k++) extra.push(tri[i + k]);
-      }
-    }
+    for (const w of data.walls) extra.push(...wallPositions(w, cuts[w.side] ?? [], wallDepth));
     const all = new Float32Array(positions.length + extra.length);
     all.set(positions);
     all.set(extra, positions.length);
@@ -525,12 +472,7 @@ function Shell({
           side={THREE.DoubleSide}
           roughness={look.roughness}
           metalness={look.metalness}
-          // Only the see-through shell is pushed back. A solid shell stands
-          // off every unit by a real gap (SKIN, LID_FRONT, the deck recess),
-          // and a slope-scaled push on it went deeper than the 1.5 mm top
-          // wall at grazing angles, so parts under the top case showed
-          // through it and flickered as the laptop turned.
-          polygonOffset={xray}
+          polygonOffset
           polygonOffsetFactor={offset}
           polygonOffsetUnits={offset}
         />
@@ -587,12 +529,7 @@ function Well({ well: w, top }: { well: Wells[number]; top: number }) {
 
 function Openings({ fit }: { fit: Fit }) {
   const colour = token("color-opening");
-  // The dark block runs from 0.2 mm proud of the drawn shell (SKIN outside
-  // the outline) to 0.2 mm short of the wall's inner face, so it never
-  // reaches the unit behind the wall.
-  const proud = 0.2 + SKIN;
-  // A wall cut for ports is built offsets.side thick, so that is the depth to stop short of.
-  const w = Math.max(fit.shell.walls.side, fit.shell.offsets.side) - 0.2 + proud;
+  const w = fit.shell.walls.side + 0.4;
   const out = fit.shell.outer;
   return (
     <group>
@@ -600,20 +537,18 @@ function Openings({ fit }: { fit: Fit }) {
         // A port's model draws its own opening; an opaque block here would
         // hide the connector face and read as a brick poking out of the wall.
         if (o.kind === "port") return null;
-        // Short of each end by 0.3 mm, so the block never ends in the plane of
-        // the next wall or of the unit's own top and bottom.
-        const du = o.u[1] - o.u[0] - 0.6;
-        const dz = o.z[1] - o.z[0] - 0.6;
+        const du = o.u[1] - o.u[0];
+        const dz = o.z[1] - o.z[0];
         const uc = (o.u[0] + o.u[1]) / 2;
         const zc = (o.z[0] + o.z[1]) / 2;
         const pos: [number, number, number] =
           o.side === "left"
-            ? [w / 2 - proud, uc, zc]
+            ? [w / 2 - 0.2, uc, zc]
             : o.side === "right"
-              ? [out.x - w / 2 + proud, uc, zc]
+              ? [out.x - w / 2 + 0.2, uc, zc]
               : o.side === "front"
-                ? [uc, w / 2 - proud, zc]
-                : [uc, out.y - w / 2 + proud, zc];
+                ? [uc, w / 2 - 0.2, zc]
+                : [uc, out.y - w / 2 + 0.2, zc];
         const scale: [number, number, number] =
           o.side === "left" || o.side === "right" ? [w, du, dz] : [du, w, dz];
         return (
@@ -657,31 +592,6 @@ function Overflow({ fit }: { fit: Fit }) {
 }
 
 // ------------------------------------------------------------------ scene
-
-/** How far the drawn shells stand off the units inside them, in mm. */
-export const SKIN = 0.4;
-
-/**
- * How far the lid shell's front face sits behind the lid's front plane, in mm.
- * The panel glass lies in that plane and the webcam's layers step back from it
- * at 0.12 and 0.25 mm, so the face goes between them, clear of all.
- */
-export const LID_FRONT = 0.22;
-
-/** Scale for the base shell about its top centre: SKIN out on every side and below. */
-export function baseSkinScale(out: Fit["shell"]["outer"]): [number, number, number] {
-  return [1 + (2 * SKIN) / out.x, 1 + (2 * SKIN) / out.y, 1 + SKIN / out.z];
-}
-
-/**
- * Scale for the lid shell about its front edge (y = 0, front face): SKIN out
- * at the back, and SKIN short at the hinge edge, so that edge never lies in
- * the deck's plane as the lid passes 90 degrees. Its sides stay put: scaling
- * them would move the hinge notch's end faces onto the hinge cover ends.
- */
-export function lidSkinScale(lid: Fit["shell"]["lid"]["size"]): [number, number, number] {
-  return [1, 1 - SKIN / lid.y, 1 + (SKIN - LID_FRONT) / lid.z];
-}
 
 export const Model = memo(function Model({
   fit,
@@ -732,7 +642,6 @@ export const Model = memo(function Model({
   const hz = hinge?.kind === "hinge" ? hinge.from.z : fit.shell.lid.at.z;
   const out = fit.shell.outer;
   const lidSize = fit.shell.lid.size;
-  const lidAxis = useMemo((): [number, number] => [hy, hz], [hy, hz]);
   // Each port's own model draws its connector face; the wall is cut open over it.
   const cuts = useMemo(() => portCuts(fit), [fit]);
 
@@ -741,11 +650,6 @@ export const Model = memo(function Model({
     // Engine space is z up; three is y up. Rotate once here and centre the base.
     <group rotation-x={ENGINE_ROTATION_X}>
       <group position={baseOffset(out)}>
-        {/* The base shell is drawn SKIN mm outside the engine's outline (sides
-            and bottom; the top stays), so a unit set flush against the inside
-            of a wall never shares the wall's plane. */}
-        <group position={[out.x / 2, out.y / 2, out.z]} scale={baseSkinScale(out)}>
-        <group position={[-out.x / 2, -out.y / 2, -out.z]}>
         <Shell
           size={out}
           style={fit.shell.style}
@@ -768,8 +672,6 @@ export const Model = memo(function Model({
           mode="deck"
           wells={fit.shell.wells}
         />
-        </group>
-        </group>
         {!xray && fit.shell.wells.map((w) => <Well key={`${w.at.x}-${w.at.y}`} well={w} top={out.z} />)}
         <Openings fit={fit} />
         {workshop && !table && <Workshop out={out} />}
@@ -788,29 +690,21 @@ export const Model = memo(function Model({
           year={year}
           hinge={fit.shell.style.hinge}
           lidAngle={lidAngle}
-          axis={lidAxis}
           onFailed={reportBase}
         />
         <Overflow fit={fit} />
         {/* The lid turns about the hinge axis, which runs along x. */}
         <group position={[0, hy, hz]} rotation-x={(-lidAngle * Math.PI) / 180}>
           <group position={[0, -hy, -hz]}>
-            {/* The lid shell sits SKIN mm behind the units at its back and
-                LID_FRONT mm back from the front, so the panel glass lies in
-                front of it. */}
-            <group position={[0, 0, fit.shell.lid.at.z + LID_FRONT]} scale={lidSkinScale(lidSize)}>
-              <group position={[0, 0, -(fit.shell.lid.at.z + LID_FRONT)]}>
-                <Shell
-                  size={lidSize}
-                  style={fit.shell.style}
-                  colour={colours.lid}
-                  profile={false}
-                  z={fit.shell.lid.at.z + LID_FRONT}
-                  surface={surfaces?.lid}
-                  xray={xray}
-                />
-              </group>
-            </group>
+            <Shell
+              size={lidSize}
+              style={fit.shell.style}
+              colour={colours.lid}
+              profile={false}
+              z={fit.shell.lid.at.z}
+              surface={surfaces?.lid}
+              xray={xray}
+            />
             <Units
               boxes={lid}
               ctx={ctx}

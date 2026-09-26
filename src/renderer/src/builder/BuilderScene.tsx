@@ -108,6 +108,7 @@ export function BuilderScene({
   labelFor = noLabel,
   onHover,
   onPick,
+  onMiss,
   decor,
   flip,
 }: {
@@ -135,6 +136,8 @@ export function BuilderScene({
   labelFor?: (b: Box) => string;
   onHover: (h: Hover | null) => void;
   onPick?: (b: Box) => void;
+  /** A click that lands on nothing pickable, and is not the end of a turn or a handle drag. */
+  onMiss?: () => void;
 }) {
   const nudge = useRef<Nudge>({ az: 0, el: 0, zoom: 1 });
   const drag = useRef<{ x: number; y: number; moved: number } | null>(null);
@@ -175,7 +178,15 @@ export function BuilderScene({
         nudge.current.zoom = Math.min(2, Math.max(0.45, nudge.current.zoom * Math.exp(e.deltaY * 0.001)));
       }}
     >
-      <Canvas flat shadows dpr={[1, 2]} camera={{ fov: 30, near: 10, far: 6000, position: [0, 500, 800] }}>
+      <Canvas
+        flat
+        shadows
+        dpr={[1, 2]}
+        camera={{ fov: 30, near: 10, far: 6000, position: [0, 500, 800] }}
+        onPointerMissed={() => {
+          if (moved.current < 4 && !arrowDrag.on && performance.now() >= arrowDrag.until) onMiss?.();
+        }}
+      >
         <Atmosphere />
         <Reflections intensity={0.12} />
         <Lights />

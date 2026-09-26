@@ -347,6 +347,12 @@ export function Builder({
     [fit],
   );
 
+  // Clicking off the selected mark, on the body or the empty stage, clears its handles.
+  const deselectMark = useCallback(() => {
+    if (arrowDrag.on || performance.now() < arrowDrag.until) return;
+    setMarkSel(null);
+  }, []);
+
   const review = () => {
     pending.current?.();
     onReview({ ...model, name: shownName, build });
@@ -478,7 +484,8 @@ export function Builder({
         flip={flip}
         labelFor={labelFor}
         onHover={inside ? hoverStore.set : () => {}}
-        onPick={inside ? pick : surface ? pickSurface : undefined}
+        onPick={inside ? pick : surface ? pickSurface : marking ? deselectMark : undefined}
+        onMiss={marking ? deselectMark : undefined}
       />
       <div className={stage === "inside" ? "bd-scrim wide" : "bd-scrim"} />
       {TRAY.has(stage) && !powering && <div className="bd-scrim-bottom" />}

@@ -99,6 +99,20 @@
   /* Cafe: table, desktop and the mock visuals. */
   --cafe-table: #6b4a33;
   --cafe-wall: #2a211c;
+  /* The walkable cafe room. */
+  --cafe-room-wall: #5b3f2c;
+  --cafe-floor: #3e2c21;
+  --cafe-top: #b87a50;
+  --cafe-iron: #1a1614;
+  --cafe-chair: #7a4e32;
+  --cafe-counter: #3f2c20;
+  --cafe-counter-top: #a8764f;
+  --cafe-window: #ffe8cc;
+  --cafe-frame: #2a1f18;
+  --cafe-cup: #efe9e2;
+  --cafe-sun: #ffd9b0;
+  --cafe-sky: #ffdcb8;
+  --cafe-shade: #2a1a10;
   --desk-2006-a: #3a6ea5;
   --desk-2006-b: #7fb2e5;
   --desk-2026-a: #1d2b53;

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  type Box,
   CONTENT,
   gameEdition,
   KILNBENCH,
@@ -20,7 +19,8 @@ import { lookOf } from "../review/ReviewScreen";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
 import { token } from "../viewer/theme";
 import { usePhotos } from "../viewer/Photos";
-import { Scene, surfacesOf } from "../viewer/Scene";
+import { surfacesOf } from "../viewer/Scene";
+import { Cafe } from "./Cafe";
 import "./cafe.css";
 
 // The cafe: the laptop on a table, running what the simulation says it can.
@@ -249,11 +249,15 @@ export function CafeScreen({
   subject,
   library = [],
   onBack,
+  sound,
+  onSound,
 }: {
   subject: Subject;
   /** The player's reviewed models, for the review site. */
   library?: Subject[];
   onBack: () => void;
+  sound: boolean;
+  onSound: (on: boolean) => void;
 }) {
   const build = subject.build;
   const fit = useMemo(() => solve(build), [build]);
@@ -268,7 +272,6 @@ export function CafeScreen({
   const enabled = PROFILES.filter((id) => m.profiles[id].enabled);
   const [profile, setProfile] = useState<ProfileId>(() => balancedProfile(m.profiles));
   const [app, setApp] = useState<App>("desktop");
-  const [muted, setMuted] = useState(false);
   const [plugged, setPlugged] = useState(false);
   const [wh, setWh] = useState(() => m.battery?.wh ?? 0);
   const [heat, setHeat] = useState(0);
@@ -293,7 +296,7 @@ export function CafeScreen({
   const active = load ? tl[load] : tl.cpu;
   const db = off ? 0 : load ? active.db[i] : Math.max(idleDb, heat > 0 ? tl.cpu.db[i] : 0);
   const fan = off ? 0 : load ? active.fan[i] : Math.max(idleFan, heat > 0 ? tl.cpu.fan[i] : 0);
-  useFanAudio(db, fan, muted);
+  useFanAudio(db, fan, !sound);
 
   const edition = KILNBENCH.find((e) => e.year === benchYear) ?? KILNBENCH[0];
   const eraRef = build.year < 2012 ? 600 : build.year < 2020 ? 5000 : 20000;
@@ -334,12 +337,7 @@ export function CafeScreen({
     return () => clearInterval(id);
   }, [tl, work, edition.scale, battery, profile]);
 
-  const onPick = useCallback((b: Box) => {
-    if (!String(b.role).startsWith("port:") || !b.part) return;
-    const part = CONTENT.parts.find((p) => p.id === b.part);
-    const shape = Array.isArray(part?.shape) ? part?.shape[0] : part?.shape;
-    if (shape?.kind === "port" && shape.charges) setPlugged((v) => !v);
-  }, []);
+  const plug = useCallback(() => setPlugged((v) => !v), []);
 
   const look = lookOf(CONTENT.panels.find((p) => p.id === build.parts.display?.[0]?.part));
   const era = eraOf(build.year);
@@ -508,38 +506,19 @@ export function CafeScreen({
     }),
     [build],
   );
-  const labelFor = useCallback(() => "", []);
-  const noHover = useCallback(() => {}, []);
-  const depth = fit.shell.lid.size.y;
-
   return (
-    <div className="cafe">
-      {shoot}
-      <div className="review-bar">
-        <button type="button" onClick={onBack}>
-          ‹
-        </button>
-        <button type="button" onClick={() => setMuted((v) => !v)}>
-          {muted ? "Sound off" : "Sound on"}
-        </button>
-      </div>
-      <Scene
-        fit={fit}
-        year={build.year}
-        lidAngle={105}
-        colours={colours}
-        surfaces={surfaces}
-        xray={false}
-        labelFor={labelFor}
-        onHover={noHover}
-        onPick={onPick}
-        table={token("cafe-table")}
-        screen={look && page ? { node: page, width: look.width, mm: look.mm } : undefined}
-        camera={{
-          position: [depth * 0.35, depth * 0.85, depth * 1.6],
-          target: [0, depth * 0.35, -depth * 0.35],
-        }}
-      />
-    </div>
+    <Cafe
+      fit={fit}
+      year={build.year}
+      colours={colours}
+      surfaces={surfaces}
+      page={look && page ? { node: page, width: look.width, height: look.height, mm: look.mm } : undefined}
+      shoot={shoot}
+      plugged={plugged}
+      onPlug={plug}
+      sound={sound}
+      onSound={onSound}
+      onLeave={onBack}
+    />
   );
 }

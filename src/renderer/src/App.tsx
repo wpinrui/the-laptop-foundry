@@ -106,6 +106,8 @@ export function App() {
         subject={using}
         library={company.models.filter((x) => x.reviewed).map(subject)}
         onBack={() => setUsing(null)}
+        sound={settings.sound}
+        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
     );
   if (reviewing)

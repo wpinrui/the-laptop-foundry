@@ -157,7 +157,7 @@ export function Taskbar(p: TaskbarProps) {
               aria-label={APP_NAME[a]}
             >
               <Glyph app={a} s={26} />
-              <i />
+              <i className="os-run" />
             </button>
           ))}
         </span>

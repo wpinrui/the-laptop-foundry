@@ -328,8 +328,62 @@ const SIDE_NAME: Record<Side, string> = {
   front: "front",
 };
 
-function className(c: DeviceClass): string {
-  return [c.budget ?? "", c.body, c.performance ?? ""].filter(Boolean).join(" ");
+/**
+ * What a real review would call this laptop, from the class, screen size and
+ * era. Varied per model; the class names themselves never appear.
+ */
+export function laptopKind(f: Facts): string {
+  const { budget, body, performance } = f.cls;
+  const year = f.subject.build.year;
+  const old = year < 2012;
+  const inches = f.panel ? Math.round(f.panel.inches) : 0;
+  const size = inches ? `${inches}-inch` : "";
+  const incher = inches ? `${inches}-incher` : "";
+  const thin = body === "thin and light";
+  const large = body === "large";
+  const premium = budget === "premium";
+  const low = budget === "low";
+  let kinds: string[];
+  if (performance === "gaming") {
+    kinds = premium
+      ? ["high-end gaming notebook", "high-end gaming laptop", `${size} gaming flagship`]
+      : low
+        ? ["entry-level gaming laptop", "budget gaming notebook", `affordable ${size} gaming laptop`]
+        : ["gaming laptop", `${size} gaming notebook`, "mid-range gaming laptop"];
+    if (large) kinds.push(old ? "gaming desktop replacement" : `${size} gaming laptop`);
+    if (thin) kinds.push(old ? "compact gaming notebook" : "thin gaming laptop");
+  } else if (thin) {
+    kinds = old
+      ? [`${size} subnotebook`, "subnotebook", premium ? "business subnotebook" : low ? "budget subnotebook" : "compact notebook"]
+      : premium
+        ? ["premium ultrabook", `${size} ultraportable`, performance === "mixed-use" ? "creator ultrabook" : "business ultrabook"]
+        : low
+          ? ["affordable ultrabook", `budget ${size} ultraportable`, "entry-level subnotebook"]
+          : ["ultrabook", `${size} ultraportable`, `${size} subnotebook`];
+  } else if (large) {
+    kinds =
+      performance === "mixed-use"
+        ? premium && !old
+          ? [`workstation-class ${incher}`, "creator laptop", "desktop replacement"]
+          : [old ? "multimedia desktop replacement" : "desktop replacement", `${size} multimedia laptop`, "big-screen all-rounder"]
+        : [low ? "budget desktop replacement" : "desktop replacement", `big-screen ${size} office laptop`, `${size} office notebook`];
+  } else if (performance === "mixed-use") {
+    kinds = premium
+      ? [old ? "premium multimedia notebook" : "creator laptop", `premium ${size} all-rounder`, `high-end ${size} notebook`]
+      : low
+        ? [`affordable ${size} all-rounder`, "budget multimedia laptop", `entry-level ${size} notebook`]
+        : [old ? "multimedia notebook" : "multimedia laptop", `${size} all-rounder`, `mainstream ${incher}`];
+  } else {
+    kinds = premium
+      ? ["business laptop", `${size} business notebook`, `premium ${size} office laptop`]
+      : low
+        ? ["budget office notebook", `affordable ${size} office laptop`, `entry-level ${incher}`]
+        : ["office notebook", `${size} everyday laptop`, `mainstream ${size} office laptop`];
+  }
+  // Size-led wording needs a screen to size by.
+  const pool = kinds.filter((k) => inches || (k === k.trim() && !k.includes("  ")));
+  if (pool.length === 0) return "laptop";
+  return pool[Math.floor(rng(`kind:${f.subject.id}`)() * pool.length)];
 }
 
 function memoryText(content: Content, b: Build): string {
@@ -393,7 +447,7 @@ function compare(
 }
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-const an = (word: string) => `${/^[aeiou]/i.test(word) ? "an" : "a"} ${word}`;
+const an = (word: string) => `${/^(?:[aeiou]|8|1[18](?:\D|$))/i.test(word) ? "an" : "a"} ${word}`;
 
 /** Build the whole review for a model or a rival. */
 export function reviewOf(s: Subject, content: Content = CONTENT): Review {
@@ -406,7 +460,7 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
   const gpuPart = partOf(content, b, "graphics");
   const cpuPart = partOf(content, b, "processor");
   const gpu = gpuPart?.name ?? String(cpuPart?.info?.igpu ?? "integrated graphics");
-  const cls = className(f.cls);
+  const kind = laptopKind(f);
   const pc = prosAndCons(f, peers);
   const value = valueWord(f, peers);
   const c = f.m.cooling;
@@ -419,12 +473,12 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
   const verdict: string[] = [];
   verdict.push(
     say("open", [
-      `The ${full} is a ${cls} laptop built around the ${cpu} and ${gpu}.`,
-      `With the ${cpu} and ${gpu} inside, the ${full} lands in the ${cls} class.`,
-      `${s.company} pitches the ${s.name} as a ${cls} machine, and on paper the ${cpu} and ${gpu} fit that brief.`,
-      `Our test unit of the ${full} pairs the ${cpu} with ${gpu}, which puts it among ${cls} laptops.`,
-      `${s.company} enters the ${cls} segment with the ${s.name}, powered by the ${cpu} and ${gpu}.`,
-      `The ${s.name} is ${s.company}'s take on a ${cls} laptop: ${cpu} for the processor, ${gpu} for graphics.`,
+      `The ${full} is ${an(kind)} built around the ${cpu} and ${gpu}.`,
+      `With the ${cpu} and ${gpu} inside, the ${full} makes for ${an(kind)}.`,
+      `${s.company} pitches the ${s.name} as ${an(kind)}, and on paper the ${cpu} and ${gpu} fit that brief.`,
+      `Our test unit of the ${full} pairs the ${cpu} with ${gpu}, which makes it ${an(kind)}.`,
+      `${s.company} enters the ${kind} market with the ${s.name}, powered by the ${cpu} and ${gpu}.`,
+      `The ${s.name} is ${s.company}'s take on ${an(kind)}: ${cpu} for the processor, ${gpu} for graphics.`,
     ]),
   );
   if (pc.pros.length)
@@ -976,7 +1030,7 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     `Review of the ${full}`,
     `${full} in review: ${pc.cons[0] ? `strong, but ${pc.cons[0].toLowerCase()}` : "hard to fault"}`,
     `${full} laptop review`,
-    `Tested: the ${full}, a ${cls} laptop`,
+    `Tested: the ${full}, ${an(kind)}`,
   ]);
 
   return {

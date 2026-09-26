@@ -1,5 +1,5 @@
 import { type CSSProperties, useMemo, useState } from "react";
-import { factsOf, type Review, rollScores, type Subject, type Table } from "../engine";
+import { factsOf, laptopKind, type Review, rollScores, type Subject, type Table } from "../engine";
 import "./review.css";
 
 // The in-game review site, Notebookcheck (GDD: it publishes the reviews). Its look follows the model's era.
@@ -154,7 +154,7 @@ export function ReviewIndex({
     () =>
       entries.map((e) => {
         const f = factsOf(e.subject);
-        return { ...e, cls: f.cls, score: rollScores(e.subject.id).overall };
+        return { ...e, cls: f.cls, kind: laptopKind(f), score: rollScores(e.subject.id).overall };
       }),
     [entries],
   );
@@ -235,9 +235,7 @@ export function ReviewIndex({
                   </button>
                 </td>
                 <td>{r.subject.build.year}</td>
-                <td>
-                  {[r.cls.budget, r.cls.body, r.cls.performance].filter(Boolean).join(", ")}
-                </td>
+                <td>{r.kind.charAt(0).toUpperCase() + r.kind.slice(1)}</td>
                 <td>{r.subject.build.price ? `$${r.subject.build.price.toLocaleString("en-US")}` : "—"}</td>
                 <td>{r.score.toFixed(1)}%</td>
               </tr>

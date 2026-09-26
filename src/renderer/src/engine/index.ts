@@ -49,6 +49,7 @@ export {
 export {
   CATEGORIES as REVIEW_CATEGORIES,
   factsOf,
+  laptopKind,
   type Review,
   reviewOf,
   rivalSubject,

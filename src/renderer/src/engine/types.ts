@@ -457,6 +457,8 @@ export interface BuildPart {
 export type SpendKey = Category | "packing" | "material";
 
 export interface Build {
+  /** The builder stage the player was last on, to reopen there. */
+  stage?: string;
   year: number;
   body: string;
   layout: string;

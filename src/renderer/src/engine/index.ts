@@ -29,6 +29,7 @@ export {
   type Cost,
   classify,
   costOf,
+  packageGb,
   partPrice,
   pieceOf,
   screenPrice,

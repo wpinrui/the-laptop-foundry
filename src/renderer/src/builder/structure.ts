@@ -1,4 +1,4 @@
-import { available, type Build, CONTENT, colourHex, type Piece, PIECES } from "../engine";
+import { available, type Build, type BuildPort, CONTENT, colourHex, type Piece, PIECES } from "../engine";
 
 // Structural choices always hold a valid value for the year. Changing year
 // keeps every part, port, option and spend setting: anything the new year
@@ -46,13 +46,51 @@ function validFinish(b: Build): Pick<Build, "materials" | "finish"> {
   return { materials, finish };
 }
 
+/**
+ * The ports a new build is born with: a charging port and the era's usual
+ * few, split across the left and right walls. Only ports the year has.
+ */
+export function defaultPorts(year: number): BuildPort[] {
+  const set: [string, BuildPort["side"]][] =
+    year >= 2020
+      ? [
+          ["usb-c-10g", "left"],
+          ["usb-c-10g", "left"],
+          ["usb-a-10g", "right"],
+          ["audio-combo", "right"],
+        ]
+      : year >= 2012
+        ? [
+            ["dc-jack", "left"],
+            ["hdmi-1.4", "left"],
+            ["usb-a-5g", "left"],
+            ["usb-a-5g", "right"],
+            ["audio-combo", "right"],
+          ]
+        : [
+            ["dc-jack", "left"],
+            ["vga", "left"],
+            ["usb-a-2.0", "left"],
+            ["usb-a-2.0", "right"],
+            ["headphone-mic", "right"],
+          ];
+  return set
+    .filter(([id]) => CONTENT.parts.some((p) => p.id === id && available(p, year)))
+    .map(([part, side]) => ({ part, side }));
+}
+
+const samePorts = (a: BuildPort[], b: BuildPort[]) =>
+  a.length === b.length && a.every((p, i) => p.part === b[i].part && p.side === b[i].side && p.along === undefined && p.height === undefined);
+
 /** Move a build to another year: choices are kept, missing ones get flagged; the structure stays valid. */
 export function toYear(b: Build, year: number): Build {
   const bodyOk = CONTENT.bodies.some(
     (x) => x.id === b.body && available(x, year),
   );
   const body = bodyOk ? b.body : firstBody(year);
-  const next: Build = { ...b, year, body };
+  // Untouched default ports follow the year; anything the player changed stays.
+  const ports = samePorts(b.ports, defaultPorts(b.year)) ? defaultPorts(year) : b.ports;
+  const next: Build = { ...b, year, body, ports };
   next.layout = validLayout(body, b.layout, year);
   return { ...next, ...validFinish(next) };
 }
@@ -75,7 +113,7 @@ export function emptyBuild(): Build {
     layout: validLayout(body, CONTENT.layouts[0].id, year),
     size: { ...(b?.size ?? { x: 340, y: 240, z: 22 }) },
     parts: {},
-    ports: [],
+    ports: defaultPorts(year),
     materials: { floor: "", deck: "", lid: "" },
     finish: {
       floor: { colour, texture: "" },

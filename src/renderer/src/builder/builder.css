@@ -1121,17 +1121,62 @@
   border-top: 2px dashed var(--accent);
 }
 
-.bd-port-pick {
+/* Surface ports: the laptop's ports by wall, each a full-name row. */
+.bd-port-walls {
   display: flex;
-  flex-wrap: wrap;
-  gap: calc(6 * var(--u));
-  max-height: calc(120 * var(--u));
+  flex-direction: column;
+  gap: calc(14 * var(--u));
+  max-height: calc(330 * var(--u));
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
-.bd-port-pick .bd-chip {
-  padding: calc(5 * var(--u)) calc(9 * var(--u)) !important;
-  font-size: calc(14 * var(--u)) !important;
+.bd-port-wall {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bd-port-wall .bd-label {
+  margin-bottom: calc(4 * var(--u));
+}
+
+.bd-port-item {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  padding: calc(7 * var(--u)) calc(10 * var(--u)) !important;
+  font-family: var(--font-display) !important;
+  font-weight: 500 !important;
+  font-size: calc(18 * var(--u)) !important;
+  text-align: left;
+  color: var(--text) !important;
+}
+
+.bd-port-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(44 * var(--u));
+  height: calc(22 * var(--u));
+}
+
+.bd-port-icon .bd-port-shape {
+  transform: scale(0.7);
+}
+
+.bd-port-item span {
+  min-width: 0;
+}
+
+.bd-port-item:hover,
+.bd-port-item.on {
+  color: var(--accent) !important;
+}
+
+.bd-port-item.on {
+  background: var(--accent-wash) !important;
 }
 
 .bd-port-head b {
@@ -1632,6 +1677,17 @@
   cursor: pointer;
 }
 
+.bd-drop-group {
+  flex: none;
+  padding: calc(10 * var(--u)) calc(12 * var(--u)) calc(3 * var(--u));
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .bd-drop-item.active {
   background: color-mix(in srgb, var(--text) 7%, transparent);
 }
@@ -1692,4 +1748,28 @@
 
 .bd-custom small.warn {
   color: var(--warning);
+}
+
+/* A fit problem floating beside a drag handle on the 3D laptop. */
+.bd-3d-note {
+  display: block;
+  white-space: nowrap;
+  padding: 4px 8px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ground);
+  background: var(--warning);
+}
+
+.bd-strip span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+}
+
+.bd-strip-icon {
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  color: var(--muted);
 }

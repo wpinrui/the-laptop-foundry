@@ -7,16 +7,19 @@ import {
   type Fit,
   type Part,
   partPrice,
+  type PortGroup,
   partsFor,
+  type Problem,
   type Side,
 } from "../engine";
+import { Html } from "@react-three/drei";
 import { useRef } from "react";
 import { CornerHandle, DragArrow, Dashed, Outline } from "./Arrows";
 import { OptionChips, type SetBuild, withPart } from "./Parts";
 import { problemText } from "./problems";
 import type { StageProps } from "./Stages";
-import { Dropdown } from "./Dropdown";
-import { Card, Chip, Chips, Label, Line, money, SliderField, Value } from "./ui";
+import { type DropOption, Dropdown } from "./Dropdown";
+import { Chip, Chips, Label, Line, money, SliderField, Value } from "./ui";
 
 // The Surface stage: keyboard, trackpad, webcam and ports, placed on the 3D
 // laptop with drag arrows. Keyboard and trackpad stay centred left to right;
@@ -203,14 +206,45 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
       if (after.length > 0) gap = Math.min(...after.map((b) => b.at[e] - (me.at[e] + me.size[e])));
     }
   }
+  const side = bp?.side ?? sides[0] ?? "left";
+  // Walls the layout offers, then any wall a port sits on that it no longer does.
+  const walls = [...sides, ...build.ports.map((p) => p.side).filter((s) => !sides.includes(s))].filter(
+    (s, i, a) => a.indexOf(s) === i,
+  );
+  const add = (id: string) => {
+    set((b) => ({ ...b, ports: [...b.ports, { part: id, side }] }));
+    onPort(build.ports.length);
+  };
   return (
     <>
-      <div className="bd-port-pick">
-        {build.ports.map((p, i) => (
-          <Chip key={`${p.part}-${i}`} caps on={i === port} onClick={() => onPort(i)}>
-            {CONTENT.parts.find((x) => x.id === p.part)?.name ?? p.part}
-          </Chip>
-        ))}
+      <div className="bd-port-walls">
+        {build.ports.length === 0 && <span className="bd-note">No ports yet. Add one below.</span>}
+        {walls.map((w) => {
+          const on = build.ports.map((p, i) => ({ p, i })).filter((x) => x.p.side === w);
+          if (on.length === 0) return null;
+          return (
+            <div key={w} className="bd-port-wall">
+              <Label>{SIDE_NAME[w]}</Label>
+              {on.map(({ p, i }) => (
+                <button
+                  type="button"
+                  key={`${p.part}-${i}`}
+                  className={["bd-port-item", i === port ? "on" : ""].join(" ")}
+                  onClick={() => onPort(i)}
+                >
+                  <b className="bd-port-icon">
+                    <i className={`bd-port-shape ${portShape(p.part)}`} />
+                  </b>
+                  <span>{CONTENT.parts.find((x) => x.id === p.part)?.name ?? p.part}</span>
+                </button>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+      <div className="bd-line">
+        <Label>Add to {SIDE_NAME[side].toLowerCase()}</Label>
+        <Dropdown label="Add port" value={null} placeholder="Add port" options={portOptions(build)} onChange={add} />
       </div>
       {bp && part && (
         <>
@@ -284,6 +318,29 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
 
 
 
+const GROUP_NAME: [PortGroup, string][] = [
+  ["power", "Power"],
+  ["usb", "USB"],
+  ["video", "Video"],
+  ["network", "Network"],
+  ["cards", "Cards"],
+  ["audio", "Audio"],
+  ["other", "Other"],
+];
+
+/** The year's ports for the Add port dropdown, grouped, each with how many the laptop has. */
+function portOptions(build: Build): DropOption[] {
+  const list = partsFor("port", build.year);
+  return GROUP_NAME.flatMap(([g, name]) =>
+    list
+      .filter((p) => p.shape.kind === "port" && p.shape.group === g)
+      .map((p) => {
+        const n = build.ports.filter((x) => x.part === p.id).length;
+        return { key: p.id, label: p.name, group: name, aside: n > 0 ? `${n} fitted` : undefined };
+      }),
+  );
+}
+
 const PART_LABEL: Partial<Record<Category, string>> = { keyboard: "Travel", trackpad: "Size", webcam: "Camera" };
 
 /** The part itself: chips for a short list, a dropdown for a long one. */
@@ -326,33 +383,25 @@ function shortName(cat: Category, p: Part): string {
   return p.name;
 }
 
-export function SurfaceTray({ build, set, item, port, onPort }: StageProps & { item: SurfaceItem; port: number; onPort: (i: number) => void }) {
-  if (item !== "ports") return null;
-  const layout = CONTENT.layouts.find((l) => l.id === build.layout);
-  const side = build.ports[port]?.side ?? layout?.portSides[0] ?? "left";
-  return (
-    <>
-      {partsFor("port", build.year).map((p) => (
-        <Card
-          key={p.id}
-          width={128}
-          top={<i className={`bd-port-shape ${portShape(p.id)}`} />}
-          name={p.name.replace(/ \(.*\)$/, "")}
-          title={p.name}
-          aside={build.ports.filter((x) => x.part === p.id).length}
-          onClick={() => {
-            set((b) => ({ ...b, ports: [...b.ports, { part: p.id, side }] }));
-            onPort(build.ports.length);
-          }}
-        />
-      ))}
-    </>
-  );
-}
-
 // ------------------------------------------------------------------ 3D
 
 type V3 = [number, number, number];
+
+/** The first fit problem that names this part, for feedback on the 3D handles. */
+function partProblem(fit: Fit, part: string | undefined, codes: string[]): Problem | undefined {
+  if (!part) return undefined;
+  return fit.problems.find((p) => p.kind === "compat" && codes.includes(p.code) && (p as { part?: string }).part === part);
+}
+
+/** A short warning floating beside a handle. */
+function HandleNote({ at, problem }: { at: V3; problem?: Problem }) {
+  if (!problem) return null;
+  return (
+    <Html position={at} center={false} style={{ pointerEvents: "none" }}>
+      <span className="bd-3d-note">{problemText(problem)}</span>
+    </Html>
+  );
+}
 
 /** Outline, centre line and arrows for the selected surface item, in the base's engine space. */
 export function SurfaceMarks({
@@ -389,9 +438,11 @@ export function SurfaceMarks({
     ];
     const kb = item === "keyboard";
     const r = kb ? rep.kb : rep.pad;
+    const bad = partProblem(fit, b.part, ["overlap", "no-room"]);
     return (
       <group>
-        <Outline corners={corners} />
+        <Outline corners={corners} warn={!!bad} />
+        <HandleNote at={[x1 + 4, y1, top]} problem={bad} />
         {!kb && rep.pad && <PadHandles corners={corners} pad={rep.pad} set={set} locked={locked} />}
         <Dashed a={[o.x / 2, 4, top]} b={[o.x / 2, o.y - 4, top]} />
         {r && (
@@ -402,6 +453,7 @@ export function SurfaceMarks({
             value={kb ? (rep.kb?.y ?? 0) : (rep.pad?.y ?? 0)}
             range={kb ? (rep.kb?.range ?? [0, 0]) : (rep.pad?.range ?? [0, 0])}
             disabled={locked}
+            warn={!!bad}
             onChange={(v) =>
               set((bd) =>
                 setPlace(bd, (p) => (kb ? { ...p, kb: { y: v } } : { ...p, pad: { ...p.pad, y: v } })),
@@ -454,9 +506,11 @@ export function SurfaceMarks({
     .filter((x) => x.i !== port && x.p.side === side && x.r);
   const alongSnaps = [(pr.alongRange[0] + pr.alongRange[1]) / 2, ...peers.map((x) => x.r?.along ?? 0)];
   const hSnaps = pr.heightRange ? [(pr.heightRange[0] + pr.heightRange[1]) / 2, ...peers.map((x) => x.r?.height ?? 0)] : [];
+  const bad = partProblem(fit, bp.part, ["overlap", "port-side", "no-room"]);
   return (
     <group>
-      <Outline corners={corners} />
+      <Outline corners={corners} warn={!!bad} />
+      <HandleNote at={corners[2]} problem={bad} />
       <DragArrow
         at={at}
         dir={alongDir}
@@ -465,6 +519,7 @@ export function SurfaceMarks({
         range={pr.alongRange}
         snaps={alongSnaps}
         disabled={locked}
+        warn={!!bad}
         onChange={(v) => set((bd) => setPort(bd, port, (p) => ({ ...p, along: v })))}
       />
       {pr.heightRange && (
@@ -476,6 +531,7 @@ export function SurfaceMarks({
           range={pr.heightRange}
           snaps={hSnaps}
           disabled={locked}
+          warn={!!bad}
           onChange={(v) => set((bd) => setPort(bd, port, (p) => ({ ...p, height: v })))}
         />
       )}

@@ -29,6 +29,7 @@ export function DragArrow({
   snaps = [],
   onChange,
   disabled,
+  warn,
 }: {
   at: V3;
   /** The direction the value grows, in engine space. */
@@ -39,6 +40,8 @@ export function DragArrow({
   snaps?: number[];
   onChange: (v: number) => void;
   disabled?: boolean;
+  /** Drawn in the warning colour while the item sits somewhere invalid. */
+  warn?: boolean;
 }) {
   const group = useRef<THREE.Group>(null);
   const camera = useThree((s) => s.camera);
@@ -47,7 +50,7 @@ export function DragArrow({
   const [drag, setDrag] = useState(false);
   const latest = useRef({ value, range, snaps, onChange });
   latest.current = { value, range, snaps, onChange };
-  const colour = useMemo(() => token(hot || drag ? "hot" : "accent-hex"), [hot, drag]);
+  const colour = useMemo(() => token(hot || drag ? "hot" : warn ? "warning-hex" : "accent-hex"), [hot, drag, warn]);
   const q = useMemo(() => new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(...dir).normalize()), [dir]);
   const len = Math.max(1, reach - GAP - CONE_H);
 
@@ -150,8 +153,8 @@ export function DragArrow({
 }
 
 /** A rectangle through four corners, with optional corner squares. */
-export function Outline({ corners, handles }: { corners: V3[]; handles?: boolean }) {
-  const colour = useMemo(() => token("accent-hex"), []);
+export function Outline({ corners, handles, warn }: { corners: V3[]; handles?: boolean; warn?: boolean }) {
+  const colour = useMemo(() => token(warn ? "warning-hex" : "accent-hex"), [warn]);
   const line = useMemo(() => {
     const g = new THREE.BufferGeometry().setFromPoints([...corners, corners[0]].map((c) => new THREE.Vector3(...c)));
     const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: colour, depthTest: false, transparent: true }));

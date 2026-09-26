@@ -160,10 +160,10 @@ There is no sustainability score.
 
 ## Rivals
 
-- Rivals come from six fictional makers based on Lenovo, HP, Dell, Apple, Asus and Acer.
+- Rivals are real laptops from six real makers: Lenovo, HP, Dell, Apple, Asus and Acer.
 - The six makers are constant across all years. There are no entries or exits.
 - Each maker is set to compete or not compete in each class. That setting applies to every year.
-- Rivals carry fictional company and model names.
+- Rivals carry their real company and model names until the game goes public.
 - Rivals are hand-built and hard-coded as presets per year and class. Every player build faces the same field.
 - Rivals build under the same constraints as the player. The Apple-based rival may use Apple M-series processors, which the player cannot use.
 - Rivals only shape the pros and cons.

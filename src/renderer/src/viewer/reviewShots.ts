@@ -206,7 +206,7 @@ export function screenTexture(
 // ------------------------------------------------------------------ thermal
 
 /** The heat map's fixed scale, so every review's thermal photos read alike. */
-const SCALE_C: [number, number] = [20, 58];
+const SCALE_C: [number, number] = [20, 66];
 
 function heatTexture(grid: number[], nx: number, ny: number): THREE.DataTexture {
   const t = (c: number) => Math.round(255 * Math.min(1, Math.max(0, (c - SCALE_C[0]) / (SCALE_C[1] - SCALE_C[0]))));

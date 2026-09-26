@@ -43,6 +43,8 @@ const DURATION = 1800;
 const RUN = 60;
 const TRACE = [30, 60, 300, 600, 1800];
 const NOISE_FLOOR = 22;
+/** Fan airflow washes the inside of the case: the hot spot's rise shrinks by 1 + this times the fans' W/K. */
+const SKIN_WASH = 0.2;
 
 export interface Performance {
   /** Cinebench R23 points. */
@@ -249,6 +251,8 @@ interface Cooler {
   capacity: number;
   /** Share of the sink's rise over the room seen at the hottest skin spot. */
   skin: number;
+  /** Share of a die's rise over the sink seen there too: the spot sits over the chip package. */
+  pkg: number;
   /** Die resistance multiplier: a bare spreader conducts worse than heat pipes. */
   die: number;
 }
@@ -276,16 +280,21 @@ export function cooler(f: Facts): Cooler {
 
   const litres = (x * y * z) / 1e6;
   const capacity = 250 * litres + 40 * f.fans.length + 60;
-  const skin =
-    (f.fanCount === 0 ? 0.45 : 0.42) +
-    (spread - 0.35) * 0.15 +
-    Math.max(0, (20 - z) / 100);
+  // The hottest spot sits over the chips: it sees most of the sink's rise and,
+  // the thinner the body, part of the package's rise over the sink as well.
+  // Without a fan the sink is a spreader plate the case sees across a wide
+  // gap, and every watt leaves through the skin: a MacBook Air M4 holds its
+  // shell near 45 °C while the plate runs far hotter.
+  const fanless = f.fanCount === 0;
+  const skin = (fanless ? 0.35 : 0.76) + (spread - 0.35) * 0.15;
+  const pkg = fanless ? 0 : 0.3 * Math.min(1.5, (13 / z) ** 1.4);
   return {
     passive,
     active,
     loudest,
     capacity,
-    skin: Math.min(0.9, skin),
+    skin,
+    pkg,
     die: f.fanCount === 0 ? 1.5 : 1,
   };
 }
@@ -416,14 +425,17 @@ function coolingFor(
   const loop = run(f, c, p, "cpu", DURATION);
   const game = run(f, c, p, "gpu", DURATION);
   const stress = run(f, c, p, "stress", DURATION);
-  const idle = run(f, c, p, "idle", 600);
+  const idle = run(f, c, p, "idle", DURATION);
   const multi = (ws: number[]) => mean(ws.map((w) => scoreAt(cpu, w)));
   const gfx = (i: number) => graphicsAt(f, game.cpuW[i], game.gpuW[i]);
   const gfxRun = (from: number) =>
     mean(Array.from({ length: RUN }, (_, i) => gfx(from + i)));
-  const peakSink = Math.max(...stress.sink);
   const fanPeak = Math.max(...head(stress.fan));
-  const peakSkin = AMBIENT + (peakSink - AMBIENT) * c.skin;
+  const skinAt = (t: Trace, i: number) =>
+    AMBIENT +
+    (c.skin * (t.sink[i] - AMBIENT) + c.pkg * Math.max(0, t.cpuDie[i] - t.sink[i])) /
+      (1 + SKIN_WASH * c.active * Math.max(0, t.fan[i]) ** 0.8);
+  const peakSkin = Math.max(...stress.sink.map((_, i) => skinAt(stress, i)));
   const carried = (fan: number) => {
     const g = c.active * Math.max(0, fan) ** 0.8;
     return g > 0 ? Math.min(0.9, g / (g + c.passive)) : 0;
@@ -447,7 +459,7 @@ function coolingFor(
       base,
       fan: idleFan,
       carried: carried(idleFan),
-      peak: AMBIENT + (idle.sink[idle.sink.length - 1] - AMBIENT) * c.skin,
+      peak: skinAt(idle, idle.sink.length - 1),
     },
     {
       cpuW: mean(tail(stress.cpuW)),

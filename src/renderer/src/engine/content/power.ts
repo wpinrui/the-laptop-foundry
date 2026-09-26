@@ -11,7 +11,7 @@ export const BATTERIES: Part[] = [
     name: "Li-ion 18650 cells",
     category: "battery",
     from: 1998,
-    until: 2012,
+    until: 2015,
     shape: {
       kind: "cells",
       perRow: { "4": 2, "6": 3, "9": 3, "12": 3 },
@@ -36,6 +36,22 @@ export const BATTERIES: Part[] = [
       thickness: { standard: 6 },
     },
     options: { wh: [40, 55], thickness: ["standard"] },
+    compact: ["x"],
+  },
+  {
+    // The first thin-and-light pouches: less dense than today's.
+    id: "li-po-pouch-2012",
+    name: "Li-polymer pouch",
+    category: "battery",
+    from: 2010,
+    until: 2016,
+    shape: {
+      kind: "pouch",
+      whPerLitre: 450,
+      depth: 80,
+      thickness: { slim: 5, standard: 7 },
+    },
+    options: { wh: [50, 40, 60, 75, 90], thickness: ["slim", "standard"] },
     compact: ["x"],
   },
   {
@@ -65,7 +81,7 @@ export const HOTSWAP: Part[] = [
     name: "Bay battery",
     category: "hotswap",
     from: 2003,
-    until: 2012,
+    until: 2014,
     shape: {
       kind: "box",
       units: [{ role: "odd", size: { x: 126, y: 128, z: 12.7 } }],

@@ -140,6 +140,17 @@ const FIXED: Record<string, number> = {
   "geforce-gtx-1070-laptop": 480,
   "geforce-gtx-1080-laptop": 750,
   "dvd-rw-slim-2016": 18,
+  "bd-combo-slim": 45,
+  "wifi-n-draft": 25,
+  "wifi-n-bt3": 18,
+  "wifi-n-bt4": 15,
+  "wifi-6": 12,
+  displayport: 4,
+  "hdmi-2.0": 3,
+  "esata-usb": 3,
+  "usb-c-5g": 3,
+  "thunderbolt-1": 15,
+  "thunderbolt-2": 18,
   "wifi-ac": 15,
   "kb-2.0": 16,
   "pad-100x56": 10,
@@ -224,7 +235,19 @@ const FIXED: Record<string, number> = {
 /** Per gigabyte and per module, for memory. */
 const MEMORY: Record<string, { gb: number; module: number }> = {
   "ddr2-667-sodimm": { gb: 100, module: 10 },
+  "ddr2-800-sodimm": { gb: 40, module: 8 },
+  "ddr3-1066-sodimm": { gb: 20, module: 6 },
+  "ddr3-1333-sodimm": { gb: 10, module: 5 },
+  "ddr3-1600-sodimm": { gb: 8, module: 5 },
+  "ddr3l-1600-sodimm": { gb: 8, module: 5 },
   "ddr4-2133-sodimm": { gb: 6, module: 5 },
+  "ddr4-2400-sodimm": { gb: 7, module: 5 },
+  "ddr4-2666-sodimm": { gb: 6, module: 5 },
+  "ddr4-3200-sodimm": { gb: 4, module: 5 },
+  "lpddr4x-soldered": { gb: 5, module: 0 },
+  "ddr5-4800-sodimm": { gb: 7, module: 5 },
+  "lpddr5-soldered": { gb: 6, module: 0 },
+  "ddr5-6400-sodimm": { gb: 11, module: 5 },
   "lpddr3-soldered": { gb: 7, module: 0 },
   "ddr5-5600-sodimm": { gb: 10, module: 5 },
   lpcamm2: { gb: 12, module: 10 },
@@ -237,7 +260,10 @@ const STORAGE: Record<string, { base: number; gb: number }> = {
   "hdd25-7200": { base: 60, gb: 0.6 },
   hdd18: { base: 70, gb: 1 },
   "ssd18-pata": { base: 50, gb: 12.5 },
+  "hdd25-5400-2010": { base: 40, gb: 0.08 },
+  "hdd25-7200-2010": { base: 50, gb: 0.1 },
   "hdd25-2016": { base: 40, gb: 0.03 },
+  "msata-ssd": { base: 20, gb: 0.8 },
   "m2-2280-sata": { base: 15, gb: 0.25 },
   "m2-2280-g3": { base: 20, gb: 0.35 },
   "ssd25-sata": { base: 15, gb: 0.07 },
@@ -251,6 +277,7 @@ const STORAGE: Record<string, { base: number; gb: number }> = {
 const BATTERY: Record<string, number> = {
   "li-ion-18650": 1.2,
   "slim-li-po-2006": 1.8,
+  "li-po-pouch-2012": 0.9,
   "li-po-pouch": 0.5,
 };
 
@@ -288,8 +315,9 @@ function partCost(
     }
     case "storage": {
       const s = STORAGE[part.id] ?? { base: 30, gb: 0.1 };
-      // A 2.5 inch SATA SSD cost about four times as much per gigabyte in 2016.
-      const flash = part.id === "ssd25-sata" && year < 2020 ? 4 : 1;
+      // A 2.5 inch SATA SSD cost about four times as much per gigabyte in
+      // 2016, and far more before that.
+      const flash = part.id !== "ssd25-sata" ? 1 : year < 2012 ? 15 : year < 2014 ? 8 : year < 2020 ? 4 : 1;
       return s.base + Number(o("capacity") ?? 0) * s.gb * flash;
     }
     case "battery": {

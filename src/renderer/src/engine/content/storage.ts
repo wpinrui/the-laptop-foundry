@@ -65,6 +65,22 @@ export const STORAGE: Part[] = [
     [80, 60, 100],
   ),
   bay(
+    "hdd25-5400-2010",
+    "2.5 inch HDD 9.5 mm, 5400 rpm",
+    2009,
+    2014,
+    d25,
+    [320, 250, 500, 750, 1000],
+  ),
+  bay(
+    "hdd25-7200-2010",
+    "2.5 inch HDD 9.5 mm, 7200 rpm",
+    2009,
+    2014,
+    d25,
+    [500, 320, 750],
+  ),
+  bay(
     "hdd25-2016",
     "2.5 inch HDD 7 mm, 5400 rpm",
     2013,
@@ -81,6 +97,15 @@ export const STORAGE: Part[] = [
     2030,
     { x: 100, y: 69.85, z: 7 },
     [512, 1024, 256],
+  ),
+  // mSATA: the board-mounted SSD before M.2.
+  m2(
+    "msata-ssd",
+    "mSATA SSD",
+    2011,
+    2015,
+    { x: 30, y: 51, z: 3.5 },
+    [128, 64, 256, 512],
   ),
   m2(
     "m2-2280-sata",
@@ -166,10 +191,13 @@ const DRIVE_LAB: Record<string, DriveLab> = {
   "hdd25-5400": { ref: 80, seq: [40, 38], rand: [0.4, 0.9], access: 17.5, hdd: true },
   "hdd25-7200": { ref: 100, seq: [55, 52], rand: [0.55, 1.1], access: 14.5, hdd: true },
   "hdd25-2016": { ref: 1000, seq: [110, 105], rand: [0.5, 1.2], access: 17, hdd: true },
+  "hdd25-5400-2010": { ref: 500, seq: [95, 90], rand: [0.45, 1], access: 17, hdd: true },
+  "hdd25-7200-2010": { ref: 500, seq: [115, 110], rand: [0.6, 1.3], access: 15, hdd: true },
   "hdd18": { ref: 60, seq: [25, 23], rand: [0.25, 0.5], access: 20, hdd: true },
   // Early flash: quick reads, dreadful small writes.
   "ssd18-pata": { ref: 32, seq: [52, 36], rand: [9, 0.1], access: 0.4, cache: [36, 1] },
   "ssd25-sata": { ref: 512, seq: [540, 500], rand: [38, 100], access: 0.08, cache: [440, 0.02] },
+  "msata-ssd": { ref: 128, seq: [500, 330], rand: [25, 60], access: 0.1, cache: [300, 0.02] },
   "m2-2280-sata": { ref: 512, seq: [530, 480], rand: [33, 85], access: 0.08, cache: [420, 0.02] },
   "m2-2280-g3": { ref: 512, seq: [3200, 1700], rand: [50, 140], access: 0.05, cache: [600, 0.03], loop: 0.8 },
   "m2-2280-g4": { ref: 1024, seq: [7000, 6000], rand: [75, 200], access: 0.04, cache: [1500, 0.1], loop: 0.85 },

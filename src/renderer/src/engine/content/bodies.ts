@@ -37,7 +37,7 @@ export const BODIES: Body[] = [
     id: "pillow",
     name: "Pillow",
     from: 2000,
-    until: 2012,
+    until: 2014,
     size: { ...START },
     limits: LIMITS,
     style: {
@@ -55,7 +55,7 @@ export const BODIES: Body[] = [
     // A sharp chamfered wedge: small corners, chamfered edges, 6 mm thicker at the rear, drop hinge.
     id: "blade",
     name: "Blade",
-    from: 2015,
+    from: 2011,
     until: 2099,
     size: { ...START },
     limits: LIMITS,

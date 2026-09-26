@@ -68,10 +68,14 @@ const SURFACE = new Set<string>(["keyboard", "trackpad", "webcam", "port"]);
 
 const MEMORY_NEED: Record<string, string> = {
   "ddr2-sodimm": "DDR2 SO-DIMM slots",
+  "ddr3-sodimm": "DDR3 SO-DIMM slots",
+  "ddr3l-sodimm": "DDR3L SO-DIMM slots",
   "ddr4-sodimm": "DDR4 SO-DIMM slots",
   "ddr5-sodimm": "DDR5 SO-DIMM slots",
   lpcamm2: "LPCAMM2 support",
   "lpddr3-soldered": "soldered LPDDR3",
+  "lpddr4x-soldered": "soldered LPDDR4X",
+  "lpddr5-soldered": "soldered LPDDR5",
   "lpddr5x-soldered": "soldered LPDDR5X",
   "on-package": "on-package memory",
 };

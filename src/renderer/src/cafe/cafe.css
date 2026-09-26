@@ -47,6 +47,7 @@
   background: var(--text);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ground) 80%, transparent);
   pointer-events: none;
+  z-index: 10;
 }
 
 .cafe-prompts {
@@ -59,6 +60,7 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 150ms ease-out;
+  z-index: 10;
 }
 
 .cafe-prompts.on {

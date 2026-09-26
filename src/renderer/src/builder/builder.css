@@ -1624,6 +1624,51 @@
   color: var(--accent);
 }
 
+/* Emoji browser: search on an underline, then a grid of emoji. */
+.bd-search {
+  width: 100%;
+  font-family: var(--font-body) !important;
+  font-size: calc(17 * var(--u)) !important;
+  color: var(--text) !important;
+  border-bottom: 1px solid var(--line-chip) !important;
+  padding-bottom: calc(6 * var(--u)) !important;
+}
+
+.bd-search:focus {
+  border-bottom-color: var(--accent) !important;
+  outline: none;
+}
+
+.bd-search::placeholder {
+  color: var(--muted);
+}
+
+.bd-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(7, calc(56 * var(--u)));
+  gap: calc(8 * var(--u));
+}
+
+.bd-emoji {
+  position: relative;
+  width: calc(56 * var(--u));
+  height: calc(56 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line) !important;
+}
+
+.bd-emoji img {
+  width: calc(34 * var(--u));
+  height: calc(34 * var(--u));
+}
+
+.bd-emoji:hover {
+  border-color: var(--accent) !important;
+  background: var(--accent-wash) !important;
+}
+
 /* A preset's header: its glyph, then its name on the accent underline. */
 .bd-mark-head {
   display: flex !important;

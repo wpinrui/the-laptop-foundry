@@ -442,6 +442,10 @@ export interface Mark {
   style?: "fill" | "outline";
   /** The outline's line width in mm; absent means one in proportion to the size. */
   stroke?: number;
+  /** The emoji an SVG mark came from, for its card. */
+  emoji?: string;
+  /** Draw an SVG in its own colours instead of tinting it to the mark colour. */
+  original?: boolean;
   /** A hover preview drawn faint; never saved. */
   ghost?: boolean;
   font: string;

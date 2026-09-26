@@ -141,16 +141,18 @@ function drawFace(face: Face, marks: Mark[], canvas: HTMLCanvasElement, S: numbe
         const e = markExtent(m);
         const h = e.h * S;
         const w = e.w * S;
-        // Tint: the SVG's shape in the mark's colour.
+        // Tint: the SVG's shape in the mark's colour, unless it keeps its own.
         const tmp = document.createElement("canvas");
         tmp.width = Math.max(1, Math.round(w));
         tmp.height = Math.max(1, Math.round(h));
         const t = tmp.getContext("2d");
         if (t) {
           t.drawImage(img, 0, 0, tmp.width, tmp.height);
-          t.globalCompositeOperation = "source-in";
-          t.fillStyle = m.colour;
-          t.fillRect(0, 0, tmp.width, tmp.height);
+          if (!m.original || outlined(m)) {
+            t.globalCompositeOperation = "source-in";
+            t.fillStyle = m.colour;
+            t.fillRect(0, 0, tmp.width, tmp.height);
+          }
           if (m.process === "embossed") {
             g.globalAlpha = 0.45;
             g.filter = "brightness(0)";

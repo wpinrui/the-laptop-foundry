@@ -35,7 +35,7 @@ import {
 } from "./Stages";
 import { type FinishPiece, FinishColumn } from "./FinishStage";
 import { type KeyGroup, KeysColumn } from "./KeysStage";
-import { MarkHandles, MarksColumn, MarksTray } from "./MarksStage";
+import { MarkHandles, type MarkBrowse, MarksColumn, MarksTray } from "./MarksStage";
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
@@ -217,7 +217,7 @@ export function Builder({
   const [markSurface, setMarkSurface] = useState<MarkSurface>("lid");
   const [markSel, setMarkSel] = useState<string | null>(null);
   const [markNote, setMarkNote] = useState<string | null>(null);
-  const [markBrowse, setMarkBrowse] = useState(false);
+  const [markBrowse, setMarkBrowse] = useState<MarkBrowse>(null);
   const [markGhost, setMarkGhost] = useState<Mark | null>(null);
   const [sheet, setSheet] = useState(false);
   const [listOpen, setListOpen] = useState(false);

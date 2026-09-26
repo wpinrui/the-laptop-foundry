@@ -58,6 +58,10 @@ interface SceneProps {
   onFailed?: (failed: string[]) => void;
   /** A still image lit on the display glass, such as a lock screen. */
   lockScreen?: THREE.Texture;
+  /** Roughness of the lit display glass; low on a glossy panel, so it catches glare. */
+  screenGloss?: number;
+  /** Leaves the bottom cover off, to show the internals from below. */
+  floorless?: boolean;
 }
 
 export type Surfaces = Record<
@@ -342,12 +346,12 @@ function surfaceGeometry(
   size: Fit["shell"]["outer"],
   style: Fit["shell"]["style"],
   profile: boolean,
-  mode: "full" | "open" | "deck" = "full",
+  mode: "full" | "open" | "deck" | "walls" | "floor" = "full",
   wells: Wells = [],
   cuts: Cuts = {},
   wallDepth = 0,
 ): THREE.BufferGeometry {
-  const open = mode === "deck" ? [] : (Object.keys(cuts) as Side[]);
+  const open = mode === "deck" || mode === "floor" ? [] : (Object.keys(cuts) as Side[]);
   const data = shellSurface(size, style, profile, 8, open);
   const count = data.positions.length / 3;
   // shellSurface lays out the rings, then the bottom centre, then the top centre.
@@ -382,11 +386,15 @@ function surfaceGeometry(
     return g;
   }
   let indices = data.indices;
-  if (mode === "open") {
+  if (mode === "open" || mode === "walls" || mode === "floor") {
+    // "walls" also drops the bottom face; "floor" keeps only the bottom face, the cover.
     const kept: number[] = [];
-    for (let i = 0; i + 2 < indices.length; i += 3)
-      if (indices[i] !== topCentre)
-        kept.push(indices[i], indices[i + 1], indices[i + 2]);
+    for (let i = 0; i + 2 < indices.length; i += 3) {
+      const c = indices[i];
+      const keep =
+        mode === "floor" ? c === bottomCentre : c !== topCentre && (mode !== "walls" || c !== bottomCentre);
+      if (keep) kept.push(indices[i], indices[i + 1], indices[i + 2]);
+    }
     indices = new Uint32Array(kept);
   }
   // The walls left open are built whole, with their port holes cut through.
@@ -433,7 +441,7 @@ function Shell({
   xray?: boolean;
   /** Depth push. The deck plate uses less, so it wins over the top face of the base. */
   offset?: number;
-  mode?: "full" | "open" | "deck";
+  mode?: "full" | "open" | "deck" | "walls" | "floor";
   wells?: Wells;
   /** Port openings cut through the side walls, so a solid shell shows the connectors. */
   cuts?: Cuts;
@@ -609,6 +617,8 @@ export const Model = memo(function Model({
   portal,
   onFailed,
   lockScreen,
+  screenGloss = 0.35,
+  floorless = false,
 }: SceneProps & { portal?: RefObject<HTMLDivElement | null> }) {
   const ctx = useMemo(() => makeCtx(), []);
   // Base and lid report their failed units separately; the scene gets them together.
@@ -657,7 +667,7 @@ export const Model = memo(function Model({
           profile
           surface={surfaces?.floor}
           xray={xray}
-          mode="open"
+          mode={floorless ? "walls" : "open"}
           cuts={cuts}
           wallDepth={fit.shell.offsets.side}
         />
@@ -730,7 +740,7 @@ export const Model = memo(function Model({
                     color={token("color-opening")}
                     emissive={token("panel-glare")}
                     emissiveMap={lockScreen}
-                    roughness={0.35}
+                    roughness={screenGloss}
                     metalness={0}
                   />
                 ) : (
@@ -764,6 +774,26 @@ export const Model = memo(function Model({
     </group>
   );
 });
+
+/** The bottom cover alone, placed as the Model places the base, inner face up. */
+export function BottomCover({
+  fit,
+  colour,
+  surface,
+}: {
+  fit: Fit;
+  colour: string;
+  surface?: Surfaces[keyof Surfaces];
+}) {
+  const out = fit.shell.outer;
+  return (
+    <group rotation-x={ENGINE_ROTATION_X}>
+      <group position={baseOffset(out)}>
+        <Shell size={out} style={fit.shell.style} colour={colour} profile surface={surface} xray={false} mode="floor" />
+      </group>
+    </group>
+  );
+}
 
 /** A procedural room to reflect, so metal shells read as metal. No assets. */
 export function Reflections({ intensity = 0.45 }: { intensity?: number }) {

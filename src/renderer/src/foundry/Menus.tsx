@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { SavedCompany } from "../../../preload/store";
+import { ASSETS } from "../viewer/reviewScenes";
 import "./foundry.css";
 
 // The left-column menus: start, new company, load company, settings and the
@@ -328,11 +329,37 @@ export function SettingsMenu({
   onSound: (on: boolean) => void;
   onBack: () => void;
 }) {
+  const [credits, setCredits] = useState(false);
+  if (credits)
+    return (
+      <Column key="credits" onBack={() => setCredits(false)}>
+        <ul className="fd-credits">
+          {Object.values(ASSETS).map((a) => (
+            <li key={a.name}>
+              <span>{a.name}</span>
+              <small>{a.by}</small>
+            </li>
+          ))}
+          <li>
+            <span>Poly Haven</span>
+            <small>CC0</small>
+          </li>
+        </ul>
+        <div className="fd-entries">
+          <Entry secondary onClick={() => setCredits(false)} autoFocus>
+            Back
+          </Entry>
+        </div>
+      </Column>
+    );
   return (
-    <Column onBack={onBack}>
+    <Column key="settings" onBack={onBack}>
       <div className="fd-entries">
         <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)} autoFocus>
           Sound
+        </Entry>
+        <Entry secondary onClick={() => setCredits(true)}>
+          Credits
         </Entry>
       </div>
       <div className="fd-entries">

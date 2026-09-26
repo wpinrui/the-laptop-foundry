@@ -249,8 +249,51 @@ export function ReviewIndex({
   );
 }
 
-/** Captions for the product photos, in the order they are taken. */
-const PHOTO_CAPTIONS = ["The test unit", "Left side", "Keyboard and touchpad", "Closed"];
+/** Captions for the review photos, by shot id ("scene/shot"). */
+const PHOTO_CAPTIONS: Record<string, string> = {
+  "studio/hero": "The test unit",
+  "studio/closed": "Closed",
+  "studio/top": "Keyboard and touchpad",
+  "studio/left": "Left side",
+  "studio/right": "Right side",
+  "studio/rear": "Rear",
+  "ports/left": "Ports on the left",
+  "ports/right": "Ports on the right",
+  "ports/rear": "Ports at the back",
+  "ports/front": "Ports at the front",
+  "size/top": "Footprint next to an A4 sheet, with rivals outlined",
+  "teardown/top": "With the bottom cover removed",
+  "viewing/grid": "Viewing angles",
+  "outdoor/table": "Outdoors in daylight",
+  "desk/wide": "In use",
+  "desk/screen": "System information",
+  "thermal/deck": "Surface temperatures on top under load",
+  "thermal/bottom": "Surface temperatures underneath under load",
+};
+
+/** Where the photos go: the product shots near the top, the rest in their sections. */
+const PHOTOS_TOP = ["studio/hero", "studio/closed", "studio/top", "studio/left", "studio/right", "studio/rear"];
+const PHOTOS_IN: Record<string, string[]> = {
+  case: ["ports/left", "ports/right", "ports/rear", "ports/front", "size/top", "teardown/top"],
+  display: ["viewing/grid", "outdoor/table"],
+  performance: ["desk/wide", "desk/screen"],
+  emissions: ["thermal/deck", "thermal/bottom"],
+};
+
+function Photos({ ids, photos }: { ids: string[]; photos?: Record<string, string> | null }) {
+  const shown = photos ? ids.filter((id) => photos[id]) : [];
+  if (!photos || shown.length === 0) return null;
+  return (
+    <div className="rs-photos">
+      {shown.map((id) => (
+        <figure key={id}>
+          <img src={photos[id]} alt={PHOTO_CAPTIONS[id] ?? "Photo"} />
+          <figcaption>{PHOTO_CAPTIONS[id]}</figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
 
 export function ReviewSite({
   review,
@@ -261,8 +304,8 @@ export function ReviewSite({
   review: Review;
   onOpen: (id: string) => void;
   onHome?: () => void;
-  /** Product photos, taken automatically; absent until they are ready. */
-  photos?: string[] | null;
+  /** Review photos by shot id, taken automatically; absent until they are ready. */
+  photos?: Record<string, string> | null;
 }) {
   const era = eraOf(review.year);
   return (
@@ -288,16 +331,7 @@ export function ReviewSite({
             </ul>
           </div>
         </section>
-        {photos && photos.length > 0 && (
-          <div className="rs-photos">
-            {photos.map((src, i) => (
-              <figure key={PHOTO_CAPTIONS[i] ?? i}>
-                <img src={src} alt={PHOTO_CAPTIONS[i] ?? "Photo"} />
-                <figcaption>{PHOTO_CAPTIONS[i]}</figcaption>
-              </figure>
-            ))}
-          </div>
-        )}
+        <Photos ids={PHOTOS_TOP} photos={photos} />
         <h2>Specifications</h2>
         <dl className="rs-specs">
           {review.specs.map(([k, v]) => (
@@ -313,6 +347,7 @@ export function ReviewSite({
             {s.paragraphs.map((p) => (
               <p key={p}>{p}</p>
             ))}
+            <Photos ids={PHOTOS_IN[s.id] ?? []} photos={photos} />
             {s.tables.map((t) => (
               <TableView key={t.caption} table={t} onOpen={onOpen} />
             ))}

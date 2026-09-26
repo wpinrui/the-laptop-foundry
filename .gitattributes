@@ -1,2 +1,5 @@
 # Normalise line endings to LF in the repo and on checkout (all platforms).
 * text=auto eol=lf
+*.hdr binary
+*.bin binary
+*.jpg binary

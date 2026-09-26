@@ -302,6 +302,16 @@ export interface Review {
   date: { year: number; month: number; day: number };
   /** What the site calls this laptop, such as "premium ultrabook". */
   kind: string;
+  /** The subheading under the headline. */
+  dek: string;
+  cpu: string;
+  gpu: string;
+  /** Port names by side, for the port photos' captions. */
+  ports: Partial<Record<Side, string[]>>;
+  /** Draw and capacity for the energy figures, in the balanced profile. */
+  energy: { idle: number; load: number; wh: number } | null;
+  /** The rivals compared on the page, in colour slot order. */
+  peers: { id: string; name: string; price: number | null; kg: number; score: number }[];
   /** The reviewed model and its rivals by id, in colour slot order. */
   field: string[];
 }
@@ -973,18 +983,6 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
         ]) + (c.peakSkin > 48 ? " That is too hot to rest on a lap." : ""),
       ],
       tables: [
-        {
-          caption: "Surface temperature under load (°C)",
-          columns: ["", "Left", "Centre", "Right"],
-          rows: (["top", "bottom"] as const).flatMap((face) =>
-            c.surface.readings.load[face].map((row, i) => ({
-              cells: [
-                `${face === "top" ? "Top" : "Bottom"}, ${["rear", "middle", "front"][i]}`,
-                ...row.map((v) => num(v, 1)),
-              ],
-            })),
-          ),
-        },
         compare("Noise and temperature", ["Idle*", "Load*", "Surface*"], f, peers, (x) =>
           x.m.cooling
             ? [
@@ -1077,6 +1075,37 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     `Tested: the ${full}, ${an(kind)}`,
   ]);
 
+  const overall = rollScores(s.id).overall;
+  const panelLine = panel
+    ? `${cap(an(`${f.refresh > 60 ? `${f.refresh} Hz ` : ""}${panel.res[0]} x ${panel.res[1]} ${PANEL_TYPE[panel.type] ?? panel.type}`))} panel`
+    : "";
+  const dek = [
+    cap(`${[panelLine, `the ${cpu}`].filter(Boolean).join(", ")} and ${num(f.kg, 2)} kg${price ? ` for ${usd(price)}` : ""}.`),
+    overall >= 90
+      ? say("dek", [
+          `${s.company} builds the ${kind} to beat this year.`,
+          `This is the ${kind} the others will be measured against.`,
+          `${s.company} sets the pace for the class.`,
+        ])
+      : overall >= 80
+        ? say("dek", [
+            `${s.company} aims squarely at the class leaders.`,
+            `A strong contender among this year's ${kind}s.`,
+            `${s.company} gets most of the basics right.`,
+          ])
+        : overall >= 70
+          ? say("dek", [
+              `${s.company} has work to do to catch the class leaders.`,
+              `A middling entry in a crowded class.`,
+              `Solid in places, ordinary in others.`,
+            ])
+          : say("dek", [
+              `It struggles to keep up with this year's ${kind}s.`,
+              `${s.company} has a lot of catching up to do.`,
+              `Too many compromises for the money.`,
+            ]),
+  ].join(" ");
+
   return {
     id: s.id,
     title: headline,
@@ -1093,6 +1122,21 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     price,
     date: publishedOn(s.id, b.year),
     kind,
+    dek,
+    cpu,
+    gpu,
+    ports: Object.fromEntries(bySide),
+    energy:
+      bat && bat.draw[bat.balanced]
+        ? { idle: bat.draw[bat.balanced]?.idle ?? 0, load: bat.draw[bat.balanced]?.load ?? 0, wh: bat.wh }
+        : null,
+    peers: peers.map((p) => ({
+      id: p.subject.id,
+      name: `${p.subject.company} ${p.subject.name}`,
+      price: p.subject.build.price ?? null,
+      kg: p.kg,
+      score: rollScores(p.subject.id).overall,
+    })),
     field: [s.id, ...peers.map((p) => p.subject.id)],
   };
 }

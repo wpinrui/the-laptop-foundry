@@ -1,53 +1,33 @@
-import { type CSSProperties, useMemo, useState } from "react";
-import { factsOf, laptopKind, type Review, rollScores, type Subject, type Table } from "../engine";
-import { ChartView, Note, Swatch } from "./Charts";
+import { type ReactNode, useMemo, useRef, useState } from "react";
+import { factsOf, laptopKind, type Review, rollScores, type Subject } from "../engine";
+import type { Era } from "./Charts";
+import {
+  band,
+  bandWord,
+  CategoryBars,
+  Competitors,
+  contentsOf,
+  jump,
+  PhotoRow,
+  type Photos,
+  Ring,
+  SectionBody,
+  Specs,
+  slug,
+} from "./blocks";
 import "./review.css";
 
-// The in-game review site, Notebookcheck (GDD: it publishes the reviews). Its look follows the model's era.
+// The in-game review site, Notebookcheck (GDD: it publishes the reviews). Its
+// look follows the model's era: a 2006 portal, a 2016 flat magazine, a 2026
+// editorial page. Every era shows the same review in the same order.
 
 export const PUBLICATION = "Notebookcheck";
 
-export type Era = 2006 | 2016 | 2026;
+export type { Era };
+export { bandWord };
 
 export function eraOf(year: number): Era {
   return year < 2012 ? 2006 : year < 2020 ? 2016 : 2026;
-}
-
-function Masthead({ era, onHome }: { era: Era; onHome?: () => void }) {
-  if (era === 2006)
-    return (
-      <header className="rs-mast">
-        <button type="button" className="rs-logo" onClick={onHome}>
-          Notebookcheck<span>.net</span>
-        </button>
-        <nav>
-          <span>News</span>
-          <span>Reviews</span>
-          <span>Forum</span>
-          <span>Top 10</span>
-        </nav>
-      </header>
-    );
-  if (era === 2016)
-    return (
-      <header className="rs-mast">
-        <button type="button" className="rs-logo" onClick={onHome}>
-          {PUBLICATION}
-        </button>
-        <nav>
-          <span>Reviews</span>
-          <span>News</span>
-          <span>Deals</span>
-        </nav>
-      </header>
-    );
-  return (
-    <header className="rs-mast">
-      <button type="button" className="rs-logo" onClick={onHome}>
-        {PUBLICATION}
-      </button>
-    </header>
-  );
 }
 
 const MONTHS = [
@@ -76,103 +56,69 @@ export function shortDate(d: Review["date"]): string {
   return `${two(d.day)}/${two(d.month)}/${d.year}`;
 }
 
+function Masthead({ era, onHome }: { era: Era; onHome?: () => void }) {
+  if (era === 2006)
+    return (
+      <header className="rs-mast">
+        <div className="rs-mast-top">
+          <button type="button" className="rs-logo" onClick={onHome}>
+            {PUBLICATION}
+            <span>.net</span>
+          </button>
+          <span className="rs-search">
+            <i />
+            <b>Go</b>
+          </span>
+        </div>
+        <nav>
+          <span>News</span>
+          <span className="rs-on">Reviews</span>
+          <span>Forum</span>
+          <span>Top 10</span>
+          <span>Benchmarks</span>
+        </nav>
+      </header>
+    );
+  if (era === 2016)
+    return (
+      <header className="rs-mast">
+        <button type="button" className="rs-logo" onClick={onHome}>
+          {PUBLICATION}
+        </button>
+        <nav>
+          <span className="rs-on">Reviews</span>
+          <span>News</span>
+          <span>Benchmarks</span>
+          <span>Deals</span>
+        </nav>
+        <i className="rs-search" />
+      </header>
+    );
+  return (
+    <header className="rs-mast">
+      <button type="button" className="rs-logo" onClick={onHome}>
+        {PUBLICATION}
+      </button>
+      <nav>
+        <span className="rs-on">Reviews</span>
+        <span>News</span>
+        <span>Benchmarks</span>
+        <span>Guides</span>
+      </nav>
+      <span className="rs-search">Search</span>
+    </header>
+  );
+}
+
 /** The site mid-load: the masthead and the era's own progress mark. */
 export function SiteLoading({ era }: { era: Era }) {
   return (
     <div className={`rs rs-${era} rs-loading`}>
-      <Masthead era={era} />
-      <i className="rs-progress" />
-    </div>
-  );
-}
-
-function band(score: number): string {
-  return score >= 90 ? "great" : score >= 80 ? "good" : score >= 70 ? "fair" : "poor";
-}
-
-/** The rating piece. Bigger, brighter and livelier the better the score. */
-function Rating({ review }: { review: Review }) {
-  const s = review.scores.overall;
-  const t = Math.max(0, Math.min(1, (s - 55) / 41));
-  const style = {
-    "--rs-score": `${s}%`,
-    "--rs-size": `${9 + t * 7}rem`,
-  } as CSSProperties;
-  return (
-    <section className={`rs-rating ${band(s)}`} style={style}>
-      <div className="rs-ring">
-        <div className="rs-ring-inner">
-          <b>{s.toFixed(1)}</b>
-          <span>%</span>
-        </div>
+      <div className="rs-frame">
+        <Masthead era={era} />
+        <i className="rs-progress" />
       </div>
-      <ul className="rs-bars">
-        {review.scores.categories.map((c) => (
-          <li key={c.name} className={band(c.score)}>
-            <span>{c.name}</span>
-            <i style={{ width: `${c.score}%` }} />
-            <b>{c.score.toFixed(0)}%</b>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function TableView({
-  table,
-  onOpen,
-  slots,
-}: {
-  table: Table;
-  onOpen: (id: string) => void;
-  /** Colour slot by laptop id. */
-  slots?: Map<string, number>;
-}) {
-  const slotOf = (row: Table["rows"][number]) =>
-    row.subject ? 0 : row.link !== undefined ? slots?.get(row.link) : undefined;
-  return (
-    <>
-    <table className="rs-table">
-      <caption>{table.caption}</caption>
-      <thead>
-        <tr>
-          {table.columns.map((c, i) => (
-            <th key={`${c}-${i}`}>{c}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {table.rows.map((row, i) => (
-          <tr key={`${row.cells[0]}-${i}`} className={row.subject ? "rs-me" : undefined}>
-            {row.cells.map((cell, j) =>
-              j === 0 && row.link ? (
-                <td key={`${j}`}>
-                  {slotOf(row) !== undefined && <Swatch slot={slotOf(row) ?? 0} />}
-                  <button
-                    type="button"
-                    className="rs-link"
-                    onClick={() => row.link && onOpen(row.link)}
-                  >
-                    {cell}
-                  </button>
-                </td>
-              ) : (
-                <td
-                  key={`${j}`}
-                  className={row.tones?.[j] ? `rs-fps rs-fps-${row.tones[j]}` : undefined}
-                >
-                  {j === 0 && slotOf(row) !== undefined && <Swatch slot={slotOf(row) ?? 0} />}
-                  {cell}
-                </td>
-              ),
-            )}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-    {table.columns.some((c) => c.endsWith("*")) && <Note />}
-    </>
+    </div>
   );
 }
 
@@ -243,106 +189,308 @@ export function ReviewIndex({
   );
   return (
     <div className={`rs rs-${era}`}>
-      <Masthead era={era} />
-      <article className="rs-page">
-        <p className="rs-kicker">Reviews</p>
-        <h1>All laptop reviews</h1>
-        <div className="rs-filters">
-          <select
-            value={year}
-            aria-label="year"
-            onChange={(e) => setYear(e.target.value ? Number(e.target.value) : "")}
-          >
-            <option value="">Any year</option>
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-          {pick("size", body, setBody, BODIES)}
-          {pick("use", perf, setPerf, PERFS)}
-          {pick("budget", budget, setBudget, BUDGETS)}
-          <label>
-            <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} />
-            Mine only
-          </label>
-        </div>
-        <table className="rs-table">
-          <thead>
-            <tr>
-              <th>Laptop</th>
-              <th>Year</th>
-              <th>Class</th>
-              <th>Price</th>
-              <th>Rating</th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((r) => (
-              <tr key={r.subject.id} className={r.own ? "rs-me" : undefined}>
-                <td>
-                  <button type="button" className="rs-link" onClick={() => onOpen(r.subject.id)}>
-                    {r.subject.company} {r.subject.name}
-                  </button>
-                </td>
-                <td>{r.subject.build.year}</td>
-                <td>{r.kind.charAt(0).toUpperCase() + r.kind.slice(1)}</td>
-                <td>{r.subject.build.price ? `$${r.subject.build.price.toLocaleString("en-US")}` : "—"}</td>
-                <td>{r.score.toFixed(1)}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {shown.length === 0 && <p>No reviews match.</p>}
-      </article>
-      <footer className="rs-foot">{PUBLICATION}</footer>
+      <div className="rs-frame">
+        <Masthead era={era} />
+        <article className="rs-page rs-index">
+          <p className="rs-kicker">Reviews</p>
+          <h1>All laptop reviews</h1>
+          <div className="rs-filters">
+            <select
+              value={year}
+              aria-label="year"
+              onChange={(e) => setYear(e.target.value ? Number(e.target.value) : "")}
+            >
+              <option value="">Any year</option>
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+            {pick("size", body, setBody, BODIES)}
+            {pick("use", perf, setPerf, PERFS)}
+            {pick("budget", budget, setBudget, BUDGETS)}
+            <label>
+              <input type="checkbox" checked={own} onChange={(e) => setOwn(e.target.checked)} />
+              Mine only
+            </label>
+          </div>
+          <div className="rs-tablewrap">
+            <table className="rs-table">
+              <thead>
+                <tr>
+                  <th>Laptop</th>
+                  <th>Year</th>
+                  <th>Class</th>
+                  <th>Price</th>
+                  <th>Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((r) => (
+                  <tr key={r.subject.id} className={r.own ? "rs-me" : undefined}>
+                    <td>
+                      <button type="button" className="rs-link" onClick={() => onOpen(r.subject.id)}>
+                        {r.subject.company} {r.subject.name}
+                      </button>
+                    </td>
+                    <td>{r.subject.build.year}</td>
+                    <td>{r.kind.charAt(0).toUpperCase() + r.kind.slice(1)}</td>
+                    <td>{r.subject.build.price ? `$${r.subject.build.price.toLocaleString("en-US")}` : "—"}</td>
+                    <td>{r.score.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {shown.length === 0 && <p>No reviews match.</p>}
+        </article>
+        <footer className="rs-foot">{PUBLICATION}</footer>
+      </div>
     </div>
   );
 }
 
-/** Captions for the review photos, by shot id ("scene/shot"). */
-const PHOTO_CAPTIONS: Record<string, string> = {
-  "studio/hero": "The test unit",
-  "studio/closed": "Closed",
-  "studio/top": "Keyboard and touchpad",
-  "studio/left": "Left side",
-  "studio/right": "Right side",
-  "studio/rear": "Rear",
-  "ports/left": "Ports on the left",
-  "ports/right": "Ports on the right",
-  "ports/rear": "Ports at the back",
-  "ports/front": "Ports at the front",
-  "size/top": "Footprint next to an A4 sheet, with rivals outlined",
-  "teardown/top": "With the bottom cover removed",
-  "viewing/grid": "Viewing angles",
-  "outdoor/table": "Outdoors in daylight",
-  "desk/wide": "In use",
-  "desk/screen": "System information",
-  "thermal/deck": "Surface temperatures on top under load",
-  "thermal/bottom": "Surface temperatures underneath under load",
-};
+interface SiteProps {
+  review: Review;
+  onOpen: (id: string) => void;
+  onHome?: () => void;
+  photos: Photos;
+}
 
-/** Where the photos go: the product shots near the top, the rest in their sections. */
-const PHOTOS_TOP = ["studio/hero", "studio/closed", "studio/top", "studio/left", "studio/right", "studio/rear"];
-const PHOTOS_IN: Record<string, string[]> = {
-  case: ["ports/left", "ports/right", "ports/rear", "ports/front", "size/top", "teardown/top"],
-  display: ["viewing/grid", "outdoor/table"],
-  performance: ["desk/wide", "desk/screen"],
-  emissions: ["thermal/deck", "thermal/bottom"],
-};
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-function Photos({ ids, photos }: { ids: string[]; photos?: Record<string, string> | null }) {
-  const shown = photos ? ids.filter((id) => photos[id]) : [];
-  if (!photos || shown.length === 0) return null;
+// ------------------------------------------------------------------ 2006
+
+function Box({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rs-photos">
-      {shown.map((id) => (
-        <figure key={id}>
-          <img src={photos[id]} alt={PHOTO_CAPTIONS[id] ?? "Photo"} />
-          <figcaption>{PHOTO_CAPTIONS[id]}</figcaption>
-        </figure>
-      ))}
+    <div className="rs-box">
+      <div className="rs-box-head">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Site2006({ review, onOpen, onHome, photos }: SiteProps) {
+  const root = useRef<HTMLDivElement>(null);
+  const s = review.scores.overall;
+  const casePara = review.sections.find((x) => x.id === "case")?.paragraphs[0];
+  const contents = contentsOf(review, ["Specifications"], ["Verdict"]);
+  const top = [
+    { id: review.id, name: `${review.company} ${review.model}`, score: s, me: true },
+    ...review.peers.map((p) => ({ id: p.id, name: p.name, score: p.score, me: false })),
+  ].sort((a, b) => b.score - a.score);
+  const pct = (n: number) => `${Math.round(n)}%`;
+  return (
+    <div className="rs rs-2006" ref={root}>
+      <div className="rs-frame">
+        <Masthead era={2006} onHome={onHome} />
+        <div className="rs-body">
+          <article className="rs-main">
+            <div className="rs-crumbs">
+              <button type="button" className="rs-link" onClick={onHome}>
+                Home
+              </button>
+              {" > "}
+              <button type="button" className="rs-link" onClick={onHome}>
+                Reviews
+              </button>
+              {" > "}
+              <span>{review.company}</span>
+            </div>
+            <h1>{review.headline}</h1>
+            <div className="rs-date">{shortDate(review.date)}</div>
+            {photos?.["studio/hero"] && (
+              <figure className="rs-hero">
+                <div className="rs-photo">
+                  <img src={photos["studio/hero"]} alt="The test unit" />
+                </div>
+                <figcaption>The test unit</figcaption>
+              </figure>
+            )}
+            <p>{review.verdict[0]}</p>
+            {casePara && <p>{casePara}</p>}
+            <h2 id={slug("Specifications")}>Specifications</h2>
+            <table className="rs-spectable">
+              <thead>
+                <tr>
+                  <th colSpan={2}>{`${review.company} ${review.model}`}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {review.specs.map(([k, v]) => (
+                  <tr key={k}>
+                    <th>{k}</th>
+                    <td>{v}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {review.sections.map((sec) => (
+              <section key={sec.id}>
+                <h2 id={`rs-${sec.id}`}>{sec.title}</h2>
+                <SectionBody section={sec} review={review} era={2006} photos={photos} onOpen={onOpen} />
+              </section>
+            ))}
+            <h2 id={slug("Verdict")}>Verdict</h2>
+            <div className="rs-verdict">
+              <div>
+                {review.verdict.slice(1).map((p) => (
+                  <p key={p}>{p}</p>
+                ))}
+              </div>
+              <div className={`rs-ratebox rs-${band(s)}`}>
+                <div className="rs-ratebox-label">Rating</div>
+                <b>{pct(s)}</b>
+                <div>{bandWord(s)}</div>
+              </div>
+            </div>
+            <table className="rs-procon">
+              <tbody>
+                <tr>
+                  <td>
+                    <div className="rs-pro">Pro</div>
+                    {review.pros.map((p) => (
+                      <div key={p}>{`+ ${p}`}</div>
+                    ))}
+                  </td>
+                  <td>
+                    <div className="rs-con">Contra</div>
+                    {review.cons.map((p) => (
+                      <div key={p}>{`- ${p}`}</div>
+                    ))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <table className="rs-ratetable">
+              <thead>
+                <tr>
+                  <th>Rating</th>
+                  <th colSpan={2} />
+                </tr>
+              </thead>
+              <tbody>
+                {review.scores.categories.map((c) => (
+                  <tr key={c.name} className={`rs-${band(c.score)}`}>
+                    <td>{c.name}</td>
+                    <td className="rs-ratebar">
+                      <i style={{ width: `${c.score}%` }} />
+                    </td>
+                    <td>{pct(c.score)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>Total</td>
+                  <td />
+                  <td>{pct(s)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </article>
+          <aside className="rs-side">
+            <Box title={`${PUBLICATION} Rating`}>
+              <div className={`rs-siderate rs-${band(s)}`}>
+                <b>{pct(s)}</b>
+                <div className="rs-siderate-word">{bandWord(s)}</div>
+                <div className="rs-siderate-meta">
+                  {`${review.company} ${review.model}`}
+                  <br />
+                  {review.cpu}
+                  <br />
+                  {review.gpu}
+                </div>
+              </div>
+            </Box>
+            <Box title={`Top 10 ${cap(review.kind)}s`}>
+              <ol className="rs-top">
+                {top.map((t) => (
+                  <li key={t.id} className={t.me ? "rs-me" : undefined}>
+                    {t.me ? (
+                      t.name
+                    ) : (
+                      <button type="button" className="rs-link" onClick={() => onOpen(t.id)}>
+                        {t.name}
+                      </button>
+                    )}{" "}
+                    <span>{pct(t.score)}</span>
+                  </li>
+                ))}
+              </ol>
+            </Box>
+            <Box title="Contents">
+              <div className="rs-contents">
+                {contents.map((c) => (
+                  <button key={c.id} type="button" className="rs-link" onClick={() => jump(root.current, c.id)}>
+                    {c.title}
+                  </button>
+                ))}
+              </div>
+            </Box>
+          </aside>
+        </div>
+        <footer className="rs-foot">{`${PUBLICATION} ${review.year}`}</footer>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ 2016 and 2026
+
+/** One column, verdict first. */
+function SiteColumn({ review, onOpen, onHome, photos, era }: SiteProps & { era: Era }) {
+  const s = review.scores.overall;
+  return (
+    <div className={`rs rs-${era}`}>
+      <div className="rs-frame">
+        <Masthead era={era} onHome={onHome} />
+        <article className="rs-page">
+          <p className="rs-kicker">Review</p>
+          <h1>{review.headline}</h1>
+          <p className="rs-dek">{review.dek}</p>
+          <PhotoRow ids={["studio/hero"]} photos={photos} review={review} />
+          {review.verdict.map((p) => (
+            <p key={p}>{p}</p>
+          ))}
+          <div className="rs-proscons">
+            <ul className="rs-pros">
+              {review.pros.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+            <ul className="rs-cons">
+              {review.cons.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          </div>
+          <h2>Specifications</h2>
+          <Specs review={review} />
+          {review.sections.map((sec) => (
+            <section key={sec.id}>
+              <h2 id={`rs-${sec.id}`}>{sec.title}</h2>
+              <SectionBody
+                section={sec}
+                review={review}
+                era={era}
+                photos={photos}
+                onOpen={onOpen}
+                slots={{ "case-intro": <p>{sec.paragraphs[0]}</p> }}
+              />
+            </section>
+          ))}
+          <h2>Rating</h2>
+          <div className="rs-rating">
+            <Ring score={s} size={140} decimals={era === 2026 ? 1 : 0} />
+            <CategoryBars review={review} />
+          </div>
+          <h2>Competitors</h2>
+          <Competitors review={review} onOpen={onOpen} />
+        </article>
+        <footer className="rs-foot">{`${PUBLICATION} ${review.year}`}</footer>
+      </div>
     </div>
   );
 }
@@ -360,61 +508,6 @@ export function ReviewSite({
   photos?: Record<string, string> | null;
 }) {
   const era = eraOf(review.year);
-  const slots = useMemo(() => new Map(review.field.map((id, i) => [id, i])), [review.field]);
-  return (
-    <div className={`rs rs-${era}`}>
-      <Masthead era={era} onHome={onHome} />
-      <article className="rs-page">
-        <p className="rs-kicker">Review</p>
-        <h1>{review.headline}</h1>
-        <section className="rs-verdict">
-          {review.verdict.map((p) => (
-            <p key={p}>{p}</p>
-          ))}
-          <div className="rs-proscons">
-            <ul className="rs-pros">
-              {review.pros.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-            <ul className="rs-cons">
-              {review.cons.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-          </div>
-        </section>
-        <Photos ids={PHOTOS_TOP} photos={photos} />
-        <h2>Specifications</h2>
-        <dl className="rs-specs">
-          {review.specs.map(([k, v]) => (
-            <div key={k}>
-              <dt>{k}</dt>
-              <dd>{v}</dd>
-            </div>
-          ))}
-        </dl>
-        {review.sections.map((s) => (
-          <section key={s.id} className="rs-section">
-            <h2>{s.title}</h2>
-            {s.paragraphs.map((p) => (
-              <p key={p}>{p}</p>
-            ))}
-            <Photos ids={PHOTOS_IN[s.id] ?? []} photos={photos} />
-            {s.charts?.map((c) => (
-              <ChartView key={c.caption} chart={c} onOpen={onOpen} />
-            ))}
-            {s.tables.map((t) => (
-              <TableView key={t.caption} table={t} onOpen={onOpen} slots={slots} />
-            ))}
-          </section>
-        ))}
-        <h2>Rating</h2>
-        <Rating review={review} />
-      </article>
-      <footer className="rs-foot">
-        {PUBLICATION} {review.year}
-      </footer>
-    </div>
-  );
+  if (era === 2006) return <Site2006 review={review} onOpen={onOpen} onHome={onHome} photos={photos} />;
+  return <SiteColumn review={review} onOpen={onOpen} onHome={onHome} photos={photos} era={era} />;
 }

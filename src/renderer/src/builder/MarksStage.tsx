@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Build, Fit, Mark, MarkSurface } from "../engine";
 import { faceOf, markExtent, outlined, strokeOf } from "../viewer/Decor";
 import { token } from "../viewer/theme";
 import { DragArrow, Dashed, Outline } from "./Arrows";
 import { ColourPicker } from "./ColourPicker";
 import { type Decal, DECAL_SETS, DECALS, DecalGlyph, decalById } from "./decals";
-import { EMOJI, EMOJI_GROUPS, type Emoji, emojiByChar, emojiUrl } from "./emoji";
+import { EMOJI, EMOJI_GROUPS, type Emoji, SKIN_TONES, emojiByChar, emojiRaw, emojiUrl, tonedCode } from "./emoji";
 import type { SetBuild } from "./Parts";
 import type { StageProps } from "./Stages";
 import { sanitiseSvg } from "./svg";
@@ -116,12 +116,37 @@ export function presetMark(fit: Fit, marks: Mark[], surface: MarkSurface, decal:
 
 const EMOJI_SIZE: Record<MarkSurface, number> = { lid: 30, palm: 10, bottom: 10, bezel: 4 };
 
-/** An emoji placed like a preset, printed in its own colours. */
-function emojiMark(fit: Fit, marks: Mark[], surface: MarkSurface, e: Emoji): Mark {
-  return placeSvg(fit, marks, surface, { text: e.name, svg: sanitiseSvg(e.svg) ?? "", emoji: e.char, original: true, size: EMOJI_SIZE[surface] });
+/** An emoji placed like a preset, printed in its own colours, in the tone chosen (if it has one). */
+async function emojiMark(fit: Fit, marks: Mark[], surface: MarkSurface, e: Emoji, tone: string | null): Promise<Mark> {
+  const raw = await emojiRaw(tonedCode(e, tone));
+  return placeSvg(fit, marks, surface, { text: e.name, svg: sanitiseSvg(raw) ?? "", emoji: e.char, original: true, size: EMOJI_SIZE[surface] });
 }
 
-/** The emoji browser: a search box, groups, and a grid of emoji. */
+/** Loaded emoji image URLs, kept across renders so a tile already shown never re-fetches. */
+const loadedEmojiUrls = new Map<string, string>();
+
+/** An emoji's artwork, fetched lazily the first time it is shown. */
+function EmojiImg({ code, alt, className }: { code: string; alt: string; className?: string }) {
+  const [src, setSrc] = useState(() => loadedEmojiUrls.get(code));
+  useEffect(() => {
+    const cached = loadedEmojiUrls.get(code);
+    if (cached) {
+      setSrc(cached);
+      return;
+    }
+    let live = true;
+    emojiUrl(code).then((u) => {
+      loadedEmojiUrls.set(code, u);
+      if (live) setSrc(u);
+    });
+    return () => {
+      live = false;
+    };
+  }, [code]);
+  return src ? <img className={className} src={src} alt={alt} /> : <span className={className} />;
+}
+
+/** The emoji browser: a search box, groups, a skin tone row, and a grid of emoji. */
 function EmojiBrowser({
   build,
   fit,
@@ -132,18 +157,30 @@ function EmojiBrowser({
   build: Build;
   fit: Fit;
   surface: MarkSurface;
-  onPick: (e: Emoji) => void;
+  onPick: (m: Mark) => void;
   onGhost: (m: Mark | null) => void;
 }) {
   const [group, setGroup] = useState("smileys");
   const [query, setQuery] = useState("");
+  const [tone, setTone] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: clears the ghost when the browser closes
   useEffect(() => () => onGhost(null), []);
+  const hover = useRef(0);
   const marks = build.marks ?? [];
   const placed = new Set(marks.map((m) => m.emoji));
   const words = query.trim().toLowerCase();
   const list = words ? EMOJI.filter((e) => e.name.toLowerCase().includes(words)) : EMOJI.filter((e) => e.group === group);
+  const ghostOf = (e: Emoji) => {
+    const turn = ++hover.current;
+    emojiMark(fit, marks, surface, e, tone).then((m) => {
+      if (hover.current === turn) onGhost({ ...m, ghost: true });
+    });
+  };
+  const pick = (e: Emoji) => {
+    hover.current++;
+    emojiMark(fit, marks, surface, e, tone).then(onPick);
+  };
   return (
     <div className="bd-presets fd-in">
       <input className="bd-search" aria-label="search emoji" placeholder="Search emoji" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -162,6 +199,22 @@ function EmojiBrowser({
           </Chip>
         ))}
       </Chips>
+      <div className="bd-line">
+        <Label>Skin tone</Label>
+        <div className="bd-swatches">
+          <button type="button" className={tone === null ? "bd-swatch on" : "bd-swatch"} style={{ background: "#FFCC4D" }} title="Default" onClick={() => setTone(null)} />
+          {SKIN_TONES.map((t) => (
+            <button
+              type="button"
+              key={t.code}
+              className={tone === t.code ? "bd-swatch on" : "bd-swatch"}
+              style={{ background: t.colour }}
+              title={t.label}
+              onClick={() => setTone(t.code)}
+            />
+          ))}
+        </div>
+      </div>
       <div className={scrolled ? "bd-preset-list scrolled" : "bd-preset-list"} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}>
         {list.length === 0 && <span className="bd-note">No emoji match that</span>}
         <div className="bd-emoji-grid">
@@ -171,11 +224,14 @@ function EmojiBrowser({
               key={e.code}
               title={e.name}
               className="bd-emoji"
-              onMouseEnter={() => onGhost({ ...emojiMark(fit, marks, surface, e), ghost: true })}
-              onMouseLeave={() => onGhost(null)}
-              onClick={() => onPick(e)}
+              onMouseEnter={() => ghostOf(e)}
+              onMouseLeave={() => {
+                hover.current++;
+                onGhost(null);
+              }}
+              onClick={() => pick(e)}
             >
-              <img src={emojiUrl(e)} alt={e.name} />
+              <EmojiImg code={e.code} alt={e.name} />
               {placed.has(e.char) && <i className="bd-preset-dot" />}
             </button>
           ))}
@@ -349,9 +405,7 @@ export function MarksColumn({
       {browsing === "presets" && (
         <PresetBrowser build={build} fit={fit} surface={surface} onGhost={onGhost} onPick={(d) => place(presetMark(fit, build.marks ?? [], surface, d))} />
       )}
-      {browsing === "emoji" && (
-        <EmojiBrowser build={build} fit={fit} surface={surface} onGhost={onGhost} onPick={(e) => place(emojiMark(fit, build.marks ?? [], surface, e))} />
-      )}
+      {browsing === "emoji" && <EmojiBrowser build={build} fit={fit} surface={surface} onGhost={onGhost} onPick={place} />}
       {browsing === null && m && decal && (
         <div key={m.id} className="bd-mark fd-in">
           <span className="bd-mark-text svg bd-mark-head">
@@ -401,7 +455,7 @@ export function MarksColumn({
             />
           ) : (
             <span className="bd-mark-text svg bd-mark-head">
-              {emoji && <img className="bd-mark-glyph" src={emojiUrl(emoji)} alt="" />}
+              {emoji && <EmojiImg className="bd-mark-glyph" code={emoji.code} alt="" />}
               {m.text}
             </span>
           )}
@@ -536,7 +590,7 @@ export function MarksTray({
               ) : emoji ? (
                 <span className="bd-card-row">
                   <i className={on ? "bd-badge on" : "bd-badge"}>Emoji</i>
-                  <img className="bd-card-glyph" src={emojiUrl(emoji)} alt="" />
+                  <EmojiImg className="bd-card-glyph" code={emoji.code} alt="" />
                 </span>
               ) : (
                 <i className={on ? "bd-badge on" : "bd-badge"}>{m.kind === "svg" ? "SVG" : "T"}</i>

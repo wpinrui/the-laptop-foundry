@@ -1,7 +1,7 @@
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, type ThreeEvent, useThree } from "@react-three/fiber";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { Workshop } from "./Workshop";
+import { Workshop, WORKSHOP_REACH } from "./Workshop";
 import {
   memo,
   type ReactNode,
@@ -700,7 +700,7 @@ export function Scene(props: SceneProps & { shift?: number }) {
         makeDefault
         target={props.camera?.target ?? [0, 30, 0]}
         minDistance={120}
-        maxDistance={2500}
+        maxDistance={props.workshop ? WORKSHOP_REACH : 2500}
       />
     </Canvas>
       {/* The on-screen page mounts here, over the canvas. */}

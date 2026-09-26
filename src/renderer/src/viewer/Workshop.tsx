@@ -40,15 +40,31 @@ const TOOLS: [number, number, number][] = [
   [420, 440, 170],
 ];
 
+/** How far the pegboard wall stands behind the laptop's centre, in mm. */
+export const WALL_BEHIND = 1300;
+/**
+ * The orbit camera's farthest reach in the workshop. It keeps the camera on
+ * the laptop's side of the wall and shelf when orbiting round to the rear.
+ */
+export const WORKSHOP_REACH = 1000;
+
 export function Workshop({ out }: { out: Size }) {
   const peg = useMemo(() => pegboardTexture(), []);
   useEffect(() => () => peg.dispose(), [peg]);
   const cx = out.x / 2;
   const benchW = 1800;
-  const benchD = 800;
+  // The bench runs from in front of the laptop back to the wall, which stands
+  // beyond the orbit camera's reach so it never fills the view from behind.
+  const benchFront = out.y / 2 - 280;
+  const wallY = out.y / 2 + WALL_BEHIND;
+  const benchD = wallY - benchFront;
   // The bench top is flush with the bottom of the base.
-  const benchY = out.y / 2 + 120;
-  const wallY = benchY + benchD / 2;
+  const benchY = (benchFront + wallY) / 2;
+  // The front lip wraps the top's front edge: it stands proud of the top's
+  // front face and top surface, so no face of it is coplanar with the top's.
+  const lipD = 16;
+  const lipZ0 = -46;
+  const lipZ1 = 2;
   const tool = token("shop-tool");
   const grip = token("shop-tool-grip");
   return (
@@ -57,7 +73,10 @@ export function Workshop({ out }: { out: Size }) {
         <boxGeometry />
         <meshStandardMaterial color={token("shop-bench")} roughness={0.75} />
       </mesh>
-      <mesh position={[cx, benchY - benchD / 2 + 10, -50]} scale={[benchW, 20, 60]}>
+      <mesh
+        position={[cx, benchFront - lipD / 2 + 2, (lipZ0 + lipZ1) / 2]}
+        scale={[benchW + 4, lipD, lipZ1 - lipZ0]}
+      >
         <boxGeometry />
         <meshStandardMaterial color={token("shop-bench-edge")} roughness={0.8} />
       </mesh>
@@ -67,7 +86,7 @@ export function Workshop({ out }: { out: Size }) {
       </mesh>
       {/* The plane faces -y (toward the laptop) after turning about x. */}
       <mesh position={[cx, wallY + 15, 380]} rotation-x={Math.PI / 2}>
-        <planeGeometry args={[1300, 520]} />
+        <planeGeometry args={[1600, 640]} />
         <meshStandardMaterial map={peg} roughness={0.9} side={THREE.DoubleSide} />
       </mesh>
       <mesh position={[cx + 300, wallY - 80, 580]} scale={[460, 170, 18]}>

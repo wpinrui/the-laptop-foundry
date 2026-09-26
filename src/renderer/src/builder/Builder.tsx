@@ -538,9 +538,13 @@ export function Builder({
                 <button type="button" className="fd-text" onClick={() => go(STAGES[idx - 1])}>
                   Back
                 </button>
-                {stage !== "price" && (
+                {stage !== "price" ? (
                   <button type="button" className="fd-primary" onClick={() => go(STAGES[idx + 1])}>
                     Next
+                  </button>
+                ) : (
+                  <button type="button" className="fd-primary" onClick={leave}>
+                    Done
                   </button>
                 )}
               </div>

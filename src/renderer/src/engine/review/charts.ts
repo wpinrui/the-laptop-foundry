@@ -22,6 +22,8 @@ export interface LinePanel {
 
 export interface LineChart {
   kind: "lines";
+  /** Where the site places it. */
+  id: string;
   caption: string;
   xLabel: string;
   /** Value at the last sample on the x axis. */
@@ -41,6 +43,7 @@ export interface BarRow {
 
 export interface BarChart {
   kind: "bars";
+  id: string;
   caption: string;
   unit: string;
   decimals: number;
@@ -52,6 +55,7 @@ export interface BarChart {
 
 export interface ScaleChart {
   kind: "scale";
+  id: string;
   caption: string;
   unit: string;
   min: number;
@@ -62,13 +66,23 @@ export interface ScaleChart {
 
 export interface DisplayBox {
   kind: "display";
+  id: string;
   caption: string;
   /** Nine zones, row by row from the top left, cd/m². */
   grid: number[];
   rows: [label: string, value: string][];
 }
 
-export type Chart = LineChart | BarChart | ScaleChart | DisplayBox;
+/** Surface temperature on the nine areas of each face, rows rear to front, °C. */
+export interface SurfaceGrid {
+  kind: "surface";
+  id: string;
+  caption: string;
+  top: number[][];
+  bottom: number[][];
+}
+
+export type Chart = LineChart | BarChart | ScaleChart | DisplayBox | SurfaceGrid;
 
 const STEP = 10;
 const LOOP_RUN = 60;
@@ -111,6 +125,7 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
     if (s) s.charts = [...(s.charts ?? []), ...charts];
   };
   const bars = (
+    id: string,
     caption: string,
     unit: string,
     decimals: number,
@@ -132,7 +147,7 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
     }
     if (!rows.some((r) => r.subject)) return null;
     rows.sort((a, b) => (lower ? a.value - b.value : b.value - a.value));
-    return { kind: "bars", caption, unit, decimals, lower, hours, rows };
+    return { kind: "bars", id, caption, unit, decimals, lower, hours, rows };
   };
   const some = (...cs: (Chart | null)[]) => cs.filter((c): c is Chart => c !== null);
 
@@ -155,7 +170,7 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
       ["PWM", d.pwm ? `${num(d.pwm.hz)} Hz at ${num(d.pwm.below)} % brightness and below` : "Not detected"],
     ];
     if (d.dimmingZones) rows.push(["Local dimming zones", num(d.dimmingZones)]);
-    add("display", { kind: "display", caption: "Display measurements", grid: d.distribution, rows });
+    add("display", { kind: "display", id: "display", caption: "Display measurements", grid: d.distribution, rows });
   }
 
   // ---------------------------------------------------------------- performance
@@ -175,6 +190,7 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
       loop.some((s) => s.slot === 0)
         ? {
             kind: "lines",
+            id: "loop",
             caption: `${benchName} multi-core loop`,
             xLabel: "Run",
             xMax: loop[0].values.length,
@@ -182,14 +198,14 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
             panels: [{ label: "Points", decimals: 0, series: loop }],
           }
         : null,
-      bars(`${benchName} single-core`, "Points", 0, (x) => x.r?.bench.single),
-      bars(`${benchName} multi-core`, "Points", 0, (x) => x.r?.bench.multi),
-      bars("Graphics score", "Points", 0, (x) => x.m.cooling?.graphics.sustained),
-      bars("Storage sequential read", "MB/s", 0, (x) => x.m.lab.storage[0]?.seqRead),
-      bars("Storage sequential write", "MB/s", 0, (x) => x.m.lab.storage[0]?.seqWrite),
-      bars("Memory read bandwidth", "GB/s", 1, (x) => x.m.lab.memory?.read),
-      bars("Wi-Fi send", "Mbit/s", 0, (x) => x.m.lab.wifi?.send),
-      bars("Wi-Fi receive", "Mbit/s", 0, (x) => x.m.lab.wifi?.receive),
+      bars("single", `${benchName} single-core`, "Points", 0, (x) => x.r?.bench.single),
+      bars("multi", `${benchName} multi-core`, "Points", 0, (x) => x.r?.bench.multi),
+      bars("graphics", "Graphics, sustained", "Points", 0, (x) => x.m.cooling?.graphics.sustained),
+      bars("storage-read", "Storage sequential read", "MB/s", 0, (x) => x.m.lab.storage[0]?.seqRead),
+      bars("storage-write", "Storage sequential write", "MB/s", 0, (x) => x.m.lab.storage[0]?.seqWrite),
+      bars("memory", "Memory read bandwidth", "GB/s", 1, (x) => x.m.lab.memory?.read),
+      bars("wifi-send", "Wi-Fi send", "Mbit/s", 0, (x) => x.m.lab.wifi?.send),
+      bars("wifi-receive", "Wi-Fi receive", "Mbit/s", 0, (x) => x.m.lab.wifi?.receive),
     );
     add("performance", ...perf);
 
@@ -200,6 +216,7 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
     const xMax = stress.cpuW.length / 60;
     add("emissions", {
       kind: "lines",
+      id: "stress",
       caption: "Stress test",
       xLabel: "Minutes",
       xMax,
@@ -218,6 +235,7 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
       "emissions",
       {
         kind: "lines",
+        id: "noise-time",
         caption: "Noise under the stress test",
         xLabel: "Minutes",
         xMax,
@@ -226,6 +244,7 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
       },
       {
         kind: "scale",
+        id: "noise-scale",
         caption: "Noise level",
         unit: "dB(A)",
         min: 20,
@@ -245,6 +264,14 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
             .filter((e) => e.f.m.cooling)
             .map((e) => ({ slot: e.slot, label: e.f.subject.name, value: e.f.m.cooling?.noise.sustained ?? 0 })),
         ],
+      },
+      ...some(bars("noise-load", "Noise under load", "dB(A)", 1, (x) => x.m.cooling?.noise.sustained, true)),
+      {
+        kind: "surface",
+        id: "surface",
+        caption: "Surface temperature under load",
+        top: c.surface.readings.load.top,
+        bottom: c.surface.readings.load.bottom,
       },
     );
   }
@@ -299,10 +326,10 @@ export function chartsFor(sections: Section[], f: Facts, peers: Facts[], content
       add(
         "energy",
         ...some(
-          bars("Battery life: Wi-Fi browsing", "", 1, hours("web"), false, true),
-          bars("Battery life: video", "", 1, hours("video"), false, true),
-          bars("Battery life: idle", "", 1, hours("idle"), false, true),
-          bars("Battery life: load", "", 1, hours("load"), false, true),
+          bars("battery-web", "Battery life, Wi-Fi browsing", "", 1, hours("web"), false, true),
+          bars("battery-video", "Battery life, video", "", 1, hours("video"), false, true),
+          bars("battery-idle", "Battery life, idle", "", 1, hours("idle"), false, true),
+          bars("battery-load", "Battery life, load", "", 1, hours("load"), false, true),
         ),
       );
     }

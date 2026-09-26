@@ -86,6 +86,30 @@
   --site26-muted: #6b6b6b;
   --site26-rule: #e6e3dc;
   --site26-row: #f3f1ec;
+  /* 2006 portal: tabs, bevelled bars (the reviewed model amber, rivals blue),
+     pro and contra, five temperature steps, and a line per laptop. */
+  --site06-tab: #dbe6f4;
+  --site06-tab-text: #16407a;
+  --site06-me-1: #f3c26b;
+  --site06-me-2: #d98b1c;
+  --site06-me-edge: #b06e10;
+  --site06-rival-1: #8fb6e6;
+  --site06-pro: #2f7d3b;
+  --site06-con: #b33b2e;
+  --site06-t1: #bfe0f5;
+  --site06-t2: #cfe8b0;
+  --site06-t3: #f7e58a;
+  --site06-t4: #f6b25c;
+  --site06-t5: #ee8a5c;
+  --site06-l1: #1d4f91;
+  --site06-l2: #7a5cc0;
+  --site06-l3: #3a9a4a;
+  --site06-l4: #b03a5b;
+  --site06-fps-bad: #f3c4c0;
+  --site06-fps-ok: #f6dfa8;
+  --site06-fps-good: #c5e6c5;
+  /* Very loud on the noise scale, every era. */
+  --site-loud: #8c1d18;
   /* Score piece: poor, fair, good, great. */
   --score-poor: #c9463d;
   --score-fair: #d99a2b;

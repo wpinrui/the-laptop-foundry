@@ -59,6 +59,8 @@ export {
   type DisplayBox,
   type LineChart,
   type ScaleChart,
+  type SurfaceGrid,
+  type Section,
   CATEGORIES as REVIEW_CATEGORIES,
   factsOf,
   laptopKind,

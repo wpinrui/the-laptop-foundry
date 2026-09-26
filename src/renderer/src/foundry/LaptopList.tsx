@@ -48,8 +48,35 @@ export function LaptopList({
   const rows = useRef<HTMLDivElement>(null);
   const current = models.find((x) => x.m.id === selected) ?? null;
   const i = models.findIndex((x) => x.m.id === selected);
+  const keys = useRef({ models, i, current, onSelect, onUse, onMenu });
+  keys.current = { models, i, current, onSelect, onUse, onMenu };
   useEffect(() => {
-    rows.current?.querySelector<HTMLElement>(".selected")?.focus();
+    // Up and down pick a model, Enter uses it, Escape goes to the menu.
+    const key = (e: KeyboardEvent) => {
+      const k = keys.current;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        k.onMenu();
+        return;
+      }
+      const step = e.key === "ArrowDown" || e.code === "KeyS" ? 1 : e.key === "ArrowUp" || e.code === "KeyW" ? -1 : 0;
+      if (step && k.models.length > 0) {
+        e.preventDefault();
+        setArmed(null);
+        k.onSelect(k.models[(k.i + step + k.models.length) % k.models.length].m.id);
+        requestAnimationFrame(() =>
+          rows.current?.querySelector<HTMLElement>(".selected")?.scrollIntoView({ block: "nearest" }),
+        );
+        return;
+      }
+      const onButton = document.activeElement instanceof HTMLButtonElement;
+      if (e.key === "Enter" && !onButton && k.current && !k.current.block) {
+        e.preventDefault();
+        k.onUse(k.current.m.id);
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
   }, []);
 
   return (
@@ -62,23 +89,7 @@ export function LaptopList({
             New model
           </button>
         </header>
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: arrow keys pick a model */}
-        <div
-          ref={rows}
-          className="fd-rows"
-          onKeyDown={(e) => {
-            const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-            if (!step || models.length === 0) return;
-            e.preventDefault();
-            onSelect(models[(i + step + models.length) % models.length].m.id);
-            setArmed(null);
-            requestAnimationFrame(() => {
-              const el = rows.current?.querySelector<HTMLElement>(".selected");
-              el?.focus();
-              el?.scrollIntoView({ block: "nearest" });
-            });
-          }}
-        >
+        <div ref={rows} className="fd-rows">
           {models.map(({ m, block }) => (
             <button
               key={m.id}

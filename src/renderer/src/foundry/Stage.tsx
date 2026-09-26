@@ -296,7 +296,12 @@ export function Stage({ build, stageKey, view }: { build: Build | null; stageKey
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ fov: 30, near: 10, far: 6000, position: [0, 500, 800] }}
+        // The camera stays 700 to 860 mm from the laptop and the fog closes at
+        // 3400 mm. A near plane of 10 mm spent the depth buffer's precision on
+        // space the camera never sees, and the sub-mm layers in the trackpad
+        // and the lid (glass 0.06 mm over the panel) z-fought. Sized to the
+        // real range, the depth step at the laptop is about 25 times finer.
+        camera={{ fov: 30, near: 250, far: 4000, position: [0, 500, 800] }}
       >
         <Atmosphere />
         <Reflections intensity={0.12} />

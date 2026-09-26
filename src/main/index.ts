@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu } from "electron";
 import { registerStore } from "./store";
 
 function createWindow(): void {
@@ -8,6 +8,8 @@ function createWindow(): void {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
+    fullscreen: true,
+    autoHideMenuBar: true,
     show: false,
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
@@ -27,6 +29,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Full screen with no menu bar.
+  Menu.setApplicationMenu(null);
   registerStore();
   createWindow();
   app.on("activate", () => {

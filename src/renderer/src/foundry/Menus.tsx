@@ -344,6 +344,14 @@ export function SettingsMenu({
             <span>Poly Haven</span>
             <small>CC0</small>
           </li>
+          <li>
+            <span>Space Mono</span>
+            <small>The Space Mono Project Authors, SIL Open Font License 1.1</small>
+          </li>
+          <li>
+            <span>Rubik</span>
+            <small>The Rubik Project Authors, SIL Open Font License 1.1</small>
+          </li>
         </ul>
         <div className="fd-entries">
           <Entry secondary onClick={() => setCredits(false)} autoFocus>

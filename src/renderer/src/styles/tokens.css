@@ -172,6 +172,13 @@
   --line-row: rgba(239, 230, 220, 0.08);
   --track: rgba(239, 230, 220, 0.14);
   --hot: #fff1e0;
+  /* Colour picker: the value and saturation ramps, and the hue strip. */
+  --picker-black: #000000;
+  --picker-white: #ffffff;
+  --hue-strip: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+  /* Stock keycaps and legends, the Keys stage's starting point. */
+  --keycap: #262a31;
+  --keycap-legend: #efe6dc;
   /* The accent and warning as hex, for three.js, which cannot read oklch. */
   --accent-hex: #f0913d;
   --warning-hex: #e8c25a;

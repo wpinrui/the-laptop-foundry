@@ -387,6 +387,21 @@ export interface Placement {
   cam?: { x: number };
 }
 
+/** Keycaps as the player styled them. Colours are hex. */
+export interface KeySpec {
+  shape: "square" | "rounded" | "round";
+  colours: { letters: string; mods: string; accent: string };
+  legend: {
+    font: string;
+    colour: string;
+    align: "c" | "tl" | "bl";
+    case: "as" | "upper" | "lower";
+    /** Scale on the standard legend size. */
+    size: number;
+    weight: number;
+  };
+}
+
 export interface BuildPart {
   part: string;
   opts?: Record<string, OptionValue>;
@@ -413,6 +428,8 @@ export interface Build {
   /** The screen spec. Older saves chose a row under parts.display instead. */
   screen?: ScreenSpec;
   place?: Placement;
+  /** Keycap shape, colours and legends. Absent means the keyboard's stock caps. */
+  keys?: KeySpec;
 }
 
 // ---------------------------------------------------------------- fit

@@ -56,6 +56,8 @@ interface SceneProps {
   workshop?: boolean;
   /** Called with every unit that could not be drawn, as "label: reason". */
   onFailed?: (failed: string[]) => void;
+  /** A still image lit on the display glass, such as a lock screen. */
+  lockScreen?: THREE.Texture;
 }
 
 export type Surfaces = Record<
@@ -565,6 +567,7 @@ export const Model = memo(function Model({
   workshop,
   portal,
   onFailed,
+  lockScreen,
 }: SceneProps & { portal?: RefObject<HTMLDivElement | null> }) {
   const ctx = useMemo(() => makeCtx(), []);
   // Base and lid report their failed units separately; the scene gets them together.
@@ -692,7 +695,17 @@ export const Model = memo(function Model({
                 rotation-x={Math.PI}
               >
                 <planeGeometry args={[panelBox.size.x, panelBox.size.y]} />
-                <meshStandardMaterial color={token("color-opening")} roughness={0.4} metalness={0} />
+                {lockScreen ? (
+                  <meshStandardMaterial
+                    color={token("color-opening")}
+                    emissive={token("panel-glare")}
+                    emissiveMap={lockScreen}
+                    roughness={0.35}
+                    metalness={0}
+                  />
+                ) : (
+                  <meshStandardMaterial color={token("color-opening")} roughness={0.4} metalness={0} />
+                )}
               </mesh>
             )}
             {screen && panelBox && (
@@ -723,7 +736,7 @@ export const Model = memo(function Model({
 });
 
 /** A procedural room to reflect, so metal shells read as metal. No assets. */
-export function Reflections() {
+export function Reflections({ intensity = 0.45 }: { intensity?: number }) {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   useEffect(() => {
@@ -731,14 +744,14 @@ export function Reflections() {
     const room = new RoomEnvironment();
     const env = pmrem.fromScene(room, 0.04).texture;
     scene.environment = env;
-    scene.environmentIntensity = 0.45;
+    scene.environmentIntensity = intensity;
     return () => {
       scene.environment = null;
       env.dispose();
       pmrem.dispose();
       room.dispose();
     };
-  }, [gl, scene]);
+  }, [gl, scene, intensity]);
   return null;
 }
 

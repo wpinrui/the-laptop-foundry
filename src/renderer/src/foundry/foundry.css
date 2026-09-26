@@ -1,0 +1,491 @@
+/* Foundry: the menu screens. Designed at 1440 by 810; every length is in
+   design pixels times --u, so the layout scales with the window. */
+
+.fd {
+  --u: min(calc(100vw / 1440), calc(100vh / 810));
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: calc(16 * var(--u));
+  line-height: 1.2;
+}
+
+.fd-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.fd button,
+.fd input {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  outline: none;
+}
+
+.fd button {
+  cursor: pointer;
+  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
+}
+
+.fd button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Left-to-right scrim so the menu reads over the scene. */
+.fd-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--ground) 92%, transparent) 0%,
+    color-mix(in srgb, var(--ground) 50%, transparent) 36%,
+    color-mix(in srgb, var(--ground) 0%, transparent) 60%
+  );
+}
+
+.fd-scrim-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(300 * var(--u));
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--ground) 90%, transparent),
+    color-mix(in srgb, var(--ground) 0%, transparent)
+  );
+}
+
+/* Screen change: the menu fades and slides in. */
+@keyframes fd-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(12 * var(--u)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.fd-in {
+  animation: fd-in 200ms ease-out both;
+}
+
+/* The left column, centred vertically. */
+.fd-column {
+  position: absolute;
+  left: calc(104 * var(--u));
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.fd-title {
+  margin: 0 0 calc(64 * var(--u));
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(116 * var(--u));
+  line-height: 0.86;
+  text-transform: uppercase;
+}
+
+.fd-entries {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(12 * var(--u));
+}
+
+.fd-entries + .fd-entries {
+  margin-top: calc(30 * var(--u));
+  gap: calc(8 * var(--u));
+}
+
+/* Menu entry: plain text, accent when focused. Hover moves focus. */
+.fd-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  font-size: calc(42 * var(--u)) !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text) !important;
+}
+
+.fd-entry.secondary {
+  font-size: calc(24 * var(--u)) !important;
+  letter-spacing: 0.04em;
+  color: var(--muted) !important;
+}
+
+.fd-entry:focus,
+.fd-entry.secondary:focus {
+  color: var(--accent) !important;
+}
+
+.fd-entry small {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  margin-top: calc(4 * var(--u));
+}
+
+/* An entry with a mono value beside it, such as Sound On. */
+.fd-entry.valued {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  width: calc(360 * var(--u));
+}
+
+.fd-entry.valued small {
+  margin: 0;
+  font-size: calc(16 * var(--u));
+}
+
+/* Buttons. */
+.fd-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(24 * var(--u));
+  margin-top: calc(40 * var(--u));
+}
+
+.fd-primary,
+.fd-secondary,
+.fd-text {
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  font-size: calc(24 * var(--u)) !important;
+  line-height: 1 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fd-primary {
+  background: var(--accent) !important;
+  color: var(--ground) !important;
+  padding: calc(16 * var(--u)) calc(40 * var(--u)) !important;
+}
+
+.fd-primary:focus-visible {
+  outline: calc(2 * var(--u)) solid var(--text) !important;
+  outline-offset: calc(3 * var(--u)) !important;
+}
+
+.fd-secondary {
+  font-weight: 600 !important;
+  font-size: calc(20 * var(--u)) !important;
+  border: 1px solid var(--line-strong) !important;
+  color: var(--text) !important;
+  padding: calc(13 * var(--u)) calc(22 * var(--u)) !important;
+}
+
+.fd-secondary.muted {
+  color: var(--muted) !important;
+}
+
+.fd-secondary:not(:disabled):hover,
+.fd-secondary:focus-visible {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.fd-text {
+  font-weight: 600 !important;
+  color: var(--muted) !important;
+}
+
+.fd-text:not(:disabled):hover,
+.fd-text:focus-visible {
+  color: var(--accent) !important;
+}
+
+/* Name field: mono label, large typed value on an accent underline. */
+.fd-field {
+  display: flex;
+  flex-direction: column;
+  width: calc(540 * var(--u));
+}
+
+.fd-label {
+  font-family: var(--font-mono);
+  font-size: calc(14 * var(--u));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: calc(14 * var(--u));
+}
+
+.fd-name {
+  position: relative;
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: calc(6 * var(--u));
+}
+
+.fd-name input {
+  display: block;
+  width: 100%;
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  font-size: calc(72 * var(--u)) !important;
+  line-height: 1.1 !important;
+  color: var(--text) !important;
+  caret-color: transparent;
+}
+
+/* The block caret sits after the typed text: a hidden copy measures it. */
+.fd-caret {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: calc(6 * var(--u));
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(72 * var(--u));
+  line-height: 1.1;
+  white-space: pre;
+}
+
+.fd-caret span {
+  visibility: hidden;
+}
+
+.fd-caret i {
+  display: block;
+  width: calc(4 * var(--u));
+  height: 0.8em;
+  margin-left: calc(4 * var(--u));
+  background: var(--accent);
+  animation: fd-blink 1s steps(1) infinite;
+}
+
+.fd-name:not(:focus-within) .fd-caret {
+  display: none;
+}
+
+@keyframes fd-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Save list on Load company. */
+.fd-saves {
+  width: calc(560 * var(--u));
+  display: flex;
+  flex-direction: column;
+}
+
+.fd-save {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(18 * var(--u)) 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  text-align: left;
+}
+
+.fd-save b {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(40 * var(--u));
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.fd-save span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.fd-save.selected {
+  background: var(--accent-wash) !important;
+}
+
+.fd-save.selected b {
+  color: var(--accent);
+}
+
+/* Laptop list: the rail. */
+.fd-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(440 * var(--u));
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--ground-deep) 80%, transparent);
+  backdrop-filter: blur(18px);
+  border-right: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.fd-rail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  padding: calc(44 * var(--u)) calc(36 * var(--u)) calc(28 * var(--u));
+}
+
+.fd-rail-head h1 {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(44 * var(--u));
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.fd-rail-head .fd-secondary {
+  flex: none;
+  font-size: calc(18 * var(--u)) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  padding: calc(11 * var(--u)) calc(16 * var(--u)) !important;
+}
+
+.fd-rows {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.fd-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  padding: calc(18 * var(--u)) calc(36 * var(--u)) !important;
+  text-align: left;
+}
+
+.fd-row > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fd-row b {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(28 * var(--u));
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fd-row small {
+  font-family: var(--font-mono);
+  font-size: calc(13 * var(--u));
+  color: var(--muted);
+  margin-top: calc(4 * var(--u));
+}
+
+.fd-row small em {
+  font-style: normal;
+  color: var(--warning);
+  margin-left: calc(14 * var(--u));
+}
+
+.fd-row .fd-score {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: calc(28 * var(--u));
+}
+
+.fd-row.selected {
+  background: var(--accent-wash) !important;
+}
+
+.fd-row.selected b {
+  color: var(--accent);
+}
+
+.fd-corner {
+  position: absolute;
+  top: calc(44 * var(--u));
+  right: calc(56 * var(--u));
+}
+
+/* The selected laptop's name, large, lower right of the scene. */
+.fd-hero {
+  position: absolute;
+  left: calc(520 * var(--u));
+  right: calc(56 * var(--u));
+  bottom: calc(64 * var(--u));
+}
+
+.fd-hero h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(80 * var(--u));
+  line-height: 0.95;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fd-hero > span {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: calc(18 * var(--u));
+  color: var(--muted);
+  margin-top: calc(4 * var(--u));
+}
+
+.fd-hero em {
+  font-style: normal;
+  color: var(--warning);
+  margin-left: calc(16 * var(--u));
+}
+
+.fd-bar {
+  display: flex;
+  gap: calc(12 * var(--u));
+  margin-top: calc(28 * var(--u));
+}
+
+.fd-bar .fd-primary {
+  font-size: calc(20 * var(--u)) !important;
+  padding: calc(12 * var(--u)) calc(30 * var(--u)) !important;
+}

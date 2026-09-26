@@ -133,4 +133,24 @@
   /* Photo studio for the review's product shots. */
   --studio-bg: #e7e9ec;
   --studio-floor: #d9dce0;
+
+  /* Foundry: the menus and the cafe HUD (style guide section 2). */
+  --ground: #14100d;
+  --ground-deep: #0e0b09;
+  --text: #efe6dc;
+  --muted: #a8998a;
+  --accent: oklch(0.76 0.16 55);
+  --accent-wash: rgba(232, 137, 74, 0.12);
+  --warning: oklch(0.82 0.14 85);
+  --line: rgba(239, 230, 220, 0.14);
+  --line-strong: rgba(239, 230, 220, 0.3);
+  --font-display: "Barlow Condensed", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  /* Foundry 3D staging (style guide section 6). */
+  --stage-plinth: #241d17;
+  --stage-key: #ffb27a;
+  --stage-rim: #86a2ff;
+  --stage-fill-sky: #4a382a;
+  --stage-fill-ground: #0a0806;
 }

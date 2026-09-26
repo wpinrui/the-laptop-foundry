@@ -17,29 +17,75 @@ export function laptopCount(n: number): string {
   return `${n} ${n === 1 ? "laptop" : "laptops"}`;
 }
 
-/** Arrow keys move focus between the column's entries; Escape goes back. */
+const typing = () => document.activeElement instanceof HTMLInputElement;
+
+/**
+ * Up and down (arrows, W and S) move among the column's entries, Enter or
+ * Space picks one, Escape goes back. There is always exactly one focused
+ * entry: the first on open, then wherever the keys or the mouse last put it.
+ * Leaving an entry with the mouse keeps it focused.
+ */
 export function Column({ children, onBack }: { children: ReactNode; onBack?: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
-  return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: keyboard navigation for the menu within
-    <div
-      ref={ref}
-      className="fd-column fd-in"
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && onBack) {
+  const back = useRef(onBack);
+  back.current = onBack;
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const entries = () => [...root.querySelectorAll<HTMLElement>("[data-nav]:not(:disabled)")];
+    let current: HTMLElement | null = null;
+    const mark = (el: HTMLElement | undefined) => {
+      if (!el) return;
+      for (const e of root.querySelectorAll("[data-focus]")) e.removeAttribute("data-focus");
+      el.setAttribute("data-focus", "");
+      current = el;
+      if (document.activeElement !== el && !typing()) el.focus({ preventScroll: true });
+    };
+    mark(entries()[0]);
+    const focusIn = (e: FocusEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.matches("[data-nav]")) mark(t);
+    };
+    const over = (e: MouseEvent) => {
+      const t = (e.target as HTMLElement).closest<HTMLElement>("[data-nav]");
+      if (t && root.contains(t) && !t.matches(":disabled") && t !== current) mark(t);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (back.current) {
           e.preventDefault();
-          onBack();
-          return;
+          back.current();
         }
-        if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-        const all = [...(ref.current?.querySelectorAll<HTMLElement>("[data-nav]:not(:disabled)") ?? [])];
+        return;
+      }
+      if (typing()) return;
+      const down = e.key === "ArrowDown" || e.code === "KeyS";
+      const up = e.key === "ArrowUp" || e.code === "KeyW";
+      if (down || up) {
+        const all = entries();
         if (all.length === 0) return;
         e.preventDefault();
-        const i = all.indexOf(document.activeElement as HTMLElement);
-        const step = e.key === "ArrowDown" ? 1 : -1;
-        all[(i + step + all.length) % all.length]?.focus();
-      }}
-    >
+        const i = current ? all.indexOf(current) : -1;
+        mark(all[(i + (down ? 1 : -1) + all.length) % all.length]);
+        return;
+      }
+      // A focused button activates itself; otherwise the focused entry is clicked here.
+      if ((e.key === "Enter" || e.key === " ") && current && document.activeElement !== current) {
+        e.preventDefault();
+        current.click();
+      }
+    };
+    root.addEventListener("focusin", focusIn);
+    root.addEventListener("mouseover", over);
+    window.addEventListener("keydown", key);
+    return () => {
+      root.removeEventListener("focusin", focusIn);
+      root.removeEventListener("mouseover", over);
+      window.removeEventListener("keydown", key);
+    };
+  }, []);
+  return (
+    <div ref={ref} className="fd-column fd-in">
       {children}
     </div>
   );
@@ -65,7 +111,6 @@ export function Entry({
       type="button"
       data-nav
       className={`fd-entry${secondary ? " secondary" : ""}${valued ? " valued" : ""}`}
-      onMouseEnter={(e) => e.currentTarget.focus()}
       onClick={onClick}
       // biome-ignore lint/a11y/noAutofocus: the first entry of a menu takes focus
       autoFocus={autoFocus}
@@ -199,26 +244,32 @@ export function LoadCompany({
   const [armed, setArmed] = useState<string | null>(null);
   const rows = useRef<HTMLDivElement>(null);
   const i = companies.findIndex((c) => c.id === selected);
+  const keys = useRef({ companies, i, selected, onSelect, onLoad });
+  keys.current = { companies, i, selected, onSelect, onLoad };
   useEffect(() => {
-    rows.current?.querySelector<HTMLElement>(".selected")?.focus();
+    // Up and down pick a save, Enter loads it. Escape is the column's Back.
+    const key = (e: KeyboardEvent) => {
+      const k = keys.current;
+      const step = e.key === "ArrowDown" || e.code === "KeyS" ? 1 : e.key === "ArrowUp" || e.code === "KeyW" ? -1 : 0;
+      if (step && k.companies.length > 0) {
+        e.preventDefault();
+        setArmed(null);
+        const next = k.companies[(k.i + step + k.companies.length) % k.companies.length];
+        k.onSelect(next.id);
+        return;
+      }
+      const onButton = document.activeElement instanceof HTMLButtonElement;
+      if (e.key === "Enter" && !onButton && k.selected) {
+        e.preventDefault();
+        k.onLoad(k.selected);
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
   }, []);
   return (
     <Column onBack={onBack}>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: arrow keys pick a save */}
-      <div
-        ref={rows}
-        className="fd-saves"
-        onKeyDown={(e) => {
-          const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0;
-          if (!step || companies.length === 0) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const next = companies[(i + step + companies.length) % companies.length];
-          onSelect(next.id);
-          setArmed(null);
-          requestAnimationFrame(() => rows.current?.querySelector<HTMLElement>(".selected")?.focus());
-        }}
-      >
+      <div ref={rows} className="fd-saves">
         {companies.map((c) => (
           <button
             key={c.id}

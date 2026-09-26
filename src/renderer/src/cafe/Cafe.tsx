@@ -227,7 +227,8 @@ export function Cafe({
       {paused && (
         <div className="fd fd-over">
           <div className="fd-scrim" />
-          <Column onBack={resume}>
+          {/* Escape resumes through the cafe's own key handler. */}
+          <Column>
             <div className="fd-entries">
               <Entry onClick={resume} autoFocus>
                 Resume

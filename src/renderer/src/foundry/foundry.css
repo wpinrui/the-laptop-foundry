@@ -116,7 +116,7 @@
   gap: calc(8 * var(--u));
 }
 
-/* Menu entry: plain text, accent when focused. Hover moves focus. */
+/* Menu entry: plain text, accent when focused. Hover and keys move one focus. */
 .fd-entry {
   display: flex;
   flex-direction: column;
@@ -137,8 +137,8 @@
   color: var(--muted) !important;
 }
 
-.fd-entry:focus,
-.fd-entry.secondary:focus {
+.fd-entry[data-focus],
+.fd-entry.secondary[data-focus] {
   color: var(--accent) !important;
 }
 

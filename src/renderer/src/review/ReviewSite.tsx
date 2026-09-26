@@ -50,6 +50,42 @@ function Masthead({ era, onHome }: { era: Era; onHome?: () => void }) {
   );
 }
 
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** "14 March 2026". */
+export function longDate(d: Review["date"]): string {
+  return `${d.day} ${MONTHS[d.month - 1]} ${d.year}`;
+}
+
+/** "14/03/2006", as the old portal printed it. */
+export function shortDate(d: Review["date"]): string {
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(d.day)}/${two(d.month)}/${d.year}`;
+}
+
+/** The site mid-load: the masthead and the era's own progress mark. */
+export function SiteLoading({ era }: { era: Era }) {
+  return (
+    <div className={`rs rs-${era} rs-loading`}>
+      <Masthead era={era} />
+      <i className="rs-progress" />
+    </div>
+  );
+}
+
 function band(score: number): string {
   return score >= 90 ? "great" : score >= 80 ? "good" : score >= 70 ? "fair" : "poor";
 }

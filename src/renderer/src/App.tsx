@@ -109,8 +109,21 @@ export function App() {
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
     );
-  if (reviewing)
-    return <ReviewScreen key={reviewing.id} subject={reviewing} onBack={() => setReviewing(null)} />;
+  if (reviewing) {
+    const saved = company?.models.find((x) => x.id === reviewing.id);
+    return (
+      <ReviewScreen
+        key={reviewing.id}
+        subject={reviewing}
+        reveal={!saved?.revealed}
+        onRevealed={() => {
+          const m = company?.models.find((x) => x.id === reviewing.id);
+          if (m && !m.revealed) save({ ...m, revealed: Date.now() });
+        }}
+        onBack={() => setReviewing(null)}
+      />
+    );
+  }
 
   const duplicate = (id: string) => {
     const src = company?.models.find((m) => m.id === id);

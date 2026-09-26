@@ -539,6 +539,47 @@ function Shell({
   );
 }
 
+/** How far a well's dark lining stands off the unit in it, in mm. */
+const WELL_CLEAR = 0.2;
+
+/**
+ * The lining of a keyboard or trackpad well, dark: a floor under the unit and
+ * four walls from the top case down to it. Without the walls a look through
+ * the opening at a slant passed under the top case's lip, beside the unit,
+ * and lit up the inside of the shell floor as a pale strip along the far
+ * edges (worst through a glass trackpad).
+ */
+function Well({ well: w, top }: { well: Wells[number]; top: number }) {
+  const x0 = w.at.x - WELL_CLEAR;
+  const y0 = w.at.y - WELL_CLEAR;
+  const sx = w.size.x + 2 * WELL_CLEAR;
+  const sy = w.size.y + 2 * WELL_CLEAR;
+  const z0 = w.at.z - 0.05;
+  // The walls stop just under the top case, so their top edge never meets its face.
+  const h = top - WELL_CLEAR - z0;
+  const colour = token("color-opening");
+  const walls: { pos: [number, number, number]; rot: [number, number, number]; size: [number, number] }[] = [
+    { pos: [x0 + sx / 2, y0, z0 + h / 2], rot: [Math.PI / 2, 0, 0], size: [sx, h] },
+    { pos: [x0 + sx / 2, y0 + sy, z0 + h / 2], rot: [Math.PI / 2, 0, 0], size: [sx, h] },
+    { pos: [x0, y0 + sy / 2, z0 + h / 2], rot: [Math.PI / 2, Math.PI / 2, 0], size: [sy, h] },
+    { pos: [x0 + sx, y0 + sy / 2, z0 + h / 2], rot: [Math.PI / 2, Math.PI / 2, 0], size: [sy, h] },
+  ];
+  return (
+    <group>
+      <mesh position={[x0 + sx / 2, y0 + sy / 2, z0]}>
+        <planeGeometry args={[sx, sy]} />
+        <meshBasicMaterial color={colour} side={THREE.DoubleSide} />
+      </mesh>
+      {walls.map((wall, i) => (
+        <mesh key={i} position={wall.pos} rotation={wall.rot}>
+          <planeGeometry args={wall.size} />
+          <meshBasicMaterial color={colour} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function Openings({ fit }: { fit: Fit }) {
   const colour = token("color-opening");
   // The dark block runs from 0.2 mm proud of the drawn shell (SKIN outside
@@ -724,18 +765,7 @@ export const Model = memo(function Model({
         />
         </group>
         </group>
-        {!xray &&
-          fit.shell.wells.map((w) => (
-            // The floor of each well, dark, so a solid shell does not show
-            // the board through the gaps around the keyboard and trackpad.
-            <mesh
-              key={`${w.at.x}-${w.at.y}`}
-              position={[w.at.x + w.size.x / 2, w.at.y + w.size.y / 2, w.at.z - 0.05]}
-            >
-              <planeGeometry args={[w.size.x, w.size.y]} />
-              <meshBasicMaterial color={token("color-opening")} side={THREE.DoubleSide} />
-            </mesh>
-          ))}
+        {!xray && fit.shell.wells.map((w) => <Well key={`${w.at.x}-${w.at.y}`} well={w} top={out.z} />)}
         <Openings fit={fit} />
         {workshop && !table && <Workshop out={out} />}
         {table && (

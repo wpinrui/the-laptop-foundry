@@ -46,6 +46,7 @@ function isModel(m: unknown): m is SavedModel {
     !!x &&
     typeof x.id === "string" &&
     typeof x.name === "string" &&
+    x.name.trim() !== "" &&
     typeof x.created === "number" &&
     typeof x.updated === "number"
   );

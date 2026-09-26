@@ -33,6 +33,48 @@ export function CompanySetup({ onDone }: { onDone: (name: string) => void }) {
   );
 }
 
+/** Every new or duplicated model is named by the player before it exists. */
+export function NameModel({
+  roll,
+  onCreate,
+  onCancel,
+}: {
+  roll: () => string;
+  onCreate: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  return (
+    <form
+      className="screen setup"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim()) onCreate(name.trim());
+      }}
+    >
+      <label className="field">
+        <span>Model name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          aria-label="model name"
+          // biome-ignore lint/a11y/noAutofocus: the only field on the screen
+          autoFocus
+        />
+      </label>
+      <button type="button" onClick={() => setName(roll())}>
+        Random name
+      </button>
+      <button type="submit" className="primary" disabled={!name.trim()}>
+        Create
+      </button>
+      <button type="button" onClick={onCancel}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
 function yearOf(m: SavedModel): number | undefined {
   const y = (m.build as { year?: unknown } | null)?.year;
   return typeof y === "number" ? y : undefined;
@@ -43,7 +85,7 @@ export function Models({
   onCompany,
   onNew,
   onOpen,
-  onRevise,
+  onDuplicate,
   onDelete,
   onReview,
   onUse,
@@ -52,7 +94,7 @@ export function Models({
   onCompany: (name: string) => void;
   onNew: () => void;
   onOpen: (id: string) => void;
-  onRevise: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onReview: (id: string) => void;
   onUse: (id: string) => void;
@@ -77,8 +119,6 @@ export function Models({
   );
   if (next && photos && !thumbs[`${next.id}:${next.updated}`])
     setThumbs((t) => ({ ...t, [`${next.id}:${next.updated}`]: photos[0] }));
-  const nameOf = (id: string | undefined) =>
-    data.models.find((m) => m.id === id)?.name;
 
   return (
     <div className="screen models">
@@ -113,11 +153,7 @@ export function Models({
             >
               <b>{m.name}</b>
               <span>
-                {[
-                  yearOf(m),
-                  nameOf(m.revisedFrom),
-                  m.reviewed ? "Reviewed" : null,
-                ]
+                {[yearOf(m), m.reviewed ? "Reviewed" : null]
                   .filter(Boolean)
                   .join(", ")}
               </span>
@@ -139,8 +175,8 @@ export function Models({
             >
               {m.reviewed ? "Read review" : "Get reviewed"}
             </button>
-            <button type="button" onClick={() => onRevise(m.id)}>
-              Revise
+            <button type="button" onClick={() => onDuplicate(m.id)}>
+              Duplicate
             </button>
             {confirming === m.id ? (
               <button

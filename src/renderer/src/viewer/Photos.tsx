@@ -4,8 +4,13 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { type Build, colourHex, decorOf, type Fit, solve } from "../engine";
 import { buildShot, SIZE_FRAME, VIEWING_GRID } from "./reviewScenes";
+import { osShot } from "../os/shots";
+import { legacyShot } from "../os/legacy";
+import { LOOKS } from "../os/Os";
+import { eraOf, ownerOf } from "../os/types";
 import {
   heatMaterial,
+  OS_SHOT,
   type PanelLook,
   panelLook,
   rivalOutlines,
@@ -81,11 +86,13 @@ function disposeSet(root: THREE.Object3D, keep: THREE.Object3D[]) {
 function Shooter({
   id,
   build,
+  who,
   fit,
   onDone,
 }: {
   id: string;
   build: Build;
+  who: Who;
   fit: Fit;
   onDone: (photos: Record<string, string>) => void;
 }) {
@@ -143,7 +150,7 @@ function Shooter({
     ) {
       const s = await buildShot(sceneId, shotId, { era: build.year, size, aspect: w / h });
       if (cancelled) return;
-      const lock = s.screen ? screenTexture(s.screen as ScreenKind, build.year, aspect, look, view) : undefined;
+      const lock = s.screen ? screenTexture(s.screen as ScreenKind, os, aspect, look, view) : undefined;
       await apply({ lid: s.lid, lock, gloss, teardown: sceneId === "teardown" });
       s.laptopRoot.add(holder);
       if (s.coverRoot) s.coverRoot.add(coverHolder);
@@ -227,7 +234,18 @@ function Shooter({
       return c.toDataURL("image/jpeg", 0.88);
     }
 
+    // The laptop's own OS on its screen: drawn once, shared by every set.
+    const os: Partial<Record<ScreenKind, HTMLCanvasElement>> = {};
     (async () => {
+      const owner = ownerOf(build, who.company);
+      const era = eraOf(build.year);
+      for (const k of Object.keys(OS_SHOT) as (keyof typeof OS_SHOT)[]) {
+        // Eras whose OS has not landed yet keep the screens they had.
+        os[k] = LOOKS.includes(era)
+          ? await osShot({ shot: OS_SHOT[k], build, owner, model: `${who.company} ${who.name}`.trim(), aspect, outW: 1600 })
+          : legacyShot(k, era, aspect);
+        if (cancelled) return;
+      }
       const photos: Record<string, string> = {};
       for (const job of jobsFor(build)) {
         if (cancelled) return;
@@ -280,21 +298,29 @@ function Shooter({
   );
 }
 
+/** Whose laptop it is, as its screen shows it. */
+interface Who {
+  name: string;
+  company: string;
+}
+
 /** A hidden canvas that photographs one build and reports the photos. */
 function PhotoShoot({
   id,
   build,
+  who,
   onDone,
 }: {
   id: string;
   build: Build;
+  who: Who;
   onDone: (photos: Record<string, string>) => void;
 }) {
   const fit = useMemo(() => solve(build), [build]);
   return (
     <div aria-hidden style={{ position: "fixed", left: -10000, top: 0, width: W, height: H, pointerEvents: "none" }}>
       <Canvas gl={{ preserveDrawingBuffer: true, antialias: true }} dpr={1} frameloop="never" shadows="percentage">
-        <Shooter id={id} build={build} fit={fit} onDone={onDone} />
+        <Shooter id={id} build={build} who={who} fit={fit} onDone={onDone} />
       </Canvas>
     </div>
   );
@@ -308,18 +334,20 @@ const cache = new Map<string, Record<string, string>>();
  * shoot to render until then.
  */
 export function usePhotos(
-  key: string | null,
-  build: Build | null,
+  subject: { id: string; name: string; company: string; build: Build } | null,
 ): { photos: Record<string, string> | null; shoot: ReactNode } {
+  const key = subject?.id ?? null;
+  const build = subject?.build ?? null;
   const full = key && build ? `${key}|${JSON.stringify(build)}` : null;
   const [, bump] = useState(0);
   const photos = full ? (cache.get(full) ?? null) : null;
   const shoot =
-    full && key && build && !photos ? (
+    full && key && build && subject && !photos ? (
       <PhotoShoot
         key={full}
         id={key}
         build={build}
+        who={{ name: subject.name, company: subject.company }}
         onDone={(p) => {
           cache.set(full, p);
           bump((n) => n + 1);

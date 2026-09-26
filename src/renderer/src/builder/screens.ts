@@ -1,11 +1,10 @@
 import * as THREE from "three";
 import { token } from "../viewer/theme";
 
-// What the builder's laptop shows on its display: off, a test grid (Screen
-// stage), the boot screen with the model's name (power on) and a warm desktop
-// once it runs. Canvas textures, drawn at the panel's own aspect.
+// The Screen stage's test grid on the builder's laptop, drawn at the panel's
+// own aspect. Once the laptop is valid its OS takes the screen (os/useOsScreen).
 
-export type ScreenKind = "off" | "grid" | "boot" | "desk";
+export type ScreenKind = "off" | "grid";
 
 function canvas(ratio: number): [HTMLCanvasElement, CanvasRenderingContext2D | null, number, number] {
   const W = 1280;
@@ -45,32 +44,6 @@ export function screenTexture(kind: ScreenKind, ratio: number, name: string): TH
       g.beginPath();
       g.arc(W / 2, H / 2, H * 0.36, 0, Math.PI * 2);
       g.stroke();
-    } else if (kind === "boot") {
-      const r = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.6);
-      r.addColorStop(0, token("screen-boot"));
-      r.addColorStop(1, token("screen-boot-edge"));
-      g.fillStyle = r;
-      g.fillRect(0, 0, W, H);
-      g.fillStyle = token("text");
-      g.font = `700 ${Math.round(H * 0.13)}px "Barlow Condensed"`;
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.fillText(name.toUpperCase(), W / 2, H * 0.46);
-      g.globalAlpha = 0.18;
-      g.fillRect(W * 0.4, H * 0.62, W * 0.2, 4);
-      g.globalAlpha = 1;
-      g.fillStyle = token("accent-hex");
-      g.fillRect(W * 0.4, H * 0.62, W * 0.13, 4);
-    } else {
-      const r = g.createRadialGradient(W * 0.3, H * 0.2, 0, W * 0.3, H * 0.2, W);
-      r.addColorStop(0, token("screen-desk"));
-      r.addColorStop(1, token("screen-desk-edge"));
-      g.fillStyle = r;
-      g.fillRect(0, 0, W, H);
-      g.globalAlpha = 0.85;
-      g.fillStyle = token("ground");
-      g.fillRect(0, H - 34, W, 34);
-      g.globalAlpha = 1;
     }
   }
   const t = new THREE.CanvasTexture(c);

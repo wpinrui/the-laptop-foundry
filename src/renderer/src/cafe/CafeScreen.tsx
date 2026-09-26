@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import wallpaper from "../assets/os/wallpaper.jpg";
 import {
   CONTENT,
-  gameEdition,
-  KILNBENCH,
   colourHex,
   decorOf,
+  factsOf,
+  gameEdition,
+  KILNBENCH,
   panelOf,
   PROFILES,
   type ProfileId,
@@ -17,34 +19,101 @@ import {
   solve,
   timeline,
 } from "../engine";
+import type { Preset } from "../engine/bench";
 import { balancedProfile } from "../engine/sim/profiles";
-import { lookOf } from "../review/ReviewScreen";
+import { BOOT_MS } from "../os/art";
+import {
+  AshApp,
+  Boot,
+  Browser,
+  Desktop,
+  Empty,
+  Flyout,
+  KilnApp,
+  LOOKS,
+  lookOf as osLook,
+  type RankRow,
+  Screen,
+  SysApp,
+  Toast,
+  Win,
+} from "../os/Os";
+import { SYS_SIZE, SYS_TITLE } from "../os/shots";
+import { sysGroups } from "../os/sys";
+import { type AppId, duration, ownerOf, type Power } from "../os/types";
+import { lookOf } from "../review/look";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
-import { token } from "../viewer/theme";
 import { usePhotos } from "../viewer/Photos";
 import { surfacesOf } from "../viewer/Scene";
 import { Cafe } from "./Cafe";
+import { LegacyCafeScreen } from "./LegacyCafeScreen";
 import "./cafe.css";
 
-// The cafe: the laptop on a table, running what the simulation says it can.
-// Time runs one to one, except the battery, which drains 30 times faster.
+// The cafe: the laptop on a table, running its own OS and what the
+// simulation says it can. Time runs one to one, except the battery, which
+// drains 30 times faster.
 
-type App = "desktop" | "kiln" | "ash" | "web";
 const BATTERY_SPEED = 30;
 const INDEX = "index";
 const LATEST = Math.max(...CONTENT.eras.map((e) => e.year));
 const GAME_EDITIONS: number[] = [];
 for (let y = 2005; y <= gameEdition(LATEST); y += 3) GAME_EDITIONS.push(y);
-const PROFILE_NAME: Record<ProfileId, string> = {
-  high: "High",
-  medium: "Medium",
-  low: "Low",
+const BENCH_EDITIONS = KILNBENCH.map((e) => e.year);
+/** The low battery notice: at this level, for this long. */
+const LOW_PCT = 10;
+const LOW_MS = 6000;
+
+// What the graphics lacks, in the words an error box would use.
+const FEATURE: Record<string, string> = {
+  dx9: "pixel shader 2.0",
+  dx9c: "shader model 3.0",
+  dx10: "unified shaders",
+  dx11: "hardware tessellation",
+  dx12: "low-level rendering",
+  dx12u: "mesh shaders",
+  rt: "hardware ray tracing",
 };
+
+const slug = (s: string) =>
+  s
+    .trim()
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+function useNow(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 10000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+/** Kilnbench's ranking: this laptop among rivals of the edition's era, closest scores first. */
+function rankingOf(own: string, ownScore: number | null, edition: number): RankRow[] {
+  const era = eraOf(edition);
+  const best = new Map<string, number>();
+  for (const r of RIVALS) {
+    if (eraOf(r.build.year) !== era) continue;
+    try {
+      const f = factsOf(rivalSubject(r));
+      const score = results(r.build, f.m, edition)?.bench.multi;
+      const id = r.build.parts.processor?.[0]?.part;
+      const name = CONTENT.parts.find((p) => p.id === id)?.name;
+      if (!score || !name || name === own) continue;
+      best.set(name, Math.max(best.get(name) ?? 0, score));
+    } catch {}
+  }
+  const rivals = [...best].map(([name, score]) => ({ name, score, own: false }));
+  const near = ownScore === null ? rivals.sort((a, b) => b.score - a.score) : rivals.sort((a, b) => Math.abs(a.score - ownScore) - Math.abs(b.score - ownScore));
+  const rows: RankRow[] = [...near.slice(0, 3), { name: own, score: ownScore, own: true }];
+  return rows.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+}
 
 // ------------------------------------------------------------------ fan audio
 
 /** Fan noise synthesised from filtered white noise and a faint blade tone. */
-function useFanAudio(db: number, fan: number, muted: boolean) {
+function useFanAudio(db: number, fan: number, muted: boolean, volume: number) {
   const nodes = useRef<{
     ctx: AudioContext;
     gain: GainNode;
@@ -89,166 +158,33 @@ function useFanAudio(db: number, fan: number, muted: boolean) {
     const n = nodes.current;
     if (!n) return;
     const t = n.ctx.currentTime;
-    const level = muted || db <= 23 ? 0 : 10 ** ((db - 68) / 20);
+    // The OS volume slider scales the fan; 60 is as loud as it really is.
+    const level = muted || db <= 23 ? 0 : 10 ** ((db - 68) / 20) * (volume / 60);
     n.gain.gain.setTargetAtTime(level, t, 0.4);
     n.toneGain.gain.setTargetAtTime(level * 0.08, t, 0.4);
     n.band.frequency.setTargetAtTime(350 + fan * 1500, t, 0.4);
     n.tone.frequency.setTargetAtTime(110 + fan * 420, t, 0.4);
-  }, [db, fan, muted]);
-}
-
-// ------------------------------------------------------------------ canvases
-
-function useCanvasLoop(
-  draw: (g: CanvasRenderingContext2D, w: number, h: number, now: number) => void,
-) {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-  const drawRef = useRef(draw);
-  drawRef.current = draw;
-  useEffect(() => {
-    let id = 0;
-    const loop = (now: number) => {
-      const c = ref.current;
-      const g = c?.getContext("2d");
-      if (c && g) drawRef.current(g, c.width, c.height, now);
-      id = requestAnimationFrame(loop);
-    };
-    id = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(id);
-  }, []);
-  return ref;
-}
-
-const TILES_X = 16;
-const TILES_Y = 10;
-
-/** Kilnbench: tiles render in at the processor's simulated speed. */
-function Kiln({
-  progress,
-  result,
-  refuses,
-  running,
-  onRun,
-  name,
-}: {
-  progress: number;
-  result: number | null;
-  refuses: boolean;
-  running: boolean;
-  onRun: () => void;
-  name: string;
-}) {
-  const ref = useCanvasLoop((g, w, h) => {
-    const done = Math.floor(progress * TILES_X * TILES_Y);
-    const tw = w / TILES_X;
-    const th = h / TILES_Y;
-    g.fillStyle = token("kiln-empty");
-    g.fillRect(0, 0, w, h);
-    for (let i = 0; i < done; i++) {
-      // Buckets spiral out from the centre, as renderers do.
-      const k = ORDER[i];
-      const x = k % TILES_X;
-      const y = Math.floor(k / TILES_X);
-      const grad = g.createLinearGradient(x * tw, y * th, (x + 1) * tw, (y + 1) * th);
-      grad.addColorStop(0, token("kiln-tile-a"));
-      grad.addColorStop(1, token("kiln-tile-b"));
-      g.fillStyle = grad;
-      g.fillRect(x * tw + 1, y * th + 1, tw - 2, th - 2);
-    }
-  });
-  return (
-    <div className="kiln">
-      <canvas ref={ref} width={480} height={300} />
-      <div className="kiln-side">
-        <b>{name}</b>
-        {refuses ? (
-          <span>Unsupported</span>
-        ) : (
-          <>
-            <button type="button" disabled={running} onClick={onRun}>
-              Run
-            </button>
-            <span className="kiln-score">
-              {result !== null ? `${Math.round(result)} pts` : running ? `${Math.round(progress * 100)} %` : ""}
-            </span>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-const ORDER: number[] = (() => {
-  const cx = (TILES_X - 1) / 2;
-  const cy = (TILES_Y - 1) / 2;
-  return Array.from({ length: TILES_X * TILES_Y }, (_, i) => i).sort((a, b) => {
-    const da = Math.hypot((a % TILES_X) - cx, Math.floor(a / TILES_X) - cy);
-    const db = Math.hypot((b % TILES_X) - cx, Math.floor(b / TILES_X) - cy);
-    return da - db;
-  });
-})();
-
-/** Ashfall: a mock of the game, redrawn only as often as the simulated frame rate allows. */
-function Ash({ fps, refuses }: { fps: number; refuses: boolean }) {
-  const last = useRef(0);
-  const frame = useRef(0);
-  const shown = useRef(0);
-  const counted = useRef({ at: 0, frames: 0 });
-  const [measured, setMeasured] = useState(0);
-  const ref = useCanvasLoop((g, w, h, now) => {
-    if (refuses || fps <= 0) return;
-    if (now - last.current < 1000 / fps) return;
-    last.current = now;
-    frame.current++;
-    shown.current++;
-    if (now - counted.current.at > 1000) {
-      setMeasured(shown.current);
-      shown.current = 0;
-      counted.current.at = now;
-    }
-    const t = frame.current / 30;
-    const sky = g.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, token("ash-sky"));
-    sky.addColorStop(1, token("ash-sun"));
-    g.fillStyle = sky;
-    g.fillRect(0, 0, w, h);
-    const ridge = (colour: string, base: number, amp: number, speed: number) => {
-      g.fillStyle = token(colour);
-      g.beginPath();
-      g.moveTo(0, h);
-      for (let x = 0; x <= w; x += 8) {
-        const u = x / w + t * speed;
-        g.lineTo(x, base + Math.sin(u * 9) * amp + Math.sin(u * 23) * amp * 0.4);
-      }
-      g.lineTo(w, h);
-      g.fill();
-    };
-    ridge("ash-ridge", h * 0.55, h * 0.06, 0.05);
-    ridge("ash-ground", h * 0.72, h * 0.04, 0.15);
-    g.fillStyle = token("ash-flake");
-    for (let i = 0; i < 80; i++) {
-      const x = ((i * 97 + t * 40 * (1 + (i % 3))) % w + w) % w;
-      const y = ((i * 53 + t * 60 * (1 + (i % 2))) % h + h) % h;
-      g.fillRect(x, y, 2, 2);
-    }
-  });
-  return (
-    <div className="ash">
-      {refuses ? (
-        <div className="ash-refuse">Unsupported</div>
-      ) : (
-        <>
-          <canvas ref={ref} width={640} height={360} />
-          <span className="ash-fps">{measured} fps</span>
-        </>
-      )}
-    </div>
-  );
+  }, [db, fan, muted, volume]);
 }
 
 // ------------------------------------------------------------------ screen
 
-export function CafeScreen({
+type Phase = "boot" | "on" | "off";
+
+export function CafeScreen(props: {
+  subject: Subject;
+  /** The player's reviewed models, for the review site. */
+  library?: Subject[];
+  onBack: () => void;
+  sound: boolean;
+  onSound: (on: boolean) => void;
+}) {
+  // Eras whose OS has not landed yet keep the screen they had before.
+  if (!LOOKS.includes(eraOf(props.subject.build.year))) return <LegacyCafeScreen {...props} />;
+  return <OsCafeScreen {...props} />;
+}
+
+function OsCafeScreen({
   subject,
   library = [],
   onBack,
@@ -256,7 +192,6 @@ export function CafeScreen({
   onSound,
 }: {
   subject: Subject;
-  /** The player's reviewed models, for the review site. */
   library?: Subject[];
   onBack: () => void;
   sound: boolean;
@@ -270,16 +205,24 @@ export function CafeScreen({
     () => [...KILNBENCH].reverse().find((e) => e.year <= build.year)?.year ?? KILNBENCH[0].year,
   );
   const [gameYear, setGameYear] = useState(() => gameEdition(build.year));
+  const [preset, setPreset] = useState<Preset>("high");
   const benchR = useMemo(() => results(build, m, benchYear), [build, m, benchYear]);
   const gameR = useMemo(() => results(build, m, gameYear), [build, m, gameYear]);
   const enabled = PROFILES.filter((id) => m.profiles[id].enabled);
   const [profile, setProfile] = useState<ProfileId>(() => balancedProfile(m.profiles));
-  const [app, setApp] = useState<App>("desktop");
+  const [app, setApp] = useState<AppId | null>(null);
+  const [minimised, setMinimised] = useState(false);
+  const [phase, setPhase] = useState<Phase>("boot");
+  const [trayOpen, setTrayOpen] = useState(false);
+  const [volume, setVolume] = useState(60);
+  const [toast, setToast] = useState(false);
+  const [dismissed, setDismissed] = useState<number | null>(null);
   const [plugged, setPlugged] = useState(false);
   const [wh, setWh] = useState(() => m.battery?.wh ?? 0);
   const [heat, setHeat] = useState(0);
   const [kiln, setKiln] = useState({ running: false, progress: 0, elapsed: 0, result: null as number | null });
-  const [history, setHistory] = useState<string[]>([INDEX]);
+  const [web, setWeb] = useState({ list: [INDEX], at: 0, n: 0 });
+  const now = useNow();
 
   const tl = useMemo(
     () => ({
@@ -292,26 +235,26 @@ export function CafeScreen({
 
   const battery = m.battery;
   const off = !!battery && wh <= 0 && !plugged;
-  const load: "cpu" | "gpu" | null = off ? null : kiln.running ? "cpu" : app === "ash" ? "gpu" : null;
+  const ash = gameR?.games.find((g) => g.id === "ashfall");
+  const ashRun = ash?.runs?.find((x) => x.preset === preset && !x.native);
+  const running = phase === "on" && !off;
+  const load: "cpu" | "gpu" | null = !running ? null : kiln.running ? "cpu" : app === "ash" && ashRun ? "gpu" : null;
   const i = Math.min(tl.cpu.db.length - 1, Math.floor(heat));
-  const idleDb = tl.idle.db[tl.idle.db.length - 1];
-  const idleFan = tl.idle.fan[tl.idle.fan.length - 1];
+  const last = (a: number[]) => a[a.length - 1] ?? 0;
   const active = load ? tl[load] : tl.cpu;
-  const db = off ? 0 : load ? active.db[i] : Math.max(idleDb, heat > 0 ? tl.cpu.db[i] : 0);
-  const fan = off ? 0 : load ? active.fan[i] : Math.max(idleFan, heat > 0 ? tl.cpu.fan[i] : 0);
-  useFanAudio(db, fan, !sound);
+  const db = off ? 0 : load ? active.db[i] : Math.max(last(tl.idle.db), heat > 0 ? tl.cpu.db[i] : 0);
+  const fan = off ? 0 : load ? active.fan[i] : Math.max(last(tl.idle.fan), heat > 0 ? tl.cpu.fan[i] : 0);
+  useFanAudio(db, fan, !sound, volume);
 
   const edition = KILNBENCH.find((e) => e.year === benchYear) ?? KILNBENCH[0];
   const eraRef = build.year < 2012 ? 600 : build.year < 2020 ? 5000 : 20000;
   const work = 40 * eraRef;
-  const ash = gameR?.games.find((g) => g.id === "ashfall");
-  const ashHigh = ash?.runs?.find((x) => x.preset === "high" && !x.native);
   const gfxRef = m.cooling?.graphics.sustained ?? 1;
-  const fps = ashHigh ? (ashHigh.fps * tl.gpu.graphics[i]) / gfxRef : 0;
+  const fps = ashRun ? (ashRun.fps * tl.gpu.graphics[i]) / gfxRef : 0;
 
   // One tick a quarter second: heat, benchmark progress and battery.
-  const state = useRef({ load, kiln, plugged, app, off, heat });
-  state.current = { load, kiln, plugged, app, off, heat };
+  const state = useRef({ load, kiln, plugged, app, heat });
+  state.current = { load, kiln, plugged, app, heat };
   useEffect(() => {
     const dt = 0.25;
     const id = setInterval(() => {
@@ -319,6 +262,7 @@ export function CafeScreen({
       setHeat((h) => (s.load ? Math.min(tl.cpu.db.length - 1, h + dt) : Math.max(0, h - 2 * dt)));
       if (s.kiln.running) {
         setKiln((k) => {
+          if (!k.running) return k;
           const score = tl.cpu.multi[Math.min(tl.cpu.multi.length - 1, Math.floor(s.heat))];
           const progress = Math.min(1, k.progress + (score * dt) / work);
           const elapsed = k.elapsed + dt;
@@ -340,11 +284,63 @@ export function CafeScreen({
     return () => clearInterval(id);
   }, [tl, work, edition.scale, battery, profile]);
 
+  // The battery running out shuts everything; power back boots it again.
+  useEffect(() => {
+    if (off) {
+      setPhase("off");
+      setApp(null);
+      setTrayOpen(false);
+      setToast(false);
+      setKiln((k) => ({ ...k, running: false }));
+    } else setPhase((p) => (p === "off" ? "boot" : p));
+  }, [off]);
+  useEffect(() => {
+    if (phase !== "boot") return;
+    const id = setTimeout(() => setPhase("on"), BOOT_MS + 300);
+    return () => clearTimeout(id);
+  }, [phase]);
+
   const plug = useCallback(() => setPlugged((v) => !v), []);
+
+  const pct = battery ? Math.round((wh / battery.wh) * 100) : 100;
+  // The low battery notice shows once each time the level first drops under 10%.
+  const warned = useRef(false);
+  useEffect(() => {
+    if (!battery) return;
+    if (pct >= LOW_PCT) warned.current = false;
+    else if (!plugged && !warned.current && phase === "on") {
+      warned.current = true;
+      setToast(true);
+    }
+  }, [pct, plugged, battery, phase]);
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(false), LOW_MS);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  const d = battery ? (battery.draw[profile] ?? battery.draw[battery.balanced]) : undefined;
+  const drawW = !d ? 0 : load ? d.load : app === "web" ? d.web : d.idle;
+  const power: Power = {
+    battery: !!battery,
+    pct,
+    plugged,
+    time: !battery
+      ? ""
+      : plugged
+        ? wh >= battery.wh - 0.01
+          ? "fully charged"
+          : `${duration((battery.wh - wh) / (battery.wh / 120) / 60)} to full`
+        : drawW > 0
+          ? `${duration(((wh / drawW) * 60) / BATTERY_SPEED)} left`
+          : "",
+  };
 
   const look = lookOf(panelOf(build));
   const era = eraOf(build.year);
-  const current = history[history.length - 1];
+  const owner = useMemo(() => ownerOf(build, subject.company), [build, subject.company]);
+  const model = `${subject.company} ${subject.name}`.trim();
+  const current = web.list[web.at];
   const entries = useMemo(() => {
     // Only reviewed models have a review; an unreviewed one is not listed.
     return [
@@ -357,136 +353,175 @@ export function CafeScreen({
     return entries.find((x) => x.subject.id === current)?.subject ?? subject;
   }, [app, current, subject, entries]);
   const review = useMemo(() => (shown ? reviewOf(shown) : null), [shown]);
-  const { photos, shoot } = usePhotos(shown?.id ?? null, shown?.build ?? null);
+  const { photos, shoot } = usePhotos(shown);
 
-  const pct = battery ? Math.round((wh / battery.wh) * 100) : 100;
+  const cpuName = useMemo(() => {
+    const id = build.parts.processor?.[0]?.part;
+    return CONTENT.parts.find((p) => p.id === id)?.name ?? "This laptop";
+  }, [build]);
+  const ranking = useMemo(
+    () => rankingOf(cpuName, benchR?.bench.multi ?? null, benchYear),
+    [cpuName, benchR, benchYear],
+  );
+  const gpuName = useMemo(() => {
+    const g = CONTENT.parts.find((p) => p.id === build.parts.graphics?.[0]?.part);
+    const c = CONTENT.parts.find((p) => p.id === build.parts.processor?.[0]?.part);
+    return g?.name ?? String(c?.info?.igpu ?? "integrated graphics");
+  }, [build]);
+  const missing = (ash?.missing ?? []).map((f) => FEATURE[f] ?? f);
+  const refusal =
+    app === "ash" && !ashRun && dismissed !== gameYear
+      ? `Ashfall ${gameYear} needs a graphics processor with ${missing.length ? missing.join(" and ") : "newer features"}. This laptop's ${gpuName} does not have ${missing.length > 1 ? "them" : "it"}.`
+      : null;
+
+  const open = (a: AppId) => {
+    if (a === app) {
+      setMinimised(false);
+      return;
+    }
+    // One app at a time: opening another closes the last.
+    setKiln((k) => ({ ...k, running: false }));
+    setMinimised(false);
+    setDismissed(null);
+    if (a === "web") setWeb((w) => ({ list: [INDEX], at: 0, n: w.n + 1 }));
+    setApp(a);
+  };
+  const close = () => {
+    setKiln((k) => ({ ...k, running: false }));
+    setApp(null);
+  };
+  const go = (id: string) => setWeb((w) => ({ list: [...w.list.slice(0, w.at + 1), id], at: w.at + 1, n: w.n }));
+
+  const osEra = osLook(era);
+  const webTitle = shown ? `${shown.company} ${shown.name} review` : "Notebookcheck";
+  const webUrl = `${osEra === 2026 ? "" : "http://www."}notebookcheck.net${shown ? `/${slug(`${shown.company} ${shown.name}`)}-review` : ""}`;
+  const live = {
+    cpuGhz: load === "cpu" ? tl.cpu.cpuClock[i] : last(tl.idle.cpuClock),
+    gpuMhz: load === "gpu" ? tl.gpu.gpuClock[i] : last(tl.idle.gpuClock),
+  };
+
+  const bar = {
+    era,
+    app,
+    minimised,
+    onOpen: open,
+    onTask: () => setMinimised((v) => !v),
+    power,
+    muted: !sound,
+    year: build.year,
+    now,
+    trayOpen,
+    onTray: () => setTrayOpen((v) => !v),
+  };
+  const winProps = { hidden: minimised, onMin: () => setMinimised(true), onClose: close };
+
+  let win: ReactNode = null;
+  if (app === "kiln")
+    win = (
+      <Win app="kiln" title={`Kilnbench ${benchYear}`} w={1220} h={650} {...winProps}>
+        <KilnApp
+          era={era}
+          editions={BENCH_EDITIONS}
+          edition={benchYear}
+          onEdition={(y) => {
+            setBenchYear(y);
+            setKiln({ running: false, progress: 0, elapsed: 0, result: null });
+          }}
+          running={kiln.running}
+          progress={kiln.progress}
+          result={kiln.result}
+          refuses={!benchR || benchR.bench.multi === null}
+          onRun={() => setKiln({ running: true, progress: 0, elapsed: 0, result: null })}
+          onStop={() => setKiln({ running: false, progress: 0, elapsed: 0, result: null })}
+          ranking={ranking}
+        />
+      </Win>
+    );
+  else if (app === "ash")
+    win = (
+      <Win app="ash" title={`Ashfall ${gameYear}`} w={99999} h={99999} {...winProps}>
+        <AshApp
+          era={era}
+          editions={GAME_EDITIONS}
+          edition={gameYear}
+          onEdition={(y) => {
+            setGameYear(y);
+            setDismissed(null);
+          }}
+          preset={preset}
+          onPreset={setPreset}
+          fps={fps}
+          detail={eraOf(gameYear)}
+          refusal={refusal}
+          onOk={() => setDismissed(gameYear)}
+        />
+      </Win>
+    );
+  else if (app === "web")
+    win = (
+      <Win app="web" title={webTitle} w={99999} h={99999} {...winProps}>
+        <Browser
+          era={era}
+          title={webTitle}
+          url={webUrl}
+          canBack={web.at > 0}
+          canForward={web.at < web.list.length - 1}
+          onBack={() => setWeb((w) => ({ ...w, at: Math.max(0, w.at - 1) }))}
+          onForward={() => setWeb((w) => ({ ...w, at: Math.min(w.list.length - 1, w.at + 1) }))}
+          onReload={() => setWeb((w) => ({ ...w, n: w.n + 1 }))}
+        >
+          <div key={`${web.at}:${web.n}`}>
+            {current === INDEX && <ReviewIndex entries={entries} era={era} onOpen={go} />}
+            {review && <ReviewSite review={review} onOpen={go} onHome={() => go(INDEX)} photos={photos} />}
+          </div>
+        </Browser>
+      </Win>
+    );
+  else if (app === "sys") {
+    const [w, h] = SYS_SIZE[osEra];
+    win = (
+      <Win app="sys" title={SYS_TITLE[osEra]} w={w} h={h} {...winProps}>
+        <SysApp era={era} groups={sysGroups(model, build, m, live, power)} onOk={close} />
+      </Win>
+    );
+  }
+
   const desktop = (
-    <div className={`desk desk-${era}`}>
-      {off ? (
-        <div className="desk-off" />
+    <Screen
+      era={era}
+      onPointerDown={(e) => {
+        const t = e.target as HTMLElement;
+        if (trayOpen && !t.closest(".os-fly, .os-tray-btn")) setTrayOpen(false);
+      }}
+    >
+      {phase === "off" ? (
+        <Empty />
       ) : (
         <>
-          <div className="desk-icons">
-            <button type="button" onClick={() => setApp("kiln")}>
-              <i className="ico kiln-ico" />
-              Kilnbench
-            </button>
-            <button type="button" onClick={() => setApp("ash")}>
-              <i className="ico ash-ico" />
-              Ashfall
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setHistory([INDEX]);
-                setApp("web");
-              }}
-            >
-              <i className="ico web-ico" />
-              Notebookcheck
-            </button>
-          </div>
-          {app !== "desktop" && (
-            <div className="win">
-              <div className="win-bar">
-                {app === "web" && history.length > 1 && (
-                  <button type="button" onClick={() => setHistory((h) => h.slice(0, -1))}>
-                    ‹
-                  </button>
-                )}
-                <span />
-                {app === "kiln" && (
-                  <select
-                    value={benchYear}
-                    aria-label="Kilnbench edition"
-                    disabled={kiln.running}
-                    onChange={(e) => {
-                      setBenchYear(Number(e.target.value));
-                      setKiln({ running: false, progress: 0, elapsed: 0, result: null });
-                    }}
-                  >
-                    {KILNBENCH.map((e) => (
-                      <option key={e.year} value={e.year}>
-                        Kilnbench {e.year}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {app === "ash" && (
-                  <select
-                    value={gameYear}
-                    aria-label="Ashfall edition"
-                    onChange={(e) => setGameYear(Number(e.target.value))}
-                  >
-                    {GAME_EDITIONS.map((y) => (
-                      <option key={y} value={y}>
-                        Ashfall {y}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setApp("desktop");
-                    setKiln((k) => ({ ...k, running: false }));
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="win-body">
-                {app === "kiln" && (
-                  <Kiln
-                    name={benchR?.bench.name ?? `Kilnbench ${edition.year}`}
-                    refuses={!benchR || benchR.bench.multi === null}
-                    running={kiln.running}
-                    progress={kiln.progress}
-                    result={kiln.result}
-                    onRun={() => setKiln({ running: true, progress: 0, elapsed: 0, result: null })}
-                  />
-                )}
-                {app === "ash" && <Ash fps={fps} refuses={!ashHigh} />}
-                {app === "web" && current === INDEX && (
-                  <ReviewIndex
-                    entries={entries}
-                    era={era}
-                    onOpen={(id) => setHistory((h) => [...h, id])}
-                  />
-                )}
-                {app === "web" && review && (
-                  <ReviewSite
-                    review={review}
-                    onOpen={(id) => setHistory((h) => [...h, id])}
-                    onHome={() => setHistory([INDEX])}
-                    photos={photos}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-          <div className="desk-bar">
-            <select
-              value={profile}
-              aria-label="power profile"
-              onChange={(e) => setProfile(e.target.value as ProfileId)}
-            >
-              {enabled.map((id) => (
-                <option key={id} value={id}>
-                  {PROFILE_NAME[id]}
-                </option>
-              ))}
-            </select>
-            {battery && (
-              <span className={pct < 15 ? "batt low" : "batt"}>
-                <i style={{ width: `${pct}%` }} />
-                {pct}%{plugged ? " +" : ""}
-              </span>
+          <Desktop {...bar} wallpaper={wallpaper}>
+            {win}
+            {trayOpen && (
+              <Flyout
+                era={era}
+                power={power}
+                profiles={enabled}
+                profile={profile}
+                onProfile={setProfile}
+                volume={volume}
+                onVolume={(v) => {
+                  setVolume(v);
+                  if (!sound && v > 0) onSound(true);
+                }}
+                muted={!sound}
+                onMute={() => onSound(!sound)}
+              />
             )}
-          </div>
+            {toast && <Toast era={era} pct={pct} />}
+          </Desktop>
+          {phase === "boot" && <Boot era={era} owner={owner} />}
         </>
       )}
-    </div>
+    </Screen>
   );
 
   const page = look ? (

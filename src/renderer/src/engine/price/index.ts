@@ -75,6 +75,8 @@ const FIXED: Record<string, number> = {
   "turion64-x2-tl60": 220,
   "core5-120u": 180,
   "core-ultra7-258v": 420,
+  "core-ultra7-256v": 400,
+  "core-ultra5-236v": 320,
   "core-ultra-x9-388h": 600,
   "core-ultra9-275hx": 590,
   "ryzen-ai5-340": 230,
@@ -119,7 +121,6 @@ const FIXED: Record<string, number> = {
   "hdmi-1.4": 3,
   "mini-dp": 4,
   "thunderbolt-3": 20,
-  "lpddr5x-on-package": 150,
   "bay-battery": 70,
   "bridge-battery": 25,
   fanless: 5,
@@ -244,10 +245,13 @@ function partCost(
   part: Part,
   bp: BuildPart,
   year: number,
+  packageGb?: number,
 ): number {
   const o = (k: string) => opt(part, bp, k);
   switch (cat) {
     case "memory": {
+      // On-package memory: its size is the processor's, 32 GB costs $150.
+      if (part.id === "lpddr5x-on-package") return ((packageGb ?? 32) * 150) / 32;
       const m = MEMORY[part.id];
       if (!m) return FIXED[part.id] ?? 0;
       const slots = Number(o("slots") ?? 1);
@@ -350,10 +354,19 @@ export function partPrice(
   bp: BuildPart,
   year: number,
   content: Content = CONTENT,
+  build?: Build,
 ): number {
   if (cat === "display") return 0;
   const p = content.parts.find((x) => x.id === bp.part);
-  return p ? partCost(cat, p, bp, year) : 0;
+  const gb = build && cat === "memory" ? packageGb(build, content) : undefined;
+  return p ? partCost(cat, p, bp, year, gb) : 0;
+}
+
+/** Memory on the build's processor package in GB, when its processor carries it. */
+export function packageGb(build: Build, content: Content = CONTENT): number | undefined {
+  const cpu = content.parts.find((p) => p.id === build.parts.processor?.[0]?.part);
+  const gb = cpu?.info?.onPackageGb;
+  return typeof gb === "number" ? gb : undefined;
 }
 
 /** Cost price of the build in the year's nominal dollars. */
@@ -380,7 +393,7 @@ export function costOf(
     const list = build.parts[cat] ?? [];
     let catCost = 0;
     for (const bp of list) {
-      catCost += partPrice(cat, bp, build.year, content);
+      catCost += partPrice(cat, bp, build.year, content, build);
     }
     add(cat, catCost);
     // Compacting a part costs more on a dear part.

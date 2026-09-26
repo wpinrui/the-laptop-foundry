@@ -8,6 +8,7 @@ import {
   type OptionValue,
   type Part,
   type Problem,
+  packageGb,
   panelsFor,
   partPrice,
   partsFor,
@@ -154,13 +155,17 @@ function rowsFor(slot: Slot, build: Build, fit: Fit): Row[] {
       return "Cannot be built";
     }
   };
+  const packageSizes = packageCpus(year).map((p) => Number(p.info?.onPackageGb));
+  const lo = Math.min(...packageSizes);
+  const hi = Math.max(...packageSizes);
+  const packageSpec = packageSizes.length === 0 ? "" : lo === hi ? `${lo} GB` : `${lo} GB to ${hi} GB`;
   const rows: Row[] = ids.map((id) => {
     const bp: BuildPart = current?.part === id ? current : { part: id };
     return {
       id,
       name: nameOfPart(slot.cat, id),
-      spec: specLine(slot.cat, id),
-      price: partPrice(slot.cat, bp, year),
+      spec: id === ON_PACKAGE ? packageSpec : specLine(slot.cat, id),
+      price: partPrice(slot.cat, bp, year, CONTENT, build),
       reason: reason(id),
     };
   });
@@ -217,6 +222,60 @@ function optionListsOf(current: BuildPart | undefined): [string, OptionValue[]][
   return out;
 }
 
+const ON_PACKAGE = "lpddr5x-on-package";
+
+/** Processors of the year that carry their memory on the package. */
+function packageCpus(year: number): Part[] {
+  return partsFor("processor", year).filter((p) => typeof p.info?.onPackageGb === "number");
+}
+
+/** Maker, family and tier, e.g. "Intel Core Ultra 7" for the 258V. */
+const tierOf = (p: Part | undefined) => p?.name.split(" ").slice(0, -1).join(" ") ?? "";
+
+/**
+ * The on-package processor nearest the current one with `gb` of memory: the
+ * same tier where there is one, then the closest single-core score.
+ */
+export function packageSku(build: Build, gb: number): string | undefined {
+  const cur = CONTENT.parts.find((p) => p.id === build.parts.processor?.[0]?.part);
+  const single = cur?.power?.single ?? 0;
+  const cost = (p: Part) => (tierOf(p) === tierOf(cur) ? 0 : 1e6) + Math.abs((p.power?.single ?? 0) - single);
+  return packageCpus(build.year)
+    .filter((p) => p.info?.onPackageGb === gb)
+    .sort((a, b) => cost(a) - cost(b))[0]?.id;
+}
+
+/** Capacity chips for on-package memory: picking one changes the processor. */
+function PackageChips({ build, set }: { build: Build; set: SetBuild }) {
+  const sizes = [...new Set(packageCpus(build.year).map((p) => Number(p.info?.onPackageGb)))].sort((a, b) => a - b);
+  if (sizes.length === 0) return null;
+  const now = packageGb(build);
+  return (
+    <div className="bd-field">
+      <Label>{optionName("capacity")}</Label>
+      <Chips>
+        {sizes.map((gb) => (
+          <Chip
+            key={gb}
+            on={gb === now}
+            onClick={() =>
+              set((b) => {
+                const id = packageSku(b, gb);
+                if (!id) return b;
+                // Lunar Lake parts share one power range: keep the chosen limits.
+                const out = withPart(b, "processor", 0, id);
+                return b.power ? { ...out, power: b.power } : out;
+              })
+            }
+          >
+            {formatOption("capacity", gb)}
+          </Chip>
+        ))}
+      </Chips>
+    </div>
+  );
+}
+
 /** The chosen part's options, one row of chips each. */
 export function OptionChips({ cat, index = 0, build, set }: { cat: Category; index?: number; build: Build; set: SetBuild }) {
   const current = build.parts[cat]?.[index];
@@ -257,7 +316,8 @@ export function Options({
 }) {
   const rows = useMemo(() => rowsFor(slot, build, fit), [slot, build, fit]);
   const current = build.parts[slot.cat]?.[slot.index];
-  const hasOptions = optionListsOf(current).length > 0;
+  const onPackage = slot.cat === "memory" && current?.part === ON_PACKAGE;
+  const hasOptions = onPackage || optionListsOf(current).length > 0;
   return (
     <div className="bd-options fd-in" key={slot.key}>
       <div className="bd-option-rows">
@@ -282,6 +342,7 @@ export function Options({
       </div>
       {(hasOptions || children) && (
         <div className="bd-option-extra">
+          {onPackage && <PackageChips build={build} set={set} />}
           <OptionChips cat={slot.cat} index={slot.index} build={build} set={set} />
           {children}
         </div>

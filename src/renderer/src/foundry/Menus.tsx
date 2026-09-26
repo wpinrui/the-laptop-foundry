@@ -345,6 +345,10 @@ export function SettingsMenu({
             <small>CC0</small>
           </li>
           <li>
+            <span>Lucide</span>
+            <small>Lucide Contributors, ISC License</small>
+          </li>
+          <li>
             <span>Space Mono</span>
             <small>The Space Mono Project Authors, SIL Open Font License 1.1</small>
           </li>

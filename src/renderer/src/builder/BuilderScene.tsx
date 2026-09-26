@@ -98,6 +98,7 @@ export function BuilderScene({
   colours,
   surfaces,
   xray,
+  hideDeck,
   screen,
   glow,
   paint,
@@ -122,6 +123,8 @@ export function BuilderScene({
   colours: { floor: string; deck: string; lid: string };
   surfaces: Surfaces;
   xray: boolean;
+  /** Leaves out the keyboard, trackpad and other deck-top units, so the internals show. */
+  hideDeck?: boolean;
   screen?: THREE.Texture;
   /** A warm light off the screen, for the power on moment. */
   glow?: boolean;
@@ -197,6 +200,7 @@ export function BuilderScene({
             colours={colours}
             surfaces={surfaces}
             xray={xray}
+            hideDeck={hideDeck}
             labelFor={labelFor}
             onHover={onHover}
             onPick={

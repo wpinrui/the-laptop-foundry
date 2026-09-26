@@ -14,6 +14,8 @@ export interface DropOption {
   disabled?: boolean;
   /** Shown in the option's own style, such as a font preview. */
   style?: CSSProperties;
+  /** A heading shown above the first option of each run of the same group. */
+  group?: string;
 }
 
 export function Dropdown({
@@ -176,7 +178,12 @@ export function Dropdown({
             style={place}
             onKeyDown={onListKey}
           >
-            {options.map((o, i) => (
+            {options.map((o, i) => [
+              o.group && o.group !== options[i - 1]?.group && (
+                <div key={`group:${o.group}`} className="bd-drop-group" role="presentation">
+                  {o.group}
+                </div>
+              ),
               <div
                 key={o.key}
                 id={`${id}-${i}`}
@@ -190,8 +197,8 @@ export function Dropdown({
               >
                 <span style={o.style}>{o.label}</span>
                 {o.aside !== undefined && <small>{o.aside}</small>}
-              </div>
-            ))}
+              </div>,
+            ])}
           </div>,
           root,
         )}

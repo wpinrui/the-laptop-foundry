@@ -54,6 +54,8 @@ interface SceneProps {
   surfaces?: Surfaces;
   /** See-through shell, to show the internals. */
   xray?: boolean;
+  /** Leaves out the units under the deck's top wall (keyboard, trackpad and the like), except selected ones. */
+  hideDeck?: boolean;
   /** A procedural workshop around the laptop: bench, pegboard wall, warm lamp. */
   workshop?: boolean;
   /** Called with every unit that could not be drawn, as "label: reason". */
@@ -753,6 +755,7 @@ export const Model = memo(function Model({
   table,
   surfaces,
   xray = true,
+  hideDeck = false,
   workshop,
   portal,
   onFailed,
@@ -785,8 +788,11 @@ export const Model = memo(function Model({
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   useEffect(() => () => ctx.dispose(), [ctx]);
   const base = useMemo(
-    () => fit.boxes.filter((b) => b.kind === "unit" && b.piece !== "lid"),
-    [fit],
+    () =>
+      fit.boxes.filter(
+        (b) => b.kind === "unit" && b.piece !== "lid" && !(hideDeck && b.piece === "deck" && !paint?.selected.has(b.id)),
+      ),
+    [fit, hideDeck, paint],
   );
   const lid = useMemo(
     () => fit.boxes.filter((b) => b.kind === "unit" && b.piece === "lid"),

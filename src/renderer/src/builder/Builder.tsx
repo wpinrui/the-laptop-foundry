@@ -33,7 +33,7 @@ import { type FinishPiece, FinishColumn } from "./FinishStage";
 import { type KeyGroup, KeysColumn } from "./KeysStage";
 import { MarkHandles, MarksColumn, MarksTray } from "./MarksStage";
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
-import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, SurfaceTray, WebcamMarks } from "./SurfaceStage";
+import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
 import { type ViewName, viewFor } from "./view";
 import "./builder.css";
@@ -114,7 +114,7 @@ const FRAME: Record<Stage, Frame> = {
 };
 
 /** Stages with a tray of cards along the bottom. */
-const TRAY = new Set<Stage>(["chassis", "screen", "surface", "keys", "finish", "marks"]);
+const TRAY = new Set<Stage>(["chassis", "screen", "keys", "finish", "marks"]);
 
 /** Floor zone roles where an empty slot's part would go. */
 const ZONE_ROLE: Partial<Record<Category, string>> = {
@@ -189,11 +189,17 @@ export function Builder({
     [locked],
   );
 
-  const [stage, setStage] = useState<Stage>("year");
-  const [visited, setVisited] = useState<Set<Stage>>(() => new Set(["year"]));
+  // Reopen where the player left off. Only a brand-new model starts on Year.
+  const [stage, setStage] = useState<Stage>(() => {
+    const saved = build.stage as Stage | undefined;
+    if (saved && STAGES.includes(saved)) return saved;
+    return Object.values(build.parts).some((l) => (l ?? []).length > 0) ? "chassis" : "year";
+  });
+  const [visited, setVisited] = useState<Set<Stage>>(() => new Set(STAGES.slice(0, STAGES.indexOf(stage) + 1)));
   const go = (s: Stage) => {
     setStage(s);
     setVisited((v) => (v.has(s) ? v : new Set([...v, s])));
+    set((b) => (b.stage === s ? b : { ...b, stage: s }));
   };
   const idx = STAGES.indexOf(stage);
   const [insideSlot, setInsideSlot] = useState("processor");
@@ -212,15 +218,9 @@ export function Builder({
   const measured = useMemo(() => (valid ? simulate(build, fit) : null), [valid, build, fit]);
   const stats = useMemo(() => (measured ? statsOf(build, fit, measured) : []), [measured, build, fit]);
 
-  // Power on plays the moment the laptop becomes valid, and again after it was invalid.
-  const wasValid = useRef(valid);
-  const [powering, setPowering] = useState(false);
-  useEffect(() => {
-    if (valid && !wasValid.current && !locked) setPowering(true);
-    if (!valid) setPowering(false);
-    wasValid.current = valid;
-  }, [valid, locked]);
-  const donePowering = useCallback(() => setPowering(false), []);
+  // No power-on moment: the stats simply appear once the laptop is valid.
+  const powering = false;
+  const donePowering = useCallback(() => {}, []);
 
   // A price appears once there is a cost to set it against.
   useEffect(() => {
@@ -368,7 +368,6 @@ export function Builder({
       column = (
         <SurfaceColumn {...props} item={surfaceItem} onItem={setSurfaceItem} port={port} onPort={setPort} />
       );
-      tray = <SurfaceTray {...props} item={surfaceItem} port={port} onPort={setPort} />;
       break;
     case "keys":
       column = <KeysColumn {...props} groups={keyGroups} onGroups={setKeyGroups} />;
@@ -432,6 +431,7 @@ export function Builder({
         colours={colours}
         surfaces={surfaces}
         xray={inside}
+        hideDeck={inside}
         screen={screen}
         glow={powering}
         paint={paint}

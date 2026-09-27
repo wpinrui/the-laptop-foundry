@@ -244,18 +244,22 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     if (fill?.min && fill.at && fill.size)
       deckPlaced.push(...placeUnits(fill, flatCtx, 0, 0));
   }
-  // The player moves the keyboard forward from the hinge and sets the
+  // The player moves the keyboard forward or back from its place by the hinge and sets the
   // trackpad's gap in front of it. Both stay centred left to right.
   const K = deckPlaced.find((u) => u.role === "keys");
   const P = deckPlaced.find((u) => u.role === "pad");
   if (K) {
     const MIN_GAP = 2;
     const front = off.side + 2;
+    // It may also move back over the hinge strip, up to a small gap from the rear wall.
+    const REAR_GAP = 4;
+    const rear = off.side + innerFoot.y;
+    const kbMin = -Math.max(0, rear - REAR_GAP - (K.at.y + K.size.y));
     const kbMax = Math.max(0, K.at.y - front - (P ? P.size.y + MIN_GAP : 0));
-    const ky = clamp(player.kb?.y ?? 0, 0, kbMax);
+    const ky = clamp(player.kb?.y ?? 0, kbMin, kbMax);
     const autoGap = P ? K.at.y - (P.at.y + P.size.y) : 0;
     K.at.y -= ky;
-    report.kb = { y: ky, range: [0, kbMax] };
+    report.kb = { y: ky, range: [kbMin, kbMax], hinge: rear - (K.at.y + K.size.y) };
     if (P) {
       const gMax = Math.max(MIN_GAP, K.at.y - front - P.size.y);
       const g = clamp(player.pad?.y ?? autoGap, MIN_GAP, gMax);

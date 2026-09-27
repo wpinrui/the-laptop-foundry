@@ -153,7 +153,7 @@ export function SurfaceColumn({
           <>
             {rep.kb && (
               <Line label="From hinge">
-                <Value v={r1(rep.kb.y)} unit="mm" />
+                <Value v={r1(rep.kb.hinge)} unit="mm" />
               </Line>
             )}
             {rep.kb && <Centred />}

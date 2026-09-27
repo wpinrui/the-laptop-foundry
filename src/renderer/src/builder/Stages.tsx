@@ -15,9 +15,12 @@ import {
   RIVALS,
   rivalYear,
   rivalSubject,
+  type PerimSides,
   type Signature,
   solve,
   perimBand,
+  perimZones,
+  SIDE_RANGE,
   taperDepth,
   YEARS,
 } from "../engine";
@@ -96,6 +99,12 @@ const SIGNATURE_NAME: Record<Signature, string> = {
   edge: "Base radius",
   facet: "Facet",
 };
+/** The per-side inset sliders of a body whose sides the player sets. */
+const SIDE_FIELDS: [keyof PerimSides, string][] = [
+  ["f", "Front"],
+  ["s", "Sides"],
+  ["r", "Rear"],
+];
 const AXIS_STEP: Record<Axis, number> = { x: 0.5, y: 0.5, z: 0.1 };
 const tenth = (v: number) => Math.round(v * 10) / 10;
 const snap = (v: number, lo: number, step: number) =>
@@ -215,6 +224,30 @@ export function ChassisColumn({
                   }
                 />
               )}
+              {a === "z" &&
+                style.pm?.tune &&
+                SIDE_FIELDS.map(([k, name]) => {
+                  const pm = style.pm;
+                  if (!pm) return null;
+                  return (
+                    <SliderField
+                      key={k}
+                      label={name}
+                      value={Math.round(pm.m[k] * 100)}
+                      shown={perimZones(pm, pm.m[k]).dB.toFixed(1)}
+                      unit="mm"
+                      min={SIDE_RANGE[0] * 100}
+                      max={SIDE_RANGE[1] * 100}
+                      onHover={section}
+                      onChange={(v) =>
+                        set((b) => ({
+                          ...b,
+                          sides: { ...b.sides, [b.body]: { ...b.sides?.[b.body], [k]: v / 100 } },
+                        }))
+                      }
+                    />
+                  );
+                })}
               {a === "z" && body.style.taper?.curve && (
                 <div className="bd-field">
                   <Label>Underside</Label>

@@ -43,6 +43,7 @@ import { MarkHandles, type MarkBrowse, MarksColumn, MarksTray } from "./MarksSta
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
+import { SliderField } from "./ui";
 import { type ViewName, viewFor } from "./view";
 import "./builder.css";
 
@@ -134,6 +135,8 @@ const ZONE_ROLE: Partial<Record<Category, string>> = {
 };
 
 const LID_OPEN = 110;
+/** The lid slider's range, degrees: shut to lying flat. */
+const LID_MAX = 180;
 
 // ------------------------------------------------------------------ builder
 
@@ -225,6 +228,8 @@ export function Builder({
   const [markGhost, setMarkGhost] = useState<Mark | null>(null);
   const [sheet, setSheet] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  // The lid is a view setting, not part of the design: it starts open each visit.
+  const [lid, setLid] = useState(LID_OPEN);
 
   const fit = useMemo(() => solve(build), [build]);
   // On the Chassis stage: a body under the pointer shows on the plinth, and the section view while the signature slider is held.
@@ -319,7 +324,8 @@ export function Builder({
   );
   const outside = !!grillAt;
   const viewName: ViewName = outside ? "grill" : inside && !focus ? "xray" : frame.view;
-  const lidAngle = (surface && surfaceItem === "ports") || flip ? 0 : LID_OPEN;
+  // Turned over, the laptop lies on its shut lid.
+  const lidAngle = flip ? 0 : lid;
   const view = useMemo(
     () =>
       viewFor(viewName, fit, lidAngle, {
@@ -561,6 +567,9 @@ export function Builder({
             ))}
           </div>
         )}
+        <div className="bd-view">
+          <SliderField label="Lid" value={lidAngle} unit="deg" min={0} max={LID_MAX} onChange={setLid} disabled={flip} />
+        </div>
       </div>
 
       {powering ? (

@@ -1,4 +1,5 @@
 import { type Content, CONTENT } from "../content";
+import { pouchOf } from "../battery";
 import { activeArea } from "../content/display";
 import { panelOf } from "../screen";
 import { solve } from "../solve";
@@ -187,8 +188,8 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
     if (sh?.kind === "cells") {
       const cells = Number(bat?.opts?.cells ?? batPart.options?.cells?.[0] ?? 6);
       wh = Number(batPart.info?.[`wh${cells}`] ?? cells * 8);
-    } else {
-      wh = Number(bat?.opts?.wh ?? batPart.options?.wh?.[0] ?? 50);
+    } else if (sh?.kind === "pouch") {
+      wh = pouchOf(batPart, sh, bat, build.year, build.spend.battery ?? 0).wh;
     }
   }
   const swap = part(first("hotswap")?.part);

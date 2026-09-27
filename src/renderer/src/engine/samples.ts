@@ -426,7 +426,7 @@ export const SAMPLES: Sample[] = [
   s(
     "no-fit",
     "2026 18 inch RTX 5090 with a 99.9 Wh slim pack, Blade, layout A (should not fit)",
-    "No real machine: a 99.9 Wh pouch only 4.5 mm thick is 435 mm wide",
+    "No real machine: a 4.5 mm pouch 435 mm long, capped at 99.9 Wh",
     null,
     {
       year: 2026,
@@ -438,7 +438,7 @@ export const SAMPLES: Sample[] = [
         memory: ["ddr5-5600-sodimm", { capacity: 64, slots: 2 }],
         storage: ["m2-2280-g5", "m2-2280-g5"],
         display: ["2026-18-3840x2400-mini-led", { refresh: 240 }],
-        battery: ["li-po-pouch", { wh: 99.9, thickness: "slim" }],
+        battery: ["li-po-pouch", { length: 435, depth: 85, thick: 4.5 }],
         cooling: "vapour-chamber",
         wireless: "wifi-7",
         keyboard: ["kb-mech-1.8", { cols: 19, pitch: 19 }],

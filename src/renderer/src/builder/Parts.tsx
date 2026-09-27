@@ -12,6 +12,8 @@ import {
   panelsFor,
   partPrice,
   offeredFor,
+  pouchDensity,
+  pouchShape,
   solve,
 } from "../engine";
 import { formatOption, panelLabel } from "./format";
@@ -89,7 +91,7 @@ function range(part: Part, key: string): string {
 }
 
 /** One line of spec under a part's name. */
-export function specLine(cat: Category, id: string): string {
+export function specLine(cat: Category, id: string, year?: number): string {
   if (cat === "display") {
     const p = CONTENT.panels.find((x) => x.id === id);
     return p ? two([`${p.nits} nits`, p.gamut, `${Math.max(...p.refresh)} Hz`]) : "";
@@ -106,7 +108,11 @@ export function specLine(cat: Category, id: string): string {
     case "storage":
       return range(part, "capacity");
     case "battery":
-      return part.options?.cells ? range(part, "cells") : range(part, "wh");
+      if (part.options?.cells) return range(part, "cells");
+      {
+        const shape = pouchShape(part);
+        return shape && year !== undefined ? `${Math.round(pouchDensity(part, shape, year, 0))} Wh/L` : "";
+      }
     case "cooling": {
       const s = Array.isArray(part.shape) ? part.shape[0] : part.shape;
       return s.kind === "fan" ? (s.count === 0 ? "Fanless" : `${s.count} ${s.count === 1 ? "fan" : "fans"}${s.chamber ? "  vapour chamber" : ""}`) : "";
@@ -164,7 +170,7 @@ function rowsFor(slot: Slot, build: Build, fit: Fit): Row[] {
     return {
       id,
       name: nameOfPart(slot.cat, id),
-      spec: id === ON_PACKAGE ? packageSpec : specLine(slot.cat, id),
+      spec: id === ON_PACKAGE ? packageSpec : specLine(slot.cat, id, year),
       price: partPrice(slot.cat, bp, year, CONTENT, build),
       reason: reason(id),
     };

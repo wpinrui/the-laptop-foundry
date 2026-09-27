@@ -235,12 +235,23 @@ export type Shape =
       length: Mm;
       height: Mm;
     }
-  /** Pouch or prismatic pack. Wh is the "wh" option; thickness keyed by the "thickness" option. */
+  /**
+   * Pouch or prismatic pack sized by the player: the "length" (x), "depth" (y)
+   * and "thick" (z) options in mm. Capacity follows from the volume. Older saves
+   * gave "wh" and a "thickness" key instead; see engine/battery.ts.
+   */
   | {
       kind: "pouch";
+      /** Energy density in the part's first year; it rises a little each year after. */
       whPerLitre: number;
+      /** Default depth, and the depth of older saves. */
       depth: Mm;
+      /** Thickness per older-save key; the first is the default. */
       thickness: Record<string, Mm>;
+      /** Default capacity, and the capacity of older saves that gave none. */
+      wh: number;
+      /** Player limits per axis. */
+      limits: Record<Axis, [Mm, Mm]>;
     }
   /** Stack height at keyboard spend 0 and 1. */
   | { kind: "keys"; rows: number; stack: Tune }

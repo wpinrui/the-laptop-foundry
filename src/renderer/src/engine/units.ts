@@ -5,6 +5,7 @@ import {
   PAD_STACK,
   SHUTTER_WIDTH,
 } from "./content/peripherals";
+import { pouchOf } from "./battery";
 import { activeArea, panelThickness } from "./content/display";
 import { panelOf } from "./screen";
 import type { Index } from "./content";
@@ -370,13 +371,7 @@ function emitShape(
       return;
     }
     case "pouch": {
-      const wh = Number(opt(part, bp, "wh") ?? 50);
-      const tKey = String(
-        opt(part, bp, "thickness") ?? Object.keys(shape.thickness)[0],
-      );
-      const t = shape.thickness[tKey] ?? Object.values(shape.thickness)[0];
-      const width = ((wh / shape.whPerLitre) * 1e6) / (shape.depth * t);
-      const size = shrink({ x: width, y: shape.depth, z: t }, part.compact, f);
+      const size = pouchOf(part, shape, bp, era.year, spend).size;
       push({
         id,
         role: "battery",

@@ -60,6 +60,8 @@ const api = {
     onFull: (cb: (m: FoxFull) => void) => listen("fox:full", cb),
     /** The laptop's speakers and where the player is, for the tabs' sound. */
     speaker: (state: unknown): void => ipcRenderer.send("fox-speaker:set", state),
+    /** How fast the laptop loads pages; null for full speed. */
+    pace: (state: unknown): Promise<void> => ipcRenderer.invoke("fox:pace", state),
   },
 };
 

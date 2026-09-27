@@ -180,6 +180,9 @@ const FIXED: Record<string, number> = {
   "dvd-rw-slim-2006": 60,
   "bd-writer": 400,
   "hd-dvd": 300,
+  "bd-combo": 150,
+  "dvd-rw-2011": 22,
+  "bd-writer-slim-2010": 90,
   "dvd-rw-slim": 20,
   "bd-writer-slim": 60,
   "wifi-bg": 15,
@@ -347,7 +350,7 @@ function partCost(
       const s = STORAGE[part.id] ?? { base: 30, gb: 0.1 };
       // A 2.5 inch SATA SSD cost about four times as much per gigabyte in
       // 2016, and far more before that.
-      const flash = part.id !== "ssd25-sata" ? 1 : year < 2012 ? 15 : year < 2014 ? 8 : year < 2020 ? 4 : 1;
+      const flash = part.id !== "ssd25-sata" ? 1 : year < 2009 ? 80 : year < 2010 ? 40 : year < 2012 ? 15 : year < 2014 ? 8 : year < 2020 ? 4 : 1;
       return s.base + Number(o("capacity") ?? 0) * s.gb * flash;
     }
     case "battery": {

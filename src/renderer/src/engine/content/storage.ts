@@ -54,7 +54,7 @@ export const STORAGE: Part[] = [
     2000,
     2012,
     d25,
-    [80, 60, 120, 160],
+    [80, 60, 120, 160, 250, 320],
   ),
   bay(
     "hdd25-7200",
@@ -62,7 +62,7 @@ export const STORAGE: Part[] = [
     2004,
     2012,
     d25,
-    [80, 60, 100],
+    [80, 60, 100, 160, 200, 320],
   ),
   bay(
     "hdd25-5400-2010",
@@ -89,14 +89,15 @@ export const STORAGE: Part[] = [
     [1000, 500, 2000],
   ),
   bay("hdd18", "1.8 inch HDD 5 mm", 2003, 2010, d18, [60, 30]),
-  bay("ssd18-pata", "1.8 inch PATA SSD", 2006, 2009, d18, [32]),
+  bay("ssd18-pata", "1.8 inch PATA SSD", 2006, 2009, d18, [32, 64, 128]),
+  // Intel X25-M and build-to-order SSDs from 2008.
   bay(
     "ssd25-sata",
     "2.5 inch SATA SSD 7 mm",
-    2010,
+    2008,
     2030,
     { x: 100, y: 69.85, z: 7 },
-    [512, 1024, 256],
+    [512, 1024, 256, 64, 128, 2048],
   ),
   // mSATA: the board-mounted SSD before M.2.
   m2(
@@ -119,9 +120,9 @@ export const STORAGE: Part[] = [
     "m2-2280-g3",
     "M.2 2280 NVMe PCIe 3.0",
     2015,
-    2021,
+    2024,
     { x: 22, y: 80, z: 2.4 },
-    [512, 256, 1024],
+    [512, 256, 1024, 2048],
   ),
   m2(
     "m2-2280-g4",
@@ -156,6 +157,28 @@ export const STORAGE: Part[] = [
     [512, 256, 1024, 2048],
   ),
 ];
+
+/**
+ * Capacities by year, where narrower than the drive's own: 250 GB 2.5 inch
+ * drives in 2007, 320 GB in 2008, 500 GB in 2009, 750 GB in 2010, 1 TB in
+ * 2011; 7200 rpm a step behind; SSDs at 64 to 128 GB in 2008, 512 GB from
+ * 2011, 1 TB from 2013, 2 TB from 2016, with the smallest gone as prices fell.
+ */
+const CAPACITY_YEARS: Record<string, Record<string, [number, number]>> = {
+  "hdd25-5400": { "250": [2007, 2099], "320": [2008, 2099] },
+  "hdd25-7200": { "160": [2007, 2099], "200": [2008, 2099], "320": [2009, 2099] },
+  "hdd25-5400-2010": { "750": [2010, 2099], "1000": [2011, 2099] },
+  "ssd18-pata": { "64": [2008, 2099], "128": [2009, 2099] },
+  "ssd25-sata": {
+    "64": [2008, 2013],
+    "128": [2008, 2019],
+    "512": [2011, 2099],
+    "1024": [2013, 2099],
+    "2048": [2016, 2099],
+  },
+  "m2-2280-g3": { "2048": [2017, 2099] },
+};
+for (const d of STORAGE) if (CAPACITY_YEARS[d.id]) d.optionYears = { capacity: CAPACITY_YEARS[d.id] };
 
 // ---------------------------------------------------------------- lab figures
 

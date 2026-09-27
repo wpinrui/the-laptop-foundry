@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #0e0b09; color: #efe6dc; -webkit-font-smoothing: antialiased; }
+a { color: #f0913d; } a:hover { color: #ffd0a0; }
+button { background: none; border: 0; padding: 0; margin: 0; cursor: pointer; font: inherit; color: inherit; }
+</style>
+</helmet>
+
+<section id="intro" style="background: #0e0b09; padding-left: 40px; padding-right: 40px; width: 1440px; padding: 64px 0 24px 0; display: flex; flex-direction: column; gap: 14px;">
+  <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: #a8998a;">The Laptop Foundry, Inside stage</div>
+  <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 72px; line-height: 0.95; text-transform: uppercase;">Speaker grills</div>
+  <p style="font-family: 'IBM Plex Sans', sans-serif; font-size: 17px; line-height: 1.55; color: #a8998a; max-width: 820px; margin: 0; text-wrap: pretty;">Where the sound comes out. A grill is set on the Speakers slot, beside the fan grill's own controls: where it goes, its hole pattern and its hole size. Every render below comes from one rule set in <b style="color: #efe6dc; font-weight: 500;">grills.js</b>, scaled to the body and laid on its surfaces. Year, body and keyboard columns are Tweaks.</p>
+</section>
+
+<section id="builder" data-screen-label="Builder" style="background: #0e0b09; padding-left: 40px; padding-right: 40px; display: flex; flex-direction: column; gap: 14px; padding-bottom: 40px;">
+  <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 28px; text-transform: uppercase;">A. Builder, Speakers slot</div>
+  <div style="position: relative; width: 1440px; height: 810px; overflow: hidden; background: #14100d; border: 1px solid rgba(239,230,220,0.14);">
+    <canvas ref="{{ sceneRef }}" style="position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab;"></canvas>
+    <div style="position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(20,16,13,0.97) 0%, rgba(20,16,13,0.84) 41%, rgba(20,16,13,0) 66%);"></div>
+
+    <div style="position: absolute; left: 48px; top: 36px; display: flex; align-items: center; gap: 28px; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase;">
+      <span style="color: #efe6dc; padding-bottom: 8px;">Year</span>
+      <span style="color: #efe6dc; padding-bottom: 8px;">Chassis</span>
+      <span style="color: #efe6dc; padding-bottom: 8px;">Screen</span>
+      <span style="color: oklch(0.76 0.16 55); border-bottom: 2px solid oklch(0.76 0.16 55); padding-bottom: 6px;">Inside</span>
+      <span style="color: #6f655b; padding-bottom: 8px;">Surface</span>
+      <span style="color: #6f655b; padding-bottom: 8px;">Keys</span>
+      <span style="color: #6f655b; padding-bottom: 8px;">Finish</span>
+      <span style="color: #6f655b; padding-bottom: 8px;">Marks</span>
+      <span style="color: #6f655b; padding-bottom: 8px;">Price</span>
+    </div>
+
+    <div style="position: absolute; left: 104px; top: 104px; width: 760px; display: flex; align-items: flex-start;">
+      <div style="display: flex; flex-direction: column; gap: 2px; width: 230px; flex: none;">
+        <sc-for list="{{ slots }}" as="s" hint-placeholder-count="9">
+          <sc-if value="{{ s.on }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 9px 14px; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 26px; text-transform: uppercase; color: oklch(0.76 0.16 55); background: rgba(232,137,74,0.12);">{{ s.name }}</div>
+          </sc-if>
+          <sc-if value="{{ s.off }}" hint-placeholder-val="{{ true }}">
+            <div style="padding: 9px 14px; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 26px; text-transform: uppercase; color: #efe6dc;">{{ s.name }}</div>
+          </sc-if>
+        </sc-for>
+      </div>
+
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; margin-left: 26px; border-left: 1px solid rgba(239,230,220,0.14);">
+        <div style="display: flex; flex-direction: column;">
+          <sc-for list="{{ parts }}" as="p" hint-placeholder-count="3">
+            <sc-if value="{{ p.on }}" hint-placeholder-val="{{ false }}">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 13px 24px; background: rgba(232,137,74,0.12);">
+                <b style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 24px; text-transform: uppercase; line-height: 1.05; color: oklch(0.76 0.16 55);">{{ p.name }}</b>
+                <i style="font-family: 'Barlow Condensed', sans-serif; font-weight: 500; font-style: normal; font-size: 16px; color: #efe6dc;">{{ p.price }}</i>
+              </div>
+            </sc-if>
+            <sc-if value="{{ p.off }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 13px 24px;">
+                <b style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 24px; text-transform: uppercase; line-height: 1.05;">{{ p.name }}</b>
+                <i style="font-family: 'Barlow Condensed', sans-serif; font-weight: 500; font-style: normal; font-size: 16px; color: #a8998a;">{{ p.price }}</i>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 18px; padding: 22px 24px; margin-top: 8px; border-top: 1px solid rgba(239,230,220,0.14);">
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <span style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: #a8998a;">Grill</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <sc-for list="{{ placeChips }}" as="c" hint-placeholder-count="3">
+                <sc-if value="{{ c.on }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ c.click }}" style="padding: 8px 12px; border: 1px solid oklch(0.76 0.16 55); background: rgba(232,137,74,0.12); color: oklch(0.76 0.16 55); font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase;">{{ c.label }}</button>
+                </sc-if>
+                <sc-if value="{{ c.idle }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ c.click }}" style="padding: 8px 12px; border: 1px solid rgba(239,230,220,0.22); color: #efe6dc; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase;" style-hover="border-color: oklch(0.76 0.16 55);">{{ c.label }}</button>
+                </sc-if>
+                <sc-if value="{{ c.dis }}" hint-placeholder-val="{{ false }}">
+                  <span style="padding: 8px 12px; border: 1px solid rgba(239,230,220,0.22); color: #efe6dc; opacity: 0.4; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase;">{{ c.label }}</span>
+                </sc-if>
+              </sc-for>
+            </div>
+          </div>
+
+          <sc-if value="{{ showPattern }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <span style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: #a8998a;">Pattern</span>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <sc-for list="{{ patternChips }}" as="c" hint-placeholder-count="4">
+                  <sc-if value="{{ c.on }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ c.click }}" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid oklch(0.76 0.16 55); background: rgba(232,137,74,0.12); color: oklch(0.76 0.16 55); font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase;"><img src="{{ c.img }}" alt="" style="width: 26px; height: 14px; display: block; outline: 1px solid rgba(239,230,220,0.3);"><span>{{ c.label }}</span></button>
+                  </sc-if>
+                  <sc-if value="{{ c.idle }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ c.click }}" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid rgba(239,230,220,0.22); color: #efe6dc; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase;" style-hover="border-color: oklch(0.76 0.16 55);"><img src="{{ c.img }}" alt="" style="width: 26px; height: 14px; display: block; outline: 1px solid rgba(239,230,220,0.3);"><span>{{ c.label }}</span></button>
+                  </sc-if>
+                  <sc-if value="{{ c.dis }}" hint-placeholder-val="{{ false }}">
+                    <span style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid rgba(239,230,220,0.22); color: #efe6dc; opacity: 0.4; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 0.04em; text-transform: uppercase;"><img src="{{ c.img }}" alt="" style="width: 26px; height: 14px; display: block;"><span>{{ c.label }}</span></span>
+                  </sc-if>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px;">
+                <span style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: #a8998a;">Hole size</span>
+                <span style="font-family: 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; font-weight: 500; font-size: 17px; color: #efe6dc;">{{ holeText }}<small style="font-size: 15px; color: #a8998a;"> mm</small></span>
+              </div>
+              <div style="position: relative; height: 14px; display: flex; align-items: center;">
+                <div style="position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: rgba(239,230,220,0.14);"></div>
+                <div style="position: absolute; left: 0; top: 6px; height: 2px; background: oklch(0.76 0.16 55); width: {{ holeFill }};"></div>
+                <div style="position: absolute; top: 0; width: 14px; height: 14px; background: oklch(0.76 0.16 55); left: {{ holeThumb }};"></div>
+                <input type="range" aria-label="hole size" min="{{ holeMin }}" max="{{ holeMax }}" step="0.1" value="{{ holeValue }}" onChange="{{ onHole }}" style="position: absolute; inset: 0; width: 100%; height: 14px; margin: 0; opacity: 0; cursor: pointer;">
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px;">
+              <span style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: #a8998a;">Compact</span>
+              <span style="font-family: 'Barlow Condensed', sans-serif; font-variant-numeric: tabular-nums; font-weight: 500; font-size: 17px; color: #efe6dc;">0<small style="font-size: 15px; color: #a8998a;"> %</small></span>
+            </div>
+            <div style="position: relative; height: 14px;">
+              <div style="position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: rgba(239,230,220,0.14);"></div>
+              <div style="position: absolute; top: 0; left: 0; width: 14px; height: 14px; background: oklch(0.76 0.16 55);"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <span style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 16px; letter-spacing: 0.14em; text-transform: uppercase; color: #a8998a;">Place</span>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; font-family: 'Barlow Condensed', sans-serif; font-size: 17px; font-weight: 500;">
+              <span style="padding: 8px 12px; border: 1px solid oklch(0.76 0.16 55); background: rgba(232,137,74,0.12); color: oklch(0.76 0.16 55); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;">Auto</span>
+              <span style="padding: 8px 12px; border: 1px solid rgba(239,230,220,0.22);">Front</span>
+              <span style="padding: 8px 12px; border: 1px solid rgba(239,230,220,0.22);">Under keyboard</span>
+              <span style="padding: 8px 12px; border: 1px solid rgba(239,230,220,0.22);">Rear</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; line-height: 1.55; color: #a8998a; max-width: 1000px; margin: 0; text-wrap: pretty;">Live: pick a grill, pattern or hole size and the view swings outside to frame it (the Inside stage is otherwise x-ray with the deck hidden). Drag the scene to turn it, double click to reset. A place that does not fit this body is dimmed; Front is not offered after 2012. Grill fields sit above Compact, as the fan grill's do on Cooling.</p>
+</section>
+
+<section id="patterns" data-screen-label="Patterns" style="background: #0e0b09; padding-left: 40px; padding-right: 40px; display: flex; flex-direction: column; gap: 18px; padding-bottom: 48px; width: 1440px;">
+  <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 28px; text-transform: uppercase;">B. Patterns and hole size</div>
+  <p style="font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; line-height: 1.55; color: #a8998a; max-width: 1000px; margin: 0;">Each pattern at its least, middle and largest hole, 2016 web, 30 by 18 mm at 10 px per mm. The pitch grows with the hole, so a bigger hole keeps roughly the same open area; the web never goes under the era's least.</p>
+  <sc-for list="{{ patternRows }}" as="row" hint-placeholder-count="4">
+    <div style="display: grid; grid-template-columns: 160px repeat(3, 320px); gap: 20px; align-items: start;">
+      <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 26px; text-transform: uppercase; padding-top: 4px;">{{ row.name }}</div>
+      <sc-for list="{{ row.tiles }}" as="t" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <img src="{{ t.img }}" alt="" style="width: 300px; height: 180px; display: block; background: #241d17; border: 1px solid rgba(239,230,220,0.14);">
+          <div style="display: flex; gap: 14px; font-family: 'Barlow Condensed', sans-serif; font-size: 17px; font-variant-numeric: tabular-nums;">
+            <span style="color: #efe6dc;">{{ t.hole }}</span>
+            <span style="color: #a8998a;">{{ t.pitch }}</span>
+            <span style="color: #a8998a;">{{ t.open }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-for>
+  <div style="display: grid; grid-template-columns: 160px repeat(3, 320px); gap: 20px; align-items: start; margin-top: 8px;">
+    <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 26px; text-transform: uppercase; padding-top: 4px;">Least dot by era</div>
+    <sc-for list="{{ eraDots }}" as="t" hint-placeholder-count="3">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <img src="{{ t.img }}" alt="" style="width: 300px; height: 180px; display: block; background: #241d17; border: 1px solid rgba(239,230,220,0.14);">
+        <div style="display: flex; gap: 14px; font-family: 'Barlow Condensed', sans-serif; font-size: 17px; font-variant-numeric: tabular-nums;">
+          <span style="color: #efe6dc;">{{ t.year }}</span>
+          <span style="color: #a8998a;">{{ t.hole }}</span>
+          <span style="color: #a8998a;">{{ t.pitch }}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="eras" data-screen-label="Eras" style="background: #0e0b09; padding-left: 40px; padding-right: 40px; display: flex; flex-direction: column; gap: 18px; padding-bottom: 48px; width: 1440px;">
+  <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 28px; text-transform: uppercase;">C. Stock grill by era, Workhorse 340 by 240 by 22</div>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+    <sc-for list="{{ eras }}" as="e" hint-placeholder-count="3">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 40px; line-height: 1; color: oklch(0.76 0.16 55);">{{ e.year }}</div>
+        <img src="{{ e.hero }}" alt="" style="width: 100%; aspect-ratio: 480 / 300; display: block; background: #1a1411;">
+        <img src="{{ e.close }}" alt="" style="width: 100%; aspect-ratio: 480 / 300; display: block; background: #1a1411;">
+        <p style="font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; line-height: 1.5; color: #a8998a; margin: 0; text-wrap: pretty;">{{ e.note }}</p>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="bodies" data-screen-label="Bodies" style="background: #0e0b09; padding-left: 40px; padding-right: 40px; display: flex; flex-direction: column; gap: 18px; padding-bottom: 48px; width: 1440px;">
+  <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 28px; text-transform: uppercase;">D. Every body at 340 by 240 by 22</div>
+  <p style="font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; line-height: 1.55; color: #a8998a; max-width: 1000px; margin: 0;">Each body in the first of 2006, 2010, 2012, 2016 and 2026 it is sold in, with its stock grill, then the deck and the front grill where each fits. The front grill sits on the flat band of the front wall, between the top and bottom edge zones; the deck grill stays on the flat deck, clear of the edge profile, the plan corners and any shelf, spine or lift chamfer.</p>
+  <div style="display: flex; flex-direction: column; gap: 28px;">
+    <sc-for list="{{ bodies }}" as="b" hint-placeholder-count="6">
+      <div style="display: grid; grid-template-columns: 200px repeat(3, 400px); gap: 16px; align-items: start; border-top: 1px solid rgba(239,230,220,0.14); padding-top: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 30px; text-transform: uppercase; line-height: 1;">{{ b.name }}</div>
+          <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: oklch(0.76 0.16 55);">{{ b.year }}</div>
+          <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 16px; color: #a8998a; font-variant-numeric: tabular-nums;">{{ b.deckNote }}</div>
+          <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 16px; color: #a8998a; font-variant-numeric: tabular-nums;">{{ b.frontNote }}</div>
+        </div>
+        <img src="{{ b.hero }}" alt="" style="width: 400px; height: 250px; display: block; background: #1a1411;">
+        <sc-if value="{{ b.hasDeck }}" hint-placeholder-val="{{ true }}">
+          <img src="{{ b.deck }}" alt="" style="width: 400px; height: 250px; display: block; background: #1a1411;">
+        </sc-if>
+        <sc-if value="{{ b.noDeck }}" hint-placeholder-val="{{ false }}">
+          <div style="width: 400px; height: 250px; border: 1px dashed rgba(239,230,220,0.22); display: flex; align-items: center; justify-content: center; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: #6f655b; text-transform: uppercase; letter-spacing: 0.08em;">No deck grill</div>
+        </sc-if>
+        <sc-if value="{{ b.hasFront }}" hint-placeholder-val="{{ false }}">
+          <img src="{{ b.front }}" alt="" style="width: 400px; height: 250px; display: block; background: #1a1411;">
+        </sc-if>
+        <sc-if value="{{ b.noFront }}" hint-placeholder-val="{{ true }}">
+          <div style="width: 400px; height: 250px; border: 1px dashed rgba(239,230,220,0.22); display: flex; align-items: center; justify-content: center; font-family: 'Barlow Condensed', sans-serif; font-size: 18px; color: #6f655b; text-transform: uppercase; letter-spacing: 0.08em;">{{ b.frontWhy }}</div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="scaling" data-screen-label="Scaling" style="background: #0e0b09; padding-left: 40px; padding-right: 40px; display: flex; flex-direction: column; gap: 18px; padding-bottom: 96px; width: 1440px;">
+  <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 28px; text-transform: uppercase;">E. Scaling and fit</div>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+    <sc-for list="{{ scaling }}" as="c" hint-placeholder-count="6">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <img src="{{ c.img }}" alt="" style="width: 100%; aspect-ratio: 480 / 300; display: block; background: #1a1411;">
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 22px; text-transform: uppercase;">{{ c.title }}</div>
+        <p style="font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; line-height: 1.5; color: #a8998a; margin: 0; text-wrap: pretty;">{{ c.note }}</p>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;year&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [2006, 2010, 2016, 2026], &quot;default&quot;: 2006, &quot;tsType&quot;: &quot;number&quot;}, &quot;body&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;workhorse&quot;, &quot;pillow&quot;, &quot;spine&quot;, &quot;field&quot;, &quot;blade&quot;, &quot;float&quot;, &quot;shelf&quot;, &quot;lift&quot;, &quot;wedge&quot;, &quot;slant&quot;, &quot;capsule&quot;, &quot;ultra&quot;, &quot;knife&quot;, &quot;aero&quot;, &quot;teardrop&quot;, &quot;facet&quot;], &quot;default&quot;: &quot;workhorse&quot;, &quot;tsType&quot;: &quot;string&quot;}, &quot;cols&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [15, 19], &quot;default&quot;: 15, &quot;tsType&quot;: &quot;number&quot;}}">
+const PATTERN_LIST = [
+  { id: "dots", name: "Dots", icon: 1.0 },
+  { id: "slots", name: "Slots", icon: 1.0 },
+  { id: "bars", name: "Bars", icon: 1.0 },
+  { id: "hex", name: "Hex", icon: 1.4 },
+];
+const SPEAKERS = {
+  2006: [["Mono, 1 x 1 W", "$4"], ["Stereo, 2 x 1 W", "$7"], ["Stereo plus subwoofer", "$18"]],
+  2016: [["Stereo, 2 x 2 W", "$9"], ["Stereo plus subwoofer", "$21"]],
+  2026: [["Stereo, 2 x 2 W", "$8"], ["Quad, 2 tweeters + 2 woofers", "$19"], ["Six, 2 tweeters + 4 force-cancelling woofers", "$34"]],
+};
+const SLOTS = ["Processor", "Graphics", "Memory", "Storage", "Battery", "Cooling", "Optical", "Wireless", "Speakers"];
+const BLANK = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+const f1 = (v) => (Math.round(v * 10) / 10).toFixed(1);
+
+class Component extends DCLogic {
+  state = { ready: false, place: null, pattern: null, hole: null, shots: {}, meta: null };
+  sceneRef = React.createRef();
+
+  cfgOf() {
+    const p = this.props;
+    return {
+      year: Number(p.year ?? 2006),
+      body: p.body ?? "workhorse",
+      cols: Number(p.cols ?? 15),
+      place: this.state.place,
+      pattern: this.state.pattern,
+      hole: this.state.hole,
+    };
+  }
+
+  async componentDidMount() {
+    this.m = await import(new URL("grills.js?v=" + Date.now(), document.baseURI).href);
+    this.icons = {};
+    for (const y of [2006, 2016, 2026])
+      for (const p of PATTERN_LIST) this.icons[`${y}:${p.id}`] = this.m.swatch(p.id, p.icon, 2016, 13, 7, 4);
+    this.live = this.m.mountLive(this.sceneRef.current, this.cfgOf(), { shift: 0.1 });
+    this.setState({ ready: true, meta: this.buildMeta() });
+    setTimeout(() => this.runJobs(), 60);
+  }
+
+  componentDidUpdate() {
+    if (this.live) this.live.set(this.cfgOf());
+  }
+
+  buildMeta() {
+    const m = this.m;
+    const jobs = [];
+    const add = (key, cfg, view) => jobs.push({ key, cfg, view });
+    const eras = [2006, 2016, 2026].map((y) => {
+      const g = m.solve({ year: y, body: "workhorse" });
+      add(`era${y}h`, { year: y, body: "workhorse" }, "hero");
+      add(`era${y}c`, { year: y, body: "workhorse" }, "auto");
+      const e = m.eraOf(y);
+      const place = g.place === "front" ? "Front wall" : g.place === "deck" ? "Deck, beside the keys" : "None";
+      const pat = PATTERN_LIST.find((p) => p.id === g.pattern).name;
+      return {
+        key: y,
+        year: String(y),
+        note: `${place}, ${pat.toLowerCase()} at ${f1(g.hole)} mm. Least hole ${f1(e.min)} mm, least web ${f1(e.web)} mm.${e.frame ? " Moulded plastic: the grill sits in a recessed panel." : " Machined: the holes are cut flush, no panel."}`,
+      };
+    });
+    const years = [2006, 2010, 2012, 2016, 2026];
+    const bodies = m.BODIES.map((b) => {
+      const y = years.find((yy) => b.from <= yy && b.until >= yy);
+      const cfg = { year: y, body: b.id };
+      const g = m.solve(cfg);
+      add(`b-${b.id}-h`, cfg, "hero");
+      if (g.fits.deck) add(`b-${b.id}-d`, { ...cfg, place: "deck" }, "deck");
+      if (g.fits.front) add(`b-${b.id}-f`, { ...cfg, place: "front" }, "front");
+      return {
+        id: b.id,
+        name: b.name,
+        year: String(y),
+        hasDeck: g.fits.deck,
+        noDeck: !g.fits.deck,
+        hasFront: g.fits.front,
+        noFront: !g.fits.front,
+        frontWhy: !g.frontAllowed ? "No front grill after 2012" : "Front band too short",
+        deckNote: g.fits.deck ? `Deck panel ${f1(g.deckW)} mm wide` : `Gutter ${f1(Math.max(0, g.gutter))} mm`,
+        frontNote: `Front band ${f1(Math.max(0, g.bandH))} mm`,
+      };
+    });
+    const sc = [
+      ["s-thin", { year: 2006, body: "workhorse", size: { x: 340, y: 240, z: 10 } }, "front", "Workhorse, 10 mm", "The front band is 9.2 mm; the grill takes up to 7 mm of it, centred on the wall."],
+      ["s-thick", { year: 2006, body: "workhorse", size: { x: 340, y: 240, z: 45 } }, "front", "Workhorse, 45 mm", "A tall wall still gets a 7 mm grill: the height caps, the length follows the width."],
+      ["s-pillow", { year: 2006, body: "pillow", size: { x: 340, y: 240, z: 10 } }, "hero", "Pillow, 10 mm", "The round edge leaves a 3.2 mm band, under the 4 mm a front grill needs, so stock falls back to the deck."],
+      ["s-19", { year: 2016, body: "workhorse", cols: 19 }, "deckWide", "19 columns in 340 mm", "The keyboard leaves no gutter, so Deck dims and the stock grill is None: the sound leaves through the bottom."],
+      ["s-wide", { year: 2016, body: "workhorse", size: { x: 450, y: 300, z: 22 } }, "deckWide", "450 mm wide", "A wide gutter caps the panel at 34 mm and centres it, rather than stretching the grill out to the edge."],
+      ["s-teardrop", { year: 2006, body: "teardrop", place: "front", pattern: "dots", hole: 0.8 }, "front", "Teardrop front edge", "The grill lies on the 6.6 mm edge band above the curved underside, dots at the 2006 least."],
+    ].map(([key, cfg, view, title, note]) => {
+      add(key, cfg, view);
+      return { key, title, note };
+    });
+    const tiles = PATTERN_LIST.map((p) => {
+      const pat = m.PATTERNS.find((x) => x.id === p.id);
+      const lo = Math.max(pat.min, 0.5);
+      const hi = pat.max;
+      const mid = Math.round(((lo + hi) / 2) * 10) / 10;
+      return {
+        key: p.id,
+        name: p.name,
+        tiles: [lo, mid, hi].map((h) => {
+          const { open } = m.holesFor(p.id, h, 2016, 18, 30);
+          return { key: `${p.id}${h}`, img: m.swatch(p.id, h, 2016, 30, 18, 10), hole: `${f1(h)} mm hole`, pitch: `${f1(m.pitchOf(h, 2016))} mm pitch`, open: `${Math.round(open * 100)}% open` };
+        }),
+      };
+    });
+    const eraDots = [2006, 2016, 2026].map((y) => {
+      const h = m.eraOf(y).min;
+      return { key: y, year: String(y), img: m.swatch("dots", h, y, 30, 18, 10), hole: `${f1(h)} mm hole`, pitch: `${f1(m.pitchOf(h, y))} mm pitch` };
+    });
+    this.jobs = jobs;
+    return { eras, bodies, scaling: sc, patternRows: tiles, eraDots };
+  }
+
+  runJobs() {
+    const jobs = this.jobs ?? [];
+    let i = 0;
+    const batch = {};
+    const step = () => {
+      const t = performance.now();
+      while (i < jobs.length && performance.now() - t < 60) {
+        const j = jobs[i++];
+        try {
+          batch[j.key] = this.m.shot(j.cfg, j.view);
+        } catch (e) {
+          console.warn("shot failed", j.key, e);
+        }
+      }
+      this.setState((s) => ({ shots: { ...s.shots, ...batch } }));
+      if (i < jobs.length) setTimeout(step, 0);
+    };
+    step();
+  }
+
+  renderVals() {
+    const m = this.m;
+    const cfg = this.cfgOf();
+    const g = m ? m.solve(cfg) : null;
+    const yb = cfg.year < 2011 ? 2006 : cfg.year < 2018 ? 2016 : 2026;
+    const onPart = yb === 2026 ? 1 : yb === 2006 ? 1 : 0;
+    const places = !g || g.frontAllowed ? ["none", "deck", "front"] : ["none", "deck"];
+    const placeChips = places.map((id) => {
+      const on = g ? g.place === id : id === "front";
+      const dis = g ? !g.fits[id] : false;
+      return { key: id, label: id, on, dis, idle: !on && !dis, click: () => this.setState({ place: id }) };
+    });
+    const patternChips = PATTERN_LIST.map((p) => {
+      const on = g ? g.pattern === p.id : p.id === "slots";
+      const dis = g ? !g.ranges[p.id].ok : false;
+      return { key: p.id, label: p.name, img: this.icons?.[`${yb}:${p.id}`] ?? BLANK, on, dis, idle: !on && !dis, click: () => this.setState({ pattern: p.id }) };
+    });
+    const r = g ? g.ranges[g.pattern] : { min: 0.8, max: 2 };
+    const v = g ? g.hole : 1.2;
+    const pct = r.max > r.min ? (v - r.min) / (r.max - r.min) : 0;
+    const shots = this.state.shots;
+    const meta = this.state.meta;
+    return {
+      sceneRef: this.sceneRef,
+      slots: SLOTS.map((n) => ({ key: n, name: n, on: n === "Speakers", off: n !== "Speakers" })),
+      parts: SPEAKERS[yb].map(([name, price], i) => ({ key: name, name, price, on: i === onPart, off: i !== onPart })),
+      placeChips,
+      patternChips,
+      showPattern: g ? g.place !== "none" : true,
+      holeText: f1(v),
+      holeMin: r.min,
+      holeMax: r.max,
+      holeValue: v,
+      holeFill: `${pct * 100}%`,
+      holeThumb: `calc(${pct * 100}% - ${pct * 14}px)`,
+      onHole: (e) => this.setState({ hole: Number(e.target.value) }),
+      patternRows: meta?.patternRows ?? [],
+      eraDots: meta?.eraDots ?? [],
+      eras: (meta?.eras ?? []).map((e) => ({ ...e, hero: shots[`era${e.year}h`] ?? BLANK, close: shots[`era${e.year}c`] ?? BLANK })),
+      bodies: (meta?.bodies ?? []).map((b) => ({ ...b, hero: shots[`b-${b.id}-h`] ?? BLANK, deck: shots[`b-${b.id}-d`] ?? BLANK, front: shots[`b-${b.id}-f`] ?? BLANK })),
+      scaling: (meta?.scaling ?? []).map((c) => ({ ...c, img: shots[c.key] ?? BLANK })),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

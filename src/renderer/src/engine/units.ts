@@ -6,6 +6,7 @@ import {
   SHUTTER_WIDTH,
 } from "./content/peripherals";
 import { pouchOf } from "./battery";
+import { padButtons, padMechanism, padRows, padSurface } from "./pad";
 import { activeArea, panelThickness } from "./content/display";
 import { panelOf } from "./screen";
 import type { Index } from "./content";
@@ -269,10 +270,16 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
         };
   }
 
-  // The player's trackpad colour rides on the pad unit's options, for its model.
-  if (build.pad) {
-    const p = build.pad;
-    for (const u of out.deck) if (u.role === "pad") u.opts = { ...u.opts, padColour: p.colour, padFinish: p.finish };
+  // The pad's touch surface and separate buttons, and the player's colour, ride on the pad unit's options, for its model.
+  const padBp = build.parts.trackpad?.[0];
+  const padPart = padBp && idx.parts.get(padBp.part);
+  if (padBp && padPart) {
+    const surface = padSurface(padPart, padBp, build.year);
+    for (const u of out.deck)
+      if (u.role === "pad") {
+        u.opts = { ...u.opts, surface, ...(padButtons(padPart, padBp) ? { buttons: "separate" } : {}) };
+        if (build.pad) u.opts = { ...u.opts, padColour: build.pad.colour, padFinish: surface === "glass" ? "glass" : "matte" };
+      }
   }
 
   // The player's keyboard deck colour rides on the keys unit, for its plate.
@@ -418,10 +425,8 @@ function emitShape(
       return;
     }
     case "pad": {
-      const mech = String(opt(part, bp, "mechanism") ?? "mechanical");
-      const rows =
-        (opt(part, bp, "buttons") === "separate" ? 1 : 0) +
-        (opt(part, bp, "stick") === "yes" ? 1 : 0);
+      const mech = padMechanism(part, bp);
+      const rows = padRows(part, bp);
       push({
         id,
         role: "pad",

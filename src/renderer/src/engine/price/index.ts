@@ -10,8 +10,12 @@ import {
   type Part,
   PIECES,
   type Piece,
+  QUALITY_KEYS,
+  type QualityKey,
 } from "../types";
 import { pouchOf, pouchShape } from "../battery";
+import { padShapeOf, padSize, padSurface } from "../pad";
+import { qualityCost } from "../quality";
 import { opt } from "../units";
 import { CPU_PRICES, estimatedPrice } from "../content/chips/cpus";
 import { GPU_PRICES } from "../content/chips/gpus";
@@ -186,6 +190,8 @@ const FIXED: Record<string, number> = {
   "kb-1.0": 18,
   "kb-1.5": 15,
   "kb-mech-1.8": 60,
+  "kb-mech-3.5": 80,
+  "cam-720p-ir": 12,
   "pad-65x40": 8,
   "pad-75x45": 10,
   "pad-85x50": 12,
@@ -305,6 +311,18 @@ function batteryOf(part: Part, bp: BuildPart, year: number, spend: number): { wh
   return { wh: p.wh, thin: 1 + 0.05 * Math.max(0, 5.5 - p.size.z) };
 }
 
+/**
+ * Trackpad technologies: a base and a price per square centimetre of touch
+ * surface, and what glass adds per square centimetre. Older size parts keep
+ * their fixed prices.
+ */
+const PAD_RATE: Record<string, { base: number; cm2: number }> = {
+  "pad-buttons": { base: 6, cm2: 0.06 },
+  "pad-clickpad": { base: 8, cm2: 0.08 },
+  "pad-haptic": { base: 25, cm2: 0.15 },
+};
+const GLASS_CM2 = 0.06;
+
 function partCost(
   cat: Category,
   part: Part,
@@ -312,6 +330,7 @@ function partCost(
   year: number,
   packageGb?: number,
   spend = 0,
+  build?: Build,
 ): number {
   const o = (k: string) => opt(part, bp, k);
   switch (cat) {
@@ -343,12 +362,16 @@ function partCost(
         (LIGHT[String(o("light") ?? "none")] ?? 0) +
         (Number(o("cols")) === 19 ? 2 : 0)
       );
-    case "trackpad":
-      return (
-        (FIXED[part.id] ?? 12) +
-        (o("mechanism") === "haptic" ? 25 : 0) +
-        (o("stick") === "yes" ? 8 : 0)
-      );
+    case "trackpad": {
+      const rate = PAD_RATE[part.id];
+      const stick = o("stick") === "yes" ? 8 : 0;
+      if (!rate) return (FIXED[part.id] ?? 12) + (o("mechanism") === "haptic" ? 25 : 0) + stick;
+      const shape = padShapeOf(part);
+      const size = build?.parts.trackpad?.[0]?.part === part.id ? padSize(build) : undefined;
+      const cm2 = ((size?.w ?? shape?.x ?? 100) * (size?.d ?? shape?.y ?? 60)) / 100;
+      const glass = padSurface(part, bp, year) === "glass" && part.options?.surface ? GLASS_CM2 * cm2 : 0;
+      return rate.base + rate.cm2 * cm2 + glass + stick;
+    }
     case "webcam":
       return (FIXED[part.id] ?? 8) + (o("shutter") === "yes" ? 1 : 0);
     // Switching needs a multiplexer and the drivers to hand the screen over.
@@ -449,7 +472,7 @@ export function partPrice(
   if (cat === "display") return 0;
   const p = content.parts.find((x) => x.id === bp.part);
   const gb = build && cat === "memory" ? packageGb(build, content) : undefined;
-  return p ? partCost(cat, p, bp, year, gb, build?.spend[cat] ?? 0) : 0;
+  return p ? partCost(cat, p, bp, year, gb, build?.spend[cat] ?? 0, build) : 0;
 }
 
 /** Memory on the build's processor package in GB, when its processor carries it. */
@@ -485,6 +508,8 @@ export function costOf(
     for (const bp of list) {
       catCost += partPrice(cat, bp, build.year, content, build);
     }
+    // Quality spend on the area, on top of the part.
+    if (list.length > 0 && (QUALITY_KEYS as string[]).includes(cat)) catCost += qualityCost(build, cat as QualityKey);
     add(cat, catCost);
     // Compacting a part costs more on a dear part.
     const s = build.spend[cat] ?? 0;

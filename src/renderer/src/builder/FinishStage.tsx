@@ -1,4 +1,4 @@
-import { available, type Build, CONTENT, colourHex, type Fit, type PadFinish, type Piece, pieceOf } from "../engine";
+import { available, type Build, CONTENT, colourHex, type Fit, type PadFinish, type Piece, padSurface, pieceOf } from "../engine";
 import { token } from "../viewer/theme";
 import { ColourPicker } from "./ColourPicker";
 import type { StageProps } from "./Stages";
@@ -21,13 +21,18 @@ const PIECE_NAME: Record<FinishPiece, string> = {
 };
 const ORDER: FinishPiece[] = ["lid", "deck", "floor", "bezel", "keyDeck", "pad"];
 
-/** The stock pad: glass from 2015 (the pad model's own cut-over), matte plastic before. */
-const stockPadFinish = (year: number): PadFinish => (year >= 2015 ? "glass" : "matte");
-const stockPadColour = (year: number) => token(year >= 2015 ? "slot-glass" : "slot-plastic");
+/** The trackpad's surface, from its part: glass or Mylar. */
+function padFinishOf(b: Build): PadFinish {
+  const bp = b.parts.trackpad?.[0];
+  const part = bp && CONTENT.parts.find((p) => p.id === bp.part);
+  if (!part) return b.year >= 2015 ? "glass" : "matte";
+  return padSurface(part, bp, b.year) === "glass" ? "glass" : "matte";
+}
+const stockPadColour = (b: Build) => token(padFinishOf(b) === "glass" ? "slot-glass" : "slot-plastic");
 
 function colourOf(b: Build, p: FinishPiece): string {
   if (p === "bezel") return (b.bezel ?? colourHex(b.finish.lid.colour)).toUpperCase();
-  if (p === "pad") return (b.pad?.colour ?? stockPadColour(b.year)).toUpperCase();
+  if (p === "pad") return (b.pad?.colour ?? stockPadColour(b)).toUpperCase();
   if (p === "keyDeck") return (b.keyDeck ?? token("color-opening")).toUpperCase();
   return colourHex(b.finish[p].colour).toUpperCase();
 }
@@ -130,21 +135,11 @@ export function FinishColumn({
         )}
         {piece === "pad" && (
           <div className="bd-line">
-            <Label>Finish</Label>
+            <Label>Colour</Label>
             <Chips>
               <Chip caps on={!build.pad} onClick={() => set((b) => ({ ...b, pad: undefined }))}>
                 Stock
               </Chip>
-              {(["glass", "matte"] as const).map((f) => (
-                <Chip
-                  caps
-                  key={f}
-                  on={build.pad?.finish === f}
-                  onClick={() => set((b) => ({ ...b, pad: { colour: colourOf(b, "pad"), finish: f } }))}
-                >
-                  {f === "glass" ? "Glass" : "Matte"}
-                </Chip>
-              ))}
             </Chips>
           </div>
         )}
@@ -159,7 +154,7 @@ export function FinishColumn({
                 : piece === "keyDeck"
                   ? { ...b, keyDeck: hex }
                   : piece === "pad"
-                  ? { ...b, pad: { colour: hex, finish: b.pad?.finish ?? stockPadFinish(b.year) } }
+                  ? { ...b, pad: { colour: hex, finish: padFinishOf(b) } }
                   : { ...b, finish: { ...b.finish, [piece]: { ...b.finish[piece], colour: hex } } },
             )
           }

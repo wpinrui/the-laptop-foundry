@@ -1,6 +1,9 @@
 import { type Content, CONTENT } from "../content";
+import { padMechanism, padButtons, padShapeOf, padSize, padSurface } from "../pad";
+import { between, byYear, qualityEffect, qualityOf } from "../quality";
 import { panelOf } from "../screen";
 import type { Build, BuildPart, OptionValue, Part, Side } from "../types";
+import { durabilityOf } from "./index";
 
 // Raw figures that need only the parts themselves, so the builder can show
 // them as soon as each part is chosen, long before cooling can be simulated.
@@ -14,6 +17,39 @@ export interface KeyboardSpec {
   /** Lighting option id: none, lid-light, backlit, white, rgb-zones, rgb-per-key. */
   light: string;
   mechanical: boolean;
+  /** Quality spend, 0 to 1. */
+  quality: number;
+  /** Side-to-side play at a key's corner, mm. */
+  wobble: number;
+  /** Tactile snap: the force drop after the bump over the peak, %. */
+  snap: number;
+  /** Actuation force, g. */
+  force: number;
+  /** Spread of actuation force across the keys, %. */
+  forceSpread: number;
+  /** Deck flex under a 1 kg press in the middle of the keyboard, mm. */
+  flex: number;
+}
+
+export interface TrackpadSpec {
+  kind: "buttons" | "clickpad" | "haptic";
+  surface: "mylar" | "glass";
+  /** Touch surface, mm. */
+  width: number;
+  depth: number;
+  /** Touch surface, cm2. */
+  area: number;
+  stick: boolean;
+  /** Windows Precision Touchpad drivers, or the maker's own. */
+  driver: "precision" | "legacy";
+  /** Quality spend, 0 to 1. */
+  quality: number;
+  /** Share of the surface that clicks, %. 0 where separate buttons do the clicking. */
+  clickArea: number;
+  /** Sliding friction of a fingertip on the surface, coefficient. */
+  friction: number;
+  /** Play of the surface before it clicks, mm. */
+  rattle: number;
 }
 
 export interface WebcamSpec {
@@ -51,6 +87,7 @@ export interface PortSpec {
 
 export interface Specs {
   keyboard: KeyboardSpec | null;
+  trackpad: TrackpadSpec | null;
   webcam: WebcamSpec | null;
   speakers: SpeakerSpec | null;
   display: DisplaySpec | null;
@@ -81,17 +118,59 @@ export function specs(build: Build, content: Content = CONTENT): Specs {
   const partOf = (bp: BuildPart | undefined) =>
     bp ? content.parts.find((p) => p.id === bp.part) : undefined;
 
+  const year = build.year;
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+
+  // Keyboard quality buys stiffer scissors and stabilisers, tuned domes and a
+  // stiffer key plate. The best a maker could do improved over the years.
   let keyboard: KeyboardSpec | null = null;
   const kb = build.parts.keyboard?.[0];
   const kbPart = partOf(kb);
   if (kb && kbPart) {
     const travel = Number(/([\d.]+) mm travel/.exec(kbPart.name)?.[1] ?? 0);
+    const mechanical = kbPart.name.toLowerCase().includes("mechanical");
+    const e = qualityEffect(build, "keyboard");
+    const wobble = between(byYear(year, [[2006, 0.9], [2026, 0.7]]), byYear(year, [[2006, 0.3], [2016, 0.2], [2026, 0.12]]), e);
+    const deck = durabilityOf(build, content).deck;
     keyboard = {
       travel,
       pitch: Number(opt(kb, kbPart, "pitch") ?? 19),
       numpad: Number(opt(kb, kbPart, "cols") ?? 15) > 15,
       light: String(opt(kb, kbPart, "light") ?? "none"),
-      mechanical: kbPart.name.toLowerCase().includes("mechanical"),
+      mechanical,
+      quality: qualityOf(build, "keyboard"),
+      wobble: r2(wobble * (mechanical ? 0.7 : 1)),
+      snap: Math.round(mechanical ? between(45, 55, e) : between(30, 55, e)),
+      force: mechanical ? (travel > 3 ? 55 : 60) : travel >= 2.5 ? 60 : travel >= 2 ? 58 : travel >= 1.5 ? 57 : 55,
+      forceSpread: Math.round(between(18, 5, e)),
+      flex: r2((0.4 + 1.4 * (1 - deck)) * (1 - 0.6 * e)),
+    };
+  }
+
+  // Trackpad quality buys a better hinge and click, a finer surface finish and
+  // tighter assembly. Precision drivers came with Windows 8.1 (2013) on the
+  // better pads and on every pad by 2017.
+  let trackpad: TrackpadSpec | null = null;
+  const tp = build.parts.trackpad?.[0];
+  const tpPart = partOf(tp);
+  const size = padSize(build, content);
+  if (tp && tpPart && padShapeOf(tpPart) && size) {
+    const q = qualityOf(build, "trackpad");
+    const e = qualityEffect(build, "trackpad");
+    const kind = padButtons(tpPart, tp) ? "buttons" : padMechanism(tpPart, tp) === "haptic" ? "haptic" : "clickpad";
+    const surface = padSurface(tpPart, tp, year);
+    trackpad = {
+      kind,
+      surface,
+      width: Math.round(size.w),
+      depth: Math.round(size.d),
+      area: Math.round((size.w * size.d) / 100),
+      stick: opt(tp, tpPart, "stick") === "yes",
+      driver: year >= 2017 || (year >= 2013 && q >= 0.5) ? "precision" : "legacy",
+      quality: q,
+      clickArea: kind === "haptic" ? 100 : kind === "buttons" ? 0 : Math.round(between(55, 85, e)),
+      friction: r2(surface === "glass" ? between(0.3, 0.2, e) : between(0.45, 0.35, e)),
+      rattle: r2(kind === "haptic" ? 0 : kind === "buttons" ? between(0.1, 0.02, e) : between(0.3, 0.03, e)),
     };
   }
 
@@ -158,5 +237,5 @@ export function specs(build: Build, content: Content = CONTENT): Specs {
     ports = { sides, total };
   }
 
-  return { keyboard, webcam, speakers, display, ports };
+  return { keyboard, trackpad, webcam, speakers, display, ports };
 }

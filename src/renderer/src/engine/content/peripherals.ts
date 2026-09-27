@@ -189,6 +189,12 @@ export const WIFI_LAB: Record<string, { send: number; receive: number }> = {
 
 // Footprint = (cols - 0.5) x pitch + 4 by rows x pitch + 4. Stack is the height at that travel,
 // at keyboard spend 0 and 1: full Compact halves it.
+// Zoned RGB from the Alienware M17x (2009), per-key RGB from the Razer Blade's Chroma (2016).
+const LIGHT_YEARS: Record<string, [number, number]> = {
+  "rgb-zones": [2009, 2099],
+  "rgb-per-key": [2016, 2099],
+};
+
 export const KEYBOARDS: Part[] = [
   {
     id: "kb-2.5",
@@ -219,10 +225,11 @@ export const KEYBOARDS: Part[] = [
     compact: [],
   },
   {
+    // Island keyboards with about 2 mm of travel from 2006 (VAIO, MacBook).
     id: "kb-2.0",
     name: "2.0 mm travel",
     category: "keyboard",
-    from: 2011,
+    from: 2006,
     until: 2019,
     shape: { kind: "keys", rows: 6, stack: [4.2, 2.1] },
     options: {
@@ -261,6 +268,21 @@ export const KEYBOARDS: Part[] = [
     compact: [],
   },
   {
+    // Full-height Cherry MX switches in the MSI GT80 and GT83 Titan.
+    id: "kb-mech-3.5",
+    name: "Mechanical, 3.5 mm travel",
+    category: "keyboard",
+    from: 2015,
+    until: 2019,
+    shape: { kind: "keys", rows: 6, stack: [11.0, 9.5] },
+    options: {
+      cols: [19, 15],
+      pitch: [19],
+      light: ["none", "white", "rgb-zones", "rgb-per-key"],
+    },
+    compact: [],
+  },
+  {
     id: "kb-mech-1.8",
     name: "Low-profile mechanical, 1.8 mm travel",
     category: "keyboard",
@@ -275,6 +297,9 @@ export const KEYBOARDS: Part[] = [
     compact: [],
   },
 ];
+for (const k of KEYBOARDS)
+  if (k.options?.light?.some((v) => String(v) in LIGHT_YEARS)) k.optionYears = { light: LIGHT_YEARS };
+
 /** The 2006 keyboard light sits in the top bezel beside the webcam. */
 export const LID_LIGHT: Size = { x: 12, y: 5, z: 4 };
 
@@ -285,7 +310,8 @@ export const PAD_STACK: Record<string, [number, number]> = {
 };
 export const PAD_BUTTON_ROW = 12;
 
-function pad(
+/** Older size parts: kept for rival builds, never offered. Player saves migrate to the technologies (engine/pad.ts). */
+function legacyPad(
   id: string,
   from: number,
   until: number,
@@ -299,6 +325,7 @@ function pad(
     category: "trackpad",
     from,
     until,
+    rivalOnly: true,
     shape: { kind: "pad", x, y },
     options:
       y2026 === "clickpad"
@@ -322,17 +349,51 @@ function pad(
   };
 }
 
+// The trackpad is chosen by technology; its size is the player's, within the
+// year's limits (engine/pad.ts). Clickpads from the unibody MacBook (2008) and
+// the Synaptics ClickPad (2009), in Mylar or glass. Haptic pads from Force
+// Touch (2015).
 export const TRACKPADS: Part[] = [
-  pad("pad-65x40", 2000, 2011, 65, 40, false),
-  pad("pad-75x45", 2000, 2012, 75, 45, false),
-  pad("pad-85x50", 2003, 2012, 85, 50, false),
-  pad("pad-100x56", 2011, 2019, 100, 56, "clickpad"),
-  pad("pad-105x70", 2012, 2019, 105, 70, "clickpad"),
-  pad("pad-130x80", 2015, 2019, 130, 80, "clickpad"),
-  pad("pad-110x70", 2018, 2030, 110, 70, true),
-  pad("pad-125x80", 2018, 2030, 125, 80, true),
-  pad("pad-145x90", 2020, 2030, 145, 90, true),
-  pad("pad-160x100", 2022, 2030, 160, 100, true),
+  {
+    id: "pad-buttons",
+    name: "Touchpad with buttons",
+    category: "trackpad",
+    from: 1995,
+    until: 2030,
+    shape: { kind: "pad", x: 80, y: 50, buttons: true, mechanism: "mechanical" },
+    options: { surface: ["mylar"], stick: ["no", "yes"] },
+    compact: [],
+  },
+  {
+    id: "pad-clickpad",
+    name: "Clickpad",
+    category: "trackpad",
+    from: 2008,
+    until: 2030,
+    shape: { kind: "pad", x: 105, y: 70, buttons: false, mechanism: "mechanical" },
+    options: { surface: ["mylar", "glass"], stick: ["no", "yes"] },
+    compact: [],
+  },
+  {
+    id: "pad-haptic",
+    name: "Haptic clickpad",
+    category: "trackpad",
+    from: 2015,
+    until: 2030,
+    shape: { kind: "pad", x: 125, y: 80, buttons: false, mechanism: "haptic" },
+    options: { surface: ["glass"], stick: ["no", "yes"] },
+    compact: [],
+  },
+  legacyPad("pad-65x40", 2000, 2011, 65, 40, false),
+  legacyPad("pad-75x45", 2000, 2012, 75, 45, false),
+  legacyPad("pad-85x50", 2003, 2012, 85, 50, false),
+  legacyPad("pad-100x56", 2011, 2019, 100, 56, "clickpad"),
+  legacyPad("pad-105x70", 2012, 2019, 105, 70, "clickpad"),
+  legacyPad("pad-130x80", 2015, 2019, 130, 80, "clickpad"),
+  legacyPad("pad-110x70", 2018, 2030, 110, 70, true),
+  legacyPad("pad-125x80", 2018, 2030, 125, 80, true),
+  legacyPad("pad-145x90", 2020, 2030, 145, 90, true),
+  legacyPad("pad-160x100", 2022, 2030, 160, 100, true),
 ];
 
 function cam(
@@ -359,7 +420,9 @@ function cam(
 export const WEBCAMS: Part[] = [
   cam("cam-0.3mp", "0.3 MP", 2004, 2009, { x: 25, y: 6, z: 3.5 }, false),
   cam("cam-1.3mp", "1.3 MP", 2006, 2012, { x: 30, y: 7, z: 4.5 }, false),
-  cam("cam-720p", "720p", 2011, 2030, { x: 20, y: 4, z: 2.8 }, true),
+  // HD webcams from 2009; Windows Hello IR cameras from 2015 (Surface Pro 4).
+  cam("cam-720p", "720p", 2009, 2030, { x: 20, y: 4, z: 2.8 }, true),
+  cam("cam-720p-ir", "720p with IR", 2015, 2030, { x: 36, y: 4, z: 3 }, true),
   cam("cam-1080p", "1080p", 2020, 2030, { x: 22, y: 4.5, z: 3 }, true),
   cam(
     "cam-1080p-ir",

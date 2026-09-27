@@ -29,6 +29,8 @@ const TRAVEL: Record<string, number> = {
   "kb-1.0": 1.0,
   "kb-1.5": 1.5,
   "kb-mech-1.8": 1.8,
+  "kb-2.0": 2.0,
+  "kb-mech-3.5": 3.5,
 };
 
 // Stroke font on a 4 by 6 grid, y up. Each polyline is a run of "xy" digit pairs.

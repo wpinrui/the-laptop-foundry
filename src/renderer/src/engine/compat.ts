@@ -5,6 +5,7 @@ import type {
   Category,
   Era,
   Layout,
+  OptionValue,
   Part,
   Problem,
 } from "./types";
@@ -15,6 +16,12 @@ import { pouchOptionOk, pouchShape } from "./battery";
 import { fanOptionOk } from "./fan";
 import { grillOptionOk } from "./grill";
 import { speakerGrillOptionOk } from "./speakerGrill";
+
+/** Whether an option value can be had in the year: its own years where the part gives them. */
+export function optionAvailable(part: Part, key: string, value: OptionValue, year: number): boolean {
+  const span = part.optionYears?.[key]?.[String(value)];
+  return !span || (span[0] <= year && year <= span[1]);
+}
 
 const REQUIRED: Category[] = [
   "processor",
@@ -145,6 +152,8 @@ export function checkCompat(
             option: key,
             value,
           });
+        else if (!optionAvailable(part, key, value, year))
+          out.push({ kind: "year", code: "unavailable", what: "option", ref: `${part.id}:${key}:${value}` });
       }
       chosen.push(part);
       for (const t of part.provides ?? []) provided.add(t);

@@ -140,6 +140,8 @@ const PANEL_TYPE: Record<string, string> = {
   "mini-led": "Mini-LED",
 };
 
+const PAD_KIND: Record<string, string> = { buttons: "buttons", clickpad: "clickpad", haptic: "haptic" };
+
 const SIDE: Record<string, string> = {
   left: "Left",
   right: "Right",
@@ -168,6 +170,18 @@ function Early({ s, d: dur }: { s: Specs; d: M["durability"] }) {
     rows.push(["Key pitch", `${k.pitch} mm`]);
     rows.push(["Layout", k.numpad ? "With numpad" : "No numpad"]);
     rows.push(["Keyboard light", formatOption("light", k.light)]);
+    rows.push(["Key wobble", `${k.wobble.toFixed(2)} mm`]);
+    rows.push(["Key snap", `${k.snap} %`]);
+    rows.push(["Actuation", `${k.force} g, ${k.forceSpread} % spread`]);
+    rows.push(["Deck flex", `${k.flex.toFixed(2)} mm`]);
+  }
+  const t = s.trackpad;
+  if (t) {
+    rows.push(["Trackpad", `${t.width} x ${t.depth} mm, ${PAD_KIND[t.kind]}${t.stick ? ", stick" : ""}`]);
+    rows.push(["Pad surface", `${t.surface === "glass" ? "Glass" : "Mylar"}, ${t.friction.toFixed(2)} friction`]);
+    rows.push(["Pad driver", t.driver === "precision" ? "Precision" : "Legacy"]);
+    if (t.kind !== "buttons") rows.push(["Click area", `${t.clickArea} %`]);
+    if (t.kind !== "haptic") rows.push(["Pad rattle", `${t.rattle.toFixed(2)} mm`]);
   }
   const w = s.webcam;
   if (w)

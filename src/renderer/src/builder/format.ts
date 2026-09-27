@@ -19,6 +19,7 @@ const WORDS: Record<string, Record<string, string>> = {
   bluetooth: { none: "No Bluetooth", "2.0": "Bluetooth 2.0" },
   mechanism: { haptic: "Haptic", mechanical: "Mechanical" },
   thickness: { slim: "Slim", standard: "Standard" },
+  surface: { mylar: "Mylar", glass: "Glass" },
 };
 
 function gb(v: number): string {

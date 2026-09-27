@@ -9,6 +9,8 @@ import {
   type PortGroup,
   partsFor,
   type Problem,
+  type QualityKey,
+  qualityOf,
   type Side,
 } from "../engine";
 import { Html } from "@react-three/drei";
@@ -169,6 +171,7 @@ export function SurfaceColumn({
                 onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, keyboard: v / 100 } }))}
               />
             )}
+            {build.parts.keyboard?.[0] && <QualityField area="keyboard" build={build} set={set} />}
           </>
         )}
         {item === "trackpad" && (
@@ -209,6 +212,7 @@ export function SurfaceColumn({
                 onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, trackpad: v / 100 } }))}
               />
             )}
+            {build.parts.trackpad?.[0] && <QualityField area="trackpad" build={build} set={set} />}
           </>
         )}
         {item === "webcam" && (
@@ -486,8 +490,22 @@ function PartChips({ cat, build, set }: { cat: Category; build: Build; set: SetB
 }
 
 function shortName(cat: Category, p: Part): string {
-  if (cat === "keyboard") return p.name.replace(/ travel$/, "").replace("Low-profile mechanical, ", "Mech ");
+  if (cat === "keyboard") return p.name.replace(/ travel$/, "").replace("Low-profile mechanical, ", "Mech ").replace("Mechanical, ", "Mech ");
   return p.name;
+}
+
+/** Quality spend on an area, 0 to 100%. */
+export function QualityField({ area, build, set }: { area: QualityKey; build: Build; set: SetBuild }) {
+  return (
+    <SliderField
+      label="Quality"
+      value={Math.round(qualityOf(build, area) * 100)}
+      unit="%"
+      min={0}
+      max={100}
+      onChange={(v) => set((b) => ({ ...b, quality: { ...b.quality, [area]: v / 100 } }))}
+    />
+  );
 }
 
 // ------------------------------------------------------------------ 3D

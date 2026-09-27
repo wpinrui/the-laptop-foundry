@@ -12,6 +12,7 @@ import {
   panelsFor,
   partPrice,
   offeredFor,
+  optionAvailable,
   pouchDensity,
   pouchShape,
   solve,
@@ -52,6 +53,7 @@ const OPTION_NAME: Record<string, string> = {
   shutter: "Shutter",
   bluetooth: "Bluetooth",
   thickness: "Thickness",
+  surface: "Surface",
 };
 
 export function optionName(key: string): string {
@@ -307,10 +309,14 @@ function PackageChips({ build, set }: { build: Build; set: SetBuild }) {
 /** The chosen part's options, one row of chips each. */
 export function OptionChips({ cat, index = 0, build, set }: { cat: Category; index?: number; build: Build; set: SetBuild }) {
   const current = build.parts[cat]?.[index];
+  const part = current && CONTENT.parts.find((p) => p.id === current.part);
   return (
     <>
-      {optionListsOf(current).map(([k, vs]) => {
-        const value = current?.opts?.[k] ?? vs[0];
+      {optionListsOf(current).map(([k, all]) => {
+        const value = current?.opts?.[k] ?? all[0];
+        // Values the year cannot have are left out, unless chosen.
+        const vs = all.filter((v) => String(v) === String(value) || !part || optionAvailable(part, k, v, build.year));
+        if (vs.length < 2) return null;
         return (
           <div key={k} className="bd-field">
             <Label>{optionName(k)}</Label>

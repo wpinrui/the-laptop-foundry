@@ -60,6 +60,8 @@ import type {
 import { isZone } from "./types";
 import { bezelUnits, emit, spendOf, type Unit } from "./units";
 import { panelOf } from "./screen";
+import { padLimits, padRows } from "./pad";
+import { PAD_BUTTON_ROW } from "./content/peripherals";
 
 const AXES: Axis[] = ["x", "y", "z"];
 const BLOCK_ROLES = new Set([
@@ -309,19 +311,19 @@ function solveAt(
   // A perimeter body's underside curves up at its edges: a removable pack cannot
   // form it, so the pack goes inside on the floor like any other.
   if (style.pm) for (const u of em.floor) delete u.skin;
-  // The player's trackpad size, within reach of the part's own.
+  // The player's trackpad size, within what the year's palm rests took. The
+  // depth is the whole unit: the touch surface and any button rows.
   const player = build.place ?? {};
   const report: PlaceReport = { ports: build.ports.map(() => null) };
   const padUnit = em.deck.find((u) => u.role === "pad");
-  const padW0: Range = padUnit
-    ? [Math.round(padUnit.size.x * 0.6), Math.round(padUnit.size.x * 1.4)]
-    : [0, 0];
-  const padD0: Range = padUnit
-    ? [Math.round(padUnit.size.y * 0.6), Math.round(padUnit.size.y * 1.4)]
-    : [0, 0];
+  const padPart = padUnit?.part ? idx.parts.get(padUnit.part) : undefined;
+  const padLim = padLimits(build.year);
+  const padRowsMm = padPart ? padRows(padPart, build.parts.trackpad?.[0]) * PAD_BUTTON_ROW : 0;
+  const padW0: Range = padUnit ? padLim.w : [0, 0];
+  const padD0: Range = padUnit ? [padLim.d[0] + padRowsMm, padLim.d[1] + padRowsMm] : [0, 0];
   if (padUnit) {
-    if (player.pad?.w) padUnit.size.x = clamp(player.pad.w, padW0[0], padW0[1]);
-    if (player.pad?.d) padUnit.size.y = clamp(player.pad.d, padD0[0], padD0[1]);
+    padUnit.size.x = clamp(player.pad?.w || padUnit.size.x, padW0[0], padW0[1]);
+    padUnit.size.y = clamp(player.pad?.d || padUnit.size.y, padD0[0], padD0[1]);
   }
   const cooler =
     em.fans === 0

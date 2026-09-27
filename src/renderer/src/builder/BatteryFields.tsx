@@ -2,20 +2,19 @@ import {
   type Axis,
   type Build,
   CONTENT,
-  FLIGHT_WH,
   type Fit,
+  FLIGHT_WH,
   type Part,
   type PouchShape,
   pouchOf,
   pouchOpts,
   pouchShape,
-  solve,
 } from "../engine";
 import type { SetBuild } from "./Parts";
-import { FitButton, Line, SliderField, Value } from "./ui";
+import { Line, SliderField, Value } from "./ui";
 
-// A pouch battery's size: length, depth and thickness sliders, the capacity
-// they hold, and chips that size the length for a chosen capacity.
+// A pouch battery's size: length, depth and thickness sliders, and the capacity
+// they hold.
 
 const NAME: Record<Axis, string> = { x: "Length", y: "Depth", z: "Thickness" };
 const STEP: Record<Axis, number> = { x: 1, y: 1, z: 0.1 };
@@ -23,7 +22,12 @@ const STEP: Record<Axis, number> = { x: 1, y: 1, z: 0.1 };
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
 /** The build with the battery set to `size`, in place of any older capacity and thickness. */
-function withSize(b: Build, part: Part, shape: PouchShape, patch: Partial<Record<Axis, number>>): Build {
+function withSize(
+  b: Build,
+  part: Part,
+  shape: PouchShape,
+  patch: Partial<Record<Axis, number>>,
+): Build {
   const list = [...(b.parts.battery ?? [])];
   const bp = list[0];
   if (!bp) return b;
@@ -33,53 +37,27 @@ function withSize(b: Build, part: Part, shape: PouchShape, patch: Partial<Record
   return { ...b, parts: { ...b.parts, battery: list } };
 }
 
-/** Free room around the battery in its zone, per plan axis. */
-function slackOf(fit: Fit): Partial<Record<Axis, number>> {
-  const unit = fit.boxes.find((b) => b.kind === "unit" && b.role === "battery" && b.id.endsWith("battery:0"));
-  if (!unit) return {};
-  const zone = fit.boxes.find((b) => b.kind === "zone" && b.zone === unit.zone && b.piece === unit.piece);
-  if (!zone) return {};
-  return { x: zone.size.x - unit.size.x, y: zone.size.y - unit.size.y };
-}
-
-/** Largest whole-mm value of `axis` up to `hi` that adds no problem and keeps the frame. */
-function growTo(b: Build, fit: Fit, part: Part, shape: PouchShape, axis: Axis, from: number, hi: number): number {
-  const ok = (v: number) => {
-    try {
-      const f = solve(withSize(b, part, shape, { [axis]: v }));
-      return f.problems.length <= fit.problems.length && f.frame.x <= fit.frame.x && f.frame.y <= fit.frame.y;
-    } catch {
-      return false;
-    }
-  };
-  let lo = Math.round(from);
-  let top = Math.floor(hi);
-  if (top <= lo) return lo;
-  if (ok(top)) return top;
-  while (top - lo > 1) {
-    const mid = Math.floor((lo + top) / 2);
-    if (ok(mid)) lo = mid;
-    else top = mid;
-  }
-  return lo;
-}
-
-export function BatteryFields({ build, fit, set }: { build: Build; fit: Fit; set: SetBuild }) {
+export function BatteryFields({
+  build,
+  set,
+}: {
+  build: Build;
+  fit: Fit;
+  set: SetBuild;
+}) {
   const bp = build.parts.battery?.[0];
   const part = CONTENT.parts.find((p) => p.id === bp?.part);
   const shape = pouchShape(part);
   if (!bp || !part || !shape) return null;
   const spend = build.spend.battery ?? 0;
   const pack = pouchOf(part, shape, bp, build.year, spend);
-  const slack = slackOf(fit);
   const capped = pack.raw > FLIGHT_WH + 0.05;
-  const edit = (patch: Partial<Record<Axis, number>>) => set((b) => withSize(b, part, shape, patch));
+  const edit = (patch: Partial<Record<Axis, number>>) =>
+    set((b) => withSize(b, part, shape, patch));
   return (
     <>
       {(["x", "y", "z"] as Axis[]).map((a) => {
         const [lo, hi] = shape.limits[a];
-        const room = slack[a] ?? 0;
-        const grow = room >= 1 && pack.size[a] < hi;
         return (
           <SliderField
             key={a}
@@ -90,19 +68,6 @@ export function BatteryFields({ build, fit, set }: { build: Build; fit: Fit; set
             min={lo}
             max={hi}
             step={STEP[a]}
-            action={
-              grow && (
-                <FitButton
-                  title={`Grow the ${NAME[a].toLowerCase()} to fill the free space in the battery slot`}
-                  onClick={() =>
-                    set((b) => {
-                      const v = growTo(b, fit, part, shape, a, pack.size[a], Math.min(hi, pack.size[a] + room));
-                      return withSize(b, part, shape, { [a]: v });
-                    })
-                  }
-                />
-              )
-            }
             onChange={(v) => edit({ [a]: v })}
           />
         );
@@ -110,7 +75,11 @@ export function BatteryFields({ build, fit, set }: { build: Build; fit: Fit; set
       <Line label="Capacity">
         <Value v={pack.wh.toFixed(1)} unit="Wh" warn={capped} />
       </Line>
-      {capped && <span className="bd-note">Capped at {FLIGHT_WH} Wh, the airline limit</span>}
+      {capped && (
+        <span className="bd-note">
+          Capped at {FLIGHT_WH} Wh, the airline limit
+        </span>
+      )}
     </>
   );
 }

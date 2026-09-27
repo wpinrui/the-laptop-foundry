@@ -31,7 +31,7 @@ Each place has a feel:
 ## Years
 
 - The player picks a year from 2006 to 2026. For 0.1, since it is proof of concept, the only years allowed will be 2006, 2016 and 2026.
-- The year gates everything available: parts, bodies, materials and specification options. Colours, keycap styling and marks are open in every year.
+- The year gates everything available: parts, bodies, materials and specification options. Colours, keycap styling and decals are open in every year.
 - Moving a model to a year where a part does not exist makes that part unavailable.
 
 ## Building
@@ -39,7 +39,7 @@ Each place has a feel:
 ### Flow
 
 - The laptop is visible in three dimensions throughout, including its internal layout as it changes. The reference is the engine and car builder in Automation.
-- Building is a fixed line of stages: year, chassis, screen, inside, surface, keys, finish, marks and price.
+- Building is a fixed line of stages: year, chassis, screen, inside, surface, keys, finish, decals and price.
 - The player can jump between stages freely.
 - Fit problems show live on every stage.
 
@@ -92,10 +92,10 @@ The operating system is always Windows. The player does not choose it and it aff
 - Port placement is the player's. Reviewers can praise things like charging from both sides.
 - A build may not fit. The player then rescales the body or changes parts.
 
-### Keycaps and marks
+### Keycaps and decals
 
 - The player styles the keycaps: shape, the colours of letters, modifiers and accent keys, and the legends' font, colour, alignment, case, size and weight.
-- The player adds text and imported SVG marks to the lid, palm rest, bottom and bezel, each etched, printed or embossed.
+- The player adds text, preset, emoji and imported image decals (SVG, PNG, JPEG or WebP) to the lid, palm rest, bottom and bezel, each etched, printed or embossed.
 
 ### Engineering spend
 

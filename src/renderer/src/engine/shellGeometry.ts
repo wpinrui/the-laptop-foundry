@@ -1,4 +1,4 @@
-import { LIFT_RUN, outerSection } from "./shell";
+import { type Insets, LIFT_RUN, outerSection, perimInsets, perimLevels, perimZones, ringCorner, sideMult } from "./shell";
 import type { ResolvedStyle, Side, Size } from "./types";
 
 // Engine-owned shell surface. Plain arrays, no rendering dependency: the
@@ -8,7 +8,9 @@ import type { ResolvedStyle, Side, Size } from "./types";
 // undercut cove at the bottom). Bodies whose section changes along the depth
 // (taper, spine, shelf, lift chamfer, a domed lid) remap each ring point's
 // height into the section at that point's depth, so the footprint's straight
-// sides are cut at a row of depths shared by every ring.
+// sides are cut at a row of depths shared by every ring. A perimeter body
+// stacks rings of its plan outline, each inset per side by the edge profile at
+// that ring's height.
 
 export interface Wall {
   side: Side;
@@ -96,31 +98,54 @@ function depthCuts(style: ResolvedStyle, size: Size, profile: boolean): number[]
 }
 
 /**
- * One ring's footprint outline inset by d, counter-clockwise from above: the
- * right side front to rear, then the left side rear to front. The two halves
- * mirror, so point k on the right and point (last - k) on the left share a depth.
+ * One ring's footprint outline inset on each side by I, counter-clockwise
+ * from above: the right side front to rear, then the left side rear to front.
+ * The left and right insets are equal, so the halves mirror: point k on the
+ * right and point (last - k) on the left share a depth. Each corner is rounded
+ * by the plan corner less the smaller inset either side of it, or cut flat.
  */
-function outline(X: number, Y: number, r: number, d: number, segments: number, cuts: number[]): [number, number][] {
-  const rc = Math.max(0, Math.min(r - d, (X - 2 * d) / 2, (Y - 2 * d) / 2));
-  const arc = (cx: number, cy: number, start: number, out: [number, number][]) => {
+export function outline(
+  X: number,
+  Y: number,
+  r: number,
+  I: Insets,
+  segments: number,
+  cuts: number[],
+  chamfer = false,
+): [number, number][] {
+  const corner = (a: number, b: number) => ringCorner(r, a, b, X, Y, I);
+  const fr = corner(I.r, I.f);
+  const br = corner(I.r, I.b);
+  const bl = corner(I.l, I.b);
+  const fl = corner(I.l, I.f);
+  const arc = (cx: number, cy: number, rc: number, start: number, out: [number, number][]) => {
+    const a0 = (start * Math.PI) / 180;
+    const a1 = ((start + 90) * Math.PI) / 180;
     for (let i = 0; i <= segments; i++) {
-      const a = ((start + (i / segments) * 90) * Math.PI) / 180;
-      out.push([cx + rc * Math.cos(a), cy + rc * Math.sin(a)]);
+      const t = i / segments;
+      if (chamfer)
+        out.push([
+          cx + rc * (Math.cos(a0) + (Math.cos(a1) - Math.cos(a0)) * t),
+          cy + rc * (Math.sin(a0) + (Math.sin(a1) - Math.sin(a0)) * t),
+        ]);
+      else {
+        const a = a0 + (a1 - a0) * t;
+        out.push([cx + rc * Math.cos(a), cy + rc * Math.sin(a)]);
+      }
     }
   };
-  const lo = d + rc;
-  const hi = Y - d - rc;
-  const along = cuts.map((y) => Math.min(hi, Math.max(lo, y)));
   const right: [number, number][] = [];
-  arc(X - d - rc, d + rc, -90, right);
-  for (const y of along) right.push([X - d, y]);
-  arc(X - d - rc, Y - d - rc, 0, right);
+  arc(X - I.r - fr, I.f + fr, fr, -90, right);
+  for (const y of cuts) right.push([X - I.r, Math.min(Y - I.b - br, Math.max(I.f + fr, y))]);
+  arc(X - I.r - br, Y - I.b - br, br, 0, right);
   const left: [number, number][] = [];
-  arc(d + rc, Y - d - rc, 90, left);
-  for (const y of [...along].reverse()) left.push([d, y]);
-  arc(d + rc, d + rc, 180, left);
+  arc(I.l + bl, Y - I.b - bl, bl, 90, left);
+  for (const y of [...cuts].reverse()) left.push([I.l, Math.min(Y - I.b - bl, Math.max(I.f + fl, y))]);
+  arc(I.l + fl, I.f + fl, fl, 180, left);
   return [...right, ...left];
 }
+
+const even = (d: number): Insets => ({ l: d, r: d, f: d, b: d });
 
 /**
  * Closed outer surface of a styled slab from (0, 0, 0) to size, its section
@@ -136,18 +161,27 @@ export function shellSurface(
   open: Side[] = [],
 ): MeshData {
   const Z = size.z;
+  const ch = style.cornerKind === "chamfer";
+  const pm = profile ? style.pm : null;
   const { rings, nb } = profileRings(style, Z, profile, segments);
-  const cuts = depthCuts(style, size, profile);
+  const cuts = pm ? [] : depthCuts(style, size, profile);
   const section = (y: number): [number, number] => {
     if (!profile) return [0, Z + style.crown * Math.sin((Math.PI * Math.min(Math.max(y, 0), size.y)) / size.y)];
     return outerSection(style, size, y) ?? [0, Z];
   };
-  const loops = rings.map((ring) =>
-    outline(size.x, size.y, style.corner, ring.d, segments, cuts).map(([x, y]): [number, number, number] => {
-      const [lo, hi] = section(y);
-      return [x, y, lo + (ring.z / Z) * (hi - lo)];
-    }),
-  );
+  const levels = pm ? perimLevels(pm, Z) : [];
+  const loops = pm
+    ? levels.map((z) =>
+        outline(size.x, size.y, style.corner, perimInsets(pm, Z, z), segments, cuts, ch).map(
+          ([x, y]): [number, number, number] => [x, y, z],
+        ),
+      )
+    : rings.map((ring) =>
+        outline(size.x, size.y, style.corner, even(ring.d), segments, cuts, ch).map(([x, y]): [number, number, number] => {
+          const [lo, hi] = section(y);
+          return [x, y, lo + (ring.z / Z) * (hi - lo)];
+        }),
+      );
   const n = loops[0].length;
   const m = n / 2;
   const positions: number[] = [];
@@ -161,25 +195,39 @@ export function shellSurface(
     left: [m + segments, m + segments + cuts.length + 1],
     front: [n - 1, n],
   };
-  const band = nb - 1;
-  const cut = new Set<number>();
+  // The flat wall of each side: between the ring pair where it stands
+  // vertical. On a perimeter body each side has its own, from the top of its
+  // bottom zone to the foot of its top zone.
+  const wallRings = (side: Side): [number, number] => {
+    if (!pm) return [nb - 1, nb];
+    const zs = perimZones(pm, sideMult(pm, side));
+    const near = (z: number) => {
+      let best = 0;
+      for (let k = 1; k < levels.length; k++) if (Math.abs(levels[k] - z) < Math.abs(levels[best] - z)) best = k;
+      return best;
+    };
+    const a = near(zs.hB);
+    return [a, Math.max(a + 1, near(Z - zs.hT))];
+  };
+  const cut = new Map<number, [number, number]>();
   const walls: Wall[] = [];
   for (const side of open) {
     const [i0, i1] = straight[side];
+    const [ka, kb] = wallRings(side);
     const ax = side === "left" || side === "right" ? 1 : 0;
     const bottom: [number, number][] = [];
     const top: [number, number][] = [];
     for (let i = i0; i <= i1; i++) {
       const v = i % n;
-      if (i < i1) cut.add(v);
-      const b = pt(band * n + v);
-      const t = pt((band + 1) * n + v);
+      if (i < i1) cut.set(v, [ka, kb]);
+      const b = pt(ka * n + v);
+      const t = pt(kb * n + v);
       bottom.push([b[ax], b[2]]);
       top.push([t[ax], t[2]]);
     }
     walls.push({
       side,
-      corners: [pt(band * n + i0), pt(band * n + (i1 % n)), pt((band + 1) * n + (i1 % n)), pt((band + 1) * n + i0)],
+      corners: [pt(ka * n + i0), pt(ka * n + (i1 % n)), pt(kb * n + (i1 % n)), pt(kb * n + i0)],
       bottom,
       top,
     });
@@ -190,7 +238,8 @@ export function shellSurface(
     const a = k * n;
     const b = (k + 1) * n;
     for (let i = 0; i < n; i++) {
-      if (k === band && cut.has(i)) continue;
+      const c = cut.get(i);
+      if (c && k >= c[0] && k < c[1]) continue;
       const j = (i + 1) % n;
       indices.push(a + i, a + j, b + j, a + i, b + j, b + i);
     }

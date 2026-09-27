@@ -17,6 +17,7 @@ import {
   rivalSubject,
   type Signature,
   solve,
+  perimBand,
   taperDepth,
   YEARS,
 } from "../engine";
@@ -89,6 +90,11 @@ const SIGNATURE_NAME: Record<Signature, string> = {
   undercut: "Undercut",
   shelf: "Shelf",
   lip: "Lift",
+  slant: "End slant",
+  round: "End radius",
+  wrap: "Taper",
+  edge: "Base radius",
+  facet: "Facet",
 };
 const AXIS_STEP: Record<Axis, number> = { x: 0.5, y: 0.5, z: 0.1 };
 const tenth = (v: number) => Math.round(v * 10) / 10;
@@ -159,7 +165,8 @@ export function ChassisColumn({
       return { ...b, size };
     });
   const Z = fit.shell.outer.z;
-  const taper = taperDepth(style, Z);
+  // The thinnest edge: the taper's front, or a perimeter body's edge band.
+  const taper = style.pm ? perimBand(style.pm, Z)[0] : taperDepth(style, Z);
   const section = useCallback((on: boolean) => onPreview?.({ section: on }), [onPreview]);
   return (
     <>

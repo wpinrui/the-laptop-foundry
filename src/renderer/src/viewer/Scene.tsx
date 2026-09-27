@@ -725,6 +725,8 @@ function Bumpers({ fit, xray }: { fit: Fit; xray: boolean }) {
       corner: Math.min(0.5 * b, side / 2 - 0.01),
       profile: Math.min(0.6 * b, out.z / 4),
       taper: null,
+      pm: null,
+      cornerKind: "round",
       ui: 0,
       uh: 0,
       drop: 0,

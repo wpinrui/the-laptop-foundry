@@ -207,43 +207,12 @@ function makeCtx(): UnitCtx & { dispose(): void } {
 
 // ------------------------------------------------------------------ units
 
-/**
- * Turns every lid-side hinge part (a LID_GROUP) with the lid, about its own
- * pivot. The full-width cover is the exception: it is fixed to the lid, which
- * turns about the engine's hinge axis, so turned about its own pivot it pokes
- * through the lid's back at some angles. Given the axis (base y, z), the cover
- * and the shaft inside it turn about that axis with the lid instead.
- */
-export function turnLidParts(group: THREE.Object3D, lidAngle: number, axis?: [number, number]): void {
+/** Turns every lid-side hinge part (a LID_GROUP) with the lid, about its own pivot. */
+export function turnLidParts(group: THREE.Object3D, lidAngle: number): void {
   const angle = (-lidAngle * Math.PI) / 180;
-  group.updateMatrixWorld(true);
-  const toGroup = new THREE.Matrix4().copy(group.matrixWorld).invert();
-  const turn = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle);
-  const aboutAxis = (o: THREE.Object3D) => {
-    if (!axis || !o.parent) return;
-    const home = (o.userData.home as THREE.Vector3 | undefined) ?? o.position.clone();
-    o.userData.home = home;
-    const rel = toGroup.clone().multiply(o.parent.matrixWorld);
-    const onAxis = home.clone().applyMatrix4(rel);
-    onAxis.y = axis[0];
-    onAxis.z = axis[1];
-    onAxis.applyMatrix4(rel.clone().invert());
-    o.position.copy(home).sub(onAxis).applyQuaternion(turn).add(onAxis);
-  };
-  const lids: THREE.Object3D[] = [];
   group.traverse((o) => {
-    if (o.name === LID_GROUP) lids.push(o);
+    if (o.name === LID_GROUP) o.rotation.x = angle;
   });
-  for (const o of lids) {
-    o.rotation.x = angle;
-    if (!o.children.some((c) => c.name === "cover")) continue;
-    aboutAxis(o);
-    const shaft = o.parent?.children.find((c) => c.name === "shaft");
-    if (shaft) {
-      shaft.rotation.x = angle;
-      aboutAxis(shaft);
-    }
-  }
 }
 
 type Live = Map<string, { key: string; ctx: UnitCtx; obj: THREE.Object3D; failed?: string }>;
@@ -347,7 +316,6 @@ function Units({
   year,
   hinge,
   lidAngle,
-  axis,
   onFailed,
   paint,
 }: {
@@ -361,8 +329,6 @@ function Units({
   hinge: UnitOpts["hinge"];
   /** Turns the lid side of each hinge mount with the lid, in degrees. */
   lidAngle?: number;
-  /** The lid's hinge axis in base space (y, z); the full cover turns about it. */
-  axis?: [number, number];
   /** Called after each pass with the units that could not be drawn. */
   onFailed?: (failed: string[]) => void;
 }) {
@@ -370,8 +336,8 @@ function Units({
   // Runs after the units effect above, so freshly built hinges turn too.
   useEffect(() => {
     if (lidAngle === undefined) return;
-    turnLidParts(group, lidAngle, axis);
-  }, [group, lidAngle, boxes, ctx, year, hinge, axis]);
+    turnLidParts(group, lidAngle);
+  }, [group, lidAngle, boxes, ctx, year, hinge]);
   // Selection paint: swap each mesh's material and keep the original to restore.
   useEffect(() => {
     const accent = paint ? ctx.material(token("accent-hex")) : null;
@@ -638,6 +604,73 @@ function LidFront({
   );
 }
 
+/**
+ * A full-width hinge: one barrel along the whole rear edge, centred on the
+ * lid's axis (the base's rear top edge), so it looks the same at every lid
+ * angle and always wraps the lid's bottom edge and the base's rear top edge.
+ * Two end knuckles over the hinge mounts belong to the base, the long middle
+ * knuckle to the lid, with a steel shaft showing in the splits. `part` picks
+ * which knuckles to draw: the base's go in the base group, the lid's in the lid
+ * group, so each turns with its own half.
+ */
+function HingeBarrel({
+  fit,
+  part,
+  colour,
+  surface,
+  xray,
+}: {
+  fit: Fit;
+  part: "base" | "lid";
+  colour: string;
+  surface?: Surfaces[keyof Surfaces];
+  xray: boolean;
+}) {
+  const axis = fit.anchors.find((a) => a.kind === "hinge");
+  const mounts = fit.boxes.filter((b) => b.kind === "unit" && b.role === "hinge").sort((a, b) => a.at.x - b.at.x);
+  if (fit.shell.style.hinge !== "full" || axis?.kind !== "hinge" || mounts.length < 2) return null;
+  const out = fit.shell.outer;
+  const look = surfaceLook(surface);
+  // As thick as the lid, so the lid's bottom edge stays inside it as it turns;
+  // no more than 0.4 of the base's height, and clear of the keyboard, which
+  // may come back to 4 mm from the rear inner wall.
+  const r = Math.min(fit.shell.lid.size.z, 0.4 * out.z, fit.shell.offsets.side + 3);
+  const split = 0.5;
+  const x0 = 0.3;
+  const x1 = out.x - 0.3;
+  const xa = mounts[0].at.x + mounts[0].size.x;
+  const xb = mounts[mounts.length - 1].at.x;
+  const spans: [number, number][] = part === "base" ? [[x0, xa - split / 2], [xb + split / 2, x1]] : [[xa + split / 2, xb - split / 2]];
+  const material = (
+    <meshStandardMaterial
+      key={xray ? "xray" : "solid"}
+      color={colour}
+      transparent={xray}
+      opacity={xray ? 0.22 : 1}
+      depthWrite={!xray}
+      roughness={look.roughness}
+      metalness={look.metalness}
+    />
+  );
+  return (
+    <group position={[0, axis.from.y, axis.from.z]} rotation-z={-Math.PI / 2}>
+      {/* A cylinder runs along y; turned a quarter about z, its +y runs along +x. */}
+      {spans.map(([a, b]) => (
+        <mesh key={a} position={[0, (a + b) / 2, 0]}>
+          <cylinderGeometry args={[r, r, b - a, 40]} />
+          {material}
+        </mesh>
+      ))}
+      {part === "base" && (
+        <mesh position={[0, out.x / 2, 0]}>
+          <cylinderGeometry args={[0.45 * r, 0.45 * r, x1 - x0 - 0.2, 20]} />
+          <meshStandardMaterial color={token("slot-metal")} roughness={0.35} metalness={0.8} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
 /** How far a well's dark lining stands off the unit in it, in mm. */
 const WELL_CLEAR = 0.2;
 
@@ -803,7 +836,6 @@ export const Model = memo(function Model({
   const hinge = fit.anchors.find((a) => a.kind === "hinge");
   const hy = hinge?.kind === "hinge" ? hinge.from.y : fit.shell.outer.y;
   const hz = hinge?.kind === "hinge" ? hinge.from.z : fit.shell.lid.at.z;
-  const lidAxis = useMemo((): [number, number] => [hy, hz], [hy, hz]);
   const out = fit.shell.outer;
   const lidSize = fit.shell.lid.size;
   // Each port's own model draws its connector face; the wall is cut open over it.
@@ -854,10 +886,10 @@ export const Model = memo(function Model({
           year={year}
           hinge={fit.shell.style.hinge}
           lidAngle={lidAngle}
-          axis={lidAxis}
           onFailed={reportBase}
           paint={paint}
         />
+        <HingeBarrel fit={fit} part="base" colour={colours.floor} surface={surfaces?.floor} xray={xray} />
         <BaseMarks fit={fit} marks={decor?.marks} />
         {extra}
         {problems && <Overflow fit={fit} />}
@@ -878,6 +910,7 @@ export const Model = memo(function Model({
               mode="back"
             />
             <LidFront fit={fit} colour={decor?.bezel ?? colours.lid} surface={surfaces?.lid} xray={xray} />
+            <HingeBarrel fit={fit} part="lid" colour={colours.lid} surface={surfaces?.lid} xray={xray} />
             <Units
               boxes={lid}
               ctx={ctx}

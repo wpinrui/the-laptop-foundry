@@ -111,11 +111,7 @@ export function BatteryFields({ build, fit, set }: { build: Build; fit: Fit; set
       <Line label="Capacity">
         <Value v={pack.wh.toFixed(1)} unit="Wh" warn={capped} />
       </Line>
-      <span className="bd-note">
-        {capped
-          ? `Capped at ${FLIGHT_WH} Wh, the airline limit. The cells could hold ${pack.raw.toFixed(1)} Wh.`
-          : `${Math.round(pack.density)} Wh per litre at this year's cells and Compact spend.`}
-      </span>
+      {capped && <span className="bd-note">Capped at {FLIGHT_WH} Wh, the airline limit</span>}
       <div className="bd-field">
         <Label>Size length for</Label>
         <Chips>

@@ -230,6 +230,9 @@ export function Builder({
   // On the Chassis stage: a body under the pointer shows on the plinth, and the section view while the signature slider is held.
   const [preview, setPreview] = useState<ChassisPreview>({});
   useEffect(() => setPreview({}), [stage]);
+  // On the Inside stage's Speakers slot: the outside view framed on the speaker grill while the pointer is on its fields.
+  const [grillView, setGrillView] = useState(false);
+  useEffect(() => setGrillView(false), [stage, insideSlot]);
   const previewFit = useMemo(() => {
     if (!preview.body || preview.body === build.body) return fit;
     try {
@@ -305,7 +308,17 @@ export function Builder({
       }
     return { ...all[0], at: lo, size: { x: hi.x - lo.x, y: hi.y - lo.y, z: hi.z - lo.z } };
   }, [selectedBoxes, emptyBoxes]);
-  const viewName: ViewName = inside && !focus ? "xray" : frame.view;
+  // The left grill panel, framed from outside, while the pointer is on the grill's fields.
+  const grillPanel = inside && grillView ? fit.shell.speakerGrill?.panels[0] : undefined;
+  const grillAt = useMemo(
+    () =>
+      grillPanel
+        ? { x: grillPanel.cx, y: grillPanel.cy, z: grillPanel.cz, front: grillPanel.surface === "front" }
+        : undefined,
+    [grillPanel],
+  );
+  const outside = !!grillAt;
+  const viewName: ViewName = outside ? "grill" : inside && !focus ? "xray" : frame.view;
   const lidAngle = (surface && surfaceItem === "ports") || flip ? 0 : LID_OPEN;
   const view = useMemo(
     () =>
@@ -315,8 +328,9 @@ export function Builder({
         lift: frame.lift,
         part: inside ? focus : undefined,
         side: portSide,
+        grill: grillAt,
       }),
-    [viewName, fit, frame, inside, focus, lidAngle, portSide],
+    [viewName, fit, frame, inside, focus, lidAngle, portSide, grillAt],
   );
 
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
@@ -395,7 +409,7 @@ export function Builder({
       tray = <ScreenTray {...props} />;
       break;
     case "inside":
-      column = <InsideColumn {...props} slot={slot.key} onSlot={setInsideSlot} />;
+      column = <InsideColumn {...props} slot={slot.key} onSlot={setInsideSlot} onGrillView={setGrillView} />;
       break;
     case "surface":
       column = (
@@ -471,14 +485,14 @@ export function Builder({
         lidAngle={lidAngle}
         colours={colours}
         surfaces={surfaces}
-        xray={inside}
-        hideDeck={inside}
+        xray={inside && !outside}
+        hideDeck={inside && !outside}
         screen={screen}
         glow={powering}
         paint={paint}
         problems={!["keys", "finish", "marks"].includes(stage)}
         extra={
-          inside ? (
+          inside && outside ? undefined : inside ? (
             <SelectionMarks selected={selectedBoxes} empty={emptyBoxes} />
           ) : surface ? (
             <SurfaceMarks build={build} fit={fit} set={set} item={surfaceItem} port={port} locked={locked} />

@@ -751,6 +751,13 @@
   padding: calc(22 * var(--u)) calc(14 * var(--u));
 }
 
+/* The speaker grill's fields, one hover area so the view can frame the grill. */
+.bd-spk-grill {
+  display: flex;
+  flex-direction: column;
+  gap: calc(18 * var(--u));
+}
+
 .bd-power-limit {
   display: flex;
   flex-direction: column;

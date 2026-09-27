@@ -356,6 +356,14 @@ function partCost(
       return (FIXED[part.id] ?? GPU_PRICES[part.id] ?? 0) + (o("switchable") === "yes" ? 5 : 0);
     case "processor":
       return FIXED[part.id] ?? CPU_PRICES[part.id] ?? estimated(part);
+    // A chosen fan size costs a little more or less than a 60 mm fan and its fins, per fan.
+    case "cooling": {
+      const d = o("fan");
+      const shape = Array.isArray(part.shape) ? part.shape[0] : part.shape;
+      const count = shape.kind === "fan" ? shape.count : 0;
+      const extra = typeof d === "number" ? count * 0.12 * (d - 60) : 0;
+      return Math.max(0, (FIXED[part.id] ?? 0) + extra);
+    }
     default:
       return FIXED[part.id] ?? 0;
   }

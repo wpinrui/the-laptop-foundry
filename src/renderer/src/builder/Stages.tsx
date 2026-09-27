@@ -18,6 +18,7 @@ import {
   YEARS,
 } from "../engine";
 import { BatteryFields } from "./BatteryFields";
+import { FanField } from "./FanField";
 import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
@@ -460,6 +461,9 @@ export function InsideColumn({
       <Options slot={current} build={build} fit={fit} set={set}>
         {has && current.cat === "battery" && current.index === 0 && (
           <BatteryFields build={build} fit={fit} set={set} />
+        )}
+        {has && current.cat === "cooling" && current.index === 0 && (
+          <FanField build={build} fit={fit} set={set} />
         )}
         {has && current.index === 0 && (
           <SliderField

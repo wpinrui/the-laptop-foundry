@@ -2,6 +2,7 @@ import { type Content, CONTENT } from "../content";
 import { pouchOf } from "../battery";
 import { activeArea } from "../content/display";
 import { panelOf } from "../screen";
+import { fanSizeOf, withFanSize } from "../fan";
 import { solve } from "../solve";
 import {
   type Build,
@@ -154,6 +155,8 @@ interface Facts {
   frame: { x: number; y: number; z: number };
   materials: string[];
   fans: { d: number; h: number }[];
+  /** The diameter Auto would fit, mm, when the player set the fan size. */
+  fanAuto?: number;
   finFace: number;
   chamber: boolean;
   fanCount: number;
@@ -211,6 +214,12 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
   const fans = fit.boxes
     .filter((b) => b.role === "fan" && b.kind === "unit")
     .map((b) => ({ d: Math.min(b.size.x, b.size.y), h: b.size.z }));
+  // A player's fan size is heard against the fan Auto would fit in its place.
+  let fanAuto: number | undefined;
+  if (fans.length > 0 && fanSizeOf(build) !== undefined) {
+    const auto = solve(withFanSize(build, undefined), content).boxes.find((b) => b.role === "fan" && b.kind === "unit");
+    fanAuto = auto ? Math.min(auto.size.x, auto.size.y) : undefined;
+  }
   const finFace = fit.boxes
     .filter((b) => b.role === "fin" && b.kind === "unit")
     .reduce((sum, b) => sum + (Math.max(b.size.x, b.size.y) * b.size.z) / 100, 0);
@@ -228,6 +237,7 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
     frame: fit.frame,
     materials: [build.materials.floor, build.materials.deck],
     fans,
+    fanAuto,
     finFace,
     chamber: fanShape?.kind === "fan" && !!fanShape.chamber,
     fanCount: fanShape?.kind === "fan" ? fanShape.count : 0,
@@ -268,6 +278,13 @@ const FAN_GAIN = 1.3;
  */
 const PIPE_DIE = 0.95;
 const TWIN_DIE = 0.85;
+
+/**
+ * Full-speed noise per decade of fan diameter, dB, against the fan Auto fits.
+ * By the fan laws a larger fan moves its air at a lower tip speed, so it runs
+ * quieter at the same heat; a smaller one spins faster and louder.
+ */
+const FAN_LAW = 40;
 const CHAMBER_DIE = 0.75;
 
 interface Cooler {
@@ -315,9 +332,10 @@ export function cooler(f: Facts): Cooler {
     (1 + 0.1 * f.materialSpend);
   // Noise follows one fan's airflow; a second fan adds 3 dB at the same speed,
   // so at the same heat two fans spin slower and run quieter than one.
+  const size = f.fanAuto && f.fans.length > 0 ? -FAN_LAW * Math.log10(f.fans[0].d / f.fanAuto) : 0;
   const loudest =
     hardware > 0
-      ? Math.max(30, 36 + 20 * Math.log10(hardware / count / 0.5) + 10 * Math.log10(count))
+      ? Math.max(30, 36 + 20 * Math.log10(hardware / count / 0.5) + 10 * Math.log10(count) + size)
       : 0;
 
   const litres = (x * y * z) / 1e6;

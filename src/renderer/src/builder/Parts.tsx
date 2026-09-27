@@ -59,7 +59,11 @@ export function optionName(key: string): string {
 export function withPart(b: Build, cat: Category, index: number, id: string): Build {
   const list = [...(b.parts[cat] ?? [])];
   if (!id) list.splice(index, 1);
-  else if (list[index]?.part !== id) list[index] = { part: id };
+  else if (list[index]?.part !== id) {
+    // A new cooler keeps the player's fan size.
+    const fan = cat === "cooling" ? list[index]?.opts?.fan : undefined;
+    list[index] = fan === undefined ? { part: id } : { part: id, opts: { fan } };
+  }
   const parts = { ...b.parts };
   if (list.length === 0) delete parts[cat];
   else parts[cat] = list;

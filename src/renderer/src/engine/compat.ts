@@ -12,6 +12,7 @@ import { CATEGORIES, PIECES } from "./types";
 import { screenOf, screenProblems } from "./screen";
 import { isHexColour } from "./look";
 import { pouchOptionOk, pouchShape } from "./battery";
+import { fanOptionOk } from "./fan";
 
 const REQUIRED: Category[] = [
   "processor",
@@ -127,6 +128,8 @@ export function checkCompat(
       for (const [key, value] of Object.entries(bp.opts ?? {})) {
         // A pouch takes its dimensions, and older saves' capacity and thickness, as free values.
         if (pouch && pouchOptionOk(pouch, key, value)) continue;
+        // A fan cooler takes the player's fan size as a free value.
+        if (cat === "cooling" && fanOptionOk(year, key, value)) continue;
         const list = part.options?.[key];
         if (!list || !list.some((v) => String(v) === String(value)))
           out.push({

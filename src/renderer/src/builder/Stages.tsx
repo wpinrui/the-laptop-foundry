@@ -22,7 +22,19 @@ import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
 import { toBody, toYear } from "./structure";
-import { Card, Chip, Chips, FitButton, Label, Line, SliderField, Slider, money, Toggle, Value } from "./ui";
+import {
+  Card,
+  Chip,
+  Chips,
+  FitButton,
+  Label,
+  Line,
+  SliderField,
+  Slider,
+  money,
+  Toggle,
+  Value,
+} from "./ui";
 
 // The left column of each builder stage, and the tray along the bottom where
 // the stage has one. Every change goes through `set`, which does nothing on a
@@ -57,19 +69,37 @@ export function YearColumn({ build, set }: StageProps) {
 
 // ------------------------------------------------------------------ chassis
 
-const AXIS_NAME: Record<Axis, string> = { x: "Width", y: "Depth", z: "Thickness" };
-const EDGE_NAME = { square: "Square edges", rounded: "Rounded edges", chamfer: "Chamfered edges" };
-const HINGE_NAME = { full: "Full width", barrel: "Two barrels", drop: "Drop hinge" };
+const AXIS_NAME: Record<Axis, string> = {
+  x: "Width",
+  y: "Depth",
+  z: "Thickness",
+};
+const EDGE_NAME = {
+  square: "Square edges",
+  rounded: "Rounded edges",
+  chamfer: "Chamfered edges",
+};
+const HINGE_NAME = {
+  full: "Full width",
+  barrel: "Two barrels",
+  drop: "Drop hinge",
+};
 const AXIS_STEP: Record<Axis, number> = { x: 0.5, y: 0.5, z: 0.1 };
 const tenth = (v: number) => Math.round(v * 10) / 10;
-const snap = (v: number, lo: number, step: number) => tenth(lo + Math.round((v - lo) / step) * step);
+const snap = (v: number, lo: number, step: number) =>
+  tenth(lo + Math.round((v - lo) / step) * step);
 
 /**
  * The smallest value on the slider's grid at which this axis stops being short.
  * The solver's minimum for an axis does not depend on that axis' own size, so
  * it is exact with the other two held. Null when even the largest size is short.
  */
-function fitMinimum(need: number, lo: number, hi: number, step: number): number | null {
+function fitMinimum(
+  need: number,
+  lo: number,
+  hi: number,
+  step: number,
+): number | null {
   let v = tenth(lo + Math.ceil((need - lo) / step - 1e-9) * step);
   if (v < need) v = tenth(v + step);
   v = Math.max(lo, v);
@@ -79,17 +109,23 @@ function fitMinimum(need: number, lo: number, hi: number, step: number): number 
 export function ChassisColumn({ build, fit, set }: StageProps) {
   const [lock, setLock] = useState(false);
   const body = CONTENT.bodies.find((b) => b.id === build.body);
-  const layouts = CONTENT.layouts.filter((l) => available(l, build.year) && body?.layouts.includes(l.id));
+  const layouts = CONTENT.layouts.filter(
+    (l) => available(l, build.year) && body?.layouts.includes(l.id),
+  );
   const geo = fit.problems.filter((p) => p.kind === "geometry");
   const setSize = (axis: Axis, v: number) =>
     set((b) => {
       if (!body) return b;
-      if (!lock || b.size[axis] <= 0) return { ...b, size: { ...b.size, [axis]: v } };
+      if (!lock || b.size[axis] <= 0)
+        return { ...b, size: { ...b.size, [axis]: v } };
       const k = v / b.size[axis];
       const size = { ...b.size };
       for (const a of ["x", "y", "z"] as Axis[]) {
         const [l, h] = body.limits[a];
-        size[a] = a === axis ? v : Math.min(h, Math.max(l, snap(b.size[a] * k, l, AXIS_STEP[a])));
+        size[a] =
+          a === axis
+            ? v
+            : Math.min(h, Math.max(l, snap(b.size[a] * k, l, AXIS_STEP[a])));
       }
       return { ...b, size };
     });
@@ -119,7 +155,9 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
                   <FitButton
                     warn={short}
                     title={`Smallest ${AXIS_NAME[a].toLowerCase()} that fits, ${fitTo.toFixed(fitTo % 1 ? 1 : 0)} mm`}
-                    onClick={() => set((b) => ({ ...b, size: { ...b.size, [a]: fitTo } }))}
+                    onClick={() =>
+                      set((b) => ({ ...b, size: { ...b.size, [a]: fitTo } }))
+                    }
                   />
                 )
               }
@@ -136,7 +174,12 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
         <Label>Layout</Label>
         <Chips>
           {layouts.map((l) => (
-            <Chip caps key={l.id} on={l.id === build.layout} onClick={() => set((b) => ({ ...b, layout: l.id }))}>
+            <Chip
+              caps
+              key={l.id}
+              on={l.id === build.layout}
+              onClick={() => set((b) => ({ ...b, layout: l.id }))}
+            >
               {l.name}
             </Chip>
           ))}
@@ -148,7 +191,9 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
         unit="%"
         min={0}
         max={100}
-        onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, packing: v / 100 } }))}
+        onChange={(v) =>
+          set((b) => ({ ...b, spend: { ...b.spend, packing: v / 100 } }))
+        }
       />
       <SliderField
         label="Material spend"
@@ -156,7 +201,9 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
         unit="%"
         min={0}
         max={100}
-        onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, material: v / 100 } }))}
+        onChange={(v) =>
+          set((b) => ({ ...b, spend: { ...b.spend, material: v / 100 } }))
+        }
       />
       {build.screen && (
         <SliderField
@@ -167,7 +214,11 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
           min={eraFor(build.year).bezel.side}
           max={20}
           step={0.5}
-          onChange={(v) => set((b) => (b.screen ? { ...b, screen: { ...b.screen, bezel: v } } : b))}
+          onChange={(v) =>
+            set((b) =>
+              b.screen ? { ...b, screen: { ...b.screen, bezel: v } } : b,
+            )
+          }
         />
       )}
       {body && (
@@ -180,7 +231,9 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
 }
 
 export function ChassisTray({ build, set }: StageProps) {
-  const bodies = CONTENT.bodies.filter((b) => available(b, build.year) || b.id === build.body);
+  const bodies = CONTENT.bodies.filter(
+    (b) => available(b, build.year) || b.id === build.body,
+  );
   return (
     <>
       {bodies.map((b) => (
@@ -202,19 +255,32 @@ export function ChassisTray({ build, set }: StageProps) {
 
 export function insideSlots(build: Build): Slot[] {
   const year = build.year;
-  const s = (cat: Category, name: string, optional = false, index = 0): Slot => ({
+  const s = (
+    cat: Category,
+    name: string,
+    optional = false,
+    index = 0,
+  ): Slot => ({
     key: index ? `${cat}:${index}` : cat,
     name,
     cat,
     index,
     optional,
   });
-  const out: Slot[] = [s("processor", "Processor"), s("graphics", "Graphics", true), s("memory", "Memory"), s("storage", "Storage")];
-  if ((build.parts.storage?.length ?? 0) >= 1) out.push(s("storage", "Second drive", true, 1));
+  const out: Slot[] = [
+    s("processor", "Processor"),
+    s("graphics", "Graphics", true),
+    s("memory", "Memory"),
+    s("storage", "Storage"),
+  ];
+  if ((build.parts.storage?.length ?? 0) >= 1)
+    out.push(s("storage", "Second drive", true, 1));
   out.push(s("battery", "Battery"));
-  if (partsFor("hotswap", year).length > 0 || build.parts.hotswap) out.push(s("hotswap", "Swap bay", true));
+  if (partsFor("hotswap", year).length > 0 || build.parts.hotswap)
+    out.push(s("hotswap", "Swap bay", true));
   out.push(s("cooling", "Cooling"));
-  if (partsFor("optical", year).length > 0 || build.parts.optical) out.push(s("optical", "Optical", true));
+  if (partsFor("optical", year).length > 0 || build.parts.optical)
+    out.push(s("optical", "Optical", true));
   out.push(s("wireless", "Wireless", true), s("speakers", "Speakers"));
   return out;
 }
@@ -233,7 +299,15 @@ export function slotWarn(build: Build, fit: Fit) {
   };
 }
 
-function PowerLimit({ build, set, cat }: { build: Build; set: SetBuild; cat: "processor" | "graphics" }) {
+function PowerLimit({
+  build,
+  set,
+  cat,
+}: {
+  build: Build;
+  set: SetBuild;
+  cat: "processor" | "graphics";
+}) {
   const [open, setOpen] = useState(false);
   const part = CONTENT.parts.find((p) => p.id === build.parts[cat]?.[0]?.part);
   if (!part?.power) return null;
@@ -254,7 +328,13 @@ function PowerLimit({ build, set, cat }: { build: Build; set: SetBuild; cat: "pr
             const h = all.high;
             return {
               ...b,
-              power: { ...all, high: { ...h, [chip]: { sustained: v, boost: Math.max(h[chip].boost, v) } } },
+              power: {
+                ...all,
+                high: {
+                  ...h,
+                  [chip]: { sustained: v, boost: Math.max(h[chip].boost, v) },
+                },
+              },
             };
           })
         }
@@ -270,7 +350,12 @@ function PowerLimit({ build, set, cat }: { build: Build; set: SetBuild; cat: "pr
 }
 
 /** Pin one field of a movable part's place, or give it back to auto with undefined. */
-function withPin<K extends keyof PartPin>(b: Build, key: string, field: K, v: PartPin[K] | undefined): Build {
+function withPin<K extends keyof PartPin>(
+  b: Build,
+  key: string,
+  field: K,
+  v: PartPin[K] | undefined,
+): Build {
   const all = { ...b.place?.parts };
   const pin: PartPin = { ...all[key] };
   if (v === undefined) delete pin[field];
@@ -284,7 +369,17 @@ function withPin<K extends keyof PartPin>(b: Build, key: string, field: K, v: Pa
 }
 
 /** Where a movable floor part sits and whether it is turned: auto, or pinned by the player. */
-function PlaceChips({ build, fit, set, slotKey }: { build: Build; fit: Fit; set: SetBuild; slotKey: string }) {
+function PlaceChips({
+  build,
+  fit,
+  set,
+  slotKey,
+}: {
+  build: Build;
+  fit: Fit;
+  set: SetBuild;
+  slotKey: string;
+}) {
   const at = fit.place.parts?.[slotKey];
   if (!at) return null;
   const pin = build.place?.parts?.[slotKey] ?? {};
@@ -294,31 +389,51 @@ function PlaceChips({ build, fit, set, slotKey }: { build: Build; fit: Fit; set:
         <div className="bd-field">
           <Label>Place</Label>
           <Chips>
-            <Chip caps on={pin.zone === undefined} onClick={() => set((b) => withPin(b, slotKey, "zone", undefined))}>
+            <Chip
+              caps
+              on={pin.zone === undefined}
+              onClick={() => set((b) => withPin(b, slotKey, "zone", undefined))}
+            >
               Auto
             </Chip>
             {at.zones.map((z) => (
-              <Chip key={z.id} on={pin.zone === z.id} onClick={() => set((b) => withPin(b, slotKey, "zone", z.id))}>
+              <Chip
+                key={z.id}
+                on={pin.zone === z.id}
+                onClick={() => set((b) => withPin(b, slotKey, "zone", z.id))}
+              >
                 {z.name}
               </Chip>
             ))}
           </Chips>
         </div>
       )}
-      <div className="bd-field">
-        <Label>Turn</Label>
-        <Chips>
-          <Chip caps on={pin.turn === undefined} onClick={() => set((b) => withPin(b, slotKey, "turn", undefined))}>
-            Auto
-          </Chip>
-          <Chip on={pin.turn === false} onClick={() => set((b) => withPin(b, slotKey, "turn", false))}>
-            0°
-          </Chip>
-          <Chip on={pin.turn === true} onClick={() => set((b) => withPin(b, slotKey, "turn", true))}>
-            90°
-          </Chip>
-        </Chips>
-      </div>
+      {at.turns && (
+        <div className="bd-field">
+          <Label>Turn</Label>
+          <Chips>
+            <Chip
+              caps
+              on={pin.turn === undefined}
+              onClick={() => set((b) => withPin(b, slotKey, "turn", undefined))}
+            >
+              Auto
+            </Chip>
+            <Chip
+              on={pin.turn === false}
+              onClick={() => set((b) => withPin(b, slotKey, "turn", false))}
+            >
+              0°
+            </Chip>
+            <Chip
+              on={pin.turn === true}
+              onClick={() => set((b) => withPin(b, slotKey, "turn", true))}
+            >
+              90°
+            </Chip>
+          </Chips>
+        </div>
+      )}
     </>
   );
 }
@@ -336,9 +451,16 @@ export function InsideColumn({
   const has = !!build.parts[current.cat]?.[current.index];
   return (
     <div className="bd-inside">
-      <SlotList slots={slots} selected={current.key} onSelect={onSlot} warn={slotWarn(build, fit)} />
+      <SlotList
+        slots={slots}
+        selected={current.key}
+        onSelect={onSlot}
+        warn={slotWarn(build, fit)}
+      />
       <Options slot={current} build={build} fit={fit} set={set}>
-        {has && current.cat === "battery" && current.index === 0 && <BatteryFields build={build} fit={fit} set={set} />}
+        {has && current.cat === "battery" && current.index === 0 && (
+          <BatteryFields build={build} fit={fit} set={set} />
+        )}
         {has && current.index === 0 && (
           <SliderField
             label="Compact"
@@ -346,10 +468,22 @@ export function InsideColumn({
             unit="%"
             min={0}
             max={100}
-            onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, [current.cat]: v / 100 } }))}
+            onChange={(v) =>
+              set((b) => ({
+                ...b,
+                spend: { ...b.spend, [current.cat]: v / 100 },
+              }))
+            }
           />
         )}
-        {has && <PlaceChips build={build} fit={fit} set={set} slotKey={`${current.cat}:${current.index}`} />}
+        {has && (
+          <PlaceChips
+            build={build}
+            fit={fit}
+            set={set}
+            slotKey={`${current.cat}:${current.index}`}
+          />
+        )}
         {(current.cat === "processor" || current.cat === "graphics") && has && (
           <PowerLimit build={build} set={set} cat={current.cat} />
         )}
@@ -397,9 +531,18 @@ export function PriceColumn({
   const rivals = useMemo(() => {
     if (!priced) return [];
     return RIVALS.filter((r) => r.build.year === rivalYear(build.year))
-      .sort((a, b) => Math.abs((a.build.price ?? 0) - price) - Math.abs((b.build.price ?? 0) - price))
+      .sort(
+        (a, b) =>
+          Math.abs((a.build.price ?? 0) - price) -
+          Math.abs((b.build.price ?? 0) - price),
+      )
       .slice(0, 3)
-      .map((r) => ({ id: r.id, name: r.name, price: r.build.price ?? 0, kg: factsOf(rivalSubject(r)).kg }));
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        price: r.build.price ?? 0,
+        kg: factsOf(rivalSubject(r)).kg,
+      }));
   }, [priced, build.year, price]);
   const lo = Math.max(1, Math.round(cost * 0.5));
   const hi = Math.max(lo + 10, Math.round(cost * 3));
@@ -415,7 +558,13 @@ export function PriceColumn({
           onChange={(e) => onName(e.target.value)}
         />
         {!locked && (
-          <button type="button" className="bd-reroll" aria-label="new name" title="New name" onClick={onReroll}>
+          <button
+            type="button"
+            className="bd-reroll"
+            aria-label="new name"
+            title="New name"
+            onClick={onReroll}
+          >
             ↻
           </button>
         )}
@@ -464,13 +613,22 @@ export function PriceColumn({
             <button type="button" className="fd-primary" onClick={onReview}>
               Read review
             </button>
-            <button type="button" className="fd-secondary" onClick={onDuplicate}>
+            <button
+              type="button"
+              className="fd-secondary"
+              onClick={onDuplicate}
+            >
               Duplicate
             </button>
           </>
         ) : (
           <>
-            <button type="button" className="fd-primary" disabled={!valid} onClick={onReview}>
+            <button
+              type="button"
+              className="fd-primary"
+              disabled={!valid}
+              onClick={onReview}
+            >
               Get reviewed
             </button>
             {!valid &&

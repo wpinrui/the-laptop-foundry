@@ -635,7 +635,8 @@ export interface Fit {
 }
 
 export interface PlaceReport {
-  kb?: { y: number; range: Range };
+  /** `hinge`: the gap from the keyboard's rear edge to the rear inner wall. */
+  kb?: { y: number; range: Range; hinge: number };
   pad?: { w: number; d: number; y: number; w0: Range; d0: Range; range: Range };
   cam?: { x: number; range: Range };
   panel?: { y: number; range: Range };

@@ -7,6 +7,7 @@ import {
   BRIGHTNESS_RANGE,
   CAST_PER_DE,
   GLARE_PER_LUX,
+  GLOW_ROOM,
   HALO,
   HAZE_COLOUR,
   HAZE_SHOWN,
@@ -41,6 +42,8 @@ export interface PanelFx {
   nits: number;
   /** Halo opacity per 100 cd/m2 of average luminance, for the room. */
   halo: number;
+  /** The room's scale for the screen's light. */
+  glow: number;
 }
 
 /** Where the viewer is: degrees above (+) or below (-) the screen's normal, right (+) or left (-), and half the screen's height as an angle. */
@@ -88,6 +91,7 @@ export function panelFx(panel: ResolvedPanel, cssPerPixel: number, room: Room): 
     glare: glossy ? GLARE_PER_LUX * lux : 0,
     nits,
     halo: HALO[room],
+    glow: GLOW_ROOM[room],
   };
 }
 

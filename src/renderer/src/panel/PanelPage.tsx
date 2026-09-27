@@ -61,7 +61,8 @@ export function PanelPage({
       const s = scroller.current;
       if (!seen || !s || document.hidden) return;
       const [r, g, b] = averageColour(s);
-      el.dataset.glow = [r * fx.nits, g * fx.nits, b * fx.nits, fx.halo].map((x) => x.toFixed(3)).join(",");
+      const k = fx.nits * fx.glow;
+      el.dataset.glow = [r * k, g * k, b * k, fx.halo / fx.glow].map((x) => x.toFixed(3)).join(",");
     };
     const id = setInterval(sample, GLOW_MS);
     return () => {

@@ -348,6 +348,7 @@ function emitShape(
       for (const u of shape.units) {
         for (let c = 0; c < (u.count ?? 1); c++) {
           let size = shrink(u.size, part.compact, f);
+          if (part.compactZ) size = { ...size, z: u.size.z * (1 - part.compactZ * spend) };
           if (u.role === "webcam" && opt(part, bp, "shutter") === "yes")
             size = { ...size, x: size.x + SHUTTER_WIDTH };
           push({ id: `${id}:${k++}`, role: u.role, size, part: part.id });

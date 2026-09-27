@@ -99,7 +99,7 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
           const [lo, hi] = body.limits[a];
           const problem = geo.find((p) => p.axis === a);
           const short = geo.some((p) => p.axis === a && p.code === "short");
-          const fitTo = short ? fitMinimum(fit.min[a], lo, hi, AXIS_STEP[a]) : null;
+          const fitTo = fitMinimum(fit.min[a], lo, hi, AXIS_STEP[a]);
           return (
             <SliderField
               key={a}
@@ -116,7 +116,8 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
               action={
                 fitTo !== null && (
                   <FitButton
-                    title={`Grow to the smallest ${AXIS_NAME[a].toLowerCase()} that fits, ${fitTo.toFixed(fitTo % 1 ? 1 : 0)} mm`}
+                    warn={short}
+                    title={`Smallest ${AXIS_NAME[a].toLowerCase()} that fits, ${fitTo.toFixed(fitTo % 1 ? 1 : 0)} mm`}
                     onClick={() => set((b) => ({ ...b, size: { ...b.size, [a]: fitTo } }))}
                   />
                 )

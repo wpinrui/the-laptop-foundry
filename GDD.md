@@ -236,7 +236,7 @@ The review follows Notebookcheck's order:
 - The review site looks like the internet of the model's era.
 - A freshly built laptop sits in the workshop. The review opens on that laptop's own screen.
 - The laptop's display specifications affect how the review looks on it. A low-resolution panel looks coarse. A dim panel looks dim.
-- Pressing F shows the review full screen. Full screen shows the page clean, without panel simulation.
+- Pressing F shows the laptop's screen full screen. Full screen keeps the panel simulation, seen head-on: resolution, brightness and colour apply, viewing angle does not.
 
 ## The cafe
 
@@ -334,10 +334,9 @@ This is the highest-priority technical requirement. For every combination of cho
 
 ### The in-game screen
 
-- Web pages render off screen to a texture on the three-dimensional laptop screen.
-- Input is forwarded to that page.
+- The page is laid live over the three-dimensional laptop screen. The panel's effects are drawn over it, so input lands on the page itself.
 - The texture is filtered by the panel's resolution, brightness and colour.
-- Full screen bypasses the filter.
+- Full screen keeps the filter, seen head-on.
 - From version 0.2, the real internet must be sandboxed, and page loads are throttled to match the hardware.
 - From version 0.2, video audio is filtered to match the speaker specification.
 

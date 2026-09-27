@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { type Fit, type Mark, type MarkSurface, outerSection, outerSpanAt } from "../engine";
 import { planDistance } from "../engine/shell";
-import { useStable } from "./stable";
+import { useSettled, useStable } from "./stable";
 import { token } from "./theme";
 
 // The player's decoration on the Model: the bezel's own colour, and text or
@@ -312,21 +312,17 @@ function drawFace(
 
 function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
   const key = JSON.stringify(marks);
-  const mask = useMemo(() => flatMask(face), [face]);
-  const made = useMemo(() => {
-    const S = Math.min(8, 2048 / Math.max(face.w, face.h));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(16, Math.round(face.w * S));
-    canvas.height = Math.max(16, Math.round(face.h * S));
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 8;
+  // A pixel a millimetre is too much for every step of a size drag: the last
+  // mask stretches over the face until the size holds still.
+  const still = useSettled(face);
+  const mask = useMemo(() => flatMask(still), [still]);
+  // The marks' pictures load once per content, not once per face size; each
+  // load or font redraws whatever canvas is current.
+  const loaded = useMemo(() => {
     const images = new Map<string, HTMLImageElement>();
     const urls: string[] = [];
-    const redraw = () => {
-      drawFace(face, marks, canvas, S, images, mask);
-      tex.needsUpdate = true;
-    };
+    const current = { redraw: () => {} };
+    const redraw = () => current.redraw();
     for (const m of marks)
       if (m.kind === "svg" && m.svg) {
         const img = new Image();
@@ -341,23 +337,36 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
         img.src = m.image;
         images.set(m.id, img);
       }
-    redraw();
     for (const m of marks)
       if (m.kind === "text")
         document.fonts
           ?.load(fontOf(m, 40))
           .then(redraw)
           .catch(() => {});
-    return { tex, urls };
+    return { images, urls, current };
+    // biome-ignore lint/correctness/useExhaustiveDependencies: reloaded when the marks' content changes
+  }, [key]);
+  useEffect(() => () => {
+    for (const u of loaded.urls) URL.revokeObjectURL(u);
+  }, [loaded]);
+  const made = useMemo(() => {
+    const S = Math.min(8, 2048 / Math.max(face.w, face.h));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(16, Math.round(face.w * S));
+    canvas.height = Math.max(16, Math.round(face.h * S));
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    const redraw = () => {
+      drawFace(face, marks, canvas, S, loaded.images, mask);
+      tex.needsUpdate = true;
+    };
+    loaded.current.redraw = redraw;
+    redraw();
+    return { tex };
     // biome-ignore lint/correctness/useExhaustiveDependencies: redrawn when the marks' content changes
-  }, [key, face.w, face.h, mask]);
-  useEffect(
-    () => () => {
-      made.tex.dispose();
-      for (const u of made.urls) URL.revokeObjectURL(u);
-    },
-    [made],
-  );
+  }, [loaded, face.w, face.h, mask]);
+  useEffect(() => () => made.tex.dispose(), [made]);
   const plane = useMemo(() => {
     const g = new THREE.PlaneGeometry(face.w, face.h, face.bulge ? 24 : 1, face.bulge ? 96 : 1);
     if (face.bulge) {

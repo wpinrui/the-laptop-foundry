@@ -64,6 +64,7 @@ export function strokeOf(m: Mark): number {
 export function markExtent(m: Mark): { w: number; h: number } {
   const line = outlined(m) ? strokeOf(m) : 0;
   if (m.kind === "svg") return { w: m.size * svgAspect(m.svg) + line, h: m.size + line };
+  if (m.kind === "image") return { w: m.size * (m.aspect ?? 1) + line, h: m.size + line };
   if (!measure) return { w: m.text.length * m.size * 0.6 + line, h: m.size + line };
   const px = 100;
   measure.font = fontOf(m, px);
@@ -93,6 +94,50 @@ function outlineSvg(svg: string, m: Mark): string {
   root.setAttribute("width", "1024");
   root.setAttribute("height", String(Math.round((1024 * grown[3]) / grown[2])));
   return new XMLSerializer().serializeToString(doc);
+}
+
+/** The canvas grown by r px in every direction: copies stamped round two circles over the original. */
+function grown(src: HTMLCanvasElement, r: number): HTMLCanvasElement {
+  const out = document.createElement("canvas");
+  out.width = src.width;
+  out.height = src.height;
+  const g = out.getContext("2d");
+  if (!g) return out;
+  g.drawImage(src, 0, 0);
+  for (const rad of r > 2 ? [r, r / 2] : [r]) {
+    const n = Math.min(48, Math.max(8, Math.ceil(2 * Math.PI * rad)));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * 2 * Math.PI;
+      g.drawImage(src, Math.cos(a) * rad, Math.sin(a) * rad);
+    }
+  }
+  return out;
+}
+
+/** A raster's alpha silhouette as a line of width sw px along its edge, half outside and half inside. */
+function edgeOf(src: HTMLCanvasElement, sw: number): HTMLCanvasElement {
+  const r = Math.max(0.5, sw / 2);
+  const outer = grown(src, r);
+  // The silhouette shrunk by r: what is left after the grown outside is taken away.
+  const outside = document.createElement("canvas");
+  outside.width = src.width;
+  outside.height = src.height;
+  const o = outside.getContext("2d");
+  const inner = document.createElement("canvas");
+  inner.width = src.width;
+  inner.height = src.height;
+  const i = inner.getContext("2d");
+  const g = outer.getContext("2d");
+  if (!o || !i || !g) return outer;
+  o.fillRect(0, 0, outside.width, outside.height);
+  o.globalCompositeOperation = "destination-out";
+  o.drawImage(src, 0, 0);
+  i.drawImage(src, 0, 0);
+  i.globalCompositeOperation = "destination-out";
+  i.drawImage(grown(outside, r), 0, 0);
+  g.globalCompositeOperation = "destination-out";
+  g.drawImage(inner, 0, 0);
+  return outer;
 }
 
 function svgUrl(svg: string): string {
@@ -142,12 +187,20 @@ function drawFace(face: Face, marks: Mark[], canvas: HTMLCanvasElement, S: numbe
         const h = e.h * S;
         const w = e.w * S;
         // Tint: the SVG's shape in the mark's colour, unless it keeps its own.
-        const tmp = document.createElement("canvas");
+        let tmp = document.createElement("canvas");
         tmp.width = Math.max(1, Math.round(w));
         tmp.height = Math.max(1, Math.round(h));
-        const t = tmp.getContext("2d");
+        let t = tmp.getContext("2d");
+        if (t && m.kind === "image") {
+          // A raster: the picture inset by half the line, and outlined along its alpha edge.
+          const sw = outlined(m) ? strokeOf(m) * S : 0;
+          t.drawImage(img, sw / 2, sw / 2, Math.max(1, tmp.width - sw), Math.max(1, tmp.height - sw));
+          if (sw > 0) {
+            tmp = edgeOf(tmp, sw);
+            t = tmp.getContext("2d");
+          }
+        } else t?.drawImage(img, 0, 0, tmp.width, tmp.height);
         if (t) {
-          t.drawImage(img, 0, 0, tmp.width, tmp.height);
           if (!m.original || outlined(m)) {
             t.globalCompositeOperation = "source-in";
             t.fillStyle = m.colour;
@@ -191,6 +244,11 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
         urls.push(url);
         img.onload = redraw;
         img.src = url;
+        images.set(m.id, img);
+      } else if (m.kind === "image" && m.image) {
+        const img = new Image();
+        img.onload = redraw;
+        img.src = m.image;
         images.set(m.id, img);
       }
     redraw();

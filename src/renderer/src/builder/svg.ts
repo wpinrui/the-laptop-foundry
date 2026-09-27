@@ -119,3 +119,34 @@ export function sanitiseSvg(text: string): string | null {
   out.setAttribute("height", String(Math.round((1024 * (vb[3] || 1)) / (vb[2] || 1))));
   return new XMLSerializer().serializeToString(out);
 }
+
+const RASTER_MAX = 1024;
+
+/**
+ * A PNG, JPEG or WebP data URL decoded and redrawn at most 1024 px on its longest
+ * side, in its own format (PNG and WebP keep their alpha). Redrawing keeps only the
+ * pixels. Null when it does not decode as an image.
+ */
+export function downscaleImage(dataUrl: string): Promise<{ image: string; aspect: number } | null> {
+  const type = /^data:(image\/(png|jpeg|webp));base64,/.exec(dataUrl)?.[1];
+  if (!type) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onerror = () => resolve(null);
+    img.onload = () => {
+      const w0 = img.naturalWidth;
+      const h0 = img.naturalHeight;
+      if (!(w0 > 0 && h0 > 0)) return resolve(null);
+      const k = Math.min(1, RASTER_MAX / Math.max(w0, h0));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(w0 * k));
+      c.height = Math.max(1, Math.round(h0 * k));
+      const g = c.getContext("2d");
+      if (!g) return resolve(null);
+      g.imageSmoothingQuality = "high";
+      g.drawImage(img, 0, 0, c.width, c.height);
+      resolve({ image: c.toDataURL(type, type === "image/png" ? undefined : 0.9), aspect: w0 / h0 });
+    };
+    img.src = dataUrl;
+  });
+}

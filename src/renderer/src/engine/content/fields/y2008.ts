@@ -245,7 +245,7 @@ const R: Rival[] = [
     ports: PORTS_MEDIA,
   }),
   rival(2008, "hp", "Pavilion dv7", {
-    body: "pillow",
+    body: "workhorse",
     layout: "c",
     size: [398, 288, 36],
     price: 1199,
@@ -492,6 +492,7 @@ const R: Rival[] = [
   }),
   rival(2008, "dell", "Studio 17", {
     body: "pillow",
+    sig: 0,
     layout: "b",
     size: [400, 285, 36],
     price: 1199,
@@ -527,7 +528,7 @@ const R: Rival[] = [
     ],
   }),
   rival(2008, "dell", "XPS M1730", {
-    body: "pillow",
+    body: "workhorse",
     layout: "c",
     size: [406, 303, 45],
     price: 3299,
@@ -589,7 +590,7 @@ const R: Rival[] = [
     materials: { lid: "magnesium" },
   }),
   rival(2008, "dell", "Alienware m17", {
-    body: "pillow",
+    body: "workhorse",
     layout: "c",
     size: [399, 290, 45],
     price: 2499,
@@ -762,7 +763,7 @@ const R: Rival[] = [
     spend: { material: 0.5, packing: 0.5 },
   }),
   rival(2008, "asus", "G71", {
-    body: "pillow",
+    body: "workhorse",
     layout: "c",
     size: [410, 295, 40],
     price: 1799,
@@ -919,6 +920,7 @@ const R: Rival[] = [
   }),
   rival(2008, "acer", "Aspire 7730G", {
     body: "pillow",
+    sig: 0,
     layout: "c",
     size: [396, 290, 38],
     price: 1099,

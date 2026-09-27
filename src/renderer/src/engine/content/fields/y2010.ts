@@ -342,7 +342,7 @@ const R: Rival[] = [
   }),
   // ---- Dell
   rival(2010, "dell", "Alienware M17x R2", {
-    body: "pillow",
+    body: "workhorse",
     layout: "c",
     size: [406, 321, 44],
     price: 1799,

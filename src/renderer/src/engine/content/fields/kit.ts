@@ -1,4 +1,5 @@
 import { makeBuild } from "../../samples";
+import { BODIES } from "../bodies";
 import { MATERIALS } from "../finish";
 import { solve } from "../../solve";
 import { migrateScreen } from "../../screen";
@@ -24,12 +25,15 @@ export interface RivalSpec {
   ports: [string, Side][];
   materials?: Partial<Record<Piece, string>>;
   spend?: Build["spend"];
+  /** The body's signature slider, 0 to 1; the body's middle setting when absent. */
+  sig?: number;
 }
 
 /**
  * The size, grown on each axis to the build's minimum there, to the half mm.
  * The body's shape follows the size, so the minimum moves a little as the size
- * grows to it: grown until it holds.
+ * grows to it: grown until it holds. Never past the body's limits: the engine
+ * draws no bigger, so a size past them would only be a number.
  */
 function grown(build: Build, start: Size): Size {
   const up = (v: number) => Math.ceil(v * 2) / 2;
@@ -44,7 +48,13 @@ function grown(build: Build, start: Size): Size {
     if (next.x === size.x && next.y === size.y && next.z === size.z) break;
     size = next;
   }
-  return size;
+  const lim = BODIES.find((b) => b.id === build.body)?.limits;
+  if (!lim) return size;
+  return {
+    x: Math.min(size.x, lim.x[1]),
+    y: Math.min(size.y, lim.y[1]),
+    z: Math.min(size.z, lim.z[1]),
+  };
 }
 
 export function rival(
@@ -53,7 +63,8 @@ export function rival(
   name: string,
   spec: RivalSpec,
 ): Rival {
-  const build = makeBuild({ year, ...spec });
+  const made = makeBuild({ year, ...spec });
+  const build: Build = spec.sig === undefined ? made : { ...made, shape: { [spec.body]: spec.sig } };
   // The listed size is the target; a rival never ships short of its own minimum,
   // taken with every part where its layout puts it, so auto placement never resizes a rival.
   const target: Size = { x: spec.size[0], y: spec.size[1], z: spec.size[2] };

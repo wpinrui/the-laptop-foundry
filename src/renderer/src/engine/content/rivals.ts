@@ -165,7 +165,7 @@ const R2006: Rival[] = [
     ports: PORTS_2006,
   }),
   rival(2006, "dell", "XPS M1710", {
-    body: "pillow",
+    body: "workhorse",
     layout: "c",
     size: [394, 287, 34],
     price: 2799,

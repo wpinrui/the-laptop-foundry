@@ -718,6 +718,8 @@ const T: Rival[] = [
       processor: "core-i5-7300hq",
       graphics: "geforce-gtx-1050-laptop",
       cooling: "two-fans",
+      // The same 45 Wh in a shallower pack, clear of the second fan.
+      battery: ["li-po-pouch", { length: 185, depth: 60, thick: 6.5 }],
     },
   }),
   trim(

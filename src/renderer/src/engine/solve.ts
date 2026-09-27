@@ -4,6 +4,7 @@ import { CONTENT, type Content, eraFor, indexContent } from "./content";
 import {
   alongAxis,
   deal,
+  fanSideFor,
   isOpeningZone,
   measure,
   type PlacedUnit,
@@ -45,6 +46,8 @@ import { panelOf } from "./screen";
 const AXES: Axis[] = ["x", "y", "z"];
 const BLOCK_ROLES = new Set(["cpu", "gpu", "vrm", "chipset", "mem", "m2", "wlan", "bt", "tb"]);
 const EPS = 1e-9;
+/** Floor a vapour chamber's plate takes between the chips and the fans, mm. */
+const CHAMBER_PLATE = 10;
 
 function tune(t: Tune, spend: number): number {
   return t[0] + (t[1] - t[0]) * spend;
@@ -137,14 +140,32 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     return part?.power ? Math.max(part.power.sustained, own ?? 0) : 0;
   };
   const chipWatts = sustained("processor") + sustained("graphics");
+  // Each fan is sized for the whole chip heat, as one fan would be: a second
+  // fan adds its airflow on top, so two fans take about twice one's floor.
+  const fanWatts = em.fans > 0 && chipWatts > 0 ? chipWatts : undefined;
+  const lift = profileLift(style, off.bottom);
+  // Cooling takes floor: the fans and fin stacks reserve the size that heat
+  // needs at the height the fans get under the top case at the player's
+  // thickness (thinner needs wider), up to the middle of the era's fan range.
+  // Past that a fan only grows into free room.
+  const fanUnit = em.floor.find((u) => u.role === "fan");
+  let fanSide: number | undefined;
+  if (fanUnit && fanWatts !== undefined) {
+    const band = clamp(build.size.z, body.limits.z[0], body.limits.z[1]) - off.bottom - Math.max(DB, off.top) - lift;
+    const fz = clamp(band, fanUnit.size.z, era.fan.max.z);
+    fanSide = clamp(fanSideFor(fanWatts, fz), era.fan.min.x, (era.fan.min.x + era.fan.max.x) / 2);
+  }
   const floorCtx: PlanCtx = {
     gap,
     ko: cornerKeepOut(style, off.side),
-    lift: profileLift(style, off.bottom),
+    lift,
     bottom: off.bottom,
     era,
     finDepth: em.finDepth,
-    fanWatts: em.fans > 0 && chipWatts > 0 ? chipWatts / em.fans : undefined,
+    fanWatts,
+    fanSide,
+    // A vapour chamber's plate reaches in from the fans to the chips.
+    plate: em.chamber ? CHAMBER_PLATE : 0,
     // Ports sit a fixed finger's width apart: roomier on older machines.
     portGap: build.year < 2012 ? 6 : build.year < 2020 ? 5 : 4,
   };

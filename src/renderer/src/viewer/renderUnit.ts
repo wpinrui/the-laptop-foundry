@@ -12,7 +12,6 @@ import {
   toModelEdge,
   toModelSpace,
 } from "../models/contract";
-import { isUp, ownSize } from "../engine/units";
 import { MODELS } from "../models/registry";
 
 // THE SEAM. Every unit the viewer draws comes from renderUnit, keyed by role.
@@ -110,8 +109,8 @@ export function renderUnit(
   const module = key ? MODELS.get(key) : undefined;
   if (!key || !module) return placeholder(role, box, opts, ctx);
 
-  // A part turned a quarter in plan or stood up is built at its own size, then turned.
-  const own = box.turn ? ownSize(box.size, box.turn) : box.size;
+  // A part turned a quarter in plan is built at its own size, then turned.
+  const own = box.turn ? { x: box.size.y, y: box.size.x, z: box.size.z } : box.size;
   const { box: mbox, rotationX } = toModelSpace(box.piece, own);
   const base = {
     year: opts.year,
@@ -157,27 +156,10 @@ export function renderUnit(
     return fallback;
   }
   if (!box.turn) return centre(wrapper, box);
-  let inner: THREE.Object3D = wrapper;
-  if (isUp(box.turn)) {
-    // Stood on its long edge, its top toward the face; a further quarter turn
-    // in plan comes after, so the face is taken back through it first.
-    const f = box.face ?? "front";
-    const d =
-      box.turn === "up90"
-        ? ({ right: "front", left: "rear", rear: "right", front: "left" } as const)[f]
-        : f;
-    const up = new THREE.Group();
-    up.userData.model = true;
-    if (d === "front" || d === "rear") up.rotation.x = d === "rear" ? -Math.PI / 2 : Math.PI / 2;
-    else up.rotation.y = d === "right" ? Math.PI / 2 : -Math.PI / 2;
-    up.add(wrapper);
-    inner = up;
-    if (box.turn === "up") return centre(inner, box);
-  }
   const turned = new THREE.Group();
   turned.userData.model = true;
   turned.rotation.z = Math.PI / 2;
-  turned.add(inner);
+  turned.add(wrapper);
   return centre(turned, box);
 }
 

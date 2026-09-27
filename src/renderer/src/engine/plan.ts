@@ -37,6 +37,12 @@ export interface PlanCtx {
   portGap?: number;
 }
 
+/** The axis a zone packs along: a row every unit in it asks for, else the zone's own. */
+function packOf(fill: ZoneFill): ZoneNode["pack"] {
+  const r = fill.units[0]?.row;
+  return r && fill.units.every((u) => u.row === r) ? r : fill.node.pack;
+}
+
 /** Gap between neighbours in this zone: the port gap in a port strip. */
 function gapOf(fill: ZoneFill, ctx: PlanCtx): number {
   return ctx.portGap !== undefined &&
@@ -183,7 +189,7 @@ function zoneMin(fill: ZoneFill, ctx: PlanCtx): Size | null {
     size[other(e)] = side + ctx.finDepth + (ctx.plate ?? 0);
     return size;
   }
-  const p = node.pack;
+  const p = packOf(fill);
   const size: Size = { x: 0, y: 0, z: 0 };
   for (const u of units) {
     // A skin sits on the outer bottom, so only its height above the inner floor counts.
@@ -418,7 +424,7 @@ export function placeUnits(
     return out;
   }
 
-  const p = node.pack;
+  const p = packOf(fill);
   const edgeA = node.edge ? edgeAxis(node.edge) : undefined;
   const alongA = opening && node.edge ? alongAxis(node.edge) : undefined;
   const range = (a: PlanAxis): [number, number] => {

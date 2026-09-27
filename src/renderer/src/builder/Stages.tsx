@@ -551,31 +551,49 @@ function PlaceChips({
           <Chips>
             <Chip
               caps
-              on={pin.turn === undefined}
+              on={typeof pin.turn !== "boolean"}
               onClick={() => set((b) => withPin(b, slotKey, "turn", undefined))}
             >
               Auto
             </Chip>
-            {(
-              [
-                [false, "0°"],
-                [true, "90°"],
-                ...(at.ups
-                  ? ([
-                      ["up", "Upright"],
-                      ["up90", "Upright 90°"],
-                    ] as const)
-                  : []),
-              ] as const
-            ).map(([t, label]) => (
-              <Chip
-                key={String(t)}
-                on={pin.turn === t}
-                onClick={() => set((b) => withPin(b, slotKey, "turn", t))}
-              >
-                {label}
-              </Chip>
-            ))}
+            <Chip
+              on={pin.turn === false}
+              onClick={() => set((b) => withPin(b, slotKey, "turn", false))}
+            >
+              0°
+            </Chip>
+            <Chip
+              on={pin.turn === true}
+              onClick={() => set((b) => withPin(b, slotKey, "turn", true))}
+            >
+              90°
+            </Chip>
+          </Chips>
+        </div>
+      )}
+      {at.rows && (
+        <div className="bd-field">
+          <Label>Row</Label>
+          <Chips>
+            <Chip
+              caps
+              on={pin.row === undefined}
+              onClick={() => set((b) => withPin(b, slotKey, "row", undefined))}
+            >
+              Auto
+            </Chip>
+            <Chip
+              on={pin.row === "x"}
+              onClick={() => set((b) => withPin(b, slotKey, "row", "x"))}
+            >
+              Across
+            </Chip>
+            <Chip
+              on={pin.row === "y"}
+              onClick={() => set((b) => withPin(b, slotKey, "row", "y"))}
+            >
+              Along
+            </Chip>
           </Chips>
         </div>
       )}

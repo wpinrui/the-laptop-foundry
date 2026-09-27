@@ -24,37 +24,8 @@ import type {
   Shape,
   Side,
   Size,
-  Turn,
 } from "./types";
 import { CATEGORIES } from "./types";
-
-/** Whether a turn stands the part up on its long edge. */
-export function isUp(t: Turn | undefined): boolean {
-  return t === "up" || t === "up90";
-}
-
-/** A part's own size turned: see Turn. Standing up swaps the height with the shorter plan side. */
-export function turnSize(s: Size, t: Turn | undefined): Size {
-  if (!t) return { ...s };
-  if (t === true) return { x: s.y, y: s.x, z: s.z };
-  const up = s.x >= s.y ? { x: s.x, y: s.z, z: s.y } : { x: s.z, y: s.y, z: s.x };
-  return t === "up90" ? { x: up.y, y: up.x, z: up.z } : up;
-}
-
-/** The part's own size back from a turned one (a standing part's height is below its long side). */
-export function ownSize(s: Size, t: Turn | undefined): Size {
-  if (!t) return { ...s };
-  if (t === true) return { x: s.y, y: s.x, z: s.z };
-  const up = t === "up90" ? { x: s.y, y: s.x, z: s.z } : s;
-  return up.x >= up.y ? { x: up.x, y: up.z, z: up.y } : { x: up.z, y: up.y, z: up.x };
-}
-
-/** The plan axis a standing part's top faces along, in its turned size. */
-export function faceAxis(s: Size, t: Turn | undefined): "x" | "y" {
-  const up = t === "up90" ? { x: s.y, y: s.x } : s;
-  const a = up.x >= up.y ? "y" : "x";
-  return t === "up90" ? (a === "x" ? "y" : "x") : a;
-}
 
 /** A physical piece before placement. */
 export interface Unit {
@@ -72,8 +43,10 @@ export interface Unit {
   src?: number;
   /** The zone this unit is moved to, by name, in place of the first that takes its role. */
   to?: string;
-  /** Turned a quarter in plan or stood up: size is already turned. */
-  turn?: Turn;
+  /** Turned a quarter in plan: size x and y are already swapped. */
+  turn?: boolean;
+  /** The axis this unit's zone lines its units up along, in place of the zone's own. */
+  row?: "x" | "y";
   /** The floor role this unit sits over, stacked on top of it rather than beside it. */
   over?: Role;
 }

@@ -21,6 +21,8 @@ const MAX_NAME = 60;
 /** A campaign starts from 2006 to 2025 and runs to the end of 2026. */
 const FIRST_START = 2006;
 const LAST_START = 2025;
+/** The last year a market can be opened in. */
+const LAST_YEAR = 2026;
 
 function isStart(y: unknown): y is number {
   return typeof y === "number" && Number.isInteger(y) && y >= FIRST_START && y <= LAST_START;
@@ -74,6 +76,7 @@ function readCompany(raw: unknown, id: string): SavedCompany | null {
     played: typeof x.played === "number" ? x.played : now,
     models: Array.isArray(x.models) ? x.models.filter(isModel) : [],
     campaign: readCampaign(x.campaign),
+    markets: x.markets && typeof x.markets === "object" && !Array.isArray(x.markets) ? x.markets : undefined,
   };
 }
 
@@ -202,6 +205,13 @@ export function registerStore(): void {
     // A sandbox never becomes a campaign, and a campaign keeps its start year.
     if (!c.campaign || !next || next.start !== c.campaign.start) throw new Error("bad campaign");
     return put({ ...c, campaign: next, played: Date.now() });
+  });
+  handleTop("store:save-market", async (_e, id: unknown, year: unknown, market: unknown) => {
+    if (typeof year !== "number" || !Number.isInteger(year) || year < FIRST_START || year > LAST_YEAR)
+      throw new Error("bad market year");
+    if (!market || typeof market !== "object") throw new Error("bad market");
+    const c = await company(id);
+    return put({ ...c, markets: { ...c.markets, [year]: market } });
   });
   handleTop("store:delete-model",async (_e, id: unknown, modelId: unknown) => {
     if (typeof modelId !== "string") throw new Error("model id must be text");

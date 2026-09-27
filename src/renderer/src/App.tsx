@@ -13,6 +13,7 @@ import { Bankrupt, FinancePanel } from "./foundry/Finance";
 import { ReleasePanel } from "./foundry/Release";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
+import { ensureMarket, openMarkets } from "./market/markets";
 
 const store = () => window.api.store;
 
@@ -54,6 +55,8 @@ export function App() {
   const [using, setUsing] = useState<Subject | null>(null);
   // The build waiting for the player to name it before it becomes a model.
   const [naming, setNaming] = useState<Build | null>(null);
+  // A year's market is being generated before a screen that needs it opens.
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     store().companies().then((all) => setCompanies(all.map(migrated)));
@@ -62,6 +65,7 @@ export function App() {
 
   const refresh = useCallback((saved: SavedCompany) => {
     const c = migrated(saved);
+    openMarkets(c);
     setCompany(c);
     setCompanies((all) => [c, ...(all ?? []).filter((x) => x.id !== c.id)]);
     return c;
@@ -82,6 +86,9 @@ export function App() {
           refresh(c);
           setSelected(latestModel(c)?.id ?? null);
           setMenu("list");
+          // The year the company is in opens with it.
+          const year = c.campaign ? campaignOf(c.campaign).now.year : (latestModel(c)?.build as Build | undefined)?.year;
+          if (year) void ensureMarket(year);
         }),
     [refresh],
   );
@@ -97,6 +104,12 @@ export function App() {
       return company?.models.find((m) => m.id === selected) ?? null;
     return latestModel(stagedCompany);
   }, [menu, company, selected, stagedCompany]);
+
+  // A campaign opens each year's market as its clock reaches it.
+  const campaignYear = company?.campaign ? campaignOf(company.campaign).now.year : null;
+  useEffect(() => {
+    if (campaignYear) void ensureMarket(campaignYear);
+  }, [companyId, campaignYear]);
 
   if (!companies) return null;
 
@@ -114,6 +127,14 @@ export function App() {
       });
   };
   const subject = (m: SavedModel): Subject => ({ id: m.id, name: m.name, company: name, build: m.build as Build });
+  // Opens the subject's year first: its review and apps compare it with that year's market.
+  const withMarket = (s: Subject, then: (s: Subject) => void) => {
+    if (busy) return;
+    setBusy(true);
+    ensureMarket(s.build.year)
+      .then(() => then(s))
+      .finally(() => setBusy(false));
+  };
   // The first review locks the model, so its review never changes.
   const review = (m: SavedModel) => {
     if (!m.reviewed) {
@@ -121,7 +142,7 @@ export function App() {
       const now = Date.now();
       save({ ...m, reviewed: now, updated: now });
     }
-    setReviewing(subject(m));
+    withMarket(subject(m), setReviewing);
   };
 
   if (company && using)
@@ -279,7 +300,7 @@ export function App() {
         }}
         onUse={(id) => {
           const m = find(id);
-          if (m && !buildBlock(m.build)) setUsing(subject(m));
+          if (m && !buildBlock(m.build)) withMarket(subject(m), setUsing);
         }}
         onReview={(id) => {
           const m = find(id);
@@ -338,7 +359,7 @@ export function App() {
     );
 
   return (
-    <div className="fd">
+    <div className="fd" style={busy ? { cursor: "progress" } : undefined}>
       <Stage
         build={staged ? (staged.build as Build) : null}
         stageKey={staged ? `${staged.id}:${staged.updated}` : "stock"}

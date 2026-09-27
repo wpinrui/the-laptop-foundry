@@ -34,6 +34,8 @@ export interface SavedCompany {
   models: SavedModel[];
   /** Absent for a sandbox company, which is what every older save loads as. */
   campaign?: SavedCampaign;
+  /** Each opened year's generated market of rival models, by year. Opaque here: the renderer owns its shape. */
+  markets?: Record<string, unknown>;
 }
 
 export interface Settings {

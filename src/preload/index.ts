@@ -41,6 +41,9 @@ const api = {
       ipcRenderer.invoke("store:save-model", company, model),
     saveCampaign: (company: string, campaign: SavedCampaign): Promise<SavedCompany> =>
       ipcRenderer.invoke("store:save-campaign", company, campaign),
+    /** Saves a year's generated market with the company. */
+    saveMarket: (company: string, year: number, market: unknown): Promise<SavedCompany> =>
+      ipcRenderer.invoke("store:save-market", company, year, market),
     deleteModel: (company: string, id: string): Promise<SavedCompany> =>
       ipcRenderer.invoke("store:delete-model", company, id),
     settings: (): Promise<Settings> => ipcRenderer.invoke("store:settings"),

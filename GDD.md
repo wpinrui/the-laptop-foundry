@@ -199,16 +199,17 @@ There is no sustainability score.
 
 ## Rivals
 
-This is the 0.1 field. Version 0.2 replaces it with generated lines from more makers, under Version 0.2.
+Rivals are generated per company. The hand-built 0.1 fields are gone.
 
-- Rivals are real laptops from six real makers: Lenovo, HP, Dell, Apple, Asus and Acer.
-- The six makers are constant across all years. There are no entries or exits.
-- Each maker is set to compete or not compete in each class. That setting applies to every year.
+- Rivals come from real makers and their real laptop lines, listed under Version 0.2, "Makers and lines". Each line on sale in a year makes one model that year.
+- Each company has its own market per year: the rival models of every line on sale that year.
+- A year's market is generated the first time the year is opened in the company, then saved with the company. It never changes after that.
+- The seed comes from the company and the year, so the same company and year always generate the same market.
+- A year opens when the company enters it, when a campaign reaches it, and before a review or the laptop of that year opens.
 - Rivals carry their real company and model names until the game goes public.
-- Rivals are hand-built and hard-coded as presets per year and class. Every year from 2006 to 2026 has its own field. Every player build faces the same field.
-- Rivals build under the same constraints as the player. The Apple-based rival may use Apple M-series processors, which the player cannot use.
-- Rivals never shape a score or the pros and cons.
-- Rivals fill the comparison tables and give the player a field to beat.
+- Rivals build under the same constraints as the player. Apple lines may use Apple M-series processors, which the player cannot use.
+- Rivals never shape a review score or the pros and cons.
+- Rivals fill the comparison tables, the value verdict, the charts and Kilnbench's ranking, and give the player a field to beat.
 - Every rival has its own full review.
 
 ## Benchmarks and games

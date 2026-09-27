@@ -188,7 +188,7 @@ export const WIFI_LAB: Record<string, { send: number; receive: number }> = {
 };
 
 // Footprint = (cols - 0.5) x pitch + 4 by rows x pitch + 4. Stack is the height at that travel,
-// at keyboard spend 0 and 1: full Compact takes about 35 percent off.
+// at keyboard spend 0 and 1: full Compact halves it.
 export const KEYBOARDS: Part[] = [
   {
     id: "kb-2.5",
@@ -196,7 +196,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 1995,
     until: 2012,
-    shape: { kind: "keys", rows: 6, stack: [6.0, 3.9] },
+    shape: { kind: "keys", rows: 6, stack: [6.0, 3.0] },
     options: {
       cols: [15, 19],
       pitch: [19, 17],
@@ -210,7 +210,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 1995,
     until: 2010,
-    shape: { kind: "keys", rows: 6, stack: [6.5, 4.2] },
+    shape: { kind: "keys", rows: 6, stack: [6.5, 3.25] },
     options: {
       cols: [15, 19],
       pitch: [19, 17],
@@ -224,7 +224,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2011,
     until: 2019,
-    shape: { kind: "keys", rows: 6, stack: [4.2, 2.75] },
+    shape: { kind: "keys", rows: 6, stack: [4.2, 2.1] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -238,7 +238,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2015,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: [2.6, 1.7] },
+    shape: { kind: "keys", rows: 6, stack: [2.6, 1.3] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -252,7 +252,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2012,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: [3.3, 2.15] },
+    shape: { kind: "keys", rows: 6, stack: [3.3, 1.65] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -266,7 +266,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2019,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: [5.0, 3.25] },
+    shape: { kind: "keys", rows: 6, stack: [5.0, 2.5] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],

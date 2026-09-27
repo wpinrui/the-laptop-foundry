@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { type Fit, type Mark, type MarkSurface, outerSection } from "../engine";
+import { type Fit, type Mark, type MarkSurface, outerSection, outerSpanAt } from "../engine";
 import { token } from "./theme";
 
 // The player's decoration on the Model: the bezel's own colour, and text or
@@ -27,8 +27,13 @@ export function faceOf(fit: Fit, surface: MarkSurface): Face {
   const style = fit.shell.style;
   const L = lid.size.y;
   // The base's top and bottom follow its section along the depth (a taper, a shelf, a spine).
-  const shaped = !!style.taper || style.D > 0 || style.Sd > 0 || style.lip > 0 || !!style.bevel || style.q > 0;
-  const section = (v: number) => outerSection(style, o, Math.min(o.y, Math.max(0, o.y / 2 + v))) ?? [0, o.z];
+  const shaped = !!style.taper || style.D > 0 || style.Sd > 0 || style.lip > 0 || !!style.bevel || style.q > 0 || !!style.pm;
+  // On a perimeter body the faces also curve away toward the sides: x is the plane's u, mirrored on the bottom.
+  const section = (v: number, x = o.x / 2) => {
+    const y = Math.min(o.y, Math.max(0, o.y / 2 + v));
+    if (style.pm) return outerSpanAt(style, o, Math.min(o.x, Math.max(0, x)), y);
+    return outerSection(style, o, y) ?? [0, o.z];
+  };
   switch (surface) {
     case "palm":
       return {
@@ -36,7 +41,7 @@ export function faceOf(fit: Fit, surface: MarkSurface): Face {
         h: o.y,
         at: [o.x / 2, o.y / 2, o.z + 0.06],
         rot: [0, 0, 0],
-        ...(shaped ? { bulge: (_u: number, v: number) => section(v)[1] - o.z } : {}),
+        ...(shaped ? { bulge: (u: number, v: number) => section(v, o.x / 2 + u)[1] - o.z } : {}),
       };
     case "bottom":
       // Read from below: right is the laptop's left.
@@ -45,7 +50,7 @@ export function faceOf(fit: Fit, surface: MarkSurface): Face {
         h: o.y,
         at: [o.x / 2, o.y / 2, -0.06],
         rot: [0, Math.PI, 0],
-        ...(shaped ? { bulge: (_u: number, v: number) => -section(v)[0] } : {}),
+        ...(shaped ? { bulge: (u: number, v: number) => -section(v, o.x / 2 - u)[0] } : {}),
       };
     case "lid":
       // Read from behind the open lid: up runs away from the hinge, right is the laptop's left.

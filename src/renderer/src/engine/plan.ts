@@ -13,6 +13,14 @@ export interface PlanCtx {
   ko: number;
   /** Units in opening zones sit this far up, clear of the bottom edge profile. */
   lift: number;
+  /** The lift on each side where it differs (a perimeter body's sides). */
+  liftBy?: Partial<Record<Side, number>>;
+  /**
+   * The lift is a height over the inner floor's nominal level (`bottom`),
+   * not over the zone's own floor: on a perimeter body the wall stands
+   * vertical above a fixed height, however the floor rises under the edge.
+   */
+  liftAbs?: boolean;
   /** Bottom wall: a skin unit sits this far below the inner floor, on the outer bottom. */
   bottom: number;
   era: Era;
@@ -146,6 +154,11 @@ export function isFanZone(z: ZoneNode): boolean {
   return z.takes.includes("fan");
 }
 
+/** An opening zone's lift on its side. */
+function liftOf(ctx: PlanCtx, side: Side | undefined): number {
+  return (side && ctx.liftBy?.[side]) ?? ctx.lift;
+}
+
 export function isOpeningZone(fill: ZoneFill): boolean {
   return !!fill.node.edge && fill.units.some((u) => OPENING_ROLES.has(u.role));
 }
@@ -154,7 +167,7 @@ function zoneMin(fill: ZoneFill, ctx: PlanCtx): Size | null {
   const { node, units } = fill;
   if (units.length === 0) return null;
   const opening = isOpeningZone(fill);
-  const lift = opening ? ctx.lift : 0;
+  const lift = opening ? liftOf(ctx, node.edge) : 0;
   if (isFanZone(node) && node.edge) {
     const k = units.filter((u) => u.role === "fan").length;
     const e = alongAxis(node.edge);
@@ -346,7 +359,8 @@ export function placeUnits(
   const at = fill.at;
   const sz = fill.size;
   const opening = isOpeningZone(fill);
-  const lift = opening ? ctx.lift : 0;
+  const lift0 = opening ? liftOf(ctx, node.edge) : 0;
+  const lift = ctx.liftAbs ? Math.max(0, ctx.bottom + lift0 - z0) : lift0;
   const zBase = z0 + lift;
   const out: PlacedUnit[] = [];
 

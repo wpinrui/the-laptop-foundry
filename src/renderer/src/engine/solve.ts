@@ -171,7 +171,7 @@ function solveAt(
     z: clamp(build.size.z, lim.z[0], lim.z[1]),
   };
   // The body's shape at the drawn size and the player's signature setting.
-  const style = resolveStyle(body.style, size, build.shape?.[body.id]);
+  const style = resolveStyle(body.style, size, build.shape?.[body.id], Infinity, build.sides?.[body.id]);
 
   // Walls, gaps and styling allowance.
   const matSpend = spendOf(build, "material");
@@ -196,6 +196,9 @@ function solveAt(
 
   // Units and the derived mainboard.
   const em = emit(build, idx, era, body);
+  // A perimeter body's underside curves up at its edges: a removable pack cannot
+  // form it, so the pack goes inside on the floor like any other.
+  if (style.pm) for (const u of em.floor) delete u.skin;
   // The player's trackpad size, within reach of the part's own.
   const player = build.place ?? {};
   const report: PlaceReport = { ports: build.ports.map(() => null) };
@@ -262,6 +265,11 @@ function solveAt(
   // fan adds its airflow on top, so two fans take about twice one's floor.
   const fanWatts = em.fans > 0 && chipWatts > 0 ? chipWatts : undefined;
   const lift = profileLift(style, off.bottom);
+  // On a perimeter body each side's wall stands vertical at its own height.
+  const liftOn = (side: Side | false | undefined) => (side ? profileLift(style, off.bottom, side) : 0);
+  const topOn = (side: Side | false | undefined) => (side ? profileTop(style, side) : 0);
+  const liftBy: Partial<Record<Side, number>> = {};
+  if (style.pm) for (const sd of ["left", "right", "front", "rear"] as Side[]) liftBy[sd] = liftOn(sd);
   // Cooling takes floor: the fans and fin stacks reserve the size that heat
   // needs at the height the fans get under the top case at the player's
   // thickness (thinner needs wider), up to the middle of the era's fan range.
@@ -291,6 +299,8 @@ function solveAt(
     gap,
     ko: cornerKeepOut(style, off.side),
     lift,
+    liftBy,
+    liftAbs: !!style.pm,
     bottom: off.bottom,
     era,
     finDepth: em.finDepth,
@@ -436,7 +446,7 @@ function solveAt(
     const taperZ = (y0: number, h: number, Y: number): number => {
       if (!tp) return h;
       const u = clamp(Math.max(y0, off.side) / (tp.run * Y), 0, 1);
-      const g = 1 - u * u * (3 - 2 * u);
+      const g = 1 - (tp.linear ? u : u * u * (3 - 2 * u));
       const mf = tp.minFront;
       if (h <= mf) return h;
       const zb = mf / tp.front;
@@ -742,12 +752,9 @@ function solveAt(
   // hinge, bumpers and an undercut take height. Most of the shape follows the
   // thickness, so the least thickness is searched with the shape resolved at
   // each thickness tried; the plan stays as laid out at the drawn size.
-  const bandAt = (y0: number, y1: number, Z: number) =>
-    spanBand(style, { x: FX, y: FY, z: Z }, off, walls.bottom, y0, y1);
-  const shapes = new Map<
-    number,
-    { s: ResolvedStyle; o: typeof off; lift: number; pTop: number }
-  >();
+  const bandAt = (y0: number, y1: number, Z: number, x0?: number, x1?: number) =>
+    spanBand(style, { x: FX, y: FY, z: Z }, off, walls.bottom, y0, y1, x0, x1);
+  const shapes = new Map<number, { s: ResolvedStyle; o: typeof off }>();
   const shapeAt = (Z: number) => {
     let r = shapes.get(Z);
     if (!r) {
@@ -756,10 +763,11 @@ function solveAt(
         { ...size, z: Z },
         build.shape?.[body.id],
         lidZ,
+        build.sides?.[body.id],
       );
       s.bevel = grillBevel(grill, s, { ...size, z: Z }, ventSides);
       const o = baseOffsets(s, walls);
-      r = { s, o, lift: profileLift(s, o.bottom), pTop: profileTop(s) };
+      r = { s, o };
       shapes.set(Z, r);
     }
     return r;
@@ -767,21 +775,26 @@ function solveAt(
   /**
    * Least thickness at which a part `stack` mm tall over the floor (an
    * opening's lift aside), with `cover` mm of deck layer over it, fits over
-   * this depth span.
+   * this footprint. `opening` is the side the part opens out of, if any.
    */
   const zFor = (
     y0: number,
     y1: number,
     stack: number,
     cover: number,
-    opening: boolean,
+    opening: Side | false | undefined,
+    x0?: number,
+    x1?: number,
   ): number => {
     const slack = (Z: number) => {
-      const { s, o, lift, pTop: pt } = shapeAt(Z);
-      const b = spanBand(s, { x: FX, y: FY, z: Z }, o, walls.bottom, y0, y1);
+      const { s, o } = shapeAt(Z);
+      const b = spanBand(s, { x: FX, y: FY, z: Z }, o, walls.bottom, y0, y1, x0, x1);
       if (!b) return -1;
-      const top = Math.max(cover, o.top, opening ? pt : 0);
-      return b[1] + o.top - (b[0] + stack + (opening ? lift : 0) + top);
+      const top = Math.max(cover, o.top, opening ? profileTop(s, opening) : 0);
+      const lift = opening ? profileLift(s, o.bottom, opening) : 0;
+      // On a perimeter body an opening sits in its side's flat band, however far the floor rises under the edge.
+      const base = s.pm ? Math.max(b[0], o.bottom + lift) : b[0] + lift;
+      return b[1] + o.top - (base + stack + top);
     };
     let lo = 0;
     let hi = 2 * lim.z[1];
@@ -789,8 +802,8 @@ function solveAt(
       return (
         off.bottom +
         stack +
-        (opening ? floorCtx.lift : 0) +
-        Math.max(cover, off.top, opening ? pTop : 0)
+        liftOn(opening) +
+        Math.max(cover, off.top, topOn(opening))
       );
     for (let i = 0; i < 24; i++) {
       const mid = (lo + hi) / 2;
@@ -804,15 +817,17 @@ function solveAt(
   const laid: PlacedUnit[] = [];
   for (const f of floor.fills.values()) {
     if (!f.min || !f.at || !f.size) continue;
-    const opening = isOpeningZone(f);
+    const opening = isOpeningZone(f) && f.node.edge;
     let zoneCover = 0;
     for (const u of placeUnits(f, floorCtx, off.bottom, 0)) {
       laid.push(u);
       const c = coverOver(u.at, u.size);
       zoneCover = Math.max(zoneCover, c);
-      const stack =
-        u.at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
-      minZ = Math.max(minZ, zFor(u.at.y, u.at.y + u.size.y, stack, c, opening));
+      const stack = u.at.z - off.bottom - liftOn(opening) + u.size.z;
+      minZ = Math.max(
+        minZ,
+        zFor(u.at.y, u.at.y + u.size.y, stack, c, opening, u.at.x, u.at.x + u.size.x),
+      );
     }
     cover.set(f.node, zoneCover);
   }
@@ -820,7 +835,7 @@ function solveAt(
     if (!u.spacer)
       minZ = Math.max(
         minZ,
-        zFor(u.at.y, u.at.y + u.size.y, 0, deckLayer(u), false),
+        zFor(u.at.y, u.at.y + u.size.y, 0, deckLayer(u), false, u.at.x, u.at.x + u.size.x),
       );
 
   // Stacked parts: each over its host, as low as what lies under it allows.
@@ -868,11 +883,11 @@ function solveAt(
       top: Infinity,
       host: undefined,
     });
-    const opening = u.role === "odd";
-    const stack = at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
+    const opening = u.role === "odd" && oddSide;
+    const stack = at.z - off.bottom - liftOn(opening) + u.size.z;
     minZ = Math.max(
       minZ,
-      zFor(at.y, at.y + u.size.y, stack, coverOver(at, u.size), opening),
+      zFor(at.y, at.y + u.size.y, stack, coverOver(at, u.size), opening, at.x, at.x + u.size.x),
     );
   }
 
@@ -915,12 +930,12 @@ function solveAt(
     if (!fill?.min || !fill.at || !fill.size) continue;
     const opening = isOpeningZone(fill);
     // The zone's floor and top surface over its depth, as the body's shape leaves them.
-    const zb = bandAt(fill.at.y, fill.at.y + fill.size.y, F.z);
+    const zb = bandAt(fill.at.y, fill.at.y + fill.size.y, F.z, fill.at.x, fill.at.x + fill.size.x);
     const z0 = zb ? zb[0] : floorZ0;
     const surface = zb ? zb[1] + off.top : F.z;
     // Room above this zone's floor: up to the deck layer over it, and below the top edge profile for openings.
     let room = surface - Math.max(cover.get(zone) ?? 0, off.top) - z0;
-    if (opening) room = Math.min(room, surface - pTop - z0);
+    if (opening) room = Math.min(room, surface - (zone.edge ? topOn(zone.edge) : pTop) - z0);
     boxes.push({
       id: `zone:floor:${zone.zone}`,
       role: zone.takes[0],
@@ -934,7 +949,7 @@ function solveAt(
     // Each part sits on the floor under its own depth span, which may lie lower than the zone's highest.
     const own = new Map<PlacedUnit, [number, number]>();
     for (const u of units) {
-      const ub = bandAt(u.at.y, u.at.y + u.size.y, F.z) ?? [
+      const ub = bandAt(u.at.y, u.at.y + u.size.y, F.z, u.at.x, u.at.x + u.size.x) ?? [
         z0,
         surface - off.top,
       ];
@@ -951,7 +966,7 @@ function solveAt(
       const [ulo, uhi] = own.get(u) ?? [z0, surface - off.top];
       // Centred on the outer side wall, from the bottom of the D panel to the top
       // of the C panel, kept inside the walls and under any keyboard or trackpad over it.
-      const zLo = ulo + floorCtx.lift;
+      const zLo = style.pm ? Math.max(ulo, off.bottom + liftOn(side)) : ulo + liftOn(side);
       const zHi = uhi + off.top - Math.max(coverOver(u.at, u.size), off.top) - u.size.z;
       const mid = (ulo - off.bottom + uhi + off.top) / 2;
       u.at.z = Math.min(Math.max(zLo, mid - u.size.z / 2), Math.max(zLo, zHi));
@@ -1026,7 +1041,7 @@ function solveAt(
   for (const u of placedStack) {
     const edge = u.role === "odd" ? oddSide : undefined;
     // On what now lies under it, as the body's shape leaves the floor there.
-    let base = bandAt(u.at.y, u.at.y + u.size.y, F.z)?.[0] ?? floorZ0;
+    let base = bandAt(u.at.y, u.at.y + u.size.y, F.z, u.at.x, u.at.x + u.size.x)?.[0] ?? floorZ0;
     for (const b of placedFloor)
       if (
         !b.spacer &&
@@ -1371,7 +1386,7 @@ function solveAt(
       .filter((p) => p.kind === "compat" && p.code === "no-room")
       .map((p) => JSON.stringify(p));
   // On a taper it must rank ahead of the layout's own as solved in full.
-  const thick = !!style.taper;
+  const thick = !!style.taper || !!style.pm;
   for (const arr of choice) {
     const f = solveAt(build, content, arr);
     if (

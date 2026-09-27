@@ -83,12 +83,54 @@ export type Scaled = Mm | { k: number | [number, number]; of: Axis | "short"; mi
 
 export type HingeStyle = "full" | "barrel" | "drop" | "spine" | "inset" | "lift";
 /** The shape parameter a body's signature slider moves. */
-export type Signature = "corner" | "profile" | "drop" | "bumper" | "taper" | "undercut" | "shelf" | "lip";
+export type Signature =
+  | "corner"
+  | "profile"
+  | "drop"
+  | "bumper"
+  | "taper"
+  | "undercut"
+  | "shelf"
+  | "lip"
+  | "slant"
+  | "round"
+  | "wrap"
+  | "edge"
+  | "facet";
+
+/** How a perimeter edge zone runs: straight, a quarter round, or a convex curve that meets the flat face tangentially. */
+export type EdgeKind = "linear" | "chamfer" | "round" | "curve";
+
+/** Inset multipliers for the front, the two sides and the rear, 0 to 1.5. */
+export interface PerimSides {
+  f: number;
+  s: number;
+  r: number;
+}
+
+/**
+ * One edge profile swept round the plan: a top zone `h` tall that runs `d`
+ * in from the outline at the top face, and a bottom zone likewise at the
+ * bottom face. Each side scales its zones by its multiplier: the run by the
+ * multiplier, the height by it up to 1. `bot.h` "edge" leaves a vertical edge
+ * band of max(min, k Z) on a side at 1; "full" rakes the whole height below
+ * the top zone. `d` "h" is the zone's own height.
+ */
+export interface Perim {
+  top: { kind: EdgeKind; h: Scaled; d: Scaled | "h" };
+  bot: { kind: EdgeKind; h: Scaled | "edge" | "full"; d: Scaled | "h" };
+  edge?: { k: number; min: Mm };
+  sides: PerimSides;
+  /** The player sets each side's multiplier. */
+  tune?: boolean;
+}
 
 export interface BodyStyle {
-  edge: "square" | "rounded" | "chamfer";
-  /** Plan corner radius of the footprint. */
+  edge: "square" | "rounded" | "chamfer" | "perim";
+  /** Plan corner radius of the footprint; the leg of the cut when the corners are chamfered. */
   corner: Scaled;
+  /** Plan corners rounded (the default) or cut flat. */
+  cornerKind?: "round" | "chamfer";
   /** Profile size of the top and bottom perimeter edges: radius when rounded, leg when chamfered. */
   profile: Scaled;
   hinge: HingeStyle;
@@ -98,8 +140,11 @@ export interface BodyStyle {
    * A true taper: the bottom rises toward the front. `front` is the front
    * thickness as a share of Z over the slider, never under `minFront`; `run`
    * is the share of the depth the rise spans. The player's Z is the rear.
+   * `linear` rises in a straight line instead of easing in and out.
    */
-  taper?: { front: [number, number]; minFront: Mm; run: number };
+  taper?: { front: [number, number]; minFront: Mm; run: number; linear?: boolean };
+  /** A perimeter edge profile, on edge "perim". */
+  perim?: Perim;
   /** The lower half tucks in all round under a cove. */
   undercut?: { inset: Scaled; height: Scaled };
   /** A cylindrical rear spine that hangs `drop` below the base and carries the hinge. */
@@ -119,6 +164,7 @@ export interface BodyStyle {
 /** A body's style resolved at one size and signature: every length in mm. */
 export interface ResolvedStyle {
   edge: BodyStyle["edge"];
+  cornerKind: "round" | "chamfer";
   hinge: HingeStyle;
   latch: boolean;
   signature: Signature;
@@ -128,8 +174,10 @@ export interface ResolvedStyle {
   sigMm: Mm;
   corner: Mm;
   profile: Mm;
-  /** Front thickness share of Z, least front thickness, and run share of Y. Null without a taper. */
-  taper: { front: number; minFront: Mm; run: number } | null;
+  /** Front thickness share of Z, least front thickness, run share of Y, and whether it rises straight. Null without a taper. */
+  taper: { front: number; minFront: Mm; run: number; linear: boolean } | null;
+  /** The perimeter edge profile in mm, with each side's multiplier. Null on other bodies. */
+  pm: ResolvedPerim | null;
   /** Undercut inset and height. */
   ui: Mm;
   uh: Mm;
@@ -148,6 +196,18 @@ export interface ResolvedStyle {
   q: Mm;
   wallScale: number;
   crown: Mm;
+}
+
+/** A perimeter profile at one size: each zone's kind, height and run before the side multipliers. */
+export interface ResolvedPerim {
+  tk: EdgeKind;
+  hT: Mm;
+  dT: Mm;
+  bk: EdgeKind;
+  hB: Mm;
+  dB: Mm;
+  m: PerimSides;
+  tune: boolean;
 }
 
 export interface Body extends Dated {
@@ -596,6 +656,8 @@ export interface Build {
    * since the body types carries it, so a build without it is an older save.
    */
   shape?: Partial<Record<string, number>>;
+  /** Per-side inset multipliers per body id, on bodies whose sides the player sets. Absent means the body's own. */
+  sides?: Partial<Record<string, Partial<PerimSides>>>;
 }
 
 // ---------------------------------------------------------------- fit

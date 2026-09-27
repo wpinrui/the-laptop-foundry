@@ -172,4 +172,75 @@ export const BODIES: Body[] = [
     hinge: { x: 30, y: 14, z: 4 },
     layouts: ["a", "b", "c"],
   },
+  {
+    // A straight wedge: one flat underside plane from a thick rear to a thin front, square edges.
+    id: "wedge",
+    name: "Wedge",
+    from: 2003,
+    until: 2016,
+    ...base,
+    size: { ...START },
+    style: {
+      edge: "square",
+      corner: s(0.008, "short", 2, 4),
+      profile: 0,
+      taper: { front: [0.7, 0.4], minFront: 6, run: 0.85, linear: true },
+      hinge: "full",
+      latch: false,
+      signature: "taper",
+    },
+    hinge: { x: 30, y: 20, z: 5 },
+    layouts: ["b", "c"],
+  },
+  // Perimeter bodies: one edge profile, a top zone and a bottom zone, swept
+  // round the plan. Each side scales it by its multiplier (build.sides on the
+  // bodies that let the player set them).
+  {
+    // The front and rear faces raked back underneath; the sides square.
+    id: "slant",
+    name: "Slant",
+    from: 2009,
+    until: 2099,
+    ...base,
+    size: { ...START },
+    style: {
+      edge: "perim",
+      corner: s(0.012, "short", 2, 6),
+      profile: 0,
+      perim: {
+        top: { kind: "round", h: s(0.05, "z", 0.5, 1.2), d: "h" },
+        bot: { kind: "linear", h: s(0.5, "z", 2, 26), d: s([0.15, 0.6], "z", 2, 16) },
+        sides: { f: 1, s: 0, r: 1 },
+      },
+      hinge: "drop",
+      latch: false,
+      signature: "slant",
+    },
+    hinge: { x: 32, y: 15, z: 4 },
+    layouts: ["a", "b", "c"],
+  },
+  {
+    // The front and rear edges roll over top and bottom; the sides keep a tight radius and a flat wall.
+    id: "capsule",
+    name: "Capsule",
+    from: 2012,
+    until: 2099,
+    ...base,
+    size: { ...START },
+    style: {
+      edge: "perim",
+      corner: s(0.03, "short", 5, 12),
+      profile: 0,
+      perim: {
+        top: { kind: "round", h: s([0.18, 0.4], "z", 1.5, 22), d: "h" },
+        bot: { kind: "round", h: s([0.18, 0.4], "z", 1.5, 22), d: "h" },
+        sides: { f: 1, s: 0.3, r: 1 },
+      },
+      hinge: "full",
+      latch: false,
+      signature: "round",
+    },
+    hinge: { x: 30, y: 18, z: 5 },
+    layouts: ["a", "b", "c"],
+  },
 ];

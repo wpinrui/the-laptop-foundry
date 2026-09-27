@@ -1,4 +1,4 @@
-import { bumperBlock, type Fit, floorBand, hingeAxis, outerSection } from "../engine";
+import { bumperBlock, type Fit, floorBand, hingeAxis, outerSection, outerSpanAt } from "../engine";
 
 // The body in side section, drawn from the solved shell: the tray cards'
 // silhouettes and the Chassis stage's section view. Front on the left, engine mm.
@@ -10,6 +10,24 @@ const N = 80;
 function baseOutline(fit: Fit): Pt[] {
   const o = fit.shell.outer;
   const st = fit.shell.style;
+  if (st.pm) {
+    // Along the centre line, closer where the edge profile turns.
+    const ys = new Set<number>();
+    for (let i = 0; i <= N; i++) ys.add((o.y * i) / N);
+    const run = Math.min(o.y / 2, Math.max(st.pm.dB, st.pm.dT) * Math.max(st.pm.m.f, st.pm.m.r, 1));
+    for (let i = 0; i <= 24; i++) {
+      ys.add((run * i) / 24);
+      ys.add(o.y - (run * i) / 24);
+    }
+    const lo: Pt[] = [];
+    const hi: Pt[] = [];
+    for (const y of [...ys].sort((a, b) => a - b)) {
+      const [b, t] = outerSpanAt(st, o, o.x / 2, y);
+      lo.push([y, b]);
+      hi.push([y, t]);
+    }
+    return [...lo, ...hi.reverse()];
+  }
   const p = st.profile;
   // How far the edge profile cuts in at distance d from an end.
   const cut = (d: number) => {
@@ -83,6 +101,26 @@ function roomOutline(fit: Fit): Pt[] {
 export function insideLitres(fit: Fit): number {
   const o = fit.shell.outer;
   const width = Math.max(0, o.x - 2 * fit.shell.offsets.side);
+  if (fit.shell.style.pm) {
+    // The room changes across the width too: a grid over the inner plan.
+    const nx = 40;
+    const ny = 80;
+    const x0 = fit.shell.offsets.side;
+    let vol = 0;
+    for (let i = 0; i < ny; i++)
+      for (let j = 0; j < nx; j++) {
+        const b = floorBand(
+          fit.shell.style,
+          o,
+          fit.shell.offsets,
+          fit.shell.walls.bottom,
+          (o.y * (i + 0.5)) / ny,
+          x0 + (width * (j + 0.5)) / nx,
+        );
+        if (b) vol += (b[1] - b[0]) * (o.y / ny) * (width / nx);
+      }
+    return vol / 1e6;
+  }
   let area = 0;
   const n = 200;
   for (let i = 0; i < n; i++) {

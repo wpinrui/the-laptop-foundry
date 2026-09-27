@@ -1,4 +1,4 @@
-import { bumperBlock, outerSection } from "./shell";
+import { bumperBlock, outerSection, perimZones, sideMult } from "./shell";
 import { profileRings } from "./shellGeometry";
 import type {
   Build,
@@ -120,7 +120,8 @@ export function wrapFits(
   outer: Size,
   ventSides: Side[],
 ): boolean {
-  if (style.D > 0 || style.lip > 0) return false;
+  // A perimeter body's rear is already bevelled or rounded under it.
+  if (style.D > 0 || style.lip > 0 || style.pm) return false;
   if (ventSides.length === 0 || ventSides.some((s) => s !== "rear"))
     return false;
   const face = rearFace(style, outer);
@@ -154,6 +155,13 @@ function faceAt(
   side: Side,
   u: number,
 ): [number, number] | null {
+  if (style.pm) {
+    // The side's flat band between its bottom and top edge zones.
+    const zs = perimZones(style.pm, sideMult(style.pm, side));
+    const lo = zs.hB + MARGIN;
+    const hi = outer.z - zs.hT - MARGIN;
+    return hi > lo ? [lo, hi] : null;
+  }
   const y =
     side === "rear" ? outer.y : side === "front" ? 0 : clamp(u, 0, outer.y);
   const sec = outerSection(style, outer, y);

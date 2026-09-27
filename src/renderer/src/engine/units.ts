@@ -46,7 +46,7 @@ export interface Unit {
   /** Turned a quarter in plan: size x and y are already swapped. */
   turn?: boolean;
   /** The axis this unit's zone lines its units up along, in place of the zone's own. */
-  row?: "x" | "y";
+  row?: "x" | "y" | "bunch";
   /** The floor role this unit sits over, stacked on top of it rather than beside it. */
   over?: Role;
 }

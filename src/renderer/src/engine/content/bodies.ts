@@ -170,6 +170,6 @@ export const BODIES: Body[] = [
       signature: "lip",
     },
     hinge: { x: 30, y: 14, z: 4 },
-    layouts: ["b", "c"],
+    layouts: ["a", "b", "c"],
   },
 ];

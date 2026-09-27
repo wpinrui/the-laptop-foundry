@@ -4,6 +4,7 @@ import { app, BrowserWindow, Menu, net, protocol } from "electron";
 import { registerFox } from "./fox";
 import { registerStore } from "./store";
 import { registerSvgImport } from "./svg";
+import { registerVideo } from "./video";
 
 // The review photo sets' bundled assets (HDRIs, models, textures), served from
 // the built renderer's review-assets folder. A custom scheme, because fetch
@@ -73,6 +74,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   registerStore();
   registerSvgImport();
+  registerVideo();
   serveAssets();
   createWindow();
   app.on("activate", () => {

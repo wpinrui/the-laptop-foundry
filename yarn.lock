@@ -3536,6 +3536,48 @@ shebang-regex@^3.0.0:
   resolved "https://registry.yarnpkg.com/shebang-regex/-/shebang-regex-3.0.0.tgz#ae16f1644d873ecad843b0307b143362d4c42172"
   integrity sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==
 
+sherpa-onnx-darwin-arm64@^1.13.8:
+  version "1.13.8"
+  resolved "https://registry.yarnpkg.com/sherpa-onnx-darwin-arm64/-/sherpa-onnx-darwin-arm64-1.13.8.tgz#857c77add0e601a36480e51c5f840231772ee572"
+  integrity sha512-FPNgJMgnWVl/KhRTIhG3KL3A4Om63Rn4YKXc9/uHY7SzLcvqLJLc/h7UBWJwduXvv7K18t5NpxHR6XgXn4sjWw==
+
+sherpa-onnx-darwin-x64@^1.13.8:
+  version "1.13.8"
+  resolved "https://registry.yarnpkg.com/sherpa-onnx-darwin-x64/-/sherpa-onnx-darwin-x64-1.13.8.tgz#c3f76f941e69e5623203702f372390abc3832190"
+  integrity sha512-7BLRpjM6w4f9W46/nmkmq8lEKUayhebvcpslCVQ+6QN2uReYlZEMDZlSpXMjme+hUFrPfRz8P3UNq8ep/4d19g==
+
+sherpa-onnx-linux-arm64@^1.13.8:
+  version "1.13.8"
+  resolved "https://registry.yarnpkg.com/sherpa-onnx-linux-arm64/-/sherpa-onnx-linux-arm64-1.13.8.tgz#7a747a07d286b8ef2a343201f846bf436ab8ba8e"
+  integrity sha512-Tlg7a70b/Wge3OF8IgTHF9jhSVCsLyKQKhwc4BsJ5A+dL/SrFtGBjzuHp4XeLhiiOT7afCxX5PdSn/D4c8Lnuw==
+
+sherpa-onnx-linux-x64@^1.13.8:
+  version "1.13.8"
+  resolved "https://registry.yarnpkg.com/sherpa-onnx-linux-x64/-/sherpa-onnx-linux-x64-1.13.8.tgz#662e009aaa10eec0baed989789d2a30ccfc5e0bf"
+  integrity sha512-6plnhjagsSeTntCgnlag86hWbs/uZE9Crms1LgOb68/1nKsIQjMd+WG519m+aPwT6TrsBOiEMzrx41t8sL5L5g==
+
+sherpa-onnx-node@1.13.8:
+  version "1.13.8"
+  resolved "https://registry.yarnpkg.com/sherpa-onnx-node/-/sherpa-onnx-node-1.13.8.tgz#c725bc6abd5e97f5ffd72560843b798573f88af0"
+  integrity sha512-MsDMBdhLFTZ1GwvcGSSQhnS7g/EA8OMH6IYysCVUOM7j8Icty9KRc0E6YT1A5fWBsZwRfKOeh88QC95aRvS8ag==
+  optionalDependencies:
+    sherpa-onnx-darwin-arm64 "^1.13.8"
+    sherpa-onnx-darwin-x64 "^1.13.8"
+    sherpa-onnx-linux-arm64 "^1.13.8"
+    sherpa-onnx-linux-x64 "^1.13.8"
+    sherpa-onnx-win-ia32 "^1.13.8"
+    sherpa-onnx-win-x64 "^1.13.8"
+
+sherpa-onnx-win-ia32@^1.13.8:
+  version "1.13.8"
+  resolved "https://registry.yarnpkg.com/sherpa-onnx-win-ia32/-/sherpa-onnx-win-ia32-1.13.8.tgz#4fb1121619c634427b7e995eaf6f3d19978f1a9a"
+  integrity sha512-H0Ojln9hfvM+pxWqW0cnjB/XK8/JPq4/k0IWu2JpY5Z458M3zv+XC3Hu+wmot3AoH/K1Bgt23n/tTKtPV9x8qg==
+
+sherpa-onnx-win-x64@^1.13.8:
+  version "1.13.8"
+  resolved "https://registry.yarnpkg.com/sherpa-onnx-win-x64/-/sherpa-onnx-win-x64-1.13.8.tgz#c3dd2315204847f24a928dc96c30ef203339fd80"
+  integrity sha512-oZF1c9VPOKtMwn83Bboc5XSWL+76BRoyB3eUuVnCknBKxwSULZU2Foia9VHWzU+n4I12rPsP6z6H9Rp1hD9o8g==
+
 siginfo@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/siginfo/-/siginfo-2.0.0.tgz#32e76c70b79724e3bb567cb9d543eb858ccfaf30"

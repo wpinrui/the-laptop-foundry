@@ -5,3 +5,9 @@ directories:
 files:
   - out/**
   - "!**/*.map"
+# The quarter video's narration voice and its native TTS addon.
+extraResources:
+  - from: resources/voice
+    to: voice
+asarUnpack:
+  - "**/node_modules/sherpa-onnx-*/**"

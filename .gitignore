@@ -38,3 +38,6 @@ temp/
 # Conversation incidents, reviewed in a retro and then deleted
 .incidents/
 *.tsbuildinfo
+
+# The narration voice, fetched by scripts/fetch-voice.mjs
+resources/voice/

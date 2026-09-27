@@ -58,6 +58,13 @@ const api = {
       { name: string; svg: string } | { name: string; image: string } | { error: "too-big"; limit: string } | { error: "not-image" } | null
     > => ipcRenderer.invoke("marks:import-image"),
   },
+  video: {
+    /** The narration, one clip per line; null when the game has no voice installed. */
+    say: (lines: string[]): Promise<{ sampleRate: number; clips: Float32Array[] } | null> =>
+      ipcRenderer.invoke("video:say", lines),
+    /** Opens a save dialog for a recorded video. True once written. */
+    save: (bytes: Uint8Array, name: string): Promise<boolean> => ipcRenderer.invoke("video:save", bytes, name),
+  },
   quit: (): Promise<void> => ipcRenderer.invoke("app:quit"),
   /** The in-game browser's frames, as the main process sees them. */
   fox: {

@@ -130,6 +130,15 @@ export function markExtent(m: Mark): { w: number; h: number } {
   return { w: w * m.size + line, h: m.size * 1.1 + line };
 }
 
+/** The mark's axis-aligned bounds on its face once turned by its rotation, in mm. */
+export function markBounds(m: Mark): { w: number; h: number } {
+  const e = markExtent(m);
+  const a = ((m.rotation ?? 0) * Math.PI) / 180;
+  const c = Math.abs(Math.cos(a));
+  const s = Math.abs(Math.sin(a));
+  return { w: e.w * c + e.h * s, h: e.w * s + e.h * c };
+}
+
 const SHAPES = "path,rect,circle,ellipse,line,polyline,polygon,text,tspan";
 
 /** The SVG with every shape drawn as a line of the mark's width instead of filled, its viewBox grown to hold the line. */
@@ -232,9 +241,12 @@ function drawFace(
   if (!g) return;
   g.clearRect(0, 0, canvas.width, canvas.height);
   for (const m of marks) {
-    const cx = (face.w / 2 + m.x) * S;
-    const cy = (face.h / 2 - m.y) * S;
     g.save();
+    // Drawn about the mark's centre, turned clockwise as the face is read.
+    g.translate((face.w / 2 + m.x) * S, (face.h / 2 - m.y) * S);
+    if (m.rotation) g.rotate((m.rotation * Math.PI) / 180);
+    const cx = 0;
+    const cy = 0;
     const alpha = (m.process === "etched" ? 0.62 : 1) * (m.ghost ? 0.45 : 1);
     g.globalAlpha = alpha;
     if (m.kind === "text") {

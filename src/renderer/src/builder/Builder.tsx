@@ -155,7 +155,10 @@ export function Builder({
   sound = true,
   onSound = () => {},
   yearLocked = false,
+  released = false,
 }: {
+  /** A campaign model released to market is locked like a reviewed one. */
+  released?: boolean;
   /** A campaign model keeps the year it was made in. */
   yearLocked?: boolean;
   /** The player's reviewed models, for the review site on the laptop's own screen. */
@@ -175,11 +178,11 @@ export function Builder({
   // Older trackpad size parts become their technology at that size; a reviewed model keeps its parts.
   const [build, setBuild] = useState<Build>(() => {
     const b = migrateBody(migrateColours(migrateScreen(model.build as Build)));
-    return model.reviewed ? b : migratePad(b);
+    return model.reviewed || released ? b : migratePad(b);
   });
   const [name, setName] = useState(model.name);
   // A reviewed model is locked for good so its review never changes.
-  const locked = !!model.reviewed;
+  const locked = !!model.reviewed || released;
 
   // Every change saves shortly after it is made, and leaving saves at once.
   const pending = useRef<(() => void) | null>(null);

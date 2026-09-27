@@ -6,9 +6,10 @@ import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
 import { type Build, migrateBody, screenOf, type Subject } from "./engine";
-import { campaignOf, resolveQuarter, savedCampaign } from "./engine/campaign";
+import { type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
+import { ReleasePanel } from "./foundry/Release";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
 
@@ -100,6 +101,17 @@ export function App() {
 
   const name = company?.name ?? "";
   const campaign = company?.campaign ? campaignOf(company.campaign) : null;
+  // Saves a changed campaign state. One change at a time: a second click before the save lands would apply twice.
+  const commit = (next: CampaignState | null) => {
+    if (!company || !next || ending.current) return;
+    ending.current = true;
+    store()
+      .saveCampaign(company.id, savedCampaign(next))
+      .then(refresh)
+      .finally(() => {
+        ending.current = false;
+      });
+  };
   const subject = (m: SavedModel): Subject => ({ id: m.id, name: m.name, company: name, build: m.build as Build });
   // The first review locks the model, so its review never changes.
   const review = (m: SavedModel) => {
@@ -163,6 +175,7 @@ export function App() {
           duplicate(model.id);
         }}
         yearLocked={!!campaign}
+        released={!!campaign?.releases[model.id]}
         reroll={(b) => randomName(b.year, inchesOf(b))}
         library={(company?.models ?? []).filter((x) => x.reviewed).map(subject)}
         sound={settings.sound}
@@ -252,18 +265,7 @@ export function App() {
       <LaptopList
         company={company}
         campaign={campaign}
-        onEndQuarter={() => {
-          // One quarter per click: a second click before the save lands would resolve the same quarter again.
-          if (!campaign || ending.current) return;
-          ending.current = true;
-          const next = resolveQuarter(campaign, { models: company.models });
-          store()
-            .saveCampaign(company.id, savedCampaign(next))
-            .then(refresh)
-            .finally(() => {
-              ending.current = false;
-            });
-        }}
+        onEndQuarter={() => campaign && commit(resolveQuarter(campaign, { models: company.models }))}
         selected={selected}
         onSelect={setSelected}
         onMenu={() => {
@@ -290,9 +292,32 @@ export function App() {
             .then((c) => {
               refresh(c);
               setSelected(sortedModels(c)[0]?.id ?? null);
+              // A deleted model's line ends and its stock is written off.
+              const s = c.campaign ? campaignOf(c.campaign) : null;
+              if (s?.releases[id]) {
+                const { [id]: _, ...releases } = s.releases;
+                return store().saveCampaign(c.id, savedCampaign({ ...s, releases })).then(refresh);
+              }
             })
         }
       />
+    );
+  const current = company?.models.find((m) => m.id === selected);
+  if (menu === "list" && company && campaign && current)
+    screen = (
+      <>
+        {screen}
+        <ReleasePanel
+          key={current.id}
+          campaign={campaign}
+          model={current}
+          models={company.models}
+          onRelease={(units, cost, re) =>
+            commit(release(campaign, current.id, (current.build as Build).price, cost, units, re))
+          }
+          onReorder={(units, cost) => commit(reorder(campaign, current.id, cost, units))}
+        />
+      </>
     );
 
   return (

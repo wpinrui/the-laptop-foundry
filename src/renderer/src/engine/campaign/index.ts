@@ -1,11 +1,13 @@
 import type { SavedCampaign, SavedModel } from "../../../../preload/store";
 import { END_YEAR, FIRST_START, LAST_START, STARTING_CASH } from "./constants";
+import { type Release, releaseOf } from "./release";
 
 // Campaign mode: a company plays forward from a start year a quarter at a
 // time, to the end of 2026. The state lives in the company save; the main
 // process keeps it opaque, so this module owns its shape.
 
 export * from "./constants";
+export * from "./release";
 
 export type QuarterOfYear = 1 | 2 | 3 | 4;
 
@@ -22,6 +24,8 @@ export interface CampaignState {
   cash: number;
   /** Set once the last quarter of 2026 has been resolved. */
   over: boolean;
+  /** Released models by model id. */
+  releases: Record<string, Release>;
 }
 
 /** What a quarter's resolution reads besides the campaign state. */
@@ -46,7 +50,7 @@ export function nextQuarter(q: Quarter): Quarter {
 
 export function newCampaign(start: number): CampaignState {
   const year = Math.min(LAST_START, Math.max(FIRST_START, Math.round(start)));
-  return { start: year, now: { year, quarter: 1 }, cash: STARTING_CASH, over: false };
+  return { start: year, now: { year, quarter: 1 }, cash: STARTING_CASH, over: false, releases: {} };
 }
 
 /** A saved campaign's state, with anything missing or broken filled from a fresh start. */
@@ -67,7 +71,18 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     now,
     cash: typeof s.cash === "number" && Number.isFinite(s.cash) ? s.cash : fresh.cash,
     over: s.over === true,
+    releases: releasesOf(s.releases),
   };
+}
+
+function releasesOf(x: unknown): Record<string, Release> {
+  const out: Record<string, Release> = {};
+  if (!x || typeof x !== "object") return out;
+  for (const [id, v] of Object.entries(x)) {
+    const r = releaseOf(v);
+    if (r) out[id] = r;
+  }
+  return out;
 }
 
 export function savedCampaign(state: CampaignState): SavedCampaign {

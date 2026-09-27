@@ -1,0 +1,73 @@
+/* Campaign panels on the laptop list: the selected model's release, right side. */
+.fd-release {
+  position: absolute;
+  right: calc(56 * var(--u));
+  top: calc(120 * var(--u));
+  width: calc(260 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(14 * var(--u));
+  padding: calc(20 * var(--u)) calc(24 * var(--u));
+  background: color-mix(in srgb, var(--ground-deep) 80%, transparent);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-release-stock {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.fd-release small,
+.fd-release dt {
+  font-weight: 500;
+  font-size: calc(16 * var(--u));
+  color: var(--muted);
+}
+
+.fd-release-stock b {
+  font-weight: 700;
+  font-size: calc(28 * var(--u));
+  color: var(--text);
+}
+
+.fd-release-run {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fd-release-run b {
+  font-weight: 700;
+  font-size: calc(28 * var(--u));
+  color: var(--text);
+}
+
+.fd-release-run .fd-text {
+  font-size: calc(28 * var(--u)) !important;
+  padding: 0 calc(8 * var(--u)) !important;
+}
+
+.fd-release dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: calc(4 * var(--u)) calc(16 * var(--u));
+  margin: 0;
+}
+
+.fd-release dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+  font-size: calc(18 * var(--u));
+  color: var(--text);
+}
+
+.fd-release dd.short {
+  color: var(--warning);
+}
+
+.fd-release .fd-primary:disabled {
+  opacity: 0.4;
+}

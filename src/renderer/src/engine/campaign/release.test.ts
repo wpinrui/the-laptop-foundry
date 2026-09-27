@@ -1,0 +1,67 @@
+import { describe, expect, it } from "vitest";
+import {
+  newCampaign,
+  release,
+  releaseQuote,
+  reorder,
+  reorderQuote,
+  scaleFactor,
+  stepRun,
+} from "./index";
+
+describe("scaleFactor", () => {
+  it("is full cost at or under the reference and floors at 0.7", () => {
+    expect(scaleFactor(1_000)).toBe(1);
+    expect(scaleFactor(5_000)).toBe(1);
+    expect(scaleFactor(50_000)).toBeCloseTo(1 / 1.4, 6);
+    expect(scaleFactor(100_000)).toBe(0.7);
+  });
+});
+
+describe("quotes", () => {
+  it("adds design and tooling to a new release, less on a refresh", () => {
+    expect(releaseQuote(600, 5_000, false)).toEqual({
+      unit: 600,
+      setup: 1_000_000,
+      total: 4_000_000,
+    });
+    expect(releaseQuote(600, 5_000, true).setup).toBe(125_000);
+    expect(reorderQuote(600, 5_000)).toEqual({
+      unit: 600,
+      setup: 0,
+      total: 3_000_000,
+    });
+  });
+
+  it("steps along the run sizes", () => {
+    expect(stepRun(5_000, 1)).toBe(10_000);
+    expect(stepRun(1_000, -1)).toBe(1_000);
+    expect(stepRun(100_000, 1)).toBe(100_000);
+  });
+});
+
+describe("release", () => {
+  const s = newCampaign(2010);
+
+  it("charges cash and puts the run in stock", () => {
+    const next = release(s, "a", 999, 600, 5_000, false);
+    expect(next?.cash).toBe(1_000_000);
+    expect(next?.releases.a).toMatchObject({
+      stock: 5_000,
+      made: 5_000,
+      price: 999,
+      quarter: { year: 2010, quarter: 1 },
+    });
+    const more = next && reorder(next, "a", 600, 1_000);
+    expect(more?.cash).toBe(400_000);
+    expect(more?.releases.a.stock).toBe(6_000);
+  });
+
+  it("is blocked when cash is short, unpriced or already released", () => {
+    expect(release(s, "a", 999, 600, 10_000, false)).toBeNull();
+    expect(release(s, "a", undefined, 600, 1_000, false)).toBeNull();
+    const once = release(s, "a", 999, 600, 1_000, false);
+    expect(once && release(once, "a", 999, 600, 1_000, false)).toBeNull();
+    expect(reorder(s, "a", 600, 1_000)).toBeNull();
+  });
+});

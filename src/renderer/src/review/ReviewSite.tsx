@@ -18,6 +18,7 @@ import {
   slug,
   useCurrent,
 } from "./blocks";
+import { useHonours } from "./honours";
 import "./review.css";
 
 // The in-game review site, Notebookcheck (GDD: it publishes the reviews). Its
@@ -193,6 +194,9 @@ export function ReviewIndex({
     });
   }, [entries]);
   const years = [...new Set(rows.map((r) => r.subject.build.year))].sort();
+  const honours = useHonours();
+  const awardYear = year === "" ? Math.max(0, ...honours.map((h) => h.year)) : year;
+  const yearAwards = honours.filter((h) => h.year === awardYear);
   const shown = rows
     .filter(
       (r) =>
@@ -251,6 +255,25 @@ export function ReviewIndex({
               Mine only
             </label>
           </div>
+          {yearAwards.length > 0 && (
+            <section className="rs-awards">
+              <h2>{`${awardYear} Awards`}</h2>
+              <table className="rs-table">
+                <tbody>
+                  {yearAwards.map((h) => (
+                    <tr key={h.award}>
+                      <th>{h.award}</th>
+                      <td>
+                        <button type="button" className="rs-link" onClick={() => onOpen(h.id)}>
+                          {`${h.company} ${h.name}`}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
           <div className="rs-tablewrap">
             <table className="rs-table">
               <thead>
@@ -285,6 +308,22 @@ export function ReviewIndex({
         </article>
         <footer className="rs-foot">{PUBLICATION}</footer>
       </div>
+    </div>
+  );
+}
+
+/** The laptop's award badges. */
+function Badges({ id }: { id: string }) {
+  const won = useHonours().filter((h) => h.id === id);
+  if (won.length === 0) return null;
+  return (
+    <div className="rs-badges">
+      {won.map((h) => (
+        <span key={`${h.year}-${h.award}`} className="rs-badge">
+          <b>{h.award}</b>
+          <span>{h.year}</span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -440,6 +479,7 @@ function Site2006({ review, onOpen, onHome, photos }: SiteProps) {
                   <br />
                   {review.gpu}
                 </div>
+                <Badges id={review.id} />
               </div>
             </Box>
             <Box title={`Top 10 ${cap(review.kind)}s`}>
@@ -573,6 +613,7 @@ function Site2016({ review, onOpen, onHome, photos }: SiteProps) {
               <br />
               {`${cap(review.kind)}, ${longDate(review.date)}`}
             </div>
+            <Badges id={review.id} />
           </div>
           <div className="rs-card rs-contents">
             <div className="rs-contents-title">Contents</div>
@@ -685,6 +726,7 @@ function Site2026({ review, onOpen, onHome, photos }: SiteProps) {
                 </div>
               </div>
             </div>
+            <Badges id={review.id} />
             <CategoryBars review={review} className="rs-cats-card" />
             <div className="rs-price">
               <span>Price</span>

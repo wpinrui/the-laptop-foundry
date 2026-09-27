@@ -287,10 +287,30 @@ export function inRing(
 /** Bisection steps for a height on a perimeter body: under 0.01 mm over the thickest body. */
 const PERIM_STEPS = 13;
 
+/** Each side's zones and the vertical band of a perimeter body, per resolved body and thickness. */
+interface PerimCache {
+  Z: number;
+  s: { hB: number; dB: number; hT: number; dT: number };
+  f: { hB: number; dB: number; hT: number; dT: number };
+  r: { hB: number; dB: number; hT: number; dT: number };
+  band: [number, number];
+}
+const perimCache = new WeakMap<ResolvedPerim, PerimCache>();
+function perimCached(pm: ResolvedPerim, Z: number): PerimCache {
+  let c = perimCache.get(pm);
+  if (!c || c.Z !== Z) {
+    c = { Z, s: perimZones(pm, pm.m.s), f: perimZones(pm, pm.m.f), r: perimZones(pm, pm.m.r), band: perimBand(pm, Z) };
+    perimCache.set(pm, c);
+  }
+  return c;
+}
+
 /**
  * Lowest and highest heights at which (x, y) stays inside the skin, `w` in
  * from it in plan, or null where it never does. Rings widen up through the
- * bottom zone and narrow up through the top one, so each end is a bisection.
+ * bottom zone and narrow up through the top one. Off the plan corners each
+ * side's inset alone bounds the span, and its edge profile inverts exactly
+ * (GI); where a corner bounds it instead, each end is a bisection.
  */
 export function perimSpan(
   style: ResolvedStyle,
@@ -302,13 +322,41 @@ export function perimSpan(
   const pm = style.pm;
   const Z = outer.z;
   if (!pm) return [0, Z];
-  const inside = (z: number) =>
-    inRing(x, y, outer.x, outer.y, style.corner, style.cornerKind === "chamfer", perimInsets(pm, Z, z), w);
-  const [m0, m1] = perimBand(pm, Z);
+  const pc = perimCached(pm, Z);
+  const g = G[pm.bk];
+  const gt = G[pm.tk];
+  const ins = (s: PerimCache["s"], z: number) => {
+    let d = 0;
+    if (s.hB > 0 && z < s.hB) d = s.dB * g(clamp((s.hB - z) / s.hB, 0, 1));
+    if (s.hT > 0 && z > Z - s.hT) d = Math.max(d, s.dT * gt(clamp((z - Z + s.hT) / s.hT, 0, 1)));
+    return d;
+  };
+  const I: Insets = { l: 0, r: 0, f: 0, b: 0 };
+  const chamfer = style.cornerKind === "chamfer";
+  const inside = (z: number, eps = 0) => {
+    const sd = ins(pc.s, z);
+    I.l = sd;
+    I.r = sd;
+    I.f = ins(pc.f, z);
+    I.b = ins(pc.r, z);
+    return inRing(x, y, outer.x, outer.y, style.corner, chamfer, I, w, eps);
+  };
+  const [m0, m1] = pc.band;
   if (!inside(m0)) return null;
+  let a0 = 0;
+  let b0 = Z;
+  const bound = (d: number, s: PerimCache["s"]) => {
+    if (s.hB > 0 && s.dB > d) a0 = Math.max(a0, s.hB * (1 - GI[pm.bk](Math.max(0, d) / s.dB)));
+    if (s.hT > 0 && s.dT > d) b0 = Math.min(b0, Z - s.hT + s.hT * GI[pm.tk](Math.max(0, d) / s.dT));
+  };
+  bound(x - w, pc.s);
+  bound(outer.x - x - w, pc.s);
+  bound(y - w, pc.f);
+  bound(outer.y - y - w, pc.r);
   let lo = 0;
-  if (!inside(0)) {
-    let a = 0;
+  if (a0 <= m0 && inside(a0, 1e-9)) lo = a0;
+  else if (!inside(0)) {
+    let a = a0 <= m0 ? a0 : 0;
     let b = m0;
     for (let i = 0; i < PERIM_STEPS; i++) {
       const c = (a + b) / 2;
@@ -318,9 +366,10 @@ export function perimSpan(
     lo = b;
   }
   let hi = Z;
-  if (!inside(Z)) {
+  if (b0 >= m1 && inside(b0, 1e-9)) hi = b0;
+  else if (!inside(Z)) {
     let a = m1;
-    let b = Z;
+    let b = b0 >= m1 ? b0 : Z;
     for (let i = 0; i < PERIM_STEPS; i++) {
       const c = (a + b) / 2;
       if (inside(c)) a = c;

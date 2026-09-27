@@ -16,6 +16,8 @@ import type { Release } from "./release";
 export interface Spent {
   setup: number;
   production: number;
+  /** Campaigns paid this quarter. */
+  marketing: number;
 }
 
 /** One quarter's books. */
@@ -26,6 +28,7 @@ export interface LedgerEntry {
   retail: number;
   setup: number;
   production: number;
+  marketing: number;
   overhead: number;
   holding: number;
   /** Revenue less every cost. */
@@ -34,11 +37,11 @@ export interface LedgerEntry {
   cash: number;
 }
 
-export const NO_SPEND: Spent = { setup: 0, production: 0 };
+export const NO_SPEND: Spent = { setup: 0, production: 0, marketing: 0 };
 
 /** Every cost in an entry. */
 export function costsOf(e: LedgerEntry): number {
-  return e.retail + e.setup + e.production + e.overhead + e.holding;
+  return e.retail + e.setup + e.production + e.marketing + e.overhead + e.holding;
 }
 
 /** The state with the current quarter's books settled into cash and the ledger. */
@@ -65,6 +68,7 @@ export function settle(state: CampaignState): CampaignState {
     retail,
     setup: state.spent.setup,
     production: state.spent.production,
+    marketing: state.spent.marketing,
     overhead,
     holding,
     profit: 0,
@@ -87,6 +91,8 @@ export function settle(state: CampaignState): CampaignState {
 /** A saved ledger entry, or null when it is unreadable. */
 export function entryOf(x: unknown): LedgerEntry | null {
   const e = x as Partial<LedgerEntry> | null;
+  // Entries saved before marketing had no marketing line.
+  if (e && e.marketing === undefined) e.marketing = 0;
   const num = (v: unknown): v is number =>
     typeof v === "number" && Number.isFinite(v);
   if (!e || !e.quarter || !num(e.quarter.year) || !num(e.quarter.quarter))
@@ -96,6 +102,7 @@ export function entryOf(x: unknown): LedgerEntry | null {
     "retail",
     "setup",
     "production",
+    "marketing",
     "overhead",
     "holding",
     "profit",
@@ -116,5 +123,6 @@ export function spentOf(x: unknown): Spent {
   return {
     setup: num(s?.setup) ? s.setup : 0,
     production: num(s?.production) ? s.production : 0,
+    marketing: num(s?.marketing) ? s.marketing : 0,
   };
 }

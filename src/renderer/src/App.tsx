@@ -6,10 +6,11 @@ import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
 import { type Build, migrateBody, screenOf, type Subject } from "./engine";
-import { type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign } from "./engine/campaign";
+import { type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign, setCampaign } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { Bankrupt, FinancePanel } from "./foundry/Finance";
+import { MarketingPanel } from "./foundry/Marketing";
 import { ReleasePanel } from "./foundry/Release";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
@@ -57,6 +58,8 @@ export function App() {
   const [naming, setNaming] = useState<Build | null>(null);
   // A year's market is being generated before a screen that needs it opens.
   const [busy, setBusy] = useState(false);
+  // The marketing table is open in place of the release panel.
+  const [marketing, setMarketing] = useState(false);
 
   useEffect(() => {
     store().companies().then((all) => setCompanies(all.map(migrated)));
@@ -342,7 +345,13 @@ export function App() {
         {screen}
         <div className="fd-side">
           <FinancePanel campaign={campaign} />
-          {current && (
+          <MarketingPanel
+            campaign={campaign}
+            open={marketing}
+            onToggle={() => setMarketing((m) => !m)}
+            onTier={(segment, tier) => commit({ ...campaign, brand: setCampaign(campaign.brand, segment, tier) })}
+          />
+          {current && !marketing && (
             <ReleasePanel
               key={current.id}
               campaign={campaign}

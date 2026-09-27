@@ -1,4 +1,5 @@
 import type { SavedCampaign, SavedModel } from "../../../../preload/store";
+import { type Brand, brandOf, market, newBrand, updatePerception } from "./brand";
 import { END_YEAR, FIRST_START, LAST_START, STARTING_CASH } from "./constants";
 import { entryOf, type LedgerEntry, NO_SPEND, type Spent, settle, spentOf } from "./finance";
 import { type Release, releaseOf } from "./release";
@@ -7,6 +8,7 @@ import { type Release, releaseOf } from "./release";
 // time, to the end of 2026. The state lives in the company save; the main
 // process keeps it opaque, so this module owns its shape.
 
+export * from "./brand";
 export * from "./constants";
 export * from "./finance";
 export * from "./release";
@@ -34,6 +36,8 @@ export interface CampaignState {
   ledger: LedgerEntry[];
   /** Ended a year with negative cash. A bankrupt campaign is also over. */
   bankrupt: boolean;
+  /** Reach, perception and campaigns per buyer segment. */
+  brand: Brand;
 }
 
 /** What a quarter's resolution reads besides the campaign state. */
@@ -63,6 +67,7 @@ export function newCampaign(start: number): CampaignState {
     spent: { ...NO_SPEND },
     ledger: [],
     bankrupt: false,
+    brand: newBrand(),
   };
 }
 
@@ -88,6 +93,7 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     spent: spentOf(s.spent),
     ledger: Array.isArray(s.ledger) ? s.ledger.map(entryOf).filter((e): e is LedgerEntry => !!e) : [],
     bankrupt: s.bankrupt === true,
+    brand: brandOf(s.brand),
   };
 }
 
@@ -119,7 +125,9 @@ export const publishReviews: QuarterStep = (state) => state;
 export const simulateSales: QuarterStep = (state) => state;
 
 /** Paid campaigns run, and reach and reputation move with sales and reviews. */
-export const runMarketing: QuarterStep = (state) => state;
+export const runMarketing: QuarterStep = (state) =>
+  // No sales yet, so no buyers' outcomes: perception holds.
+  updatePerception(market(state), []);
 
 /** Revenue, part and production costs and stock settle into cash. */
 export const settleFinances: QuarterStep = (state) => settle(state);

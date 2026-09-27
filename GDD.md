@@ -1,6 +1,6 @@
 # The Laptop Foundry
 
-Design document for versions 0.1 and 0.2. Version 0.1 is described as it exists. Version 0.2 is the plan, set out under Version 0.2.
+Design document for versions 0.1 and 0.2. Version 0.1 is described as it exists. Version 0.2 is built, described under Version 0.2; anything left as a plan there says so.
 
 ## Frontend text rule
 
@@ -324,7 +324,7 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 
 ## Version 0.2
 
-Version 0.2 is the plan. It comes in three parts: a realism audit of the builder, then scoring and the market, then the sales simulation.
+Version 0.2 is built. It came in three parts: a realism audit of the builder, then scoring and the market, then the sales simulation.
 
 ### Step 0: builder realism audit
 
@@ -375,6 +375,7 @@ Rivals come from real makers and their real laptop lines. Each line has its real
 - The generator picks parts for a line and year, then swaps and fixes parts in a cheap loop until the build is valid and decent.
 - A year's market is generated the first time that year is opened in a company, then saved with the company.
 - The hand-built rival fields are deleted.
+- A line never sells its own parts at a loss. If its usual price band would, the price rises to the lowest point that still covers them.
 
 #### Market score
 
@@ -389,7 +390,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 
 #### Using the laptop
 
-- A simple text editor. The keyboard specification does not affect typing.
+- A simple text editor, its documents saved with the company. The keyboard specification does not affect typing.
 - Page loads are throttled by the build's hardware.
 - Mock gameplay for the light and middle games.
 - Real internet browsing and speaker-filtered sound are already built. Video clips are dropped.
@@ -398,25 +399,31 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 
 #### Modes
 
-- Campaign mode: the player picks a start year from 2006 to 2025 and plays forward in quarter turns to 2026.
+- Campaign mode: the player picks a start year from 2006 to 2025, starts with $5,000,000 cash, and plays forward one quarter at a time with End quarter, to the end of 2026.
 - Sandbox mode: today's free-year building stays, with no money and no sales. The 0.1 rules on spending and price hold there.
 
 #### Finances
 
-- The company has cash.
-- Part and tooling costs, production runs and stock, and the retailers' cut decide profit.
-- A company can go bust.
+- Releasing a model pays design and certification, then chassis tooling, once: $300,000 and $700,000 for a new chassis, $75,000 and $50,000 for a refresh on a body already tooled.
+- A production run is ordered at a size from 1,000 to 100,000 units. A unit pays the build's full cost at 5,000 units or fewer; economies of scale bring that to about 71% at 50,000 and a floor of 70% beyond.
+- Retailers keep 20% of every sale's retail price.
+- Fixed overhead runs $150,000 a quarter, plus $40,000 for every released line still holding stock.
+- Unsold stock costs 4% of its production value a quarter in holding, about 16% a year.
+- A company that ends a year with negative cash goes bust and the campaign ends.
 
 #### Sales
 
-- Each segment has a demand per quarter, on a seasonal curve.
-- Laptops split that demand by market score and price, plus bonuses from the review score, awards and novelty.
-- Rivals sell too.
+- Each segment's buyers this quarter, a share of its population on a seasonal curve, split among every laptop on sale by appeal.
+- Appeal multiplies the market score (exponential: a 10 sells about 4.8 times an average 5.5, a 1 about a fifth), price against the segment's price ceiling (falling fast past it, to about 14% of appeal at 50% over), screen size fit, a launch novelty bonus that decays roughly 15% a quarter, faster for segments that chase the new, the critics' review score, award bonuses, the maker's brand, and up to 12% random noise a quarter.
+- Every buyer buys. The player's sales stop at stock; rivals never run out.
+- A good quarter's buyers spread word of mouth, growing reach in the segments that bought.
 
 #### Marketing and brand
 
-- The company has reach and reputation per segment.
-- Sales, reviews and paid campaigns grow them.
+- Reach, the share of a segment that knows the company, and perception, its opinion of the company, are tracked per segment, ported from Laptop Tycoon.
+- A new company starts at 2% reach and neutral perception everywhere. Reach never falls below 1%.
+- Five paid campaign tiers run per segment per quarter, from grassroots at $2,000 to cultural omnipresence at $3,000,000, in 2000 dollars, rising 3% a year. Each grows reach toward a ceiling and spills some of its new buyers to neighbouring segments. Reach a campaign doesn't hold decays back down every quarter.
+- Perception moves with buyers' experience of value, market score and review score against par, smoothed a quarter at a time. A bad experience weighs 1.5 times a good one.
 
 #### Critics and awards
 
@@ -442,7 +449,8 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 
 #### Rival timing
 
-- Each line launches its yearly model in a given quarter.
+- Each line launches its yearly model in a quarter fixed per company, line and year: business lines early in the year, consumer lines skew to back to school and the holidays, gaming lines chase the fall game releases and the holidays. Apple and Microsoft follow their own announcement calendars instead.
+- A model stays on sale until its successor launches, plus a quarter to clear stock, or four quarters after its own launch if the line ends.
 
 ## Stretch goals
 

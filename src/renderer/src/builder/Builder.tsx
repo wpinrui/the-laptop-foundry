@@ -555,7 +555,7 @@ export function Builder({
             ? {
                 state: free,
                 openAngle: lid > 0 ? lid : LID_OPEN,
-                page: valid ? osScreen : undefined,
+                page: valid && !free.full ? osScreen : undefined,
                 onAim: freeAim,
                 onSettled: freeSettled,
               }
@@ -571,6 +571,7 @@ export function Builder({
           state={free}
           set={setFree}
           canUse={valid && !!osLook}
+          page={osLook ? { node: <SlotView slot={osSlot} />, width: osLook.width, height: osLook.height } : undefined}
           onExit={leaveFree}
           sound={sound}
           onSound={onSound}

@@ -1,5 +1,6 @@
 import { type BrowserWindow, session, type WebFrameMain, webFrameMain } from "electron";
 import { adblockCommit, adblockHeaders, adblockLoaded, adblockRequest, loadAdblock } from "./adblock";
+import { exitFull, FAKE_FULLSCREEN, FULL_TOKEN } from "./fullscreen";
 import { sponsorBlock } from "./sponsorblock";
 
 // The in-game browser: real sites load in sandboxed iframes inside the laptop
@@ -150,6 +151,20 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
     return { action: "deny" };
   });
 
+  // Tabs a site has put in (the stand-in) full screen, by frame.
+  const full = new Map<number, WebFrameMain>();
+  const setFull = (f: WebFrameMain, on: boolean) => {
+    if (on) full.set(f.frameTreeNodeId, f);
+    else if (!full.delete(f.frameTreeNodeId)) return;
+    send("fox:full", { frame: f.frameTreeNodeId, name: f.name, on });
+  };
+  wc.on("console-message", (e) => {
+    const { message, frame } = e;
+    if (!message.startsWith(FULL_TOKEN) || !frame) return;
+    if (frame.parent?.frameTreeNodeId !== wc.mainFrame.frameTreeNodeId) return;
+    setFull(frame, message.slice(FULL_TOKEN.length) === "on");
+  });
+
   // Where each tab went, so the address bar follows the page.
   const report = (f: WebFrameMain | null, url: string) => {
     if (f && web(url)) send("fox:nav", { frame: f.frameTreeNodeId, name: f.name, url });
@@ -158,7 +173,9 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
     if (main) return;
     noViewTransitions(pid, rid);
     const f = siteFrame(pid, rid);
+    if (f) setFull(f, false);
     if (f && web(url) && !appOrigin(url)) {
+      f.executeJavaScript(FAKE_FULLSCREEN).catch(() => {});
       adblockCommit(f, url);
       sponsorBlock(f, url);
     }
@@ -183,8 +200,18 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
       .catch(() => {});
   });
 
-  // Escape inside a site still reaches the game, which pauses on it.
-  wc.on("before-input-event", (_e, input) => {
-    if (input.type === "keyDown" && input.key === "Escape" && isSiteFrame(win, wc.focusedFrame)) send("fox:escape", null);
+  // Escape leaves a site's full screen and goes no further. Otherwise, inside
+  // a site it still reaches the game, which pauses on it.
+  wc.on("before-input-event", (e, input) => {
+    if (input.type !== "keyDown" || input.key !== "Escape") return;
+    if (full.size) {
+      e.preventDefault();
+      for (const f of [...full.values()]) {
+        exitFull(f);
+        setFull(f, false);
+      }
+      return;
+    }
+    if (isSiteFrame(win, wc.focusedFrame)) send("fox:escape", null);
   });
 }

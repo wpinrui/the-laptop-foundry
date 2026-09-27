@@ -23,6 +23,8 @@ export interface FoxTab {
   /** The next reported URL is where the chrome sent the frame, not a new page. */
   expect: boolean;
   frame: number | null;
+  /** The site asked for full screen: the frame covers the laptop's screen. */
+  full: boolean;
 }
 
 let seq = 0;
@@ -35,6 +37,7 @@ const tabOf = (url: string): FoxTab => ({
   loading: true,
   expect: true,
   frame: null,
+  full: false,
 });
 
 /** What the address bar's text means: an http or https URL, else a search. */
@@ -140,6 +143,12 @@ export function useFox(open: boolean, onEmpty: () => void) {
         return hit ? ts.map((t) => (t === hit ? { ...t, title: title.trim() || t.list[t.at], loading: false } : t)) : ts;
       }),
     );
+    const offFull = api.onFull(({ frame, name, on }) =>
+      setTabs((ts) => {
+        const hit = find(ts, frame, name);
+        return hit ? ts.map((t) => (t === hit ? { ...t, full: on } : t)) : ts;
+      }),
+    );
     const offOpen = api.onOpen((url) => {
       if (live.current.open && /^https?:\/\//i.test(url)) newTab(url);
     });
@@ -153,6 +162,7 @@ export function useFox(open: boolean, onEmpty: () => void) {
     return () => {
       offNav();
       offTitle();
+      offFull();
       offOpen();
       offEsc();
     };
@@ -227,7 +237,7 @@ function Frame({ tab, shown, onLoad }: { tab: FoxTab; shown: boolean; onLoad: ()
   const [src] = useState(() => tab.list[tab.at]);
   return (
     <iframe
-      className="fx-frame"
+      className={`fx-frame${tab.full && shown ? " fx-full" : ""}`}
       name={tab.id}
       title={tab.title}
       src={src}

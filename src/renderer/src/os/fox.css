@@ -227,3 +227,24 @@
   border: 0;
   background: #fff;
 }
+
+/* A site in full screen: its frame covers the laptop's whole screen, over the
+   window, the browser's chrome and the taskbar. The boxes between the screen
+   and the frame stop holding it in place, so the screen itself contains it. */
+.os:has(.fx-full) :is(.os-area, .os-win, .os-body, .os-fox, .fx-page) {
+  position: static !important;
+  transform: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  contain: none !important;
+  overflow: visible !important;
+}
+
+.os .fx-frame.fx-full {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+  background: #000;
+}

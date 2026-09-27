@@ -1,7 +1,13 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ElectronBlocker } from "@ghostery/adblocker-electron";
-import { app, type OnBeforeRequestListenerDetails, type OnHeadersReceivedListenerDetails, type WebFrameMain } from "electron";
+import {
+  app,
+  ipcMain,
+  type OnBeforeRequestListenerDetails,
+  type OnHeadersReceivedListenerDetails,
+  type WebFrameMain,
+} from "electron";
 import { parse } from "tldts-experimental";
 
 // uBlock-style blocking for the in-game browser's sites, from Ghostery's
@@ -62,61 +68,80 @@ export function adblockHeaders(
   return out;
 }
 
-// Styles go in as a constructed stylesheet so a page's CSP cannot refuse them.
-const addStyles = (css: string) =>
-  `(()=>{try{const s=new CSSStyleSheet();s.replaceSync(${JSON.stringify(css)});document.adoptedStyleSheets=[...document.adoptedStyleSheets,s]}catch{}})()`;
-
 function hostOf(url: string): { hostname: string; domain: string } {
   const p = parse(url);
   return { hostname: p.hostname || "", domain: p.domain || "" };
 }
 
+/** What the site frame preload applies at document start. */
+export interface AdblockStart {
+  styles: string;
+  scripts: string[];
+}
+
 /**
- * Hiding rules for a document that has just committed. No scriptlets: from
- * here they can only run once the page's own scripts have started, and that
- * late they break sites (YouTube renders a blank page) rather than fix them.
+ * Hiding rules and scriptlets for a document that is just starting. The site
+ * frame preload (src/preload/site.ts) asks for these synchronously and runs
+ * the scriptlets before any of the page's own scripts, which is the only time
+ * they work: later, they break sites instead of fixing them.
  */
-export function adblockCommit(f: WebFrameMain, url: string): void {
-  if (!blocker) return;
-  const { active, styles } = blocker.getCosmeticsFilters({
+function startRules(url: string): AdblockStart | null {
+  if (!blocker) return null;
+  const { active, styles, scripts } = blocker.getCosmeticsFilters({
     url,
     ...hostOf(url),
     getBaseRules: true,
-    getInjectionRules: false,
+    getInjectionRules: true,
     getExtendedRules: false,
     getRulesFromHostname: true,
     getRulesFromDOM: false,
   });
-  if (!active) return;
-  if (styles) f.executeJavaScript(addStyles(styles)).catch(() => {});
+  return active ? { styles, scripts } : null;
 }
 
-const DOM_SCAN = `(()=>{const c=new Set(),i=new Set(),h=new Set();
-for(const e of document.querySelectorAll('[id],[class],a[href]')){
-if(e.id)i.add(e.id);for(const k of e.classList)c.add(k);
-if(e.tagName==='A'&&e.href)h.add(e.href)}
-return {classes:[...c].slice(0,5000),ids:[...i].slice(0,5000),hrefs:[...h].slice(0,2000)}})()`;
+const strings = (v: unknown, max: number): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.length < 1000).slice(0, max) : [];
 
-/** Generic hiding rules that match what the loaded page actually has. */
-export function adblockLoaded(f: WebFrameMain): void {
-  if (!blocker) return;
-  const url = f.url;
-  f.executeJavaScript(DOM_SCAN)
-    .then((dom: { classes: string[]; ids: string[]; hrefs: string[] }) => {
-      if (!blocker || !dom) return;
-      const { active, styles } = blocker.getCosmeticsFilters({
-        url,
-        ...hostOf(url),
-        classes: dom.classes,
-        ids: dom.ids,
-        hrefs: dom.hrefs,
-        getBaseRules: false,
-        getInjectionRules: false,
-        getExtendedRules: false,
-        getRulesFromHostname: false,
-        getRulesFromDOM: true,
-      });
-      if (active && styles) f.executeJavaScript(addStyles(styles)).catch(() => {});
-    })
-    .catch(() => {});
+/** Generic hiding rules for the classes, ids and links a page has shown so far. */
+function domRules(url: string, dom: unknown): string {
+  if (!blocker || !dom || typeof dom !== "object") return "";
+  const d = dom as Record<string, unknown>;
+  const { active, styles } = blocker.getCosmeticsFilters({
+    url,
+    ...hostOf(url),
+    classes: strings(d.classes, 5000),
+    ids: strings(d.ids, 5000),
+    hrefs: strings(d.hrefs, 2000),
+    getBaseRules: false,
+    getInjectionRules: false,
+    getExtendedRules: false,
+    getRulesFromHostname: false,
+    getRulesFromDOM: true,
+  });
+  return active ? styles : "";
+}
+
+/**
+ * Answers the site frame preload, and only it: a request must come from a
+ * site frame (isSite), and the rules are for that frame's own document, never
+ * for an address the caller names.
+ */
+export function registerAdblockIpc(isSite: (f: WebFrameMain | null) => boolean): void {
+  const frameUrl = (f: WebFrameMain | null): string | null => {
+    try {
+      return f && isSite(f) && /^https?:\/\//i.test(f.url) ? f.url : null;
+    } catch {
+      return null;
+    }
+  };
+  ipcMain.removeAllListeners("fox-adblock:start");
+  ipcMain.removeHandler("fox-adblock:dom");
+  ipcMain.on("fox-adblock:start", (e) => {
+    const url = frameUrl(e.senderFrame);
+    e.returnValue = url ? startRules(url) : null;
+  });
+  ipcMain.handle("fox-adblock:dom", (e, dom: unknown) => {
+    const url = frameUrl(e.senderFrame);
+    return url ? domRules(url, dom) : "";
+  });
 }

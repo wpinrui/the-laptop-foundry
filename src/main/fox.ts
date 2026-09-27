@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { type BrowserWindow, session, type WebFrameMain, webFrameMain } from "electron";
-import { adblockCommit, adblockHeaders, adblockLoaded, adblockRequest, loadAdblock } from "./adblock";
+import { adblockHeaders, adblockRequest, loadAdblock, registerAdblockIpc } from "./adblock";
 import { exitFull, FAKE_FULLSCREEN, FULL_TOKEN } from "./fullscreen";
 import { sponsorBlock } from "./sponsorblock";
 
@@ -160,6 +160,13 @@ export function registerFox(
   sitePreload = join(__dirname, "../preload/site.js"),
 ): void {
   loadAdblock();
+  registerAdblockIpc((f) => {
+    try {
+      return !win.isDestroyed() && f?.top?.frameTreeNodeId === win.webContents.mainFrame.frameTreeNodeId && isSiteFrame(win, f) && !appOrigin(f.url);
+    } catch {
+      return false;
+    }
+  });
   // Runs at document start in site frames (see src/preload/site.ts).
   if (!session.defaultSession.getPreloadScripts().some((p) => p.id === "fox-site")) {
     session.defaultSession.registerPreloadScript({ type: "frame", id: "fox-site", filePath: sitePreload });
@@ -303,7 +310,6 @@ export function registerFox(
     if (f) setFull(f, false);
     if (f && web(url) && !appOrigin(url)) {
       f.executeJavaScript(FAKE_FULLSCREEN).catch(() => {});
-      adblockCommit(f, url);
       sponsorBlock(f, url);
     }
     report(tabFrame(win, pid, rid), url);
@@ -316,8 +322,6 @@ export function registerFox(
   });
   wc.on("did-frame-finish-load", (_e, main, pid, rid) => {
     if (main) return;
-    const sf = siteFrame(pid, rid);
-    if (sf && web(sf.url) && !appOrigin(sf.url)) adblockLoaded(sf);
     const f = tabFrame(win, pid, rid);
     if (!f) return;
     f.executeJavaScript("String(document.title)")

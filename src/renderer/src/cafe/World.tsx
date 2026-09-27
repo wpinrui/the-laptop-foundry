@@ -27,8 +27,11 @@ const BODY = 280;
 const START: [number, number, number] = [1500, EYE, 1900];
 /** The socket sits flush in the table top; this is how much the aim dot catches. */
 const SOCKET = new THREE.Vector3(70, 50, 70);
-/** The sun's shadow map is redrawn for this many frames after mount, then held. */
+/** The shadow maps are redrawn for this many frames after the room loads, then held. */
 const SHADOW_FRAMES = 90;
+/** The overhead key: just under the ceiling slats, pointing straight down, so its
+ * shadow camera's near plane stays level and below the ceiling everywhere. */
+const LAMP_AT: [number, number, number] = [0, 3150, 2300];
 
 type V3 = [number, number, number];
 
@@ -63,9 +66,25 @@ function useCafe(): { scene: THREE.Group; anchors: Anchors } {
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const unlit = mats.some((m) => m.type === "MeshBasicMaterial");
       const clear = mats.some((m) => m.transparent);
+      const glowing = mats.some((m) => {
+        const s = m as THREE.MeshStandardMaterial;
+        return !!s.emissive && s.emissiveIntensity > 0 && s.emissive.getHex() !== 0;
+      });
       mesh.receiveShadow = !unlit;
-      // Glass lets the sun through, and the street stays out of the shadow map.
-      mesh.castShadow = !unlit && !clear && !street.has(mesh);
+      // Glass lets the sun through, lamps don't shadow their own light, and
+      // the street stays out of the shadow map.
+      mesh.castShadow = !unlit && !clear && !glowing && !street.has(mesh);
+      // The designer's floor is white terrazzo: tint it, keeping the grain.
+      if (mats.some((m) => m.name === "terrazzo_white")) {
+        mesh.material = mats.map((m) => {
+          if (m.name !== "terrazzo_white") return m;
+          const t = (m as THREE.MeshStandardMaterial).clone();
+          t.name = "terrazzo_tinted";
+          t.color.set(token("cafe-floor"));
+          return t;
+        });
+        if (mats.length === 1) mesh.material = (mesh.material as THREE.Material[])[0];
+      }
     });
     return {
       scene,
@@ -80,28 +99,61 @@ function useCafe(): { scene: THREE.Group; anchors: Anchors } {
   }, [gltf]);
 }
 
-function Lights() {
-  const sun = useRef<THREE.DirectionalLight>(null);
-  const scene = useThree((s) => s.scene);
+/**
+ * The room is static: draw the shadows while everything settles, then hold
+ * them. Mounted with the room, so the count starts once the scene has loaded.
+ */
+function ShadowWarmup() {
   const gl = useThree((s) => s.gl);
   const frames = useRef(0);
-  useEffect(() => {
-    const aim = new THREE.Object3D();
-    aim.position.set(0, 0, 1200);
-    scene.add(aim);
-    if (sun.current) sun.current.target = aim;
-    return () => {
-      scene.remove(aim);
-    };
-  }, [scene]);
-  // The room is static: draw the shadows while everything settles, then hold them.
   useFrame(() => {
     if (frames.current >= SHADOW_FRAMES) return;
     frames.current++;
     gl.shadowMap.needsUpdate = true;
   });
+  return null;
+}
+
+function Lights() {
+  const sun = useRef<THREE.DirectionalLight>(null);
+  const lamp = useRef<THREE.DirectionalLight>(null);
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    const aim = new THREE.Object3D();
+    aim.position.set(0, 0, 1200);
+    // The overhead key looks down at the middle of the room.
+    const below = new THREE.Object3D();
+    below.position.set(LAMP_AT[0] + 1, 0, LAMP_AT[2]);
+    scene.add(aim, below);
+    if (sun.current) sun.current.target = aim;
+    if (lamp.current) lamp.current.target = below;
+    return () => {
+      scene.remove(aim, below);
+    };
+  }, [scene]);
   return (
     <>
+      {/* A soft key from just under the ceiling, standing in for the lamps,
+          so the furniture grounds itself where the sun never reaches. Its
+          shadow camera starts below the ceiling so the ceiling does not
+          shade the room. */}
+      <directionalLight
+        ref={lamp}
+        position={LAMP_AT}
+        color={token("cafe-lamp")}
+        intensity={0.9}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-7600}
+        shadow-camera-right={7600}
+        shadow-camera-top={7600}
+        shadow-camera-bottom={-7600}
+        shadow-camera-near={0}
+        shadow-camera-far={3600}
+        shadow-bias={-0.0005}
+        shadow-normalBias={8}
+        shadow-radius={6}
+      />
       <hemisphereLight args={[token("cafe-sky"), token("cafe-shade"), 0.25]} />
       <directionalLight
         ref={sun}
@@ -294,6 +346,7 @@ function Room({
       <group scale={M}>
         <primitive object={scene} />
       </group>
+      <ShadowWarmup />
       <group ref={laptop} position={anchors.laptop}>
         <Model {...model} lidAngle={105} xray={false} labelFor={noLabel} onHover={noHover} />
       </group>

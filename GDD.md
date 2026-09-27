@@ -1,6 +1,6 @@
 # The Laptop Foundry
 
-Design document for version 0.1.
+Design document for versions 0.1 and 0.2. Version 0.1 is described as it exists. Version 0.2 is the plan, set out under Version 0.2.
 
 ## Frontend text rule
 
@@ -11,6 +11,8 @@ Design document for version 0.1.
 The player picks a year, builds a laptop from components, and receives a professional review of it with a score.
 
 Version 0.1 has no tycoon features. There is no sales simulation, no capital and no balance. The loop is build, get reviewed, duplicate to try again, and use the laptop.
+
+Version 0.2 keeps that loop as sandbox mode and adds a campaign mode with a market, finances and sales.
 
 Each place has a feel:
 
@@ -31,6 +33,7 @@ Each place has a feel:
 ## Years
 
 - The player picks any year from 2006 to 2026. Every year is open, each with its own parts, options and rivals.
+- From 0.2 this free pick is sandbox mode. Campaign mode starts at a chosen year and moves forward a quarter at a time.
 - Each year offers two generations of processors and graphics: that year's and the one before.
 - The year gates everything available: parts, bodies, materials and specification options. Colours, keycap styling and decals are open in every year.
 - Moving a model to a year where a part does not exist makes that part unavailable.
@@ -134,7 +137,7 @@ The operating system is always Windows. The player does not choose it and it aff
 - The player can spend more to make parts smaller or pack them tighter.
 - Each part has a Compact slider. Compact spend takes height and room off parts such as the keyboard, trackpad and speakers. The chassis has Packing and Material spend.
 - The player can spend more on better materials: lighter, better at heat transfer, or more durable.
-- Spending is free in version 0.1. There is no trade-off, and maxing every slider is allowed.
+- Spending is free in version 0.1 and in sandbox mode. There is no trade-off, and maxing every slider is allowed.
 - All spending adds to the displayed cost price.
 
 ### Power
@@ -147,7 +150,7 @@ The operating system is always Windows. The player does not choose it and it aff
 - The player sets a retail price in United States dollars at that year's nominal value.
 - The price decides the budget tier of the device class.
 - The build's cost price is displayed.
-- Price has no other mechanical effect.
+- In 0.1 and sandbox mode, price has no other mechanical effect. From 0.2 in campaign mode, price counts in the market score and in sales.
 
 ### Live measurements
 
@@ -178,7 +181,7 @@ An example class is a premium thin and light mixed-use laptop.
 
 ## Rating
 
-Scoring is deferred past version 0.1. In 0.1 every score is a dice roll.
+In 0.1 every score is a dice roll. Version 0.2 replaces the dice with the review score under Version 0.2.
 
 - Each category score and the overall score are rolled at random.
 - The roll is fixed per model. Reopening a review shows the same scores. A duplicate is a new model, so it rolls again.
@@ -192,6 +195,8 @@ Chassis, keyboard, pointing device, connectivity, weight, battery life, display,
 There is no sustainability score.
 
 ## Rivals
+
+This is the 0.1 field. Version 0.2 replaces it with generated lines from more makers, under Version 0.2.
 
 - Rivals are real laptops from six real makers: Lenovo, HP, Dell, Apple, Asus and Acer.
 - The six makers are constant across all years. There are no entries or exits.
@@ -315,44 +320,109 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 
 ## Version 0.2
 
-- Real internet browsing on the laptop
+Version 0.2 is the plan. It comes in three parts: a realism audit of the builder, then scoring and the market, then the sales simulation.
+
+### Step 0: builder realism audit
+
+Before any other 0.2 work, the builder is audited and fixed for realism. The work may take liberties where it has a good reason.
+
+- Parts and options are gated to their real years. A 3K IPS panel in 2007 is not offered.
+- Display brightness has a ceiling per year, rising to 1000 nits and more by 2026.
+- Keyboard and trackpad quality depend on more than key travel.
+- Trackpad size presets are weighed against the free slider.
+- Compact sliders that do nothing are fixed or removed.
+- Quality sliders give diminishing returns on cutting-edge technology.
+
+### First half: scoring and the market
+
+#### Review score
+
+The review score is the critics' score. It replaces the 0.1 dice.
+
+- Each of the 13 categories is scored on its own.
+- Categories with a measurement are scored from it. Chassis, keyboard, pointing device, display, audio, camera and connectivity are scored from a formula over the specification.
+- Every scale is absolute and tightens by year. A score never compares the build to other laptops.
+- The first scales are drafted from what the game's own parts can achieve in each year. They are tuned by play-testing.
+- The review score feeds critics, awards and sales bonuses.
+
+#### Makers and lines
+
+Rivals come from real makers and their real laptop lines. Each line has its real years, a class, a price band and its priorities. A line makes one model per year.
+
+| Maker | Lines |
+|---|---|
+| Lenovo | IdeaPad, Yoga, ThinkPad, Legion |
+| Dell | Inspiron, XPS, Latitude, Alienware |
+| HP | Pavilion, Envy, Spectre, EliteBook, Omen |
+| Apple | MacBook, MacBook Air, MacBook Pro |
+| Asus | VivoBook, ZenBook, ROG |
+| Acer | Aspire, Swift, Predator |
+| MSI | Modern, Prestige, gaming lines |
+| Samsung | Galaxy Book |
+| Microsoft | Surface Laptop |
+| Razer | Blade |
+| Toshiba | Satellite, Portege, until Toshiba left the market |
+| Sony | VAIO, until 2014 |
+
+- Apple lines may use the M-series chips. The player still cannot.
+
+#### Rival generator
+
+- The generator picks parts for a line and year, then swaps and fixes parts in a cheap loop until the build is valid and decent.
+- A year's market is generated the first time that year is opened in a company, then saved with the company.
+- The hand-built rival fields are deleted.
+
+#### Market score
+
+The market score is the tycoon score. It rates a laptop for buyers directly and is separate from the review score.
+
+- Headline stats: application performance, games performance, battery life, portability (weight and thickness), display, chassis and build, keyboard, trackpad, connectivity, thermals and noise, audio, and price.
+- Buyer segments are Laptop Tycoon's 20 segments, ported directly with their relative weights and remapped onto these headline stats.
+- Each stat is taken as a ratio to that year's market average, clamped to 0.5 to 1.5.
+- Per segment, the mean ratio under that segment's weights maps linearly to 1 to 10: 0.5 gives 1 and 1.5 gives 10.
+- Uniform noise of up to 0.5 either way is added, and the result is rounded.
+- A stat is good for a segment at a ratio of 1.15 or more, and bad at 0.85 or less.
+
+#### Using the laptop
+
 - A simple text editor. The keyboard specification does not affect typing.
-- Video clips that show off the screen and speakers
-- Page loads that slow down on weak hardware
-- Mock gameplay for the light and middle games
+- Page loads are throttled by the build's hardware.
+- Mock gameplay for the light and middle games.
+- Real internet browsing and speaker-filtered sound are already built. Video clips are dropped.
 
-## Deferred past 0.1
+### Second half: the sales simulation
 
-### Rating scheme
+#### Modes
 
-The rating mirrors Notebookcheck's approach. One scheme applies to every year, with expectations adjusted to the year.
+- Campaign mode: the player picks a start year from 2006 to 2025 and plays forward in quarter turns to 2026.
+- Sandbox mode: today's free-year building stays, with no money and no sales. The 0.1 rules on spending and price hold there.
 
-#### Scale
+#### Finances
 
-- For every year, class and category, the team researches the real best reasonable laptop and the real worst reasonable laptop.
-- The best one's measurement maps to about 90%. The worst one's maps to about 50%.
-- A curve interpolates between those points and extrapolates beyond them, capped at 100%.
-- These anchors only ground expectations. They never appear as products in the game.
-- The room above 90% rewards a build that beats the whole field.
+- The company has cash.
+- Part and tooling costs, production runs and stock, and the retailers' cut decide profit.
+- A company can go bust.
 
-#### Weights
+#### Sales
 
-- Each of the 27 classes has its own category weights.
-- Mathematical curves produce the starting weights. The team then hand-picks them during playtesting.
+- Each segment has a demand per quarter, on a seasonal curve.
+- Laptops split that demand by market score and price, plus bonuses from the review score, awards and novelty.
+- Rivals sell too.
 
-#### Impression nudge
+#### Marketing and brand
 
-- The pros and cons list nudges the final score. Standouts that beat every rival push it up. Dealbreakers below the worst rival push it down.
-- The nudge is capped at a few percent either way.
+- The company has reach and reputation per segment.
+- Sales, reviews and paid campaigns grow them.
 
-#### Rivals
+#### Critics and awards
 
-- Category scores never depend on the rivals. Rivals only shape the impression nudge.
-- During development, a tool builds each rival to hit a target score within the anchor-defined range. The field spreads from near the top to near the bottom.
+- Critics review a laptop after launch.
+- Awards are given at year end.
+- Both come from the review score.
 
-#### Content to curate
+#### Rival timing
 
-- Best and worst reasonable real laptops per year, class and category
+- Each line launches its yearly model in a given quarter.
 
 ## Stretch goals
 
@@ -401,8 +471,9 @@ This is the highest-priority technical requirement. For every combination of cho
 - The page is laid live over the three-dimensional laptop screen. The panel's effects are drawn over it, so input lands on the page itself.
 - The texture is filtered by the panel's resolution, brightness and colour.
 - Full screen keeps the filter, seen head-on.
-- From version 0.2, the real internet must be sandboxed, and page loads are throttled to match the hardware.
-- From version 0.2, video audio is filtered to match the speaker specification.
+- The real internet is sandboxed. Done.
+- Sound is filtered to match the speaker specification. Done.
+- From version 0.2, page loads are throttled to match the hardware.
 
 ### Era websites
 
@@ -422,8 +493,10 @@ This is the highest-priority technical requirement. For every combination of cho
 - Specification options per category, with unlock years
 - Preset bodies with year availability, scaling limits and layouts
 - Materials with year availability
-- Which of the six makers compete in which classes
-- Rival presets per year and class
+- In 0.1, which of the six makers compete in which classes, and rival presets per year and class
+- From 0.2, makers and their lines, each with its years, class, price band, priorities and launch quarter
+- From 0.2, review score scales per category and year
+- From 0.2, Laptop Tycoon's 20 buyer segments and their weights, remapped onto the headline stats
 - Processor benchmark editions
 - Three games with an edition every three years
 - Era website designs

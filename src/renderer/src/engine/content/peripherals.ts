@@ -252,7 +252,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2012,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: [3.3, 1.65] },
+    shape: { kind: "keys", rows: 6, stack: [3.3, 1.8] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],

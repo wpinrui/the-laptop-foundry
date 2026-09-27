@@ -19,12 +19,14 @@ export const lookOf = (era: Era): Era => era;
 export const APP_NAME: Record<AppId, string> = {
   kiln: "Kilnbench",
   ash: "Ashfall",
+  tiles: "Tavern Tiles",
+  rally: "Coastline Rally",
   web: "Notebookcheck",
   fox: "Firefox",
   note: "Notepad",
   sys: "System",
 };
-const DESK_APPS: AppId[] = ["kiln", "ash", "web", "fox", "note", "sys"];
+const DESK_APPS: AppId[] = ["kiln", "ash", "rally", "tiles", "web", "fox", "note", "sys"];
 
 const PROFILE_NAME: Record<ProfileId, string> = { high: "High", medium: "Medium", low: "Low" };
 const PRESET_NAME: Record<Preset, string> = { low: "Low", medium: "Medium", high: "High", ultra: "Ultra" };
@@ -137,7 +139,7 @@ function Tray({ era, power, muted, year, now, trayOpen, onTray }: TaskbarProps) 
   );
 }
 
-const PINNED: AppId[] = ["fox", "web", "note", "kiln", "ash", "sys"];
+const PINNED: AppId[] = ["fox", "web", "note", "kiln", "ash", "rally", "tiles", "sys"];
 
 export function Taskbar(p: TaskbarProps) {
   const { era, app, minimised, onOpen, onTask } = p;
@@ -447,12 +449,15 @@ function Fps({ fps, history }: { fps: number; history: number[] }) {
   );
 }
 
+/** A game's painter: one frame at game clock `t`. */
+export type GamePaint = (g: CanvasRenderingContext2D, w: number, h: number, detail: Era, preset: Preset, t: number) => void;
+
 /** The live game: redrawn only as often as the simulated frame rate allows. */
-function AshLive({ fps, detail, preset }: { fps: number; detail: Era; preset: Preset }) {
+function AshLive({ fps, detail, preset, paint }: { fps: number; detail: Era; preset: Preset; paint: GamePaint }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const [shown, setShown] = useState({ fps: 0, history: [] as number[] });
-  const live = useRef({ fps, detail, preset });
-  live.current = { fps, detail, preset };
+  const live = useRef({ fps, detail, preset, paint });
+  live.current = { fps, detail, preset, paint };
   useEffect(() => {
     let id = 0;
     let last = 0;
@@ -483,7 +488,7 @@ function AshLive({ fps, detail, preset }: { fps: number; detail: Era; preset: Pr
         c.height = h;
       }
       const g = c.getContext("2d");
-      if (g) paintAsh(g, w, h, s.detail, s.preset, clock);
+      if (g) s.paint(g, w, h, s.detail, s.preset, clock);
     };
     id = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(id);
@@ -507,8 +512,13 @@ export function AshApp({
   refusal,
   onOk,
   still,
+  app = "ash",
+  paint = paintAsh,
 }: {
   era: Era;
+  /** Which game: Ashfall unless said otherwise. */
+  app?: AppId;
+  paint?: GamePaint;
   editions: number[];
   edition: number;
   onEdition?: (y: number) => void;
@@ -528,9 +538,9 @@ export function AshApp({
     <div className="os-ash">
       <div className="as-tools">
         <Pick
-          label="Ashfall edition"
+          label={`${APP_NAME[app]} edition`}
           value={edition}
-          options={editions.map((y) => ({ value: y, label: `Ashfall ${y}` }))}
+          options={editions.map((y) => ({ value: y, label: `${APP_NAME[app]} ${y}` }))}
           onChange={onEdition}
           width={170}
         />
@@ -550,9 +560,9 @@ export function AshApp({
               <Fps fps={still.fps} history={Array.from({ length: 14 }, (_, i) => still.fps * (0.9 + ((i * 7) % 5) * 0.04))} />
             </>
           ) : (
-            <AshLive fps={fps} detail={detail} preset={preset} />
+            <AshLive fps={fps} detail={detail} preset={preset} paint={paint} />
           ))}
-        {refusal && <MsgBox app="ash" title={`Ashfall ${edition}`} text={refusal} onOk={onOk} />}
+        {refusal && <MsgBox app={app} title={`${APP_NAME[app]} ${edition}`} text={refusal} onOk={onOk} />}
       </div>
     </div>
   );

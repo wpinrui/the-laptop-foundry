@@ -39,6 +39,22 @@ export function Glyph({ app, s }: { app: AppId; s: number }) {
         <b className="ridge" />
       </i>
     );
+  if (app === "tiles")
+    return (
+      <i className="osi osi-tiles" style={size(s)}>
+        <b className="t1" />
+        <b className="t2" />
+        <b className="t3" />
+        <b className="t4" />
+      </i>
+    );
+  if (app === "rally")
+    return (
+      <i className="osi osi-rally" style={size(s)}>
+        <b className="road" />
+        <b className="line" />
+      </i>
+    );
   if (app === "web")
     return (
       <i className="osi osi-web" style={size(s)}>

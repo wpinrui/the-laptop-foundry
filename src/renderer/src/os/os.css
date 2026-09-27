@@ -352,6 +352,61 @@
   clip-path: polygon(0 45%, 22% 20%, 40% 42%, 62% 8%, 82% 36%, 100% 22%, 100% 100%, 0 100%);
 }
 
+.osi-tiles {
+  background: linear-gradient(160deg, #7a4a2a, #3e2414);
+}
+
+.osi-tiles b {
+  width: 34%;
+  height: 34%;
+  border-radius: 18%;
+}
+
+.osi-tiles .t1 {
+  left: 12%;
+  top: 12%;
+  background: #e0563f;
+}
+
+.osi-tiles .t2 {
+  right: 12%;
+  top: 12%;
+  background: #f0c040;
+}
+
+.osi-tiles .t3 {
+  left: 12%;
+  bottom: 12%;
+  background: #4a86d8;
+}
+
+.osi-tiles .t4 {
+  right: 12%;
+  bottom: 12%;
+  background: #4fae5a;
+}
+
+.osi-rally {
+  background: linear-gradient(180deg, #3a7ad0 0%, #b8dcf5 44%, #4e9a48 44%);
+}
+
+.osi-rally .road {
+  left: 0;
+  right: 0;
+  top: 44%;
+  bottom: 0;
+  background: #5c5e62;
+  clip-path: polygon(46% 0, 54% 0, 92% 100%, 8% 100%);
+}
+
+.osi-rally .line {
+  left: 48%;
+  width: 4%;
+  top: 60%;
+  height: 22%;
+  background: #f2f2e8;
+}
+
 .osi-web {
   border-radius: 50%;
   background: linear-gradient(160deg, #8fd0ff, #1f62c9);
@@ -1892,6 +1947,8 @@
 
 /* Ashfall and the browser put their toolbars on the glass. */
 .os-2016 .os-win-ash .os-body,
+.os-2016 .os-win-tiles .os-body,
+.os-2016 .os-win-rally .os-body,
 .os-2016 .os-win-web .os-body {
   border: none;
   background: transparent;

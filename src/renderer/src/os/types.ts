@@ -5,7 +5,7 @@ import { eraOf } from "../review/ReviewSite";
 export type { Era };
 export { eraOf };
 
-export type AppId = "kiln" | "ash" | "web" | "fox" | "note" | "sys";
+export type AppId = "kiln" | "ash" | "tiles" | "rally" | "web" | "fox" | "note" | "sys";
 
 /** Who the laptop belongs to, as its OS shows it. */
 export interface Owner {

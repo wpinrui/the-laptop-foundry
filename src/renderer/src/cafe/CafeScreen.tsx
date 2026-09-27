@@ -21,14 +21,17 @@ import {
 } from "../engine";
 import type { Preset } from "../engine/bench";
 import { balancedProfile } from "../engine/sim/profiles";
-import { BOOT_MS } from "../os/art";
+import { BOOT_MS, paintAsh } from "../os/art";
+import { paintRally, paintTiles } from "../os/games";
 import {
+  APP_NAME,
   AshApp,
   Boot,
   Browser,
   Desktop,
   Empty,
   Flyout,
+  type GamePaint,
   KilnApp,
   lookOf as osLook,
   type RankRow,
@@ -76,6 +79,13 @@ const FEATURE: Record<string, string> = {
   dx12: "low-level rendering",
   dx12u: "mesh shaders",
   rt: "hardware ray tracing",
+};
+
+/** The games on the laptop: the engine's id for each app, and how it draws. */
+const GAME_APPS: Partial<Record<AppId, { id: string; paint: GamePaint }>> = {
+  ash: { id: "ashfall", paint: paintAsh },
+  rally: { id: "coastline-rally", paint: paintRally },
+  tiles: { id: "tavern-tiles", paint: paintTiles },
 };
 
 const slug = (s: string) =>
@@ -306,10 +316,11 @@ export function useLaptopOs({
 
   const battery = m.battery;
   const off = !!battery && wh <= 0 && !plugged;
-  const ash = gameR?.games.find((g) => g.id === "ashfall");
-  const ashRun = ash?.runs?.find((x) => x.preset === preset && !x.native);
+  const gameApp = app ? GAME_APPS[app] : undefined;
+  const game = gameApp ? gameR?.games.find((g) => g.id === gameApp.id) : undefined;
+  const gameRun = game?.runs?.find((x) => x.preset === preset && !x.native);
   const running = phase === "on" && !off;
-  const load: "cpu" | "gpu" | null = !running ? null : kiln.running ? "cpu" : app === "ash" && ashRun ? "gpu" : null;
+  const load: "cpu" | "gpu" | null = !running ? null : kiln.running ? "cpu" : gameRun ? "gpu" : null;
   const i = Math.min(tl.cpu.db.length - 1, Math.floor(heat));
   const last = (a: number[]) => a[a.length - 1] ?? 0;
   const active = load ? tl[load] : tl.cpu;
@@ -324,7 +335,7 @@ export function useLaptopOs({
   const eraRef = build.year < 2012 ? 600 : build.year < 2020 ? 5000 : 20000;
   const work = 40 * eraRef;
   const gfxRef = m.cooling?.graphics.sustained ?? 1;
-  const fps = ashRun ? (ashRun.fps * tl.gpu.graphics[i]) / gfxRef : 0;
+  const fps = gameRun ? (gameRun.fps * tl.gpu.graphics[i]) / gfxRef : 0;
 
   // One tick a quarter second: heat, benchmark progress and battery.
   const state = useRef({ load, kiln, plugged, app, heat });
@@ -447,10 +458,10 @@ export function useLaptopOs({
     const c = CONTENT.parts.find((p) => p.id === build.parts.processor?.[0]?.part);
     return g?.name ?? String(c?.info?.igpu ?? "integrated graphics");
   }, [build]);
-  const missing = (ash?.missing ?? []).map((f) => FEATURE[f] ?? f);
+  const missing = (game?.missing ?? []).map((f) => FEATURE[f] ?? f);
   const refusal =
-    app === "ash" && !ashRun && dismissed !== gameYear
-      ? `Ashfall ${gameYear} needs a graphics processor with ${missing.length ? missing.join(" and ") : "newer features"}. This laptop's ${gpuName} does not have ${missing.length > 1 ? "them" : "it"}.`
+    app && gameApp && !gameRun && dismissed !== gameYear
+      ? `${APP_NAME[app]} ${gameYear} needs a graphics processor with ${missing.length ? missing.join(" and ") : "newer features"}. This laptop's ${gpuName} does not have ${missing.length > 1 ? "them" : "it"}.`
       : null;
 
   const open = (a: AppId) => {
@@ -517,10 +528,13 @@ export function useLaptopOs({
         />
       </Win>
     );
-  else if (app === "ash")
+  else if (app && gameApp)
     win = (
-      <Win app="ash" title={`Ashfall ${gameYear}`} w={99999} h={99999} {...winProps}>
+      <Win app={app} title={`${APP_NAME[app]} ${gameYear}`} w={99999} h={99999} {...winProps}>
         <AshApp
+          key={app}
+          app={app}
+          paint={gameApp.paint}
           era={era}
           editions={GAME_EDITIONS}
           edition={gameYear}

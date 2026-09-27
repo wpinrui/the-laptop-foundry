@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { SAMPLES } from "../samples";
 import {
+  buildCost,
+  isRefresh,
   newCampaign,
   release,
   releaseQuote,
@@ -8,6 +11,20 @@ import {
   scaleFactor,
   stepRun,
 } from "./index";
+
+describe("buildCost and chassis", () => {
+  it("prices a sample build and knows a refresh by its body", () => {
+    const b = SAMPLES[0].build;
+    const cost = buildCost(b);
+    expect(cost).toBeGreaterThan(100);
+    expect(cost).toBeLessThan(5_000);
+    const bumped = structuredClone(b);
+    bumped.price = 1234;
+    expect(isRefresh(bumped, [b])).toBe(true);
+    bumped.size = { ...b.size, x: b.size.x + 10 };
+    expect(isRefresh(bumped, [b])).toBe(false);
+  });
+});
 
 describe("scaleFactor", () => {
   it("is full cost at or under the reference and floors at 0.7", () => {

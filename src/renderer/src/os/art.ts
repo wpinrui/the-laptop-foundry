@@ -16,7 +16,7 @@ export const ORDER: number[] = (() => {
   return Array.from({ length: TILES_X * TILES_Y }, (_, i) => i).sort((a, b) => d(a) - d(b));
 })();
 
-function rng(seed: number) {
+export function rng(seed: number) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -90,7 +90,7 @@ function stillOf(w: number, h: number): HTMLCanvasElement {
   return c;
 }
 
-function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+export function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   g.beginPath();
   g.roundRect(x, y, w, h, r);
 }
@@ -163,7 +163,7 @@ export function paintKiln(g: CanvasRenderingContext2D, W: number, H: number, pro
 
 // ------------------------------------------------------------------ Ashfall
 
-const PRESET_DETAIL: Record<Preset, number> = { low: 0.5, medium: 0.75, high: 1, ultra: 1.3 };
+export const PRESET_DETAIL: Record<Preset, number> = { low: 0.5, medium: 0.75, high: 1, ultra: 1.3 };
 
 /**
  * One frame of Ashfall: a walker on a ridge facing the sun through falling

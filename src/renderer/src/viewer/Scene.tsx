@@ -19,7 +19,7 @@ import { LID_GROUP } from "../models/roles/hinge";
 import { BaseMarks, LidDecor } from "./Decor";
 import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
-import { type Cuts, portCuts, wallPositions } from "./walls";
+import { type Cuts, flushBay, portCuts, wallPositions } from "./walls";
 import {
   disposeUnit,
   renderUnit,
@@ -719,9 +719,10 @@ function Openings({ fit }: { fit: Fit }) {
   return (
     <group>
       {fit.shell.cutouts.map((o) => {
-        // A port's model draws its own opening; an opaque block here would
-        // hide the connector face and read as a brick poking out of the wall.
-        if (o.kind === "port") return null;
+        // A port's or bay's model draws its own opening (a connector face, a
+        // drive bezel); an opaque block here would hide it and read as a
+        // black brick in the wall.
+        if (o.kind === "port" || o.kind === "bay") return null;
         const du = o.u[1] - o.u[0];
         const dz = o.z[1] - o.z[0];
         const uc = (o.u[0] + o.u[1]) / 2;
@@ -824,9 +825,11 @@ export const Model = memo(function Model({
   useEffect(() => () => ctx.dispose(), [ctx]);
   const base = useMemo(
     () =>
-      fit.boxes.filter(
-        (b) => b.kind === "unit" && b.piece !== "lid" && !(hideDeck && b.piece === "deck" && !paint?.selected.has(b.id)),
-      ),
+      fit.boxes
+        .filter(
+          (b) => b.kind === "unit" && b.piece !== "lid" && !(hideDeck && b.piece === "deck" && !paint?.selected.has(b.id)),
+        )
+        .map((b) => flushBay(b, fit.shell.outer)),
     [fit, hideDeck, paint],
   );
   const lid = useMemo(

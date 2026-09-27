@@ -157,11 +157,12 @@ function drive(k: Kit, m: Mats, Lb: number, H: number, R: number): [number, numb
   bezel.holes.push(circlePath(pinX, btnY, pinR));
   bezel.holes.push(pathOf(rect(ledX, ledY, ledW, ledH)));
   k.prism(m.plastic, bezel, zOut, zb, 6, "bezel");
-  // Slot floor, set back behind the bezel; button and light just behind the face.
-  k.box(m.rubber, slotX - slotW / 2, slotX + slotW / 2, slotY - slotH / 2, slotY + slotH / 2, zb, zb + 0.3, "slot");
+  // Slot floor, set back behind the bezel face and standing proud of the body
+  // behind it, so the two never share a plane; button and light just behind the face.
+  k.box(m.rubber, slotX - slotW / 2, slotX + slotW / 2, slotY - slotH / 2, slotY + slotH / 2, zb - 0.1, zb + 0.3, "slot");
   k.box(m.plastic, btnX - btnW / 2 + 0.15, btnX + btnW / 2 - 0.15, btnY - btnH / 2 + 0.15, btnY + btnH / 2 - 0.15, zOut + 0.2, zb + 0.4, "eject");
   k.box(m.glow, ledX - ledW / 2 + 0.02, ledX + ledW / 2 - 0.02, ledY - ledH / 2 + 0.02, ledY + ledH / 2 - 0.02, zOut + 0.15, zb, "light");
-  k.box(m.rubber, pinX - pinR, pinX + pinR, btnY - pinR, btnY + pinR, zb, zb + 0.2, "pinhole");
+  k.box(m.rubber, pinX - pinR, pinX + pinR, btnY - pinR, btnY + pinR, zb - 0.1, zb + 0.2, "pinhole");
 
   // Metal body behind the bezel, the stamped top cover over it.
   const coverT = Math.min(0.25, 0.03 * H);
@@ -191,8 +192,8 @@ function bayBattery(k: Kit, m: Mats, Lb: number, H: number, R: number): [number,
   const chX = x1 - 4 - chW / 2;
   const bezel = shapeOf(rect(0, 0, Lb, H));
   bezel.holes.push(pathOf(rect(chX, 0, chW, chH)));
-  k.prism(m.body, bezel, zOut, zb, 2, "bezel");
-  k.box(m.rubber, chX - chW / 2, chX + chW / 2, -chH / 2, chH / 2, zb, zb + 0.3, "channel");
+  k.prism(m.plastic, bezel, zOut, zb, 2, "bezel");
+  k.box(m.rubber, chX - chW / 2, chX + chW / 2, -chH / 2, chH / 2, zb - 0.1, zb + 0.3, "channel");
   const sw = 0.4 * chW;
   k.box(m.plastic, chX - chW / 2 + 0.3, chX - chW / 2 + 0.3 + sw, -chH / 2 + 0.2, chH / 2 - 0.2, zOut + 0.25, zb + 0.3, "release");
 

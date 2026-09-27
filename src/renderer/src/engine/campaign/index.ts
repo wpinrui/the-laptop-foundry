@@ -1,5 +1,6 @@
 import type { SavedCampaign, SavedModel } from "../../../../preload/store";
 import { END_YEAR, FIRST_START, LAST_START, STARTING_CASH } from "./constants";
+import { entryOf, type LedgerEntry, NO_SPEND, type Spent, settle, spentOf } from "./finance";
 import { type Release, releaseOf } from "./release";
 
 // Campaign mode: a company plays forward from a start year a quarter at a
@@ -7,6 +8,7 @@ import { type Release, releaseOf } from "./release";
 // process keeps it opaque, so this module owns its shape.
 
 export * from "./constants";
+export * from "./finance";
 export * from "./release";
 
 export type QuarterOfYear = 1 | 2 | 3 | 4;
@@ -26,6 +28,12 @@ export interface CampaignState {
   over: boolean;
   /** Released models by model id. */
   releases: Record<string, Release>;
+  /** Setup and production paid so far this quarter, for its ledger entry. */
+  spent: Spent;
+  /** One entry per resolved quarter, oldest first. */
+  ledger: LedgerEntry[];
+  /** Ended a year with negative cash. A bankrupt campaign is also over. */
+  bankrupt: boolean;
 }
 
 /** What a quarter's resolution reads besides the campaign state. */
@@ -50,7 +58,12 @@ export function nextQuarter(q: Quarter): Quarter {
 
 export function newCampaign(start: number): CampaignState {
   const year = Math.min(LAST_START, Math.max(FIRST_START, Math.round(start)));
-  return { start: year, now: { year, quarter: 1 }, cash: STARTING_CASH, over: false, releases: {} };
+  return { start: year, now: { year, quarter: 1 }, cash: STARTING_CASH, over: false,
+    releases: {},
+    spent: { ...NO_SPEND },
+    ledger: [],
+    bankrupt: false,
+  };
 }
 
 /** A saved campaign's state, with anything missing or broken filled from a fresh start. */
@@ -72,6 +85,9 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     cash: typeof s.cash === "number" && Number.isFinite(s.cash) ? s.cash : fresh.cash,
     over: s.over === true,
     releases: releasesOf(s.releases),
+    spent: spentOf(s.spent),
+    ledger: Array.isArray(s.ledger) ? s.ledger.map(entryOf).filter((e): e is LedgerEntry => !!e) : [],
+    bankrupt: s.bankrupt === true,
   };
 }
 
@@ -106,7 +122,7 @@ export const simulateSales: QuarterStep = (state) => state;
 export const runMarketing: QuarterStep = (state) => state;
 
 /** Revenue, part and production costs and stock settle into cash. */
-export const settleFinances: QuarterStep = (state) => state;
+export const settleFinances: QuarterStep = (state) => settle(state);
 
 /** At year end, awards are given from the review scores. */
 export const presentAwards: QuarterStep = (state) => state;
@@ -115,6 +131,7 @@ const STEPS: QuarterStep[] = [launchRivals, publishReviews, simulateSales, runMa
 
 /** Moves the clock on a quarter, or ends the campaign after its last one. */
 export function advanceClock(state: CampaignState): CampaignState {
+  if (state.over) return state;
   if (isLastQuarter(state.now)) return { ...state, over: true };
   return { ...state, now: nextQuarter(state.now) };
 }

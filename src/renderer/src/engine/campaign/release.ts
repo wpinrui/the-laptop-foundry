@@ -26,6 +26,8 @@ export interface Release {
   stock: number;
   /** Units made over every run. */
   made: number;
+  /** What a unit in stock cost to make, averaged over the runs. */
+  unitCost: number;
   /** Units sold in the quarter being resolved. The sales step fills it. */
   sold: number;
 }
@@ -113,12 +115,17 @@ export function release(
     refresh,
     stock: units,
     made: units,
+    unitCost: q.unit,
     sold: 0,
   };
   return {
     ...state,
     cash: state.cash - q.total,
     releases: { ...state.releases, [id]: r },
+    spent: {
+      setup: state.spent.setup + q.setup,
+      production: state.spent.production + q.unit * units,
+    },
   };
 }
 
@@ -133,11 +140,18 @@ export function reorder(
   if (state.over || !r || units <= 0) return null;
   const q = reorderQuote(cost, units);
   if (q.total > state.cash) return null;
-  const next: Release = { ...r, stock: r.stock + units, made: r.made + units };
+  const stock = r.stock + units;
+  const next: Release = {
+    ...r,
+    stock,
+    made: r.made + units,
+    unitCost: (r.stock * r.unitCost + units * q.unit) / stock,
+  };
   return {
     ...state,
     cash: state.cash - q.total,
     releases: { ...state.releases, [id]: next },
+    spent: { ...state.spent, production: state.spent.production + q.total },
   };
 }
 
@@ -154,6 +168,7 @@ export function releaseOf(x: unknown): Release | null {
     refresh: r.refresh === true,
     stock: r.stock as number,
     made: r.made as number,
+    unitCost: num(r.unitCost) ? (r.unitCost as number) : 0,
     sold: num(r.sold) ? (r.sold as number) : 0,
   };
 }

@@ -1,8 +1,65 @@
-/* Campaign panels on the laptop list: the selected model's release, right side. */
-.fd-release {
+/* Campaign panels on the laptop list, down the right side: the books, then the selected model's release. */
+.fd-side {
   position: absolute;
   right: calc(56 * var(--u));
-  top: calc(120 * var(--u));
+  top: calc(110 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(16 * var(--u));
+}
+
+.fd-finance {
+  border-collapse: collapse;
+  padding: calc(12 * var(--u));
+  background: color-mix(in srgb, var(--ground-deep) 80%, transparent);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: calc(16 * var(--u));
+}
+
+.fd-finance th,
+.fd-finance td {
+  padding: calc(4 * var(--u)) calc(12 * var(--u));
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fd-finance th {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.fd-finance td {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fd-finance .short,
+.fd-bust .short {
+  color: var(--warning);
+}
+
+.fd-bust {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+  margin-bottom: calc(24 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-bust h1 {
+  margin: 0;
+}
+
+.fd-bust b,
+.fd-bust span {
+  font-weight: 700;
+  font-size: calc(32 * var(--u));
+}
+
+.fd-release {
   width: calc(260 * var(--u));
   display: flex;
   flex-direction: column;

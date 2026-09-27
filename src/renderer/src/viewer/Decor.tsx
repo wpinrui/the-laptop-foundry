@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { type Fit, type Mark, type MarkSurface, outerSection, outerSpanAt } from "../engine";
 import { planDistance } from "../engine/shell";
+import { useStable } from "./stable";
 import { token } from "./theme";
 
 // The player's decoration on the Model: the bezel's own colour, and text or
@@ -33,7 +34,7 @@ function gentle(f: (u: number, v: number) => number, u: number, v: number): bool
 }
 
 /** Faces in engine space: palm and bottom in the base's frame, lid and bezel in the closed lid's. */
-export function faceOf(fit: Fit, surface: MarkSurface): Face {
+export function faceOf(fit: Pick<Fit, "shell">, surface: MarkSurface): Face {
   const o = fit.shell.outer;
   const lid = fit.shell.lid;
   const style = fit.shell.style;
@@ -383,12 +384,24 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
   );
 }
 
+/**
+ * What the faces are made from, the same object while its content is: a
+ * re-solve that leaves the shell's size and shape alone keeps the faces, their
+ * masks and their canvases.
+ */
+function useFaceShape(fit: Fit): Pick<Fit, "shell"> {
+  const { outer, lid, style } = fit.shell;
+  const stable = useStable({ outer, lid, style });
+  return useMemo(() => ({ shell: stable as Fit["shell"] }), [stable]);
+}
+
 /** Marks on the base's faces (palm rest and bottom), in the base's engine space. */
 export function BaseMarks({ fit, marks }: { fit: Fit; marks: Mark[] | undefined }) {
   const palm = (marks ?? []).filter((m) => m.surface === "palm");
   const bottom = (marks ?? []).filter((m) => m.surface === "bottom");
-  const palmFace = useMemo(() => faceOf(fit, "palm"), [fit]);
-  const bottomFace = useMemo(() => faceOf(fit, "bottom"), [fit]);
+  const shape = useFaceShape(fit);
+  const palmFace = useMemo(() => faceOf(shape, "palm"), [shape]);
+  const bottomFace = useMemo(() => faceOf(shape, "bottom"), [shape]);
   return (
     <>
       {palm.length > 0 && <FaceMarks face={palmFace} marks={palm} />}
@@ -401,8 +414,9 @@ export function BaseMarks({ fit, marks }: { fit: Fit; marks: Mark[] | undefined 
 export function LidDecor({ fit, marks }: { fit: Fit; marks: Mark[] | undefined }) {
   const lid = (marks ?? []).filter((m) => m.surface === "lid");
   const onBezel = (marks ?? []).filter((m) => m.surface === "bezel");
-  const lidFace = useMemo(() => faceOf(fit, "lid"), [fit]);
-  const bezelFace = useMemo(() => faceOf(fit, "bezel"), [fit]);
+  const shape = useFaceShape(fit);
+  const lidFace = useMemo(() => faceOf(shape, "lid"), [shape]);
+  const bezelFace = useMemo(() => faceOf(shape, "bezel"), [shape]);
   return (
     <>
       {lid.length > 0 && <FaceMarks face={lidFace} marks={lid} />}

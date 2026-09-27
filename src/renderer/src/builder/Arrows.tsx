@@ -157,19 +157,16 @@ export function DragArrow({
 /** A rectangle through four corners, with optional corner squares. */
 export function Outline({ corners, handles, warn }: { corners: V3[]; handles?: boolean; warn?: boolean }) {
   const colour = useMemo(() => token(warn ? "warning-hex" : "accent-hex"), [warn]);
+  // The material outlives the corners: disposing it with each drag step would recompile its shader.
+  const material = useMemo(() => new THREE.LineBasicMaterial({ color: colour, depthTest: false, transparent: true }), [colour]);
+  useEffect(() => () => material.dispose(), [material]);
   const line = useMemo(() => {
     const g = new THREE.BufferGeometry().setFromPoints([...corners, corners[0]].map((c) => new THREE.Vector3(...c)));
-    const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: colour, depthTest: false, transparent: true }));
+    const l = new THREE.Line(g, material);
     l.renderOrder = 10;
     return l;
-  }, [corners, colour]);
-  useEffect(
-    () => () => {
-      line.geometry.dispose();
-      (line.material as THREE.Material).dispose();
-    },
-    [line],
-  );
+  }, [corners, material]);
+  useEffect(() => () => line.geometry.dispose(), [line]);
   return (
     <group>
       <primitive object={line} />
@@ -186,23 +183,19 @@ export function Outline({ corners, handles, warn }: { corners: V3[]; handles?: b
 
 export function Dashed({ a, b }: { a: V3; b: V3 }) {
   const colour = useMemo(() => token("accent-hex"), []);
+  const material = useMemo(
+    () => new THREE.LineDashedMaterial({ color: colour, dashSize: 3, gapSize: 2.5, depthTest: false, transparent: true, opacity: 0.8 }),
+    [colour],
+  );
+  useEffect(() => () => material.dispose(), [material]);
   const line = useMemo(() => {
     const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
-    const l = new THREE.Line(
-      g,
-      new THREE.LineDashedMaterial({ color: colour, dashSize: 3, gapSize: 2.5, depthTest: false, transparent: true, opacity: 0.8 }),
-    );
+    const l = new THREE.Line(g, material);
     l.computeLineDistances();
     l.renderOrder = 9;
     return l;
-  }, [a, b, colour]);
-  useEffect(
-    () => () => {
-      line.geometry.dispose();
-      (line.material as THREE.Material).dispose();
-    },
-    [line],
-  );
+  }, [a, b, material]);
+  useEffect(() => () => line.geometry.dispose(), [line]);
   return <primitive object={line} />;
 }
 

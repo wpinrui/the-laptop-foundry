@@ -21,6 +21,7 @@ import { padOutline } from "../models/roles/pad";
 import { BaseMarks, LidDecor } from "./Decor";
 import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
+import { useStable } from "./stable";
 import { type Cuts, flushBay, portCuts, wallPositions } from "./walls";
 import { grillGeometry } from "./grill";
 import { speakerGrillGeometry } from "./speakerGrill";
@@ -557,21 +558,16 @@ function Shell({
   wallDepth?: number;
 }) {
   const look = surfaceLook(surface);
+  // A re-solve rebuilds these objects; the surface is rebuilt only when their content changes.
+  const shape = useStable({ style, wells, cuts, rounds });
   const geometry = useMemo(
-    () => surfaceGeometry(size, style, profile, mode, wells, cuts, wallDepth, rounds),
-    [size.x, size.y, size.z, style, profile, mode, wells, cuts, wallDepth, rounds],
+    () => surfaceGeometry(size, shape.style, profile, mode, shape.wells, shape.cuts, wallDepth, shape.rounds),
+    [size.x, size.y, size.z, shape, profile, mode, wallDepth],
   );
-  const edges = useMemo(
-    () => new THREE.EdgesGeometry(geometry, 25),
-    [geometry],
-  );
-  useEffect(
-    () => () => {
-      geometry.dispose();
-      edges.dispose();
-    },
-    [geometry, edges],
-  );
+  // The edges only show in x-ray.
+  const edges = useMemo(() => (xray ? new THREE.EdgesGeometry(geometry, 25) : null), [geometry, xray]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => edges?.dispose(), [edges]);
   return (
     <group position={[0, 0, z]}>
       <mesh geometry={geometry} renderOrder={2}>
@@ -597,7 +593,7 @@ function Shell({
           polygonOffsetUnits={offset}
         />
       </mesh>
-      {xray && (
+      {edges && (
         <lineSegments geometry={edges} renderOrder={3}>
           <lineBasicMaterial color={colour} transparent opacity={0.55} />
         </lineSegments>
@@ -625,7 +621,7 @@ function LidFront({
   const look = surfaceLook(surface);
   const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   const size = fit.shell.lid.size;
-  const style = fit.shell.style;
+  const style = useStable(fit.shell.style);
   const px = panel?.at.x ?? 0;
   const py = panel?.at.y ?? 0;
   const pw = panel?.size.x ?? 0;
@@ -769,7 +765,7 @@ function HingeBarrel({
 
 /** Rubber corner bumpers, full height, standing proud of the shell's sides, top and bottom. */
 function Bumpers({ fit, xray }: { fit: Fit; xray: boolean }) {
-  const style = fit.shell.style;
+  const style = useStable(fit.shell.style);
   const out = fit.shell.outer;
   const b = style.bumper;
   const geometry = useMemo(() => {
@@ -921,7 +917,8 @@ function Openings({ fit }: { fit: Fit }) {
   const w = fit.shell.walls.side + 0.4;
   const out = fit.shell.outer;
   // A slotted grill's slots, all in one mesh.
-  const grill = useMemo(() => grillGeometry(fit.shell.cutouts, out, w - 0.2), [fit, out, w]);
+  const cutouts = useStable(fit.shell.cutouts);
+  const grill = useMemo(() => grillGeometry(cutouts, out, w - 0.2), [cutouts, out.x, out.y, out.z, w]);
   useEffect(() => () => grill?.dispose(), [grill]);
   return (
     <group>
@@ -1090,7 +1087,10 @@ export const Model = memo(function Model({
             const floor = wellFloor(fit, w, year);
             return (
               <Well
-                key={`${w.at.x}-${w.at.y}`}
+                // By place in the list: a key from the well's position remounted it,
+                // and recompiled its shaders, at every step of a size drag.
+                // biome-ignore lint/suspicious/noArrayIndexKey: the wells keep their order
+                key={i}
                 well={w}
                 top={out.z}
                 floor={floor}

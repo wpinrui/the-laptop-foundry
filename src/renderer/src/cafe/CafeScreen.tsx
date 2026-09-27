@@ -194,6 +194,67 @@ function OsCafeScreen({
   sound: boolean;
   onSound: (on: boolean) => void;
 }) {
+  const { build, fit, page, shoot, plugged, plug } = useLaptopOs({ subject, library, sound, onSound });
+  const colour = (id: string) => colourHex(id);
+  const surfaces = useMemo(() => surfacesOf(build), [build]);
+  const colours = useMemo(
+    () => ({
+      floor: colour(build.finish.floor.colour),
+      deck: colour(build.finish.deck.colour),
+      lid: colour(build.finish.lid.colour),
+    }),
+    [build],
+  );
+  return (
+    <Cafe
+      fit={fit}
+      year={build.year}
+      colours={colours}
+      decor={decorOf(build)}
+      surfaces={surfaces}
+      page={page}
+      shoot={shoot}
+      plugged={plugged}
+      onPlug={plug}
+      sound={sound}
+      onSound={onSound}
+      onLeave={onBack}
+    />
+  );
+}
+
+/** The laptop's page as its screen shows it, with its size in px and mm. */
+export interface OsPage {
+  node: ReactNode;
+  width: number;
+  height: number;
+  mm: { x: number; y: number };
+}
+
+/**
+ * The laptop's own OS, running what the simulation says it can: the page its
+ * screen shows, the hidden photo shoot the review site needs, and the charger.
+ */
+export function useLaptopOs({
+  subject,
+  library = [],
+  sound,
+  onSound,
+  startPlugged = false,
+}: {
+  subject: Subject;
+  library?: Subject[];
+  sound: boolean;
+  onSound: (on: boolean) => void;
+  startPlugged?: boolean;
+}): {
+  build: Subject["build"];
+  fit: ReturnType<typeof solve>;
+  page: OsPage | undefined;
+  shoot: ReactNode;
+  plugged: boolean;
+  plug: () => void;
+} {
   const build = subject.build;
   const fit = useMemo(() => solve(build), [build]);
   const m = useMemo(() => simulate(build, fit), [build, fit]);
@@ -214,7 +275,7 @@ function OsCafeScreen({
   const [volume, setVolume] = useState(60);
   const [toast, setToast] = useState(false);
   const [dismissed, setDismissed] = useState<number | null>(null);
-  const [plugged, setPlugged] = useState(false);
+  const [plugged, setPlugged] = useState(startPlugged);
   const [wh, setWh] = useState(() => m.battery?.wh ?? 0);
   const [heat, setHeat] = useState(0);
   const [kiln, setKiln] = useState({ running: false, progress: 0, elapsed: 0, result: null as number | null });
@@ -539,30 +600,12 @@ function OsCafeScreen({
     </div>
   ) : null;
 
-  const colour = (id: string) => colourHex(id);
-  const surfaces = useMemo(() => surfacesOf(build), [build]);
-  const colours = useMemo(
-    () => ({
-      floor: colour(build.finish.floor.colour),
-      deck: colour(build.finish.deck.colour),
-      lid: colour(build.finish.lid.colour),
-    }),
-    [build],
-  );
-  return (
-    <Cafe
-      fit={fit}
-      year={build.year}
-      colours={colours}
-      decor={decorOf(build)}
-      surfaces={surfaces}
-      page={look && page ? { node: page, width: look.width, height: look.height, mm: look.mm } : undefined}
-      shoot={shoot}
-      plugged={plugged}
-      onPlug={plug}
-      sound={sound}
-      onSound={onSound}
-      onLeave={onBack}
-    />
-  );
+  return {
+    build,
+    fit,
+    page: look && page ? { node: page, width: look.width, height: look.height, mm: look.mm } : undefined,
+    shoot,
+    plugged,
+    plug,
+  };
 }

@@ -10,6 +10,7 @@ import {
   decorOf,
   type Mark,
   type MarkSurface,
+  type Subject,
   migrateBody,
   migrateColours,
   migrateScreen,
@@ -43,6 +44,7 @@ import { MarkHandles, type MarkBrowse, MarksColumn, MarksTray } from "./MarksSta
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
+import { FreeOs, FreeOverlay, type FreeState, FreeWorld, freeStart, makeSlot, type PageLook, SlotView } from "./Free";
 import { SliderField } from "./ui";
 import { type ViewName, viewFor } from "./view";
 import "./builder.css";
@@ -148,7 +150,14 @@ export function Builder({
   reroll,
   onReview,
   onDuplicate,
+  library = [],
+  sound = true,
+  onSound = () => {},
 }: {
+  /** The player's reviewed models, for the review site on the laptop's own screen. */
+  library?: Subject[];
+  sound?: boolean;
+  onSound?: (on: boolean) => void;
   model: SavedModel;
   /** The company's name, which the laptop's own OS shows as its maker. */
   company?: string;
@@ -188,8 +197,14 @@ export function Builder({
     pending.current?.();
     onBack();
   }, [onBack]);
+  // Free view: walking the workshop in first person. Null in the builder.
+  const [free, setFree] = useState<FreeState | null>(null);
+  const freeOn = useRef(false);
+  freeOn.current = free !== null;
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      // In free view Escape pauses, as in the cafe.
+      if (freeOn.current) return;
       if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) leave();
     };
     window.addEventListener("keydown", key);
@@ -348,6 +363,21 @@ export function Builder({
   const owner = useMemo(() => ownerOf(build, company), [build, company]);
   const booted = useBootingScreen(!grid && valid, build, owner, `${company} ${shownName}`.trim(), ratio);
   const screen = grid ? gridTexture : booted;
+
+  // Free view runs the laptop's own OS, whose page its screen shows.
+  const osSlot = useMemo(makeSlot, []);
+  const [osLook, setOsLook] = useState<PageLook | null>(null);
+  const osScreen = useMemo(
+    () => (osLook ? { node: <SlotView slot={osSlot} />, width: osLook.width, mm: osLook.mm } : undefined),
+    [osLook, osSlot],
+  );
+  const subject = useMemo<Subject>(
+    () => ({ id: model.id, name: shownName, company, build }),
+    [model.id, shownName, company, build],
+  );
+  const freeAim = useCallback((on: boolean) => setFree((s) => (s && s.aim !== on ? { ...s, aim: on } : s)), []);
+  const freeSettled = useCallback(() => setFree((s) => (s?.busy ? { ...s, busy: false } : s)), []);
+  const leaveFree = useCallback(() => setFree(null), []);
 
   const labelFor = useCallback((b: Box) => ROLE_NAME[b.role] ?? nameOf(b.part) ?? "", []);
   const pick = useCallback(
@@ -517,11 +547,49 @@ export function Builder({
         }
         decor={decor}
         flip={flip}
+        paused={!!free?.paused}
+        freeUsing={!!free?.using && !free.paused}
+        free={
+          free
+            ? (portal) => (
+                <FreeWorld
+                  fit={fit}
+                  year={build.year}
+                  colours={colours}
+                  surfaces={surfaces}
+                  decor={decor}
+                  lockScreen={screen}
+                  state={free}
+                  openAngle={lid > 0 ? lid : LID_OPEN}
+                  lidStart={lid}
+                  page={valid ? osScreen : undefined}
+                  portal={portal}
+                  onAim={freeAim}
+                  onSettled={freeSettled}
+                />
+              )
+            : undefined
+        }
         labelFor={labelFor}
         onHover={inside ? hoverStore.set : () => {}}
         onPick={inside ? pick : surface ? pickSurface : marking ? deselectMark : undefined}
         onMiss={marking ? deselectMark : undefined}
       />
+      {free && (
+        <FreeOverlay
+          state={free}
+          set={setFree}
+          canUse={valid && !!osLook}
+          onExit={leaveFree}
+          sound={sound}
+          onSound={onSound}
+        />
+      )}
+      {free && valid && (
+        <FreeOs subject={subject} library={library} sound={sound} onSound={onSound} slot={osSlot} onLook={setOsLook} />
+      )}
+      {!free && (
+        <>
       {stage === "chassis" && preview.section && (
         <div className="bd-section">
           <SectionView fit={fit} />
@@ -569,6 +637,9 @@ export function Builder({
         )}
         <div className="bd-view">
           <SliderField label="Lid" value={lidAngle} unit="deg" min={0} max={LID_MAX} onChange={setLid} disabled={flip} />
+          <button type="button" className="fd-text bd-free" onClick={() => setFree(freeStart(lid > 0))}>
+            Free view
+          </button>
         </div>
       </div>
 
@@ -623,6 +694,8 @@ export function Builder({
         </div>
       )}
       {inside && <HoverLabel />}
+        </>
+      )}
     </div>
   );
 }

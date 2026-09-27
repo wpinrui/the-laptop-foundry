@@ -16,7 +16,7 @@ interface Page {
   mm: { x: number; y: number };
 }
 
-type Prompt = { key: string; label: string };
+export type Prompt = { key: string; label: string };
 
 function MouseGlyph() {
   return (
@@ -28,7 +28,7 @@ function MouseGlyph() {
   );
 }
 
-function Prompts({ list, using }: { list: Prompt[]; using: boolean }) {
+export function Prompts({ list, using }: { list: Prompt[]; using: boolean }) {
   // The last prompts stay drawn while they fade out.
   const [shown, setShown] = useState(list);
   if (list.length > 0 && list !== shown && JSON.stringify(list) !== JSON.stringify(shown)) setShown(list);
@@ -45,12 +45,12 @@ function Prompts({ list, using }: { list: Prompt[]; using: boolean }) {
 }
 
 /** Keys typed into a text field in the OS belong to the OS. */
-function typing(e: KeyboardEvent): boolean {
+export function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
   return !!t?.closest?.("input, textarea, [contenteditable='true']");
 }
 
-function blurField() {
+export function blurField() {
   const a = document.activeElement as HTMLElement | null;
   if (a?.closest?.("input, textarea, [contenteditable='true']")) a.blur();
 }

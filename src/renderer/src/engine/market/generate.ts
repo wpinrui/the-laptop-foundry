@@ -4,7 +4,7 @@ import { offeredGenerationIds } from "../content/chips/gens";
 import { activeArea } from "../content/display";
 import { pouchDensity, pouchShape } from "../battery";
 import { padLimits, padShapeOf } from "../pad";
-import { type Budget, classify, type PerfClass, weightOf } from "../price";
+import { type Budget, classify, costOf, type PerfClass, weightOf } from "../price";
 import {
   defaultScreen,
   gamutsFor,
@@ -952,6 +952,21 @@ function pickPrice(ctx: Ctx): number {
   return Math.max(199, Math.round(p / 50) * 50 - 1);
 }
 
+/**
+ * The most of its price a model's parts may cost. The retailer keeps about a
+ * fifth, and freight, warranty and the operating system licence take most of
+ * the rest; past this the line would sell at a loss.
+ */
+const MAX_COST_SHARE = 0.7;
+
+/** The build at its line's price, or at the lowest price that covers its parts when the line's would not. */
+function pricedAtCost(build: Build, fit: Fit): Build {
+  const floor = costOf(build, fit).total / MAX_COST_SHARE;
+  const price = build.price ?? 0;
+  if (price >= floor) return build;
+  return { ...build, price: Math.ceil((floor + 1) / 50) * 50 - 1 };
+}
+
 // ------------------------------------------------------------------ first picks
 
 function firstChoices(ctx: Ctx): Choices {
@@ -1342,7 +1357,7 @@ export function generateModel(line: Line, year: number, rng: Rng): Generated {
   let c: Choices | undefined = firstChoices(ctx);
   // Start in the body that suits the picks best: some shapes cost the same parts far more thickness.
   thinnestBody(ctx, c, t);
-  let best: { build: Build; score: number } | undefined;
+  let best: { build: Build; fit: Fit; score: number } | undefined;
   let last: { build: Build; fit: Fit } | undefined;
   // The time budget only cuts the search short once there is a valid build to return.
   while (c && t.solves < MAX_SOLVES && (!best || performance.now() - start < MODEL_BUDGET_MS)) {
@@ -1353,15 +1368,15 @@ export function generateModel(line: Line, year: number, rng: Rng): Generated {
       continue;
     }
     if (t.sims >= MAX_SIMS) {
-      if (!best) best = { build: r.build, score: Number.POSITIVE_INFINITY };
+      if (!best) best = { build: r.build, fit: r.fit, score: Number.POSITIVE_INFINITY };
       break;
     }
     const miss = missOf(ctx, r.build, r.fit, t);
-    if (!best || miss.score < best.score) best = { build: r.build, score: miss.score };
+    if (!best || miss.score < best.score) best = { build: r.build, fit: r.fit, score: miss.score };
     if (miss.score === 0) break;
     c = fixPriority(ctx, c, miss);
   }
-  if (best) return { build: best.build, valid: true, fallback: false, solves: t.solves, sims: t.sims, ms: performance.now() - start, problems: [] };
+  if (best) return { build: pricedAtCost(best.build, best.fit), valid: true, fallback: false, solves: t.solves, sims: t.sims, ms: performance.now() - start, problems: [] };
   // Nothing the line picked came out clean: the plainest build the year allows.
   const st: Tally = { solves: 0, sims: 0, start };
   const safe = settle({ ...ctx, step: {} }, safeChoices(ctx), st);
@@ -1369,7 +1384,7 @@ export function generateModel(line: Line, year: number, rng: Rng): Generated {
   const ok = safe.fit.problems.length === 0;
   const out = ok ? safe : (last ?? safe);
   return {
-    build: out.build,
+    build: pricedAtCost(out.build, out.fit),
     valid: ok,
     fallback: true,
     solves: t.solves,

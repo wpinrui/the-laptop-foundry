@@ -23,6 +23,7 @@ import {
   SIDE_RANGE,
   taperDepth,
   YEARS,
+  PRICE_OVER_COST,
 } from "../engine";
 import { insideLitres, Silhouette, silhouetteExtent } from "./bodyShape";
 import { useMarket } from "../market/markets";
@@ -713,7 +714,7 @@ export function PriceColumn({
     }
   }, [build, fit]);
   const priced = cost > 0;
-  const price = build.price ?? snapPrice(cost * 1.45);
+  const price = build.price ?? snapPrice(cost * PRICE_OVER_COST);
   const opened = useMarket(build.year);
   const rivals = useMemo(() => {
     if (!priced || !opened) return [];

@@ -4,7 +4,7 @@ import { type Content, CONTENT } from "../content";
 import { activeArea } from "../content/display";
 import { type Rival, rivalsFor } from "../market/field";
 import { MAKERS } from "../market/makers";
-import { classify, costOf, type DeviceClass, weightOf } from "../price";
+import { classify, costOf, type DeviceClass, PRICE_OVER_COST, weightOf } from "../price";
 import { type Measurements, simulate } from "../sim";
 import { type Specs, specs as specsOf } from "../sim/specs";
 import { solve } from "../solve";
@@ -137,7 +137,7 @@ export function peersOf(f: Facts): Facts[] {
   for (const t of tiers) {
     const found = all.filter(t);
     if (found.length >= 2 || t === tiers[tiers.length - 1]) {
-      const price = f.subject.build.price ?? f.cost * 1.3;
+      const price = f.subject.build.price ?? f.cost * PRICE_OVER_COST;
       return found
         .sort(
           (a, b) =>

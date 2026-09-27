@@ -1,6 +1,6 @@
 import { type Results, results } from "../bench";
 import { type Content, CONTENT } from "../content";
-import { costOf, weightOf } from "../price";
+import { costOf, PRICE_OVER_COST, weightOf } from "../price";
 import { panelOf, ppiOf } from "../screen";
 import { AMBIENT, type Measurements, simulate } from "../sim";
 import { singleAt } from "../sim/curves";
@@ -30,9 +30,6 @@ export const FLOOR = 1e-6;
 
 /** Frame rates past this buy a buyer nothing more. */
 export const FPS_CAP = 144;
-
-/** Retail price over part cost when the player has not set a price, as the review assumes. */
-export const PRICE_OVER_COST = 1.3;
 
 /** Headline stats of a build, from its fit, simulation and benchmark results. */
 export function headlineStats(

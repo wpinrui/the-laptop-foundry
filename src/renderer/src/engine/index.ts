@@ -53,6 +53,7 @@ export {
   packageGb,
   partPrice,
   pieceOf,
+  PRICE_OVER_COST,
   screenPrice,
   type DeviceClass,
   type PerfClass,

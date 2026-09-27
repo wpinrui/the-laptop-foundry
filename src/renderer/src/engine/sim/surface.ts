@@ -74,6 +74,8 @@ const DEPTH = 400;
 const WASH = { top: 10, bottom: 40 };
 /** Lateral spreading length, cells: a floor for every shell plus a term for conductive, thicker ones. */
 const SPREAD_LEN = { floor: 4.4, metal: 4 };
+/** The spreader over each chip, mm: a heat-pipe block, or a fanless build's plate. */
+const PLATE = { x: 120, y: 90 };
 const SWEEPS = 160;
 const OMEGA = 1.7;
 
@@ -163,8 +165,19 @@ function rise(fit: Fit, shell: Shell, s: SurfaceState): Record<Face, Float64Arra
 
   const local = 1 - AIR;
   const kept = 1 - s.carried;
-  const cpus = of("cpu");
-  const gpus = of("gpu");
+  // Each chip sits under a spreader, a heat-pipe block or a fanless plate, that
+  // passes its heat to the case over a patch rather than at the package alone.
+  const plate = (b: Box): Box => {
+    const w = Math.max(b.size.x, PLATE.x);
+    const d = Math.max(b.size.y, PLATE.y);
+    return {
+      ...b,
+      at: { ...b.at, x: b.at.x + (b.size.x - w) / 2, y: b.at.y + (b.size.y - d) / 2 },
+      size: { ...b.size, x: w, y: d },
+    };
+  };
+  const cpus = of("cpu").map(plate);
+  const gpus = of("gpu").map(plate);
   split(cpus, local * kept * (s.cpuW + (gpus.length ? 0 : s.gpuW)));
   split(gpus, local * kept * s.gpuW);
   split(of("vrm"), local * 0.1 * (s.cpuW + s.gpuW));

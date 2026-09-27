@@ -2,7 +2,9 @@ import type { SavedCampaign, SavedModel } from "../../../../preload/store";
 import { type Brand, brandOf, market, newBrand, updatePerception } from "./brand";
 import { END_YEAR, FIRST_START, LAST_START, STARTING_CASH } from "./constants";
 import { entryOf, type LedgerEntry, NO_SPEND, type Spent, settle, spentOf } from "./finance";
+import type { Rival } from "../market/field";
 import { type Release, releaseOf } from "./release";
+import { launchRivals } from "./rivals";
 
 // Campaign mode: a company plays forward from a start year a quarter at a
 // time, to the end of 2026. The state lives in the company save; the main
@@ -12,6 +14,7 @@ export * from "./brand";
 export * from "./constants";
 export * from "./finance";
 export * from "./release";
+export * from "./rivals";
 
 export type QuarterOfYear = 1 | 2 | 3 | 4;
 
@@ -38,11 +41,17 @@ export interface CampaignState {
   bankrupt: boolean;
   /** Reach, perception and campaigns per buyer segment. */
   brand: Brand;
+  /** Ids of the rival models on sale in the quarter being played. */
+  onSale: string[];
 }
 
 /** What a quarter's resolution reads besides the campaign state. */
 export interface QuarterContext {
   models: SavedModel[];
+  /** The company's id: seeds the rivals' launch quarters. */
+  company?: string;
+  /** The company's markets for the year and the year before. */
+  rivals?: Rival[];
 }
 
 /** One step of a quarter's resolution: the state in, the changed state out. */
@@ -68,6 +77,7 @@ export function newCampaign(start: number): CampaignState {
     ledger: [],
     bankrupt: false,
     brand: newBrand(),
+    onSale: [],
   };
 }
 
@@ -94,6 +104,7 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     ledger: Array.isArray(s.ledger) ? s.ledger.map(entryOf).filter((e): e is LedgerEntry => !!e) : [],
     bankrupt: s.bankrupt === true,
     brand: brandOf(s.brand),
+    onSale: Array.isArray(s.onSale) ? s.onSale.filter((x): x is string => typeof x === "string") : [],
   };
 }
 
@@ -114,9 +125,6 @@ export function savedCampaign(state: CampaignState): SavedCampaign {
 
 // ------------------------------------------------------------------ quarter steps
 // Each step plugs a later system into the quarter. They run in this order.
-
-/** Rival lines that launch this quarter bring out their model for the year. */
-export const launchRivals: QuarterStep = (state) => state;
 
 /** Critics review the laptops launched this quarter. */
 export const publishReviews: QuarterStep = (state) => state;

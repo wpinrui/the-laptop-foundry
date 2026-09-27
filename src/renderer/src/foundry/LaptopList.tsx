@@ -42,11 +42,14 @@ export function LaptopList({
   onDelete,
   campaign,
   onEndQuarter,
+  onShort,
 }: {
   company: SavedCompany;
   /** Null for a sandbox company. */
   campaign: CampaignState | null;
   onEndQuarter: () => void;
+  /** Plays the last quarter's best seller as a short video; absent before any quarter has sold. */
+  onShort?: () => void;
   selected: string | null;
   onSelect: (id: string) => void;
   onMenu: () => void;
@@ -114,6 +117,11 @@ export function LaptopList({
           <div className={`fd-clock${over ? " over" : ""}`}>
             <b>{quarterLabel(campaign.now)}</b>
             <span>{usd(campaign.cash)}</span>
+            {onShort && (
+              <button type="button" className="fd-text" onClick={onShort}>
+                Shorts
+              </button>
+            )}
             {!over && (
               <button type="button" className="fd-text" onClick={onEndQuarter}>
                 End quarter

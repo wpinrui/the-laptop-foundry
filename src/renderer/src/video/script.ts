@@ -193,7 +193,7 @@ export function writeShort(facts: ShortFacts): Short {
       : pick("hook", [
           [`The best-selling laptop of ${qc}? The ${full}.`, `The best-selling laptop of ${qs}? The ${full}.`],
           [`Nothing sold more in ${qc} than the ${full}.`, `Nothing sold more in ${qs} than the ${full}.`],
-          [`Everyone bought the same laptop in ${qc}. The ${full}.`, `Everyone bought the same laptop in ${qs}. The ${full}.`],
+          [`Guess what topped the charts in ${qc}? The ${full}.`, `Guess what topped the charts in ${qs}? The ${full}.`],
           [`This is the ${full}, and it just won ${qc}.`, `This is the ${full}, and it just won ${qs}.`],
         ]),
   );
@@ -208,21 +208,23 @@ export function writeShort(facts: ShortFacts): Short {
     "sales",
     pick("sales", [
       [`${uc} units sold. That's ${sc} of every laptop out there.`, `${us} units sold. That's ${ss} of every laptop out there.`],
-      [`It moved ${uc} units, a ${sc} slice of the whole market.`, `It moved ${us} units, a ${ss} slice of the whole market.`],
+      [`It moved ${uc} units, ${an(sc)} slice of the whole market.`, `It moved ${us} units, ${an(ss)} slice of the whole market.`],
       [`${uc} people walked out with one. That's ${sc} of all sales.`, `${us} people walked out with one. That's ${ss} of all sales.`],
     ]),
   );
 
-  // The pitch.
+  // The pitch. Part names lose their hyphens for the voice, which reads one between figures as "minus".
   const price = facts.price;
+  const cpu = facts.cpu.replace(/-/g, " ");
+  const gpu = facts.gpu.replace(/-/g, " ");
   if (price)
     add(
       "orbit",
       null,
       pick("pitch", [
-        [`It's ${an(facts.kind)} for ${usd(price)}, running the ${facts.cpu} with ${facts.gpu}.`, `It's ${an(facts.kind)} for ${usdSay(price)}, running the ${facts.cpu} with ${facts.gpu}.`],
-        [`${usd(price)} gets you ${an(facts.kind)} with the ${facts.cpu} and ${facts.gpu} inside.`, `${usdSay(price)} gets you ${an(facts.kind)} with the ${facts.cpu} and ${facts.gpu} inside.`],
-        [`On paper: ${an(facts.kind)}, the ${facts.cpu}, ${facts.gpu}, ${usd(price)}.`, `On paper: ${an(facts.kind)}, the ${facts.cpu}, ${facts.gpu}, ${usdSay(price)}.`],
+        [`It's ${an(facts.kind)} for ${usd(price)}, running the ${facts.cpu} with ${facts.gpu}.`, `It's ${an(facts.kind)} for ${usdSay(price)}, running the ${cpu} with ${gpu}.`],
+        [`${usd(price)} gets you ${an(facts.kind)} with the ${facts.cpu} and ${facts.gpu} inside.`, `${usdSay(price)} gets you ${an(facts.kind)} with the ${cpu} and ${gpu} inside.`],
+        [`On paper: ${an(facts.kind)}, the ${facts.cpu}, ${facts.gpu}, ${usd(price)}.`, `On paper: ${an(facts.kind)}, the ${cpu}, ${gpu}, ${usdSay(price)}.`],
       ]),
     );
 

@@ -94,7 +94,7 @@ function useLock(build: Build, fit: Fit, maker: string, model: string) {
   return useOsStill("lock", build, owner, `${maker} ${model}`.trim(), aspect);
 }
 
-function StagedLaptop({ build, fit, maker, model }: { build: Build; fit: Fit; maker: string; model: string }) {
+export function StagedLaptop({ build, fit, maker, model }: { build: Build; fit: Fit; maker: string; model: string }) {
   const lock = useLock(build, fit, maker, model);
   const colour = (id: string) => colourHex(id);
   const colours = useMemo(

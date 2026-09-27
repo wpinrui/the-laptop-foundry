@@ -15,7 +15,7 @@ interface Audio {
 }
 interface Tts {
   sampleRate: number;
-  generateAsync(req: { text: string; sid: number; speed: number }): Promise<Audio>;
+  generateAsync(req: { text: string; sid: number; speed: number; enableExternalBuffer: boolean }): Promise<Audio>;
 }
 
 const MAX_LINES = 24;
@@ -35,9 +35,10 @@ function voice(): Promise<Tts | null> {
     const model = join(dir, "en_US-norman-medium.onnx");
     if (!existsSync(model)) return null;
     try {
-      const sherpa = (await import("sherpa-onnx-node")) as unknown as {
-        OfflineTts: { createAsync(config: unknown): Promise<Tts> };
-      };
+      type Sherpa = { OfflineTts: { createAsync(config: unknown): Promise<Tts> } };
+      // A CommonJS module: its exports may only be on the default.
+      const mod = (await import("sherpa-onnx-node")) as unknown as Sherpa & { default?: Sherpa };
+      const sherpa = mod.default ?? mod;
       return await sherpa.OfflineTts.createAsync({
         model: {
           vits: { model, tokens: join(dir, "tokens.txt"), dataDir: join(dir, "espeak-ng-data") },
@@ -63,8 +64,9 @@ export function registerVideo(): void {
     const tts = await voice();
     if (!tts) return null;
     const clips: Float32Array[] = [];
+    // Electron's V8 refuses the addon's external buffers, so every clip is copied out.
     for (const text of lines as string[]) {
-      const a = await tts.generateAsync({ text: text.slice(0, MAX_CHARS), sid: 0, speed: 1.05 });
+      const a = await tts.generateAsync({ text: text.slice(0, MAX_CHARS), sid: 0, speed: 1.05, enableExternalBuffer: false });
       clips.push(a.samples);
     }
     return { sampleRate: tts.sampleRate, clips };

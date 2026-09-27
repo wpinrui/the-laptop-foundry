@@ -2,6 +2,7 @@ import { type Board, buildBoard } from "./board";
 import { checkCompat } from "./compat";
 import { CONTENT, type Content, eraFor, indexContent } from "./content";
 import { fanSizeOf } from "./fan";
+import { grillBevel, grillCutouts, grillOf } from "./grill";
 import {
   alongAxis,
   deal,
@@ -225,6 +226,10 @@ function solveAt(
   const lidZ = lidInnerZ + walls.lid + walls.lidFront;
   // A shelf rises no more than the lid is thick.
   style.R = Math.min(style.R, lidZ);
+  // A grill wrapped under the rear cuts a bevel along the rear bottom edge.
+  const grill = grillOf(build);
+  const ventSides = em.fans > 0 ? zonesOf(layout.floor).flatMap((z) => (z.takes.includes("fin") && z.edge ? [z.edge] : [])) : [];
+  style.bevel = grillBevel(grill, style, size, ventSides);
   // Depth the deck and the lid give up at the rear: to a spine, or to a shelf behind an inset hinge.
   const deckCut = deckLoss(style, lidZ);
   const lidCut = size.y - Math.min(size.y, hingeAxis(style, size, lidZ).y);
@@ -752,6 +757,7 @@ function solveAt(
         build.shape?.[body.id],
         lidZ,
       );
+      s.bevel = grillBevel(grill, s, { ...size, z: Z }, ventSides);
       const o = baseOffsets(s, walls);
       r = { s, o, lift: profileLift(s, o.bottom), pTop: profileTop(s) };
       shapes.set(Z, r);
@@ -1308,6 +1314,7 @@ function solveAt(
     if (hit) hitAt(a.part ?? a.id, String(hit.role));
   }
 
+  const vents = grillCutouts(openings, grill, size, style, build.year);
   const fit: Fit = {
     place: report,
     min,
@@ -1344,7 +1351,8 @@ function solveAt(
         },
       },
       bands: { floor: [floorZ0, topWall], deck: [F.z - DB, F.z] },
-      cutouts: openings,
+      cutouts: vents.cutouts,
+      ...(em.fans > 0 ? { grill: vents.fit } : {}),
       hatches,
       wells,
     },

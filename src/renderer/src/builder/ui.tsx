@@ -189,14 +189,16 @@ export function Toggle({
   onClick,
   children,
   title,
+  disabled,
 }: {
   on: boolean;
   onClick: () => void;
   children: ReactNode;
   title?: string;
+  disabled?: boolean;
 }) {
   return (
-    <button type="button" title={title} aria-pressed={on} className={on ? "bd-chip caps bd-toggle on" : "bd-chip caps bd-toggle"} onClick={onClick}>
+    <button type="button" title={title} disabled={disabled} aria-pressed={on} className={on ? "bd-chip caps bd-toggle on" : "bd-chip caps bd-toggle"} onClick={onClick}>
       <i className="bd-check" />
       {children}
     </button>

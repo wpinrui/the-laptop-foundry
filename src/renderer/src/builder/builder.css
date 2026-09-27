@@ -464,6 +464,12 @@
   color: var(--muted) !important;
 }
 
+.bd-chip:disabled {
+  opacity: 0.4;
+  cursor: default;
+  border-color: var(--line-chip) !important;
+}
+
 /* Tray cards. */
 .bd-card {
   flex: none;

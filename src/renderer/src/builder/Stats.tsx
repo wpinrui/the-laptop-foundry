@@ -20,19 +20,26 @@ const hmm = (h: number) => {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
 };
 
-export function statsOf(build: Build, fit: Fit, m: Measurements): Stat[] {
-  const kg = weightOf(build, fit);
+export function statsOf(build: Build, fit: Fit, m: Measurements | null): Stat[] {
+  let kg: number | null = null;
+  try {
+    kg = weightOf(build, fit);
+  } catch {}
+  let cost = 0;
+  try {
+    cost = costOf(build, fit).total;
+  } catch {}
+  const weight: Stat = { key: "weight", label: "Weight", value: kg === null ? "—" : kg.toFixed(2), unit: "kg", warn: false };
+  const price: Stat = { key: "cost", label: "Cost", value: `$${Math.round(cost).toLocaleString("en-US")}`, unit: "", warn: false };
+  // An unfinished or invalid build still has a weight and a cost.
+  if (!m) return [weight, price];
   const b = m.battery;
   const web = b ? (b.runtime[b.balanced]?.web ?? null) : null;
   const bench = results(build, m)?.bench.multi ?? null;
   const skin = m.cooling?.peakSkin ?? null;
   const noise = m.cooling?.noise.load ?? null;
-  let cost = 0;
-  try {
-    cost = costOf(build, fit).total;
-  } catch {}
   return [
-    { key: "weight", label: "Weight", value: kg.toFixed(2), unit: "kg", warn: false },
+    weight,
     { key: "thickness", label: "Thickness", value: (fit.frame.z + fit.lidZ).toFixed(1), unit: "mm", warn: false },
     { key: "battery", label: "Battery", value: web === null ? "—" : hmm(web), unit: "h", warn: web !== null && web < 4 },
     {
@@ -44,7 +51,7 @@ export function statsOf(build: Build, fit: Fit, m: Measurements): Stat[] {
     },
     { key: "skin", label: "Surface temp", value: skin === null ? "—" : String(Math.round(skin)), unit: "°C", warn: skin !== null && skin >= 45 },
     { key: "noise", label: "Fan noise", value: noise === null ? "—" : String(Math.round(noise)), unit: "dB", warn: noise !== null && noise >= 45 },
-    { key: "cost", label: "Cost", value: `$${Math.round(cost).toLocaleString("en-US")}`, unit: "", warn: false },
+    price,
   ];
 }
 

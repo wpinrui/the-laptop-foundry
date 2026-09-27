@@ -167,7 +167,7 @@ function Player({
   const pos = useRef(new THREE.Vector3(...START));
   const look = useRef(lookAngles(pos.current, new THREE.Vector3(...anchors.laptop)));
   const keys = useRef(new Set<string>());
-  const move = useRef({ phase: 0, amount: 0, clock: 0 });
+  const move = useRef({ clock: 0 });
   const settle = useRef<{ from: THREE.Vector3; to: THREE.Vector3; at: number } | null>(null);
   const aimed = useRef<Aim>(null);
   const bounds = useRef({ box: new THREE.Box3(), at: -10 });
@@ -214,7 +214,6 @@ function Player({
       if (seated) look.current = lookAngles(to, new THREE.Vector3(...anchors.screenAt));
     }
     const s = settle.current;
-    let walking = 0;
     if (s) {
       const t = Math.min(1, ((m.clock - s.at) * 1000) / SETTLE_MS);
       pos.current.lerpVectors(s.from, s.to, easeOut(t));
@@ -231,22 +230,12 @@ function Player({
         pos.current.x += dx * SPEED * dt;
         pos.current.z += dz * SPEED * dt;
         collide(pos.current);
-        walking = 1;
       }
     }
-    // Gentle head sway: a step bob while walking, a slow breath at rest.
-    m.amount += (walking - m.amount) * (1 - Math.exp(-dt / 0.15));
-    m.phase += dt * 8.5 * m.amount;
-    const bob = Math.sin(m.phase * 2) * 14 * m.amount + Math.sin(m.clock * 1.3) * 3;
-    const side = Math.sin(m.phase) * 9 * m.amount;
     const l = look.current;
     if (seated) l.yaw = clamp(l.yaw, -1.3, 1.3);
-    camera.position.set(
-      pos.current.x + Math.cos(l.yaw) * side,
-      pos.current.y + bob,
-      pos.current.z - Math.sin(l.yaw) * side,
-    );
-    camera.rotation.set(l.pitch, l.yaw, Math.sin(m.phase) * 0.006 * m.amount, "YXZ");
+    camera.position.copy(pos.current);
+    camera.rotation.set(l.pitch, l.yaw, 0, "YXZ");
 
     // What the aim dot is on: the laptop, or the power socket beside it.
     let next: Aim = null;

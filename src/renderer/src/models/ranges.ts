@@ -6,6 +6,7 @@ import {
   CONTENT,
   eraFor,
   FAN_MIN,
+  type HingeStyle,
   type OptionValue,
   type Piece,
   panelsFor,
@@ -32,7 +33,7 @@ export interface ModelInput {
   part?: string;
   options: Record<string, OptionValue>;
   edge?: ModelEdge;
-  hinge: "barrel" | "full" | "drop";
+  hinge: HingeStyle;
   removable?: boolean;
   /** Smallest and largest box seen in this context. */
   min: ModelBox;

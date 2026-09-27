@@ -5,7 +5,7 @@ import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
 import { emptyBuild } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
-import { type Build, screenOf, type Subject } from "./engine";
+import { type Build, migrateBody, screenOf, type Subject } from "./engine";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { Stage, type StageView } from "./foundry/Stage";
@@ -15,6 +15,11 @@ const store = () => window.api.store;
 
 function inchesOf(b: Build): number | undefined {
   return screenOf(b)?.diag;
+}
+
+/** A save's models with their builds brought up to the current body types. */
+function migrated(c: SavedCompany): SavedCompany {
+  return { ...c, models: c.models.map((m) => ({ ...m, build: migrateBody(m.build as Build) })) };
 }
 
 type Menu = "start" | "new" | "load" | "settings" | "list" | "name";
@@ -47,11 +52,12 @@ export function App() {
   const [naming, setNaming] = useState<Build | null>(null);
 
   useEffect(() => {
-    store().companies().then(setCompanies);
+    store().companies().then((all) => setCompanies(all.map(migrated)));
     store().settings().then(setSettings);
   }, []);
 
-  const refresh = useCallback((c: SavedCompany) => {
+  const refresh = useCallback((saved: SavedCompany) => {
+    const c = migrated(saved);
     setCompany(c);
     setCompanies((all) => [c, ...(all ?? []).filter((x) => x.id !== c.id)]);
     return c;
@@ -197,7 +203,7 @@ export function App() {
           store()
             .deleteCompany(id)
             .then((all) => {
-              setCompanies(all);
+              setCompanies(all.map(migrated));
               if (company?.id === id) setCompany(null);
               setPickedSave(all[0]?.id ?? null);
             })

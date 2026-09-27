@@ -10,6 +10,7 @@ import {
   decorOf,
   type Mark,
   type MarkSurface,
+  migrateBody,
   migrateColours,
   migrateScreen,
   simulate,
@@ -152,7 +153,7 @@ export function Builder({
   reroll: (b: Build) => string;
 }) {
   // Older saves picked a panel row; the builder edits a screen spec.
-  const [build, setBuild] = useState<Build>(() => migrateColours(migrateScreen(model.build as Build)));
+  const [build, setBuild] = useState<Build>(() => migrateBody(migrateColours(migrateScreen(model.build as Build))));
   const [name, setName] = useState(model.name);
   // A reviewed model is locked for good so its review never changes.
   const locked = !!model.reviewed;

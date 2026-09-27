@@ -14,7 +14,7 @@ import {
 } from "react";
 import * as THREE from "three";
 import type { Box, Build, Decor, Fit, Side } from "../engine";
-import { shellSurface } from "../engine";
+import { bumperBlock, shellSurface } from "../engine";
 import { LID_GROUP } from "../models/roles/hinge";
 import { BaseMarks, LidDecor } from "./Decor";
 import { attachLegends } from "./legends";
@@ -398,17 +398,10 @@ function surfaceGeometry(
   const open = mode === "deck" || mode === "floor" ? [] : (Object.keys(cuts) as Side[]);
   const data = shellSurface(size, style, profile, 8, open);
   const count = data.positions.length / 3;
-  // shellSurface lays out the rings, then the bottom centre, then the top centre.
-  const topCentre = count - 1;
-  const bottomCentre = count - 2;
   if (mode === "deck") {
-    const lastLoop: THREE.Vector2[] = [];
-    let n = 0;
-    for (let i = 0; i + 2 < data.indices.length; i += 3)
-      if (data.indices[i] === topCentre) n++;
-    for (let v = bottomCentre - n; v < bottomCentre; v++)
-      lastLoop.push(new THREE.Vector2(data.positions[v * 3], data.positions[v * 3 + 1]));
-    const shape = new THREE.Shape(lastLoop);
+    // The flat front of the top face, with the wells cut, and whatever the
+    // body raises or rounds behind it (a shelf, a spine) as the shell has it.
+    const shape = new THREE.Shape(data.deck.outline.map(([x, y]) => new THREE.Vector2(x, y)));
     for (const w of wells) {
       const hole = new THREE.Path();
       // The deck laps over the edge of each module by a little, as a real
@@ -425,23 +418,35 @@ function surfaceGeometry(
       hole.closePath();
       shape.holes.push(hole);
     }
-    const g = new THREE.ShapeGeometry(shape);
-    g.translate(0, 0, size.z);
+    const flat = new THREE.ShapeGeometry(shape).toNonIndexed();
+    flat.translate(0, 0, data.deck.z);
+    const fp = flat.getAttribute("position");
+    const [r0, r1] = data.deck.rest;
+    const all = new Float32Array(fp.count * 3 + (r1 - r0) * 3);
+    all.set(fp.array as Float32Array);
+    for (let i = r0; i < r1; i++) {
+      const v = data.indices[i];
+      all.set(data.positions.subarray(v * 3, v * 3 + 3), fp.count * 3 + (i - r0) * 3);
+    }
+    flat.dispose();
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(all, 3));
+    g.computeVertexNormals();
     return g;
   }
   let indices = data.indices;
   if (mode === "open" || mode === "walls" || mode === "floor" || mode === "back") {
-    // "walls" also drops the bottom face; "floor" keeps only the bottom face, the cover;
-    // "back" drops only the bottom face (the lid's front, drawn as the bezel).
+    // "open" drops the top face, which the deck draws; "walls" drops the bottom face too;
+    // "floor" keeps only the bottom face, the cover; "back" drops only the bottom face
+    // (the lid's front, drawn as the bezel).
+    const [b0, b1] = data.bottom;
+    const [t0, t1] = data.top;
     const kept: number[] = [];
     for (let i = 0; i + 2 < indices.length; i += 3) {
-      const c = indices[i];
+      const bottom = i >= b0 && i < b1;
+      const top = i >= t0 && i < t1;
       const keep =
-        mode === "floor"
-          ? c === bottomCentre
-          : mode === "back"
-            ? c !== bottomCentre
-            : c !== topCentre && (mode !== "walls" || c !== bottomCentre);
+        mode === "floor" ? bottom : mode === "back" ? !bottom : !top && (mode !== "walls" || !bottom);
       if (keep) kept.push(indices[i], indices[i + 1], indices[i + 2]);
     }
     indices = new Uint32Array(kept);
@@ -569,9 +574,8 @@ function LidFront({
   const ph = panel?.size.y ?? 0;
   const geometry = useMemo(() => {
     const data = shellSurface(size, style, false, 8);
-    const n = (data.positions.length / 3 - 2) / 2;
     const pts: THREE.Vector2[] = [];
-    for (let v = 0; v < n; v++) pts.push(new THREE.Vector2(data.positions[v * 3], data.positions[v * 3 + 1]));
+    for (let v = 0; v < data.n; v++) pts.push(new THREE.Vector2(data.positions[v * 3], data.positions[v * 3 + 1]));
     const shape = new THREE.Shape(pts);
     if (pw > 0 && ph > 0) {
       const hole = new THREE.Path();
@@ -605,13 +609,20 @@ function LidFront({
 }
 
 /**
- * A full-width hinge: one barrel along the whole rear edge, centred on the
- * lid's axis (the base's rear top edge), so it looks the same at every lid
- * angle and always wraps the lid's bottom edge and the base's rear top edge.
- * Two end knuckles over the hinge mounts belong to the base, the long middle
- * knuckle to the lid, with a steel shaft showing in the splits. `part` picks
+ * The visible hinge, as barrels centred on the lid's axis, so it looks the
+ * same at every lid angle and always joins the lid to the base. `part` picks
  * which knuckles to draw: the base's go in the base group, the lid's in the lid
- * group, so each turns with its own half.
+ * group, so each turns with its own half. By the body's hinge:
+ *   full, inset: one barrel along the whole rear edge (in front of the shelf
+ *     on an inset hinge, sitting on the deck); two end knuckles over the
+ *     mounts belong to the base, the long middle one to the lid, with a steel
+ *     shaft showing in the splits.
+ *   barrel: a short barrel over each mount, its outer half the base's and its
+ *     inner half the lid's.
+ *   drop, lift: one clutch barrel of the lid's between the mounts (the whole
+ *     width on a lift), round the axis below the lid's edge, so the lid's edge
+ *     rolls down behind the rear as it opens.
+ *   spine: none; the spine is the barrel.
  */
 function HingeBarrel({
   fit,
@@ -628,19 +639,46 @@ function HingeBarrel({
 }) {
   const axis = fit.anchors.find((a) => a.kind === "hinge");
   const mounts = fit.boxes.filter((b) => b.kind === "unit" && b.role === "hinge").sort((a, b) => a.at.x - b.at.x);
-  if (fit.shell.style.hinge !== "full" || axis?.kind !== "hinge" || mounts.length < 2) return null;
+  const kind = fit.shell.style.hinge;
+  if (kind === "spine" || axis?.kind !== "hinge" || mounts.length < 2) return null;
   const out = fit.shell.outer;
   const look = surfaceLook(surface);
-  // As thick as the lid, so the lid's bottom edge stays inside it as it turns;
-  // no more than 0.4 of the base's height, and clear of the keyboard, which
-  // may come back to 4 mm from the rear inner wall.
-  const r = Math.min(fit.shell.lid.size.z, 0.4 * out.z, fit.shell.offsets.side + 3);
   const split = 0.5;
-  const x0 = 0.3;
-  const x1 = out.x - 0.3;
-  const xa = mounts[0].at.x + mounts[0].size.x;
-  const xb = mounts[mounts.length - 1].at.x;
-  const spans: [number, number][] = part === "base" ? [[x0, xa - split / 2], [xb + split / 2, x1]] : [[xa + split / 2, xb - split / 2]];
+  // Clear of any corner bumpers.
+  const x0 = 0.3 + bumperBlock(fit.shell.style);
+  const x1 = out.x - x0;
+  const m0 = mounts[0];
+  const m1 = mounts[mounts.length - 1];
+  const xa = m0.at.x + m0.size.x;
+  const xb = m1.at.x;
+  // How far the axis sits below the lid's bottom face (drop, lift) or above the deck (inset).
+  const below = out.z - axis.from.z;
+  let r: number;
+  let spans: [number, number][];
+  if (kind === "drop" || kind === "lift") {
+    // Just reaches the lid's bottom face, so the lid's edge stays on it as it turns.
+    r = below + 0.3;
+    spans = part === "base" ? [] : kind === "lift" ? [[x0, x1]] : [[m0.at.x, m1.at.x + m1.size.x]];
+  } else if (kind === "barrel") {
+    r = Math.min(0.8 * fit.shell.lid.size.z, 0.35 * out.z, fit.shell.offsets.side + 3);
+    const inset = Math.min(1.5, m0.size.x / 6);
+    const [a0, a1] = [m0.at.x + inset, m0.at.x + m0.size.x - inset];
+    const [b0, b1] = [m1.at.x + inset, m1.at.x + m1.size.x - inset];
+    const am = (a0 + a1) / 2;
+    const bm = (b0 + b1) / 2;
+    spans =
+      part === "base"
+        ? [[a0, am - split / 2], [bm + split / 2, b1]]
+        : [[am + split / 2, a1], [b0, bm - split / 2]];
+  } else {
+    // As thick as the lid, so the lid's bottom edge stays inside it as it
+    // turns; no more than 0.4 of the base's height, and clear of the keyboard.
+    // Inset: sitting on the deck, the axis its height over it.
+    r = kind === "inset" ? -below : Math.min(fit.shell.lid.size.z, 0.4 * out.z, fit.shell.offsets.side + 3);
+    spans = part === "base" ? [[x0, xa - split / 2], [xb + split / 2, x1]] : [[xa + split / 2, xb - split / 2]];
+  }
+  const shaft: [number, number][] =
+    part !== "base" || kind === "drop" || kind === "lift" ? [] : kind === "barrel" ? [[m0.at.x + 1, m0.at.x + m0.size.x - 1], [m1.at.x + 1, m1.at.x + m1.size.x - 1]] : [[x0 + 0.1, x1 - 0.1]];
   const material = (
     <meshStandardMaterial
       key={xray ? "xray" : "solid"}
@@ -661,12 +699,72 @@ function HingeBarrel({
           {material}
         </mesh>
       ))}
-      {part === "base" && (
-        <mesh position={[0, out.x / 2, 0]}>
-          <cylinderGeometry args={[0.45 * r, 0.45 * r, x1 - x0 - 0.2, 20]} />
+      {shaft.map(([a, b]) => (
+        <mesh key={`shaft-${a}`} position={[0, (a + b) / 2, 0]}>
+          <cylinderGeometry args={[0.45 * r, 0.45 * r, b - a, 20]} />
           <meshStandardMaterial color={token("slot-metal")} roughness={0.35} metalness={0.8} />
         </mesh>
-      )}
+      ))}
+    </group>
+  );
+}
+
+/** Rubber corner bumpers, full height, standing proud of the shell's sides, top and bottom. */
+function Bumpers({ fit, xray }: { fit: Fit; xray: boolean }) {
+  const style = fit.shell.style;
+  const out = fit.shell.outer;
+  const b = style.bumper;
+  const geometry = useMemo(() => {
+    if (b <= 0) return null;
+    const side = bumperBlock(style) + 0.15 * b;
+    const stub: typeof style = {
+      ...style,
+      edge: "rounded",
+      corner: Math.min(0.5 * b, side / 2 - 0.01),
+      profile: Math.min(0.6 * b, out.z / 4),
+      taper: null,
+      ui: 0,
+      uh: 0,
+      drop: 0,
+      D: 0,
+      Sd: 0,
+      R: 0,
+      lip: 0,
+      q: 0,
+      crown: 0,
+    };
+    const data = shellSurface({ x: side, y: side, z: out.z }, stub, true, 6);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(data.positions, 3));
+    g.setIndex(new THREE.BufferAttribute(data.indices, 1));
+    g.computeVertexNormals();
+    return { g, side };
+  }, [b, style, out.z]);
+  useEffect(() => () => geometry?.g.dispose(), [geometry]);
+  if (!geometry) return null;
+  const o = -0.15 * b;
+  const far = (len: number) => len - geometry.side - o;
+  const at: [number, number][] = [
+    [o, o],
+    [far(out.x), o],
+    [o, far(out.y)],
+    [far(out.x), far(out.y)],
+  ];
+  return (
+    <group>
+      {at.map(([x, y]) => (
+        <mesh key={`${x}-${y}`} geometry={geometry.g} position={[x, y, 0]} renderOrder={2}>
+          <meshStandardMaterial
+            key={xray ? "xray" : "solid"}
+            color={token("slot-rubber")}
+            transparent={xray}
+            opacity={xray ? 0.3 : 1}
+            depthWrite={!xray}
+            roughness={0.9}
+            metalness={0}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -893,6 +991,7 @@ export const Model = memo(function Model({
           paint={paint}
         />
         <HingeBarrel fit={fit} part="base" colour={colours.floor} surface={surfaces?.floor} xray={xray} />
+        <Bumpers fit={fit} xray={xray} />
         <BaseMarks fit={fit} marks={decor?.marks} />
         {extra}
         {problems && <Overflow fit={fit} />}

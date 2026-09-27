@@ -299,7 +299,7 @@ const R: Rival[] = [
     materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2018, "dell", "Alienware 17 R5", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [424, 333, 26],
     price: 2499,
@@ -438,7 +438,7 @@ const R: Rival[] = [
     materials: { floor: "magnesium", deck: "aluminium", lid: "aluminium" },
   }),
   rival(2018, "asus", "ROG Strix Scar II GL504GS", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [361, 262, 22],
     price: 1799,

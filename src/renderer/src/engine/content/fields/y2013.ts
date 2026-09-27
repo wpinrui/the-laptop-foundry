@@ -138,7 +138,7 @@ const R: Rival[] = [
     spend: { material: 0.5 },
   }),
   rival(2013, "lenovo", "IdeaPad Y510p", {
-    body: "pillow",
+    body: "float",
     layout: "b",
     size: [388, 263, 30],
     price: 1249,
@@ -161,7 +161,7 @@ const R: Rival[] = [
     materials: { deck: "aluminium", lid: "aluminium" },
   }),
   rival(2013, "lenovo", "IdeaPad Y410p", {
-    body: "pillow",
+    body: "float",
     layout: "b",
     size: [350, 250, 28],
     price: 1149,
@@ -207,7 +207,7 @@ const R: Rival[] = [
     materials: { lid: "magnesium" },
   }),
   rival(2013, "hp", "Pavilion 15-n000", {
-    body: "pillow",
+    body: "float",
     layout: "b",
     size: [385, 260, 25],
     price: 549,
@@ -271,7 +271,7 @@ const R: Rival[] = [
     materials: { floor: "magnesium", deck: "aluminium", lid: "magnesium" },
   }),
   rival(2013, "hp", "Envy 17-j000", {
-    body: "pillow",
+    body: "float",
     layout: "c",
     size: [416, 275, 30],
     price: 1199,
@@ -294,7 +294,7 @@ const R: Rival[] = [
     materials: { deck: "aluminium", lid: "aluminium" },
   }),
   rival(2013, "hp", "Pavilion 17-e000", {
-    body: "pillow",
+    body: "float",
     layout: "c",
     size: [416, 276, 30],
     price: 679,
@@ -425,7 +425,7 @@ const R: Rival[] = [
     materials: { floor: "magnesium", deck: "aluminium", lid: "aluminium" },
   }),
   rival(2013, "dell", "Inspiron 15 3521", {
-    body: "pillow",
+    body: "float",
     layout: "b",
     size: [376, 260, 26],
     price: 599,
@@ -547,7 +547,7 @@ const R: Rival[] = [
     spend: { material: 1 },
   }),
   rival(2013, "asus", "ROG G750JX", {
-    body: "pillow",
+    body: "float",
     layout: "c",
     size: [416, 326, 42],
     price: 1799,
@@ -595,7 +595,7 @@ const R: Rival[] = [
     spend: { material: 1 },
   }),
   rival(2013, "asus", "N750JV", {
-    body: "pillow",
+    body: "float",
     layout: "c",
     size: [415, 280, 30],
     price: 1399,
@@ -618,7 +618,7 @@ const R: Rival[] = [
     materials: { deck: "aluminium", lid: "aluminium" },
   }),
   rival(2013, "acer", "Aspire E1-571", {
-    body: "pillow",
+    body: "float",
     layout: "b",
     size: [381, 253, 27],
     price: 629,
@@ -639,7 +639,7 @@ const R: Rival[] = [
     ports: PORTS,
   }),
   rival(2013, "acer", "Aspire E1-771", {
-    body: "pillow",
+    body: "float",
     layout: "c",
     size: [415, 272, 30],
     price: 649,
@@ -660,7 +660,7 @@ const R: Rival[] = [
     ports: PORTS,
   }),
   rival(2013, "acer", "Aspire V3-772G", {
-    body: "pillow",
+    body: "float",
     layout: "c",
     size: [416, 275, 30],
     price: 1199,

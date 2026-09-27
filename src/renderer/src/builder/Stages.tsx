@@ -84,6 +84,9 @@ const HINGE_NAME = {
   full: "Full width",
   barrel: "Two barrels",
   drop: "Drop hinge",
+  spine: "Spine",
+  inset: "Inset",
+  lift: "Lifting",
 };
 const AXIS_STEP: Record<Axis, number> = { x: 0.5, y: 0.5, z: 0.1 };
 const tenth = (v: number) => Math.round(v * 10) / 10;
@@ -243,7 +246,7 @@ export function ChassisTray({ build, set }: StageProps) {
           width={170}
           on={b.id === build.body}
           off={!available(b, build.year)}
-          top={`${EDGE_NAME[b.style.edge]}${b.style.wedge ? "  wedge" : ""}`}
+          top={EDGE_NAME[b.style.edge]}
           name={b.name}
           onClick={() => set((x) => toBody(x, b.id))}
         />

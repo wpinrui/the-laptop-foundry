@@ -113,7 +113,7 @@ const R: Rival[] = [
     materials: { floor: "magnesium", deck: "cfrp", lid: "cfrp" },
   }),
   rival(2019, "lenovo", "Legion Y540-15", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [365, 260, 20],
     price: 1279,
@@ -355,7 +355,7 @@ const R: Rival[] = [
     materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2019, "dell", "Alienware m17 (2019)", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [410, 293, 18],
     price: 1999,
@@ -541,7 +541,7 @@ const R: Rival[] = [
     spend: { packing: 1, cooling: 1 },
   }),
   rival(2019, "asus", "ROG Strix Scar III G731GW", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [399, 293, 22],
     price: 2199,

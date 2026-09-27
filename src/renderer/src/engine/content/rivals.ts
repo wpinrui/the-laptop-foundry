@@ -300,7 +300,7 @@ const R2006: Rival[] = [
     spend: { material: 1, packing: 1, graphics: 1, battery: 1, storage: 1, cooling: 1, keyboard: 1, speakers: 1, processor: 1 },
   }),
   rival(2006, "asus", "G2P", {
-    body: "pillow",
+    body: "workhorse",
     layout: "b",
     size: [364, 272, 36],
     price: 2299,
@@ -516,7 +516,7 @@ const R2026: Rival[] = [
     materials: { floor: "aluminium", deck: "magnesium", lid: "aluminium" },
   }),
   rival(2026, "lenovo", "Legion Pro 7i Gen 10", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [364, 276, 20],
     price: 3199,
@@ -1123,7 +1123,7 @@ const R2016: Rival[] = [
     materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2016, "dell", "Alienware 17 R4", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [424, 310, 30],
     price: 2799,

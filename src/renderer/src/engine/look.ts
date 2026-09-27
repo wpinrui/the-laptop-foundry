@@ -20,6 +20,17 @@ export function migrateColours(b: Build, content: Content = CONTENT): Build {
   return { ...b, finish };
 }
 
+/**
+ * Saves from before the body types: a build without `shape` is one. The Blade
+ * was a wedge whose thickness was the front, 6 mm under the rear; it is now a
+ * taper whose thickness is the rear, so its thickness grows by that 6 mm.
+ */
+export function migrateBody(b: Build): Build {
+  if (b.shape) return b;
+  const size = b.body === "blade" ? { ...b.size, z: Math.min(55, b.size.z + 6) } : b.size;
+  return { ...b, size, shape: {} };
+}
+
 /** Everything the Model draws from the build beyond the fit: bezel colour and marks. */
 export interface Decor {
   bezel?: string;

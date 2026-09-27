@@ -133,7 +133,7 @@ const R: Rival[] = [
     materials: { lid: "aluminium" },
   }),
   rival(2020, "lenovo", "Legion 5 15ARH05", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [363, 260, 21],
     price: 1149,
@@ -312,7 +312,7 @@ const R: Rival[] = [
     ports: PORTS_GAMING,
   }),
   rival(2020, "dell", "Alienware m17 R3", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [397, 290, 16],
     price: 2599,
@@ -535,7 +535,7 @@ const R: Rival[] = [
     ports: PORTS_GAMING,
   }),
   rival(2020, "asus", "ROG Strix Scar 17 G732LXS", {
-    body: "blade",
+    body: "shelf",
     layout: "a",
     size: [395, 293, 21],
     price: 2999,

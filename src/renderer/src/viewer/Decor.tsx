@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import type { Fit, Mark, MarkSurface } from "../engine";
+import { type Fit, type Mark, type MarkSurface, outerSection } from "../engine";
 import { token } from "./theme";
 
 // The player's decoration on the Model: the bezel's own colour, and text or
@@ -16,24 +16,49 @@ export interface Face {
   at: [number, number, number];
   /** Euler turning a plane (x right, y up, facing +z) onto the face. */
   rot: [number, number, number];
+  /** How far the surface stands off the plane along its facing, at a point (x right, y up from the centre), where the body shapes it. */
+  bulge?: (u: number, v: number) => number;
 }
 
 /** Faces in engine space: palm and bottom in the base's frame, lid and bezel in the closed lid's. */
 export function faceOf(fit: Fit, surface: MarkSurface): Face {
   const o = fit.shell.outer;
   const lid = fit.shell.lid;
+  const style = fit.shell.style;
+  const L = lid.size.y;
+  // The base's top and bottom follow its section along the depth (a taper, a shelf, a spine).
+  const shaped = !!style.taper || style.D > 0 || style.Sd > 0 || style.lip > 0 || style.q > 0;
+  const section = (v: number) => outerSection(style, o, Math.min(o.y, Math.max(0, o.y / 2 + v))) ?? [0, o.z];
   switch (surface) {
     case "palm":
-      return { w: o.x, h: o.y, at: [o.x / 2, o.y / 2, o.z + 0.06], rot: [0, 0, 0] };
+      return {
+        w: o.x,
+        h: o.y,
+        at: [o.x / 2, o.y / 2, o.z + 0.06],
+        rot: [0, 0, 0],
+        ...(shaped ? { bulge: (_u: number, v: number) => section(v)[1] - o.z } : {}),
+      };
     case "bottom":
       // Read from below: right is the laptop's left.
-      return { w: o.x, h: o.y, at: [o.x / 2, o.y / 2, -0.06], rot: [0, Math.PI, 0] };
+      return {
+        w: o.x,
+        h: o.y,
+        at: [o.x / 2, o.y / 2, -0.06],
+        rot: [0, Math.PI, 0],
+        ...(shaped ? { bulge: (_u: number, v: number) => -section(v)[0] } : {}),
+      };
     case "lid":
       // Read from behind the open lid: up runs away from the hinge, right is the laptop's left.
-      return { w: o.x, h: o.y, at: [o.x / 2, o.y / 2, lid.at.z + lid.size.z + 0.06], rot: [0, 0, Math.PI] };
+      return {
+        w: o.x,
+        h: L,
+        at: [o.x / 2, L / 2, lid.at.z + lid.size.z + 0.06],
+        rot: [0, 0, Math.PI],
+        ...(style.crown > 0 ? { bulge: (_u: number, v: number) => style.crown * Math.sin((Math.PI * (L / 2 - v)) / L) } : {}),
+      };
     case "bezel":
       // The lid's front face, read from the front with the lid open.
-      return { w: o.x, h: o.y, at: [o.x / 2, o.y / 2, lid.at.z - 0.14], rot: [Math.PI, 0, 0] };
+      return { w: o.x, h: L, at: [o.x / 2, L / 2, lid.at.z - 0.14], rot: [Math.PI, 0, 0] };
   }
 }
 
@@ -268,9 +293,18 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
     },
     [made],
   );
+  const plane = useMemo(() => {
+    const g = new THREE.PlaneGeometry(face.w, face.h, face.bulge ? 24 : 1, face.bulge ? 96 : 1);
+    if (face.bulge) {
+      const p = g.getAttribute("position");
+      for (let i = 0; i < p.count; i++) p.setZ(i, face.bulge(p.getX(i), p.getY(i)));
+      g.computeVertexNormals();
+    }
+    return g;
+  }, [face]);
+  useEffect(() => () => plane.dispose(), [plane]);
   return (
-    <mesh position={face.at} rotation={face.rot} renderOrder={3}>
-      <planeGeometry args={[face.w, face.h]} />
+    <mesh position={face.at} rotation={face.rot} renderOrder={3} geometry={plane}>
       <meshStandardMaterial
         map={made.tex}
         transparent

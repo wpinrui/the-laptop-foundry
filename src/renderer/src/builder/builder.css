@@ -135,6 +135,21 @@
   color: var(--accent) !important;
 }
 
+/* Free view: the builder's menus fade out over the same scene, and back in after. */
+.bd > :not(.bd-scene):not(.bd-free-root):not(.bd-keep) {
+  transition:
+    opacity 400ms ease,
+    visibility 0s linear 0s;
+}
+
+.bd.free > :not(.bd-scene):not(.bd-free-root):not(.bd-keep) {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 400ms ease,
+    visibility 0s linear 400ms;
+}
+
 /* Free view: over the scene, taking the locked pointer. */
 .bd-free-root {
   position: absolute;

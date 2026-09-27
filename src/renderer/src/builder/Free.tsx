@@ -1,5 +1,6 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import {
+  type ComponentProps,
   type Dispatch,
   type ReactNode,
   type RefObject,
@@ -16,10 +17,10 @@ import * as THREE from "three";
 import { type OsPage, useLaptopOs } from "../cafe/CafeScreen";
 import { blurField, type Prompt, Prompts, typing } from "../cafe/Cafe";
 import { clamp, collideIn, easeOut, FOV_MIN, lookAngles, type Rect, ZOOM_STEP } from "../cafe/World";
-import type { Decor, Fit, Subject } from "../engine";
+import type { Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
 import { PLINTH_H } from "../foundry/Stage";
-import { BottomCover, Model, type Surfaces } from "../viewer/Scene";
+import { BottomCover, Model } from "../viewer/Scene";
 import { lidPoint } from "./view";
 
 // Free view: the player walks the workshop in first person, the laptop on
@@ -37,8 +38,8 @@ const LOOK = 0.0022;
 const REACH = 2000;
 const SETTLE_MS = 600;
 const BODY = 260;
-/** Where the player first stands: in front of the island, a little to the right. */
-const START: [number, number, number] = [900, EYE, 1700];
+/** How long the camera takes between the builder's pose and standing, either way. */
+export const ENTER_MS = 500;
 /** The island's top, round the turntable, is this far under the turntable's. */
 const ISLAND_DROP = 50;
 /** The turntable's radius. */
@@ -73,6 +74,46 @@ const COVER_S = 0.9;
 /** How high the cover is lifted on its way to the island. */
 const COVER_LIFT = 150;
 
+/** A camera's pose at the start of a move between the builder and free view. */
+export interface CamFrom {
+  pos: THREE.Vector3;
+  quat: THREE.Quaternion;
+  fov: number;
+  /** The view offset's x, px: the builder frames the laptop off centre. */
+  off: number;
+  at: number;
+}
+
+export const camFrom = (c: THREE.PerspectiveCamera, at: number): CamFrom => ({
+  pos: c.position.clone(),
+  quat: c.quaternion.clone(),
+  fov: c.fov,
+  off: c.view?.enabled ? c.view.offsetX : 0,
+  at,
+});
+
+/** Puts the camera k of the way from a start pose to the given one. */
+export function camFromTo(
+  c: THREE.PerspectiveCamera,
+  f: CamFrom,
+  pos: THREE.Vector3,
+  quat: THREE.Quaternion,
+  fov: number,
+  off: number,
+  k: number,
+  size: { width: number; height: number },
+) {
+  const p = pos.clone();
+  const q = quat.clone();
+  c.position.lerpVectors(f.pos, p, k);
+  c.quaternion.slerpQuaternions(f.quat, q, k);
+  c.fov = f.fov + (fov - f.fov) * k;
+  const o = f.off + (off - f.off) * k;
+  if (Math.abs(o) < 0.5) c.clearViewOffset();
+  else c.setViewOffset(size.width, size.height, o, 0, size.width, size.height);
+  c.updateProjectionMatrix();
+}
+
 const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 const noLabel = () => "";
@@ -90,8 +131,8 @@ export interface FreeState {
   busy: boolean;
 }
 
-export const freeStart = (lidOpen: boolean): FreeState => ({
-  flipped: false,
+export const freeStart = (lidOpen: boolean, flipped = false): FreeState => ({
+  flipped,
   coverOff: false,
   lidOpen,
   using: false,
@@ -149,7 +190,7 @@ export function FreeOs({
   onLook: (l: PageLook | null) => void;
 }) {
   // On the workshop's bench it runs on the charger.
-  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true });
+  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true });
   const node = os.page?.node ?? null;
   useLayoutEffect(() => slot.set(node));
   useEffect(() => () => slot.set(null), [slot]);
@@ -161,7 +202,8 @@ export function FreeOs({
     onLook(w && h ? { width: w, height: h, mm: { x: mx, y: my } } : null);
   }, [w, h, mx, my, onLook]);
   useEffect(() => () => onLook(null), [onLook]);
-  return <>{os.shoot}</>;
+  // Kept in view while the builder's menus fade out.
+  return <div className="bd-keep" style={{ display: "contents" }}>{os.shoot}</div>;
 }
 
 // ------------------------------------------------------------------ in the canvas
@@ -186,8 +228,12 @@ function Walker({
   onAim: (on: boolean) => void;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
-  const pos = useRef(new THREE.Vector3(...START));
-  const look = useRef(lookAngles(pos.current, new THREE.Vector3(0, PLINTH_H + 60, 0)));
+  const size = useThree((s) => s.size);
+  const pos = useRef(new THREE.Vector3(0, EYE, 0));
+  const look = useRef({ yaw: 0, pitch: 0 });
+  // From the builder's camera to standing: where it started, and when.
+  const enter = useRef<CamFrom | null>(null);
+  const started = useRef(false);
   const keys = useRef(new Set<string>());
   const clock = useRef(0);
   const settle = useRef<{
@@ -207,9 +253,6 @@ function Walker({
   live.current = { using, active };
 
   useEffect(() => {
-    camera.clearViewOffset();
-    camera.fov = FOV;
-    camera.updateProjectionMatrix();
     const down = (e: KeyboardEvent) => keys.current.add(e.code);
     const up = (e: KeyboardEvent) => keys.current.delete(e.code);
     const mouse = (e: MouseEvent) => {
@@ -249,6 +292,15 @@ function Walker({
 
   useFrame((_, dt) => {
     clock.current += dt;
+    if (!started.current) {
+      // Stand where the builder's camera is, out of the island, facing the laptop.
+      started.current = true;
+      const p = new THREE.Vector3(camera.position.x, EYE, camera.position.z);
+      collideIn(p, ROOM, RECTS, BODY);
+      pos.current.copy(p);
+      look.current = lookAngles(p, new THREE.Vector3(0, PLINTH_H + 60, 0));
+      enter.current = camFrom(camera, clock.current);
+    }
     if (wasUsing.current !== using) {
       wasUsing.current = using;
       let to: THREE.Vector3;
@@ -275,7 +327,7 @@ function Walker({
         pitch: s.fromLook.pitch + (s.toLook.pitch - s.fromLook.pitch) * k,
       };
       if (t >= 1) settle.current = null;
-    } else if (active && !using) {
+    } else if (active && !using && !enter.current) {
       const k = keys.current;
       const f = (k.has("KeyW") ? 1 : 0) - (k.has("KeyS") ? 1 : 0);
       const r = (k.has("KeyD") ? 1 : 0) - (k.has("KeyA") ? 1 : 0);
@@ -287,13 +339,21 @@ function Walker({
         collideIn(pos.current, ROOM, RECTS, BODY);
       }
     }
-    if (Math.abs(camera.fov - fov.current) > 0.01) {
-      camera.fov += (fov.current - camera.fov) * Math.min(1, dt * 12);
-      if (Math.abs(camera.fov - fov.current) <= 0.01) camera.fov = fov.current;
-      camera.updateProjectionMatrix();
+    const e = enter.current;
+    if (e) {
+      const k = easeOut(Math.min(1, ((clock.current - e.at) * 1000) / ENTER_MS));
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(look.current.pitch, look.current.yaw, 0, "YXZ"));
+      camFromTo(camera, e, pos.current, q, fov.current, 0, k, size);
+      if (k >= 1) enter.current = null;
+    } else {
+      if (Math.abs(camera.fov - fov.current) > 0.01) {
+        camera.fov += (fov.current - camera.fov) * Math.min(1, dt * 12);
+        if (Math.abs(camera.fov - fov.current) <= 0.01) camera.fov = fov.current;
+        camera.updateProjectionMatrix();
+      }
+      camera.position.copy(pos.current);
+      camera.rotation.set(look.current.pitch, look.current.yaw, 0, "YXZ");
     }
-    camera.position.copy(pos.current);
-    camera.rotation.set(look.current.pitch, look.current.yaw, 0, "YXZ");
 
     // Whether the aim dot is on the laptop: its bounds are cheap to hit and forgiving to aim at.
     let on = false;
@@ -315,75 +375,100 @@ function Walker({
   return null;
 }
 
-type ScreenPage = { node: ReactNode; width: number; mm: { x: number; y: number } };
+export type ScreenPage = { node: ReactNode; width: number; mm: { x: number; y: number } };
 
-export function FreeWorld({
-  fit,
-  year,
-  colours,
-  surfaces,
-  decor,
-  lockScreen,
-  state,
-  openAngle,
-  lidStart,
-  page,
-  portal,
-  onAim,
-  onSettled,
-}: {
-  fit: Fit;
-  year: number;
-  colours: { floor: string; deck: string; lid: string };
-  surfaces: Surfaces;
-  decor?: Decor;
-  lockScreen?: THREE.Texture;
+/** What free view drives the workshop's laptop and camera with. */
+export interface FreeDrive {
   state: FreeState;
   /** How far the lid opens, degrees. */
   openAngle: number;
-  lidStart: number;
   page?: ScreenPage;
-  portal: RefObject<HTMLDivElement | null>;
   onAim: (on: boolean) => void;
   onSettled: () => void;
+}
+
+type ModelProps = ComponentProps<typeof Model>;
+
+/**
+ * The laptop on the turntable, one instance in the builder and in free view.
+ * In the builder it takes the builder's lid and flip at once. In free view,
+ * and on the way back from it, it moves to them: lid, turning over, cover.
+ */
+export function WorkshopLaptop({
+  fit,
+  lidAngle,
+  flip,
+  model,
+  free,
+  portal,
+}: {
+  fit: Fit;
+  /** The builder's lid, degrees, and whether it lies turned over. */
+  lidAngle: number;
+  flip: boolean;
+  /** The Model's props in the builder. */
+  model: Omit<ModelProps, "fit" | "lidAngle" | "portal" | "screen" | "floorless">;
+  free?: FreeDrive;
+  portal: RefObject<HTMLDivElement | null>;
 }) {
   const out = fit.shell.outer;
   const T = out.z + fit.lidZ;
   const D = out.y;
-  const [lid, setLid] = useState(lidStart);
+  const [lid, setLid] = useState(lidAngle);
   const [open, setOpen] = useState(false);
-  const lidNow = useRef(lidStart);
-  const flipT = useRef(0);
+  const [returning, setReturning] = useState(false);
+  const lidNow = useRef(lidAngle);
+  const flipT = useRef(flip ? 1 : 0);
   const coverT = useRef(0);
   const reported = useRef(false);
   const flipG = useRef<THREE.Group>(null);
   const coverG = useRef<THREE.Group>(null);
   const laptop = useRef<THREE.Group>(null);
-  const live = useRef({ state, openAngle, onSettled });
-  live.current = { state, openAngle, onSettled };
+  const live = useRef({ free, lidAngle, flip, returning, T });
+  live.current = { free, lidAngle, flip, returning, T };
   const coverX = TURNTABLE_R + 25 + D / 2;
   const coverY = -(T + ISLAND_DROP - 2);
 
+  const isFree = !!free;
+  const wasFree = useRef(isFree);
+  useLayoutEffect(() => {
+    if (wasFree.current === isFree) return;
+    wasFree.current = isFree;
+    setLid(lidNow.current);
+    // Back from free view the laptop moves to the builder's pose rather than jumping.
+    if (!isFree) setReturning(true);
+  }, [isFree]);
+
   useFrame((_, dt) => {
-    const { state: s, openAngle: angle, onSettled: settled } = live.current;
-    const lidWant = s.flipped || !s.lidOpen ? 0 : angle;
-    let l = lidNow.current;
-    if (l !== lidWant) {
-      const step = LID_SPEED * dt;
-      l = Math.abs(lidWant - l) <= step ? lidWant : l + Math.sign(lidWant - l) * step;
-      lidNow.current = l;
-      setLid(l);
-    }
-    const flipWant = s.flipped ? 1 : 0;
+    const { free: fr, lidAngle: builderLid, flip: builderFlip, returning: back, T: t } = live.current;
+    const s = fr?.state;
+    const flipWant = (s ? s.flipped : builderFlip) ? 1 : 0;
+    const coverWant = s?.coverOff ? 1 : 0;
+    const lidTarget = s && fr ? (s.lidOpen ? fr.openAngle : 0) : builderLid;
     // The lid shuts before the laptop turns over, and the cover is back on before it turns upright.
-    if (flipT.current !== flipWant && l === 0 && coverT.current === 0) {
-      const step = dt / FLIP_S;
-      flipT.current = clamp(flipT.current + Math.sign(flipWant - flipT.current) * step, 0, 1);
-    }
-    const coverWant = s.coverOff ? 1 : 0;
-    if (coverT.current !== coverWant && flipT.current === 1) {
-      const step = dt / COVER_S;
-      coverT.current = clamp(coverT.current + Math.sign(coverWant - coverT.current) * step, 0, 1);
+    const lidWant = flipWant || flipT.current > 0 ? 0 : lidTarget;
+    let l = lidNow.current;
+    if (!s && !back) {
+      // The builder: its own lid and flip, at once.
+      l = builderLid;
+      lidNow.current = l;
+      flipT.current = flipWant;
+      coverT.current = 0;
+    } else {
+      if (l !== lidWant) {
+        const step = LID_SPEED * dt;
+        l = Math.abs(lidWant - l) <= step ? lidWant : l + Math.sign(lidWant - l) * step;
+        lidNow.current = l;
+        setLid(l);
+      }
+      if (flipT.current !== flipWant && l === 0 && coverT.current === 0) {
+        const step = dt / FLIP_S;
+        flipT.current = clamp(flipT.current + Math.sign(flipWant - flipT.current) * step, 0, 1);
+      }
+      if (coverT.current !== coverWant && flipT.current === 1) {
+        const step = dt / COVER_S;
+        coverT.current = clamp(coverT.current + Math.sign(coverWant - coverT.current) * step, 0, 1);
+      }
     }
     const nowOpen = coverT.current > 0;
     if (nowOpen !== open) setOpen(nowOpen);
@@ -392,22 +477,26 @@ export function FreeWorld({
     const g = flipG.current;
     if (g) {
       // Turned about its middle and lifted clear of the turntable on the way.
-      g.position.y = PLINTH_H + T / 2 + (D / 2 + 30) * Math.sin(Math.PI * f);
-      g.rotation.x = Math.PI * easeInOut(f);
+      g.position.set(0, PLINTH_H + t / 2 + (D / 2 + 30) * Math.sin(Math.PI * f), 0);
+      g.rotation.set(Math.PI * easeInOut(f), 0, 0);
     }
     const c = coverT.current;
     const cg = coverG.current;
     if (cg) {
       const e = easeInOut(c);
-      cg.position.set(coverX * e, PLINTH_H + T / 2 + coverY * e + COVER_LIFT * Math.sin(Math.PI * c), 0);
+      cg.position.set(coverX * e, PLINTH_H + t / 2 + coverY * e + COVER_LIFT * Math.sin(Math.PI * c), 0);
       cg.rotation.y = (Math.PI / 2) * e;
     }
 
     const still = l === lidWant && f === flipWant && c === coverWant;
-    if (!s.busy) reported.current = false;
+    if (back && still) {
+      live.current.returning = false;
+      setReturning(false);
+    }
+    if (!s?.busy) reported.current = false;
     else if (still && !reported.current) {
       reported.current = true;
-      settled();
+      fr?.onSettled();
     }
   }, -1);
 
@@ -424,28 +513,29 @@ export function FreeWorld({
     };
   }, [fit, out]);
 
-  const screenOn = !state.flipped && lid > 40;
+  const driven = isFree || returning;
+  const shownLid = driven ? lid : lidAngle;
+  const page = free && !free.state.flipped && shownLid > 40 ? free.page : undefined;
+  const props: Omit<ModelProps, "fit" | "lidAngle"> = free
+    ? {
+        year: model.year,
+        colours: model.colours,
+        surfaces: model.surfaces,
+        lockScreen: model.lockScreen,
+        decor: model.decor,
+        xray: false,
+        labelFor: noLabel,
+        onHover: noHover,
+        problems: false,
+      }
+    : model;
   return (
     <>
-      <group ref={flipG} position={[0, PLINTH_H + T / 2, 0]}>
+      {/* Placed every frame, above: props here would undo a turn in progress on each render. */}
+      <group ref={flipG}>
         <group position={[0, -T / 2, 0]}>
           <group ref={laptop}>
-            <Model
-              fit={fit}
-              year={year}
-              lidAngle={lid}
-              colours={colours}
-              surfaces={surfaces}
-              xray={false}
-              labelFor={noLabel}
-              onHover={noHover}
-              lockScreen={lockScreen}
-              decor={decor}
-              problems={false}
-              floorless={open}
-              screen={screenOn ? page : undefined}
-              portal={portal}
-            />
+            <Model {...props} fit={fit} lidAngle={shownLid} floorless={open} screen={page} portal={portal} />
           </group>
         </group>
       </group>
@@ -453,15 +543,24 @@ export function FreeWorld({
         <group ref={coverG} position={[0, PLINTH_H + T / 2, 0]}>
           <group rotation-x={Math.PI}>
             <group position={[0, -T / 2, 0]}>
-              <BottomCover fit={fit} colour={colours.floor} surface={surfaces.floor} />
+              <BottomCover fit={fit} colour={model.colours.floor} surface={model.surfaces?.floor} />
             </group>
           </group>
         </group>
       )}
-      <Walker laptop={laptop} active={!state.paused} using={state.using} useAt={useAt} onAim={onAim} />
+      {free && (
+        <Walker
+          laptop={laptop}
+          active={!free.state.paused}
+          using={free.state.using}
+          useAt={useAt}
+          onAim={free.onAim}
+        />
+      )}
     </>
   );
 }
+
 
 // ------------------------------------------------------------------ over the canvas
 

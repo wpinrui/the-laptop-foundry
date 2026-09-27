@@ -3,9 +3,10 @@ import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from "reac
 import * as THREE from "three";
 import type { Box, Decor, Fit } from "../engine";
 import { Lights, PLINTH_H } from "../foundry/Stage";
-import { type Hover, Model, type Paint, Reflections, type Surfaces } from "../viewer/Scene";
+import { type Hover, type Paint, Reflections, type Surfaces } from "../viewer/Scene";
 import { token } from "../viewer/theme";
 import { arrowDrag } from "./Arrows";
+import { type CamFrom, camFrom, camFromTo, ENTER_MS, type FreeDrive, WorkshopLaptop } from "./Free";
 import type { View } from "./view";
 import { Workshop } from "./Workshop";
 
@@ -52,9 +53,19 @@ function Rig({
   const shown = useRef<Nudge>({ az: 0, el: 0, zoom: 1 });
   const clock = useRef(0);
   const last = useRef<{ view: View; key: string } | null>(null);
+  const wasActive = useRef(active);
+  // Back from free view: where the camera was when it left, easing to the held pose.
+  const back = useRef<CamFrom | null>(null);
   useFrame((_, dt) => {
-    if (!active) return;
+    if (!active) {
+      wasActive.current = false;
+      return;
+    }
     clock.current += dt;
+    if (!wasActive.current) {
+      wasActive.current = true;
+      back.current = camFrom(camera, clock.current);
+    }
     const want: Pose = {
       az: view.az,
       el: view.el,
@@ -96,6 +107,13 @@ function Rig({
     );
     camera.lookAt(cur.t);
     camera.aspect = size.width / size.height;
+    const b = back.current;
+    if (b) {
+      const k = easeOut(Math.min(1, ((clock.current - b.at) * 1000) / ENTER_MS));
+      camFromTo(camera, b, camera.position, camera.quaternion, FOV, -cur.shift * size.width, k, size);
+      if (k >= 1) back.current = null;
+      return;
+    }
     camera.fov = FOV;
     camera.setViewOffset(size.width, size.height, -cur.shift * size.width, 0, size.width, size.height);
     camera.updateProjectionMatrix();
@@ -131,8 +149,8 @@ export function BuilderScene({
   freeUsing = false,
   paused = false,
 }: {
-  /** Free view: draws the walkable laptop and player in place of the builder's laptop and camera. */
-  free?: (portal: RefObject<HTMLDivElement | null>) => ReactNode;
+  /** Free view: the player walks the same scene, and the laptop answers to them. */
+  free?: FreeDrive;
   /** In free view, the player is using the laptop: its screen takes the pointer. */
   freeUsing?: boolean;
   /** Free view's pause: the scene blurs behind the menu. */
@@ -219,39 +237,33 @@ export function BuilderScene({
         <Lights dim={0.45} />
         <directionalLight position={[200, 1200, 1600]} color={token("stage-key")} intensity={0.3} />
         {glow && <pointLight position={glowAt} color={token("screen-glow")} intensity={2.5} distance={0} decay={0} />}
-        {free ? (
-          free(overlay)
-        ) : (
-        <group
-          position={[0, flip ? PLINTH_H + fit.shell.outer.z + fit.lidZ : PLINTH_H, 0]}
-          rotation-x={flip ? Math.PI : 0}
-        >
-          <Model
-            fit={fit}
-            year={year}
-            lidAngle={lidAngle}
-            colours={colours}
-            surfaces={surfaces}
-            xray={xray}
-            hideDeck={hideDeck}
-            labelFor={labelFor}
-            onHover={onHover}
-            onPick={
-              onPick
-                ? (b) => {
-                    if (moved.current < 4) onPick(b);
-                  }
-                : undefined
-            }
-            lockScreen={screen}
-            decor={decor}
-            paint={paint}
-            problems={problems}
-            extra={extra}
-            lidExtra={lidExtra}
-          />
-        </group>
-        )}
+        <WorkshopLaptop
+          fit={fit}
+          lidAngle={lidAngle}
+          flip={!!flip}
+          free={free}
+          portal={overlay}
+          model={{
+            year,
+            colours,
+            surfaces,
+            xray,
+            hideDeck,
+            labelFor,
+            onHover,
+            onPick: onPick
+              ? (b) => {
+                  if (moved.current < 4) onPick(b);
+                }
+              : undefined,
+            lockScreen: screen,
+            decor,
+            paint,
+            problems,
+            extra,
+            lidExtra,
+          }}
+        />
         <Rig view={view} nudge={nudge} resetKey={resetKey} active={!free} />
       </Canvas>
       {/* Free view's on-screen page mounts here, over the canvas. It takes the

@@ -241,12 +241,15 @@ export function useLaptopOs({
   sound,
   onSound,
   startPlugged = false,
+  startOn = false,
 }: {
   subject: Subject;
   library?: Subject[];
   sound: boolean;
   onSound: (on: boolean) => void;
   startPlugged?: boolean;
+  /** Already running, as when its screen was showing the desktop before: no boot. */
+  startOn?: boolean;
 }): {
   build: Subject["build"];
   fit: ReturnType<typeof solve>;
@@ -270,7 +273,7 @@ export function useLaptopOs({
   const [profile, setProfile] = useState<ProfileId>(() => balancedProfile(m.profiles));
   const [app, setApp] = useState<AppId | null>(null);
   const [minimised, setMinimised] = useState(false);
-  const [phase, setPhase] = useState<Phase>("boot");
+  const [phase, setPhase] = useState<Phase>(startOn ? "on" : "boot");
   const [trayOpen, setTrayOpen] = useState(false);
   const [volume, setVolume] = useState(60);
   const [toast, setToast] = useState(false);

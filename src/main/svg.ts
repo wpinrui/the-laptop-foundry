@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { basename } from "node:path";
-import { BrowserWindow, dialog, ipcMain } from "electron";
+import { BrowserWindow, dialog } from "electron";
+import { handleTop } from "./ipc";
 
 // Import SVG for the builder's marks: an open-file dialog, then a first,
 // conservative clean of the markup. The renderer rebuilds the SVG from an
@@ -44,7 +45,7 @@ const FILTERS = [
 
 /** Import an image for a mark: SVG as cleaned markup; PNG, JPEG and WebP as a data URL the renderer decodes and downscales. */
 export function registerSvgImport(): void {
-  ipcMain.handle("marks:import-image", async (e) => {
+  handleTop("marks:import-image", async (e) => {
     const win = BrowserWindow.fromWebContents(e.sender) ?? undefined;
     const pick = await (win
       ? dialog.showOpenDialog(win, { properties: ["openFile"], filters: FILTERS })

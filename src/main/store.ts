@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { app, ipcMain } from "electron";
+import { app } from "electron";
+import { handleTop } from "./ipc";
 import type { SavedCompany, SavedModel, Settings } from "../preload/store";
 
 // Each company is one save: one JSON file in the companies folder of the user
@@ -147,18 +148,18 @@ async function loadSettings(): Promise<Settings> {
 }
 
 export function registerStore(): void {
-  ipcMain.handle("store:companies", async () => list(await all()));
-  ipcMain.handle("store:create-company", async (_e, name: unknown) => {
+  handleTop("store:companies", async () => list(await all()));
+  handleTop("store:create-company", async (_e, name: unknown) => {
     if (typeof name !== "string" || !name.trim() || name.trim().length > MAX_NAME)
       throw new Error("company name must be text");
     const now = Date.now();
     return put({ version: 1, id: randomUUID(), name: name.trim(), created: now, played: now, models: [] });
   });
-  ipcMain.handle("store:open-company", async (_e, id: unknown) => {
+  handleTop("store:open-company", async (_e, id: unknown) => {
     const c = await company(id);
     return put({ ...c, played: Date.now() });
   });
-  ipcMain.handle("store:delete-company", async (_e, id: unknown) => {
+  handleTop("store:delete-company", async (_e, id: unknown) => {
     const c = await company(id);
     const map = await all();
     map.delete(c.id);
@@ -166,7 +167,7 @@ export function registerStore(): void {
     await queue;
     return list(map);
   });
-  ipcMain.handle("store:save-model", async (_e, id: unknown, model: unknown) => {
+  handleTop("store:save-model", async (_e, id: unknown, model: unknown) => {
     if (!isModel(model)) throw new Error("not a model");
     const c = await company(id);
     // A reviewed model is locked: its build and name never change again.
@@ -177,18 +178,18 @@ export function registerStore(): void {
       : [...c.models, model];
     return put({ ...c, models, played: Date.now() });
   });
-  ipcMain.handle("store:delete-model", async (_e, id: unknown, modelId: unknown) => {
+  handleTop("store:delete-model", async (_e, id: unknown, modelId: unknown) => {
     if (typeof modelId !== "string") throw new Error("model id must be text");
     const c = await company(id);
     return put({ ...c, models: c.models.filter((m) => m.id !== modelId), played: Date.now() });
   });
-  ipcMain.handle("store:settings", () => loadSettings());
-  ipcMain.handle("store:set-settings", async (_e, next: unknown) => {
+  handleTop("store:settings", () => loadSettings());
+  handleTop("store:set-settings", async (_e, next: unknown) => {
     const x = next as Partial<Settings> | null;
     if (!x || typeof x.sound !== "boolean") throw new Error("bad settings");
     settings = { sound: x.sound };
     await atomicWrite(settingsFile(), settings);
     return settings;
   });
-  ipcMain.handle("app:quit", () => app.quit());
+  handleTop("app:quit", () => app.quit());
 }

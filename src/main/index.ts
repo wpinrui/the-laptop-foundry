@@ -38,6 +38,10 @@ function createWindow(): void {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Lets the browser's site frame preload (src/preload/site.ts) run in
+      // the tabs. Sandboxed, so no frame gets Node; the game's preload and IPC
+      // handlers only serve the top frame.
+      nodeIntegrationInSubFrames: true,
       sandbox: true,
     },
   });

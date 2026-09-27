@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { type BrowserWindow, session, type WebFrameMain, webFrameMain } from "electron";
 import { adblockCommit, adblockHeaders, adblockLoaded, adblockRequest, loadAdblock } from "./adblock";
 import { exitFull, FAKE_FULLSCREEN, FULL_TOKEN } from "./fullscreen";
@@ -66,15 +67,103 @@ function siteRequest(
   d: { webContentsId?: number; frame?: WebFrameMain | null; resourceType: string; url: string },
   appOrigin: (url: string) => boolean,
 ): boolean {
-  if (d.webContentsId !== win.webContents.id || appOrigin(d.url)) return false;
+  if (win.isDestroyed() || d.webContentsId !== win.webContents.id || appOrigin(d.url)) return false;
   const f = d.frame;
   if (!f || !isSiteFrame(win, f)) return false;
   if (d.resourceType === "subFrame" && f.parent?.frameTreeNodeId === win.webContents.mainFrame.frameTreeNodeId) return false;
   return true;
 }
 
-export function registerFox(win: BrowserWindow, appOrigin: (url: string) => boolean): void {
+/** Chrome's user agent for the Chromium Electron ships, without the app and Electron tokens. */
+let chromeUa = "";
+function chromeUA(): string {
+  if (chromeUa) return chromeUa;
+  const ua = session.defaultSession.getUserAgent();
+  const platform = /\(([^)]*)\)/.exec(ua)?.[1] ?? "Windows NT 10.0; Win64; x64";
+  const major = /Chrome\/(\d+)/.exec(ua)?.[1] ?? "148";
+  chromeUa = `Mozilla/5.0 (${platform}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
+  return chromeUa;
+}
+
+/**
+ * Google's sign-in turns away any Chromium it suspects is embedded ("this
+ * browser or app may not be secure"). A Chrome user agent cannot pass, as real
+ * Chrome proves itself to Google with headers Electron cannot make. Google is
+ * more lenient with Firefox, so a tab on its sign-in sees a Firefox, all the
+ * way down (src/preload/site.ts does the same for the page's scripts).
+ */
+const googleSignIn = (url: string): boolean => /^https:\/\/accounts\.google\.com\//i.test(url);
+
+/** The address of the tab a site request belongs to. */
+function tabUrl(win: BrowserWindow, d: { resourceType: string; url: string; frame?: WebFrameMain | null }): string {
+  try {
+    const top = win.webContents.mainFrame.frameTreeNodeId;
+    let f = d.frame ?? null;
+    if (d.resourceType === "subFrame" && f?.parent?.frameTreeNodeId === top) return d.url;
+    while (f?.parent && f.parent.frameTreeNodeId !== top) f = f.parent;
+    return f?.url ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function firefoxUA(): string {
+  const platform = /\(([^)]*)\)/.exec(chromeUA())?.[1] ?? "Windows NT 10.0; Win64; x64";
+  const major = Number(/Chrome\/(\d+)/.exec(chromeUA())?.[1] ?? "145") + 3;
+  return `Mozilla/5.0 (${platform}; rv:${major}.0) Gecko/20100101 Firefox/${major}.0`;
+}
+
+/** The low-entropy client hints Chrome sends with every secure request. */
+function clientHints(): Record<string, string> {
+  const major = /Chrome\/(\d+)/.exec(chromeUA())?.[1] ?? "0";
+  const platform = process.platform === "darwin" ? "macOS" : process.platform === "win32" ? "Windows" : "Linux";
+  return {
+    "sec-ch-ua": `"Google Chrome";v="${major}", "Chromium";v="${major}", "Not/A)Brand";v="24"`,
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": `"${platform}"`,
+  };
+}
+
+/** A request from any frame below the game's top frame, the game's own pages excepted. */
+function fromSite(
+  win: BrowserWindow,
+  d: { webContentsId?: number; frame?: WebFrameMain | null; url: string },
+  appOrigin: (url: string) => boolean,
+): boolean {
+  if (win.isDestroyed()) return false;
+  return d.webContentsId === win.webContents.id && !appOrigin(d.url) && isSiteFrame(win, d.frame);
+}
+
+/**
+ * Makes a site's Set-Cookie usable inside a tab. The game's own page is the
+ * top-level site, so to the browser every site in a tab is cross-site: it
+ * would refuse to store Lax and Strict cookies, and never send them back.
+ * SameSite=None (which needs Secure) keeps sign-ins working, and the cookies
+ * persist in the default session like any browser's.
+ */
+function crossSiteCookies(headers: Record<string, string[]>, url: string): void {
+  if (!url.startsWith("https:")) return;
+  for (const k of Object.keys(headers)) {
+    if (k.toLowerCase() !== "set-cookie") continue;
+    headers[k] = headers[k].map((c) => {
+      const parts = c.split(";").filter((p) => !/^\s*samesite\s*=/i.test(p));
+      if (!parts.some((p) => /^\s*secure\s*$/i.test(p))) parts.push(" Secure");
+      parts.push(" SameSite=None");
+      return parts.join(";");
+    });
+  }
+}
+
+export function registerFox(
+  win: BrowserWindow,
+  appOrigin: (url: string) => boolean,
+  sitePreload = join(__dirname, "../preload/site.js"),
+): void {
   loadAdblock();
+  // Runs at document start in site frames (see src/preload/site.ts).
+  if (!session.defaultSession.getPreloadScripts().some((p) => p.id === "fox-site")) {
+    session.defaultSession.registerPreloadScript({ type: "frame", id: "fox-site", filePath: sitePreload });
+  }
   const wc = win.webContents;
   const send = (channel: string, payload: unknown) => {
     if (!wc.isDestroyed()) wc.send(channel, payload);
@@ -86,8 +175,18 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
   // Let sites be framed, but only inside the game's own window and only for
   // subframes: the game's pages keep their headers.
   session.defaultSession.webRequest.onHeadersReceived({ urls: ["http://*/*", "https://*/*"] }, (d, cb) => {
-    if (d.resourceType !== "subFrame" || d.webContentsId !== wc.id || appOrigin(d.url) || !d.responseHeaders) {
+    if (d.webContentsId !== wc.id || appOrigin(d.url) || !d.responseHeaders) {
       cb({});
+      return;
+    }
+    if (d.resourceType !== "subFrame") {
+      if (!fromSite(win, d, appOrigin)) {
+        cb({});
+        return;
+      }
+      const headers = { ...d.responseHeaders };
+      crossSiteCookies(headers, d.url);
+      cb({ responseHeaders: headers });
       return;
     }
     const headers: Record<string, string[]> = {};
@@ -108,7 +207,35 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
       }
       headers[k] = v;
     }
+    crossSiteCookies(headers, d.url);
     cb({ responseHeaders: adblockHeaders(d, headers) });
+  });
+
+  // Sites see a plain Chrome, and a tab's page loads as a page: Google answers
+  // a sign-in page requested as an iframe with a 401, and turns away browsers
+  // it can tell are embedded. The game's own requests keep their headers.
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["http://*/*", "https://*/*"] }, (d, cb) => {
+    if (!fromSite(win, d, appOrigin)) {
+      cb({});
+      return;
+    }
+    const h: Record<string, string> = {};
+    for (const [k, v] of Object.entries(d.requestHeaders)) {
+      if (!/^(user-agent|sec-ch-.*)$/i.test(k)) h[k] = v;
+    }
+    if (googleSignIn(tabUrl(win, d))) {
+      for (const k of Object.keys(h)) if (/^(sec-fetch-storage-access|x-client-data|x-browser-.*)$/i.test(k)) delete h[k];
+      h["User-Agent"] = firefoxUA();
+    }
+    else {
+      h["User-Agent"] = chromeUA();
+      if (d.url.startsWith("https:")) Object.assign(h, clientHints());
+    }
+    if (d.resourceType === "subFrame" && d.frame?.parent?.frameTreeNodeId === wc.mainFrame.frameTreeNodeId) {
+      for (const k of Object.keys(h)) if (k.toLowerCase() === "sec-fetch-dest") delete h[k];
+      h["Sec-Fetch-Dest"] = "document";
+    }
+    cb({ requestHeaders: h });
   });
 
   // The game's own pages never load inside the browser, and sites lose their

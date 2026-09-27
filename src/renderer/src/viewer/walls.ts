@@ -155,7 +155,13 @@ export function wallPositions(
       return [t, Math.min(top(t) - MARGIN, Math.max(bottom(t) + MARGIN, z))];
     });
 
-  const face = pathOf([...lower, ...[...upper].reverse()], THREE.Shape) as THREE.Shape;
+  // The ends follow the rings between, so the face meets the corner beside it
+  // wherever that corner leans; a straight end would leave a sliver open.
+  const [start, end] = wall.ends.map((e) => toLocal(e).slice(1, -1));
+  const face = pathOf(
+    dedupe([...lower, ...end, ...[...upper].reverse(), ...[...start].reverse()]),
+    THREE.Shape,
+  ) as THREE.Shape;
   const collars: THREE.Shape[] = [];
   for (const h of holes) {
     const raw = inside(toLocal(h));

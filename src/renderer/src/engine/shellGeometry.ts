@@ -22,6 +22,12 @@ export interface Wall {
   /** The wall's bottom and top edges from its start to its end, as (along the side, z). */
   bottom: [number, number][];
   top: [number, number][];
+  /**
+   * The wall's start and end edges from bottom to top, as (along the side, z),
+   * through every ring between: where the neighbouring sides' zones differ from
+   * this side's, the corner beside the wall still moves with height.
+   */
+  ends: [[number, number][], [number, number][]];
 }
 
 export interface MeshData {
@@ -228,11 +234,20 @@ export function shellSurface(
       bottom.push([b[ax], b[2]]);
       top.push([t[ax], t[2]]);
     }
+    const end = (v: number): [number, number][] => {
+      const out: [number, number][] = [];
+      for (let k = ka; k <= kb; k++) {
+        const p = pt(k * n + v);
+        out.push([p[ax], p[2]]);
+      }
+      return out;
+    };
     walls.push({
       side,
       corners: [pt(ka * n + i0), pt(ka * n + (i1 % n)), pt(kb * n + (i1 % n)), pt(kb * n + i0)],
       bottom,
       top,
+      ends: [end(i0), end(i1 % n)],
     });
   }
 

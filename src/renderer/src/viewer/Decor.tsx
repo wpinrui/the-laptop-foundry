@@ -27,7 +27,7 @@ export function faceOf(fit: Fit, surface: MarkSurface): Face {
   const style = fit.shell.style;
   const L = lid.size.y;
   // The base's top and bottom follow its section along the depth (a taper, a shelf, a spine).
-  const shaped = !!style.taper || style.D > 0 || style.Sd > 0 || style.lip > 0 || style.q > 0;
+  const shaped = !!style.taper || style.D > 0 || style.Sd > 0 || style.lip > 0 || !!style.bevel || style.q > 0;
   const section = (v: number) => outerSection(style, o, Math.min(o.y, Math.max(0, o.y / 2 + v))) ?? [0, o.z];
   switch (surface) {
     case "palm":

@@ -141,6 +141,8 @@ export interface ResolvedStyle {
   R: Mm;
   /** Lift lip. */
   lip: Mm;
+  /** A bevel along the rear bottom edge for a wrapped fan grill: its rise up the rear and its run under the base. Null without one. */
+  bevel: { rise: Mm; run: Mm } | null;
   /** Bumper size, and the quarter of it the shell sits inside at the top and the bottom. */
   bumper: Mm;
   q: Mm;
@@ -626,7 +628,28 @@ export interface Opening {
   /** Span along the side: x on front and rear, y on left and right. */
   u: [Mm, Mm];
   z: [Mm, Mm];
+  /** A slotted fan grill: slot width and pitch along u. Without it a vent is one open rectangle. */
+  slots?: { width: Mm; pitch: Mm };
+  /** A grill on the rear bevel: the outer surface it follows, as (y, z) points from under the base up to the rear face. */
+  bevel?: [Mm, Mm][];
 }
+
+/** The fan grill as solved: what the player may pick here and what it does to the airflow. */
+export interface GrillFit {
+  style: GrillStyle;
+  /** Whether the vent walls have room for a uniform grill. */
+  faceOk: boolean;
+  /** Whether the grill may wrap under onto a rear bevel. */
+  wrapOk: boolean;
+  /** Tallest grill the vent walls take, mm. */
+  maxH: Mm;
+  /** Effective open area over the stock vents', 0 with no grill. */
+  open: number;
+  /** Wrap angle from the underside when the grill wraps under, degrees; 0 when it does not. */
+  angle: number;
+}
+
+export type GrillStyle = "stock" | "none" | "uniform" | "bottom";
 
 export type Anchor =
   | { kind: "hinge"; from: Vec3; to: Vec3 }
@@ -655,6 +678,8 @@ export interface Shell {
   /** Floor: inner bottom to the top wall. Deck: the thickest deck layer, down from the top surface. */
   bands: { floor: [Mm, Mm]; deck: [Mm, Mm] };
   cutouts: Opening[];
+  /** The fan grill, on builds with fans. */
+  grill?: GrillFit;
   /** Holes in the bottom wall where a removable pack forms the underside. */
   hatches: { at: Vec3; size: Size }[];
   /** Openings in the top wall where the keyboard and trackpad sit flush with the top surface. */

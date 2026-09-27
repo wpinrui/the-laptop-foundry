@@ -46,7 +46,7 @@ interface Ring {
   z: number;
 }
 
-function profileRings(style: ResolvedStyle, Z: number, profile: boolean, segments: number): { rings: Ring[]; nb: number } {
+export function profileRings(style: ResolvedStyle, Z: number, profile: boolean, segments: number): { rings: Ring[]; nb: number } {
   const p = profile && style.edge !== "square" ? Math.min(style.profile, Z / 2) : 0;
   const edge = (): Ring[] => {
     const out: Ring[] = [];
@@ -86,6 +86,7 @@ function depthCuts(style: ResolvedStyle, size: Size, profile: boolean): number[]
       for (let i = 0; i <= 32; i++) keys.push(Y - Rc + Rc * Math.cos((Math.PI * i) / 32));
     }
     if (style.lip > 0) keys.push(Y - LIFT_RUN * style.lip);
+    if (style.bevel) keys.push(Y - style.bevel.run);
   }
   const varies = keys.length > 0 || (!profile && style.crown > 0);
   if (!varies) return [];

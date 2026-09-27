@@ -3,6 +3,7 @@ import { pouchOf } from "../battery";
 import { activeArea } from "../content/display";
 import { panelOf } from "../screen";
 import { fanSizeOf, withFanSize } from "../fan";
+import { grillAir } from "../grill";
 import { solve } from "../solve";
 import {
   type Build,
@@ -164,6 +165,8 @@ interface Facts {
   materialSpend: number;
   /** Parts stacked over the board, each shading a little of its heat from the skin. */
   covered?: number;
+  /** The fan grill's share of the fans' cooling, and the noise it adds at full speed, dB. */
+  grill?: { cool: number; db: number };
 }
 
 /** Discrete graphics power. A switchable part is powered down at idle, so it idles at nothing. */
@@ -246,6 +249,7 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
     coolingSpend: build.spend.cooling ?? 0,
     materialSpend: build.spend.material ?? 0,
     covered: fit.boxes.filter((b) => b.over === "board").length,
+    grill: grillAir(fit.shell.grill),
   };
 }
 
@@ -332,13 +336,14 @@ export function cooler(f: Facts): Cooler {
     tech *
     (f.chamber ? 1.6 : 1) *
     (1 + 0.3 * f.coolingSpend) *
-    (1 + 0.1 * f.materialSpend);
+    (1 + 0.1 * f.materialSpend) *
+    (f.grill?.cool ?? 1);
   // Noise follows one fan's airflow; a second fan adds 3 dB at the same speed,
   // so at the same heat two fans spin slower and run quieter than one.
   const size = f.fanAuto && f.fans.length > 0 ? -FAN_LAW * Math.log10(f.fans[0].d / f.fanAuto) : 0;
   const loudest =
     hardware > 0
-      ? Math.max(30, 36 + 20 * Math.log10(hardware / count / 0.5) + 10 * Math.log10(count) + size)
+      ? Math.max(30, 36 + 20 * Math.log10(hardware / count / 0.5) + 10 * Math.log10(count) + size) + (f.grill?.db ?? 0)
       : 0;
 
   const litres = (x * y * z) / 1e6;

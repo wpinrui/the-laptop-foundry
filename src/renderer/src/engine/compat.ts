@@ -13,6 +13,7 @@ import { screenOf, screenProblems } from "./screen";
 import { isHexColour } from "./look";
 import { pouchOptionOk, pouchShape } from "./battery";
 import { fanOptionOk } from "./fan";
+import { grillOptionOk } from "./grill";
 
 const REQUIRED: Category[] = [
   "processor",
@@ -130,6 +131,8 @@ export function checkCompat(
         if (pouch && pouchOptionOk(pouch, key, value)) continue;
         // A fan cooler takes the player's fan size as a free value.
         if (cat === "cooling" && fanOptionOk(year, key, value)) continue;
+        // And its fan grill.
+        if (cat === "cooling" && grillOptionOk(key, value)) continue;
         const list = part.options?.[key];
         if (!list || !list.some((v) => String(v) === String(value)))
           out.push({

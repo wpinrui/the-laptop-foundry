@@ -53,6 +53,7 @@ export function resolveStyle(style: BodyStyle, size: Size, sig = 0.5, lidZ = Inf
     Sd: style.shelf ? v(style.shelf.depth) : 0,
     R: style.shelf ? Math.min(v(style.shelf.rise), lidZ) : 0,
     lip: style.lift ? Math.min(v(style.lift.lip), Z * 0.6) : 0,
+    bevel: null,
     bumper: style.bumper ? Math.min(v(style.bumper), Z * 0.6) : 0,
     q: 0,
     wallScale: style.wallScale ?? 1,
@@ -93,6 +94,11 @@ function taperRise(style: ResolvedStyle, outer: Size, y: number): number {
   return T * (1 - u * u * (3 - 2 * u));
 }
 
+/** Rise of the outer bottom at depth y over the rear bevel. */
+function bevelRise(bevel: { rise: number; run: number }, Y: number, y: number): number {
+  return (bevel.rise * clamp(y - (Y - bevel.run), 0, bevel.run)) / bevel.run;
+}
+
 /** Where the lift chamfer starts, from the rear. */
 export const LIFT_RUN = 1.1;
 /** How far the shelf's ramp runs, as a share of its rise. */
@@ -109,6 +115,7 @@ export function outerSection(style: ResolvedStyle, outer: Size, y: number): [num
   let hi = Z - style.q;
   if (style.Sd > 0 && style.R > 0) hi += style.R * clamp((y - (Y - style.Sd)) / (SHELF_RAMP * style.R), 0, 1);
   if (style.lip > 0) lo = Math.max(lo, (y - (Y - LIFT_RUN * style.lip)) / LIFT_RUN);
+  if (style.bevel) lo = Math.max(lo, style.q + bevelRise(style.bevel, Y, y));
   if (style.D > 0) {
     const Rc = style.D / 2;
     const cy = Y - Rc;
@@ -201,6 +208,11 @@ export function floorBand(
   let hi = Z - off.top;
   if (style.Sd > 0 && style.R > 0) hi += style.R * clamp((y - (Y - style.Sd)) / (SHELF_RAMP * style.R), 0, 1);
   if (style.lip > 0) lo = Math.max(lo, (y - (Y - LIFT_RUN * style.lip)) / LIFT_RUN + wall * SQRT2);
+  if (style.bevel) {
+    // The inner face runs parallel to the bevel, a wall's thickness in.
+    const { rise, run } = style.bevel;
+    lo = Math.max(lo, off.bottom + (rise * (y - (Y - run))) / run + wall * (Math.hypot(rise, run) / run - 1));
+  }
   if (style.D > 0) {
     const Rc = style.D / 2;
     const ri = Rc - wall;

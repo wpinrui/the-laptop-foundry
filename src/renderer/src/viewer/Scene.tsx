@@ -21,6 +21,7 @@ import { BaseMarks, LidDecor } from "./Decor";
 import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
 import { type Cuts, flushBay, portCuts, wallPositions } from "./walls";
+import { grillGeometry } from "./grill";
 import {
   disposeUnit,
   renderUnit,
@@ -731,6 +732,7 @@ function Bumpers({ fit, xray }: { fit: Fit; xray: boolean }) {
       Sd: 0,
       R: 0,
       lip: 0,
+      bevel: null,
       q: 0,
       crown: 0,
     };
@@ -829,13 +831,21 @@ function Openings({ fit }: { fit: Fit }) {
   const colour = token("color-opening");
   const w = fit.shell.walls.side + 0.4;
   const out = fit.shell.outer;
+  // A slotted grill's slots, all in one mesh.
+  const grill = useMemo(() => grillGeometry(fit.shell.cutouts, out, w - 0.2), [fit, out, w]);
+  useEffect(() => () => grill?.dispose(), [grill]);
   return (
     <group>
+      {grill && (
+        <mesh geometry={grill}>
+          <meshBasicMaterial color={colour} side={THREE.DoubleSide} />
+        </mesh>
+      )}
       {fit.shell.cutouts.map((o) => {
         // A port's or bay's model draws its own opening (a connector face, a
         // drive bezel); an opaque block here would hide it and read as a
-        // black brick in the wall.
-        if (o.kind === "port" || o.kind === "bay") return null;
+        // black brick in the wall. A grill's slots are drawn above.
+        if (o.kind === "port" || o.kind === "bay" || o.slots) return null;
         const du = o.u[1] - o.u[0];
         const dz = o.z[1] - o.z[0];
         const uc = (o.u[0] + o.u[1]) / 2;

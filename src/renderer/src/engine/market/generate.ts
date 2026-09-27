@@ -1,0 +1,1410 @@
+import { optionAvailable } from "../compat";
+import { available, CONTENT, eraFor, panelsFor } from "../content";
+import { offeredGenerationIds } from "../content/chips/gens";
+import { activeArea } from "../content/display";
+import { pouchDensity, pouchShape } from "../battery";
+import { padLimits, padShapeOf } from "../pad";
+import { type Budget, classify, type PerfClass, weightOf } from "../price";
+import {
+  defaultScreen,
+  gamutsFor,
+  kindAvailable,
+  maxNits,
+  MIN_NITS,
+  ppiOf,
+  specOfPanel,
+  standardResolutions,
+} from "../screen";
+import { simulate } from "../sim";
+import { solve } from "../solve";
+import type {
+  Build,
+  BuildPart,
+  BuildPort,
+  Fit,
+  OptionValue,
+  PanelOption,
+  Part,
+  Piece,
+  Problem,
+  QualityKey,
+  ScreenKind,
+  ScreenSpec,
+  Side,
+  Size,
+} from "../types";
+import { PIECES, QUALITY_KEYS } from "../types";
+import { linesIn, nameFor, priceFor, shapeFor } from "./makers";
+import { modelName } from "./names";
+import type { CpuVendor, HeadlineStat, Line, LineShape } from "./types";
+
+// The rival generator (GDD, Version 0.2, "Rival generator"). For a line and a
+// year it picks every part at a percentile of that year's options, driven by
+// the line's class and priorities, then runs a cheap loop: solve, fix what does
+// not fit (grow the chassis, shrink or drop a part, switch the layout or body),
+// then check the build against its class (thin enough, fast enough) and swap
+// one thing at a time toward it. It keeps the best valid build it saw.
+
+export type Rng = () => number;
+
+/** Mulberry32: small, fast and deterministic. */
+export function rngOf(seed: number): Rng {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** FNV-1a over the parts, for a per-model seed. */
+export function hashOf(...parts: (string | number)[]): number {
+  let h = 0x811c9dc5;
+  for (const ch of parts.join("|")) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** Most solves one model may spend. */
+export const MAX_SOLVES = 30;
+/** Most simulations one model may spend on the class check. */
+const MAX_SIMS = 4;
+/** Wall-clock budget per model, ms: past it, the loop stops at the next step once it holds a valid build. */
+export const MODEL_BUDGET_MS = 250;
+
+export interface Generated {
+  build: Build;
+  /** Solves with no problems. */
+  valid: boolean;
+  /** The line's own picks never came out valid, so this is the plain safe build. */
+  fallback: boolean;
+  solves: number;
+  sims: number;
+  ms: number;
+  /** Problems left on the returned build: empty when valid. */
+  problems: Problem[];
+}
+
+export interface GeneratedModel extends Generated {
+  id: string;
+  line: string;
+  maker: string;
+  name: string;
+}
+
+export interface GeneratedYear {
+  year: number;
+  seed: number;
+  models: GeneratedModel[];
+  solves: number;
+  ms: number;
+}
+
+// ------------------------------------------------------------------ helpers
+
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/** The item at percentile p of a list sorted worst to best. */
+function at<T>(list: T[], p: number): T {
+  return list[Math.round(clamp01(p) * (list.length - 1))];
+}
+
+const firstShape = (p: Part) => (Array.isArray(p.shape) ? p.shape[0] : p.shape);
+
+const partCache = new Map<string, Part[]>();
+/** Parts of a category on sale in the year; rival-only parts (Apple silicon) only when asked. */
+function partsIn(cat: Part["category"], year: number, rival: boolean): Part[] {
+  const key = `${cat}|${year}|${rival}`;
+  let hit = partCache.get(key);
+  if (!hit) {
+    hit = CONTENT.parts.filter((p) => p.category === cat && available(p, year) && (!p.rivalOnly || rival));
+    partCache.set(key, hit);
+  }
+  return hit;
+}
+
+function partById(id: string): Part | undefined {
+  return CONTENT.parts.find((p) => p.id === id);
+}
+
+function vendorOf(p: Part): CpuVendor | undefined {
+  const v = p.provides?.find((t) => t.startsWith("platform:"))?.slice(9);
+  return v as CpuVendor | undefined;
+}
+
+/** A chip's speed for ranking: geometric mean of its best multi-core point and its single-core score. */
+function speedOf(p: Part): number {
+  const pw = p.power;
+  if (!pw) return 0;
+  const multi = Math.max(...pw.points.map((x) => x.score));
+  return Math.sqrt(multi * (pw.single ?? multi / 4));
+}
+
+/** Option values a part can take in the year, in the part's order, with their needs met. */
+function optionValues(part: Part, key: string, year: number, provided: Set<string> = new Set()): OptionValue[] {
+  return (part.options?.[key] ?? []).filter((v) => {
+    if (!optionAvailable(part, key, v, year)) return false;
+    const needs = part.optionNeeds?.[key]?.[String(v)] ?? [];
+    return needs.every((n) => provided.has(n));
+  });
+}
+
+function numericAt(values: OptionValue[], p: number): OptionValue | undefined {
+  if (values.length === 0) return undefined;
+  return at([...values].sort((a, b) => Number(a) - Number(b)), p);
+}
+
+// ------------------------------------------------------------------ persona
+
+interface Persona {
+  budget: Budget;
+  thin: boolean;
+  large: boolean;
+  perf: PerfClass;
+  gaming: boolean;
+  /** Keyboard, battery and ports first: ThinkPad, Latitude, EliteBook, Portege. */
+  business: boolean;
+  apple: boolean;
+  /** May use Apple silicon (rival-only parts). */
+  silicon: boolean;
+}
+
+interface Ctx {
+  line: Line;
+  year: number;
+  shape: LineShape;
+  who: Persona;
+  rng: Rng;
+  /** The model's place in the line's range, 0 (base) to 1 (top). */
+  pos: number;
+  /** Part percentile before priorities: class base plus the model's place. */
+  trim: number;
+  vendor: CpuVendor;
+  /** Escalation counters, one per kind of fix. */
+  step: Record<string, number>;
+  /** Scales the processor and graphics power window down on thin fixes. */
+  powerScale: number;
+}
+
+const BASE: Record<Budget, number> = { low: 0.2, midrange: 0.5, premium: 0.78 };
+const MEAN_WEIGHT = 1 / 12;
+
+/** Percentile for a part that serves a headline stat. */
+function pct(ctx: Ctx, stat: HeadlineStat, shift = 0): number {
+  return clamp01(ctx.trim + (ctx.line.priorities[stat] - MEAN_WEIGHT) * 1.5 + shift);
+}
+
+function personaOf(line: Line, shape: LineShape, year: number): Persona {
+  const w = line.priorities;
+  return {
+    budget: shape.class.budget,
+    thin: shape.class.body === "thin and light",
+    large: shape.class.body === "large",
+    perf: shape.class.performance,
+    gaming: shape.class.performance === "gaming",
+    business: w.keyboard >= 0.13 && w.connectivity >= 0.08,
+    apple: line.maker === "apple",
+    silicon: line.rivalOnlyFrom !== undefined && year >= line.rivalOnlyFrom,
+  };
+}
+
+// ------------------------------------------------------------------ choices
+
+/** Everything the generator picked; assembled into a Build for each solve. */
+interface Choices {
+  body: string;
+  layout: string;
+  cpu: Part;
+  gpu?: Part;
+  memory: BuildPart;
+  storage: BuildPart[];
+  screen: ScreenSpec;
+  battery: BuildPart;
+  cooling: BuildPart;
+  optical?: BuildPart;
+  wireless: BuildPart;
+  keyboard: BuildPart;
+  trackpad: BuildPart;
+  webcam?: BuildPart;
+  speakers?: BuildPart;
+  ports: BuildPort[];
+  materials: Record<Piece, string>;
+  finish: Build["finish"];
+  spend: Build["spend"];
+  quality: NonNullable<Build["quality"]>;
+  pad?: { w: number; d: number };
+  price: number;
+  /** Room left over the minimum, mm. */
+  slack: Size;
+  /** The body's signature slider, 0 to 1: lower is a smaller edge profile, which leaves more flat wall for the ports. */
+  sig: number;
+}
+
+function assemble(ctx: Ctx, c: Choices, size: Size): Build {
+  const parts: Build["parts"] = {
+    processor: [{ part: c.cpu.id }],
+    memory: [c.memory],
+    storage: c.storage,
+    battery: [c.battery],
+    cooling: [c.cooling],
+    wireless: [c.wireless],
+    keyboard: [c.keyboard],
+    trackpad: [c.trackpad],
+  };
+  if (c.gpu) parts.graphics = [{ part: c.gpu.id }];
+  if (c.optical) parts.optical = [c.optical];
+  if (c.webcam) parts.webcam = [c.webcam];
+  if (c.speakers) parts.speakers = [c.speakers];
+  return {
+    year: ctx.year,
+    body: c.body,
+    layout: c.layout,
+    size,
+    parts,
+    ports: c.ports,
+    materials: c.materials,
+    finish: c.finish,
+    spend: c.spend,
+    quality: c.quality,
+    price: c.price,
+    screen: c.screen,
+    shape: { [c.body]: c.sig },
+    ...(c.pad ? { place: { pad: { w: c.pad.w, d: c.pad.d } } } : {}),
+  };
+}
+
+// ------------------------------------------------------------------ body and layout
+
+function bodiesFor(ctx: Ctx): string[] {
+  const list = ctx.shape.bodies.filter((id) => {
+    const b = CONTENT.bodies.find((x) => x.id === id);
+    return b && available(b, ctx.year);
+  });
+  return list.length > 0 ? list : ["workhorse"];
+}
+
+function layoutsFor(ctx: Ctx, body: string, c: Partial<Choices>): string[] {
+  const b = CONTENT.bodies.find((x) => x.id === body);
+  const ok = (b?.layouts ?? ["a"]).filter((id) => {
+    const l = CONTENT.layouts.find((x) => x.id === id);
+    return l && available(l, ctx.year);
+  });
+  const cells = c.battery && firstShape(partById(c.battery.part) as Part).kind === "cells";
+  const pref = ctx.who.large && c.optical && ctx.year < 2014 ? ["c", "b", "a"] : cells ? ["b", "c", "a"] : ["a", "b", "c"];
+  return pref.filter((id) => ok.includes(id));
+}
+
+// ------------------------------------------------------------------ processor, graphics, memory
+
+/** Rated power window for the processor, W. */
+function cpuWindow(ctx: Ctx): [number, number] {
+  const w = ctx.who;
+  const s = ctx.powerScale;
+  if (w.thin) return w.perf === "office" ? [0, (ctx.year < 2011 ? 25 : 28) * s] : [0, 45 * s];
+  if (w.gaming || w.large) return [(ctx.year < 2011 ? 30 : 42) * s, 250];
+  if (w.perf === "mixed-use") return [15 * s, 47 * s];
+  return [8, 35 * s];
+}
+
+function pickCpu(ctx: Ctx, shift = 0): Part {
+  const year = ctx.year;
+  const gens = offeredGenerationIds(year);
+  // Only chips some memory of the year fits: a platform may be listed before its memory.
+  const all = partsIn("processor", year, ctx.who.silicon).filter((p) => memoryFor(p, year, ctx.who.silicon).length > 0);
+  const fresh = (p: Part) => !p.gen || gens.has(p.gen);
+  let list = all.filter((p) => vendorOf(p) === ctx.vendor && fresh(p));
+  if (list.length === 0) list = all.filter((p) => vendorOf(p) === ctx.vendor);
+  if (list.length === 0) list = all.filter((p) => !p.rivalOnly && fresh(p));
+  if (list.length === 0) list = all;
+  const [lo, hi] = cpuWindow(ctx);
+  const inWindow = list.filter((p) => (p.power?.rated ?? 0) >= lo && (p.power?.rated ?? 0) <= hi);
+  if (inWindow.length > 0) list = inWindow;
+  list = [...list].sort((a, b) => speedOf(a) - speedOf(b) || a.id.localeCompare(b.id));
+  return at(list, pct(ctx, "app", shift));
+}
+
+function gpuWindow(ctx: Ctx): number {
+  const w = ctx.who;
+  if (w.thin) return (w.gaming ? 110 : 35) * ctx.powerScale;
+  if (w.gaming || w.large) return 250;
+  return 60 * ctx.powerScale;
+}
+
+function wantsGpu(ctx: Ctx, cpu: Part): boolean {
+  if (!cpu.provides?.includes("dgpu")) return false;
+  if (ctx.who.gaming) return true;
+  if (ctx.who.perf === "mixed-use") return ctx.rng() < 0.55 + ctx.line.priorities.games * 3;
+  return ctx.line.priorities.games >= 0.03 && ctx.rng() < 0.25;
+}
+
+function pickGpu(ctx: Ctx, cpu: Part, shift = 0): Part | undefined {
+  if (!cpu.provides?.includes("dgpu")) return undefined;
+  const gens = offeredGenerationIds(ctx.year);
+  const all = partsIn("graphics", ctx.year, false);
+  let list = all.filter((p) => !p.gen || gens.has(p.gen));
+  if (list.length === 0) list = all;
+  const hi = gpuWindow(ctx);
+  const inWindow = list.filter((p) => (p.power?.rated ?? 0) <= hi);
+  if (inWindow.length > 0) list = inWindow;
+  if (list.length === 0) return undefined;
+  list = [...list].sort((a, b) => speedOf(a) - speedOf(b) || a.id.localeCompare(b.id));
+  // Gaming lines spread over the whole range by their place in it; others buy a modest part.
+  const g = ctx.line.priorities.games;
+  const p = ctx.who.gaming ? ctx.trim + (g - 0.3) * 2 : ctx.trim - 0.3 + g * 2;
+  return at(list, clamp01(p + shift));
+}
+
+const memoryCache = new Map<string, Part[]>();
+/** Memory of the year the processor takes. */
+function memoryFor(cpu: Part, year: number, rival: boolean): Part[] {
+  const key = `${cpu.id}|${year}|${rival}`;
+  let hit = memoryCache.get(key);
+  if (!hit) {
+    const provided = new Set(cpu.provides ?? []);
+    hit = partsIn("memory", year, rival).filter((p) => (p.needs ?? []).every((n) => provided.has(n)));
+    memoryCache.set(key, hit);
+  }
+  return hit;
+}
+
+function pickMemory(ctx: Ctx, cpu: Part): BuildPart {
+  const provided = new Set(cpu.provides ?? []);
+  const fits = memoryFor(cpu, ctx.year, ctx.who.silicon);
+  // Soldered memory on thin lines where the platform takes it; the newest kind otherwise.
+  const soldered = (p: Part) => {
+    const s = firstShape(p);
+    return s.kind === "none" || (s.kind === "block" && !s.stack);
+  };
+  let list = fits;
+  if (ctx.who.thin && list.some(soldered)) list = list.filter(soldered);
+  else if (!ctx.who.thin && list.some((p) => !soldered(p))) list = list.filter((p) => !soldered(p));
+  list = [...list].sort((a, b) => b.from - a.from || a.id.localeCompare(b.id));
+  const part = list[0] ?? fits[0] ?? partsIn("memory", ctx.year, false)[0];
+  const opts: Record<string, OptionValue> = {};
+  const cap = numericAt(optionValues(part, "capacity", ctx.year, provided), pct(ctx, "app", -0.1) * 0.9);
+  if (cap !== undefined) opts.capacity = cap;
+  const slots = optionValues(part, "slots", ctx.year);
+  if (slots.length > 0) opts.slots = ctx.who.thin && slots.includes(1) ? 1 : slots.includes(2) ? 2 : slots[0];
+  return Object.keys(opts).length > 0 ? { part: part.id, opts } : { part: part.id };
+}
+
+/** A new processor, with memory and graphics that go with it. */
+function setCpu(ctx: Ctx, c: Choices, cpu: Part, gpuShift = 0): void {
+  c.cpu = cpu;
+  c.memory = pickMemory(ctx, cpu);
+  if (!cpu.provides?.includes("dgpu")) c.gpu = undefined;
+  else if (c.gpu) c.gpu = pickGpu(ctx, cpu, gpuShift);
+  c.cooling = pickCooling(ctx, c.cpu, c.gpu);
+  if (c.ports.length > 0) c.ports = fixPlatformPorts(c.ports, cpu, ctx.year);
+}
+
+// ------------------------------------------------------------------ storage
+
+function storageRank(p: Part): number {
+  const id = p.id;
+  const kind = id.startsWith("hdd")
+    ? 0
+    : id.startsWith("ssd")
+      ? 1
+      : id.startsWith("msata") || id === "m2-2280-sata"
+        ? 2
+        : id.endsWith("g3")
+          ? 3
+          : id.endsWith("g4")
+            ? 4
+            : 5;
+  return kind * 100 + (p.from - 2000);
+}
+
+const bayDrive = (p: Part) => {
+  const s = firstShape(p);
+  return s.kind === "box" && s.units.some((u) => u.size.z >= 7);
+};
+
+function pickStorage(ctx: Ctx, small = false): BuildPart[] {
+  let list = partsIn("storage", ctx.year, false);
+  if ((ctx.who.thin || small) && list.some((p) => !bayDrive(p))) list = list.filter((p) => !bayDrive(p));
+  // One in ten of every gen: the smallest M.2 cards are for tablets and handhelds.
+  if (list.some((p) => p.id !== "m2-2230-g4" && p.id !== "m2-2242-g4"))
+    list = list.filter((p) => p.id !== "m2-2230-g4" && p.id !== "m2-2242-g4");
+  list = [...list].sort((a, b) => storageRank(a) - storageRank(b) || a.id.localeCompare(b.id));
+  const part = at(list, pct(ctx, "app", -0.05));
+  const cap = numericAt(optionValues(part, "capacity", ctx.year), pct(ctx, "app", -0.15));
+  const one: BuildPart = cap !== undefined ? { part: part.id, opts: { capacity: cap } } : { part: part.id };
+  const two = ctx.who.large && !small && ctx.rng() < 0.4;
+  return two ? [one, { ...one }] : [one];
+}
+
+// ------------------------------------------------------------------ screen
+
+const GAMUT_RANK: Record<string, number> = { "45% sRGB": 0, "60% sRGB": 1, "100% sRGB": 2, "100% DCI-P3": 3 };
+
+function kindOf(p: PanelOption): ScreenKind {
+  if (p.type.startsWith("tn")) return "tn";
+  if (p.type.startsWith("ips")) return "ips";
+  return p.type as ScreenKind;
+}
+
+function panelScore(p: PanelOption): number {
+  const kind = kindOf(p);
+  const bonus = kind === "oled" ? 1.4 : kind === "mini-led" ? 1.3 : kind === "ips" ? 1.15 : 1;
+  return ppiOf(p.inches, p.res) * Math.sqrt(p.nits) * (1 + (GAMUT_RANK[p.gamut] ?? 0) * 0.3) * bonus * (1 + Math.max(...p.refresh) / 600);
+}
+
+function pickScreen(ctx: Ctx, towardSmall = false): ScreenSpec {
+  const [lo, hi] = ctx.shape.screen;
+  const year = ctx.year;
+  const rows = panelsFor(year).filter((p) => p.inches >= lo - 0.06 && p.inches <= hi + 0.06 && kindAvailable(kindOf(p), year));
+  const sizes = [...new Set(rows.map((p) => p.inches))].sort((a, b) => a - b);
+  const pd = pct(ctx, "display");
+  let spec: ScreenSpec;
+  let rowNits: number | undefined;
+  let rowGamut: string | undefined;
+  if (sizes.length > 0) {
+    // Thin lines lean small, large and gaming lines lean big.
+    const lean = towardSmall ? 0 : ctx.who.thin ? 0.3 : ctx.who.large || ctx.who.gaming ? 0.75 : 0.5;
+    const diag = at(sizes, clamp01(lean + (ctx.rng() - 0.5) * 0.7));
+    const same = rows.filter((p) => p.inches === diag).sort((a, b) => panelScore(a) - panelScore(b) || a.id.localeCompare(b.id));
+    const row = at(same, pd);
+    const rates = [...row.refresh].sort((a, b) => a - b);
+    const hz = ctx.who.gaming ? rates[rates.length - 1] : at(rates, pd - 0.3);
+    spec = specOfPanel(row, hz, year);
+    rowNits = row.nits;
+    rowGamut = row.gamut;
+  } else {
+    // No panel sold in the line's range that year: a custom one at the nearest size the line used.
+    const base = defaultScreen(year);
+    const diag = Math.round((towardSmall ? lo : lerp(lo, hi, ctx.rng())) * 10) / 10;
+    const kind = base.panel;
+    const res = standardResolutions(base.ratio, diag, year, kind);
+    spec = { ...base, diag, res: res.length > 0 ? at(res, pd) : base.res };
+  }
+  // Brightness and gamut past the panel's own on displays the line cares about.
+  const kind = spec.panel;
+  const ceiling = maxNits(year, kind);
+  const stock = clamp(rowNits ?? ceiling * 0.6, MIN_NITS, ceiling);
+  const nits = Math.round(clamp(lerp(stock * 0.9, ceiling, clamp01((pd - 0.45) * 1.6)), MIN_NITS, ceiling) / 10) * 10;
+  const tiers = gamutsFor(year, kind);
+  const stockTier = rowGamut && tiers.includes(rowGamut) ? tiers.indexOf(rowGamut) : 0;
+  const gamut = tiers[clamp(stockTier + (pd > 0.75 ? 1 : 0), 0, tiers.length - 1)];
+  return { ...spec, nits, ...(gamut ? { gamut } : {}) };
+}
+
+// ------------------------------------------------------------------ battery and cooling
+
+function activeWidth(s: ScreenSpec): number {
+  return activeArea({ inches: s.diag, aspect: s.ratio } as PanelOption).x;
+}
+
+function pickBattery(ctx: Ctx, screen: ScreenSpec, shrink = 0): BuildPart {
+  const year = ctx.year;
+  const list = partsIn("battery", year, false);
+  const cells = list.find((p) => firstShape(p).kind === "cells");
+  const pouches = list.filter((p) => firstShape(p).kind === "pouch").sort((a, b) => b.from - a.from);
+  const pb = clamp01(pct(ctx, "battery") - shrink);
+  const useCells = cells && (pouches.length === 0 || (!ctx.who.thin && (year < 2010 || (year < 2013 && ctx.pos < 0.5))));
+  if (useCells) {
+    const counts = optionValues(cells, "cells", year);
+    const pick = numericAt(counts, ctx.who.large ? pb + 0.2 : ctx.who.thin ? pb - 0.3 : pb) ?? 6;
+    return { part: cells.id, opts: { cells: pick } };
+  }
+  const part = pouches[0] ?? list[0];
+  const shape = pouchShape(part);
+  if (!shape) return { part: part.id };
+  const density = pouchDensity(part, shape, year, clamp01(ctx.who.thin ? 0.5 : 0));
+  // Capacity grows with the panel and the class: about 35 to 60 Wh at 13 inch, up to the flight limit on big machines.
+  const size = clamp((screen.diag - 11) / 7, 0, 1);
+  const lo = 30 + size * 15;
+  const hi = Math.min(99, 55 + size * 40 + (ctx.who.gaming ? 10 : 0));
+  const wh = lerp(lo, hi, pb) * (1 - shrink * 0.5);
+  const keys = Object.keys(shape.thickness);
+  const thick = ctx.who.thin || shrink > 0 ? (shape.thickness.slim ?? shape.thickness[keys[0]]) : shape.thickness[keys[0]];
+  const maxLen = Math.min(shape.limits.x[1], activeWidth(screen) * 0.85);
+  let depth = shape.depth;
+  let length = (wh * 1e6) / (density * depth * thick);
+  if (length > maxLen) {
+    depth = clamp((wh * 1e6) / (density * maxLen * thick), shape.limits.y[0], shape.limits.y[1]);
+    length = (wh * 1e6) / (density * depth * thick);
+  }
+  length = clamp(length, shape.limits.x[0], maxLen);
+  return {
+    part: part.id,
+    opts: {
+      length: Math.round(length),
+      depth: Math.round(clamp(depth, shape.limits.y[0], shape.limits.y[1])),
+      thick: Math.round(clamp(thick, shape.limits.z[0], shape.limits.z[1]) * 10) / 10,
+    },
+  };
+}
+
+const COOLERS = ["fanless", "one-fan", "two-fans", "vapour-chamber"];
+
+function pickCooling(ctx: Ctx, cpu: Part, gpu: Part | undefined, bump = 0): BuildPart {
+  const watts = (cpu.power?.rated ?? 15) + (gpu?.power?.rated ?? 0);
+  let i = watts <= 12 && ctx.who.thin && !gpu ? 0 : watts <= 36 && !gpu ? 1 : 2;
+  if (ctx.who.gaming && ctx.who.budget === "premium" && watts >= 140) i = 3;
+  if (ctx.line.priorities.thermals >= 0.08 && i === 1) i = 2;
+  i += bump;
+  const ok = COOLERS.filter((id) => partsIn("cooling", ctx.year, false).some((p) => p.id === id));
+  const id = ok.includes(COOLERS[clamp(i, 0, 3)]) ? COOLERS[clamp(i, 0, 3)] : ok[Math.min(clamp(i, 0, 3), ok.length - 1)];
+  return { part: id };
+}
+
+// ------------------------------------------------------------------ peripherals
+
+function travelOf(p: Part): number {
+  const m = /(\d+(?:\.\d+)?)$/.exec(p.id);
+  return m ? Number(m[1]) : 2;
+}
+
+function pickKeyboard(ctx: Ctx, screen: ScreenSpec, flattest = false): BuildPart {
+  const w = ctx.line.priorities;
+  let list = partsIn("keyboard", ctx.year, false);
+  const mech = (p: Part) => p.id.includes("mech");
+  const wantMech = ctx.who.gaming && ctx.who.budget === "premium" && ctx.rng() < 0.35;
+  if (list.some((p) => mech(p) === wantMech)) list = list.filter((p) => mech(p) === wantMech);
+  list = [...list].sort((a, b) => travelOf(a) - travelOf(b) || a.id.localeCompare(b.id));
+  const pk = flattest ? 0 : clamp01(0.45 + (w.keyboard - w.portability) * 3 + (ctx.rng() - 0.5) * 0.3);
+  const part = at(list, pk);
+  const opts: Record<string, OptionValue> = {};
+  const cols = optionValues(part, "cols", ctx.year);
+  if (cols.length > 0) opts.cols = screen.diag >= 15.5 && !ctx.who.thin && cols.includes(19) ? 19 : cols.includes(15) ? 15 : cols[0];
+  const lights = optionValues(part, "light", ctx.year);
+  if (lights.length > 0) {
+    const rgb = lights.filter((l) => String(l).startsWith("rgb"));
+    const plain = lights.filter((l) => !String(l).startsWith("rgb") && l !== "none");
+    const light =
+      ctx.who.gaming && rgb.length > 0
+        ? at(rgb, ctx.trim)
+        : ctx.trim >= 0.45 && plain.length > 0
+          ? plain[plain.length - 1]
+          : lights.includes("none")
+            ? "none"
+            : lights[0];
+    opts.light = light;
+  }
+  return Object.keys(opts).length > 0 ? { part: part.id, opts } : { part: part.id };
+}
+
+const MECH_RANK = (p: Part) => {
+  const s = padShapeOf(p);
+  return s?.mechanism === "haptic" ? 2 : s?.buttons ? 0 : 1;
+};
+
+function pickTrackpad(ctx: Ctx): { bp: BuildPart; pad?: { w: number; d: number } } {
+  const w = ctx.line.priorities;
+  const list = [...partsIn("trackpad", ctx.year, false)].sort((a, b) => MECH_RANK(a) - MECH_RANK(b) || a.id.localeCompare(b.id));
+  const pt = pct(ctx, "trackpad");
+  // Business lines kept separate buttons for the pointing stick longest.
+  const part = ctx.who.business && ctx.year < 2013 ? list[0] : at(list, pt);
+  const opts: Record<string, OptionValue> = {};
+  const surfaces = optionValues(part, "surface", ctx.year);
+  if (surfaces.length > 0) opts.surface = surfaces.includes("glass") && (pt >= 0.45 || ctx.who.budget === "premium") ? "glass" : surfaces[0];
+  const stick = optionValues(part, "stick", ctx.year);
+  if (stick.includes("yes") && ctx.who.business && w.keyboard >= 0.14) opts.stick = "yes";
+  const bp: BuildPart = Object.keys(opts).length > 0 ? { part: part.id, opts } : { part: part.id };
+  const shape = padShapeOf(part);
+  if (!shape) return { bp };
+  const lim = padLimits(ctx.year);
+  const f = 0.85 + 0.45 * pt;
+  return {
+    bp,
+    pad: {
+      w: Math.round(clamp(shape.x * f, lim.w[0], lim.w[1])),
+      d: Math.round(clamp(shape.y * Math.min(f, 1.15), lim.d[0], lim.d[1])),
+    },
+  };
+}
+
+function unitVolume(p: Part): number {
+  const s = firstShape(p);
+  if (s.kind !== "box") return 0;
+  return s.units.reduce((sum, u) => sum + u.size.x * u.size.y * u.size.z * (u.count ?? 1), 0);
+}
+
+function pickWebcam(ctx: Ctx, smaller = 0): BuildPart | undefined {
+  if (ctx.year < 2008 && ctx.rng() > 0.3 + ctx.pos * 0.5) return undefined;
+  let list = [...partsIn("webcam", ctx.year, false)].sort((a, b) => a.from - b.from || unitVolume(a) - unitVolume(b));
+  if (smaller > 0) list = [...list].sort((a, b) => unitVolume(a) - unitVolume(b)).slice(0, Math.max(1, list.length - smaller));
+  if (list.length === 0) return undefined;
+  const part = at(list, smaller > 0 ? 0 : ctx.trim + (ctx.who.business ? 0.15 : 0));
+  const shutter = optionValues(part, "shutter", ctx.year);
+  return shutter.includes("yes") && ctx.who.business && ctx.year >= 2018 ? { part: part.id, opts: { shutter: "yes" } } : { part: part.id };
+}
+
+function pickSpeakers(ctx: Ctx, smallest = false): BuildPart | undefined {
+  let list = [...partsIn("speakers", ctx.year, false)].sort((a, b) => unitVolume(a) - unitVolume(b) || a.id.localeCompare(b.id));
+  const tall = (p: Part) => {
+    const s = firstShape(p);
+    return s.kind === "box" && s.units.some((u) => u.size.z > 6);
+  };
+  if (ctx.who.thin && list.some((p) => !tall(p))) list = list.filter((p) => !tall(p));
+  if (list.length === 0) return undefined;
+  return { part: at(list, smallest ? 0 : pct(ctx, "audio")).id };
+}
+
+function pickWireless(ctx: Ctx): BuildPart {
+  const list = [...partsIn("wireless", ctx.year, false)].sort((a, b) => a.from - b.from || a.id.localeCompare(b.id));
+  const part = at(list, pct(ctx, "connectivity", 0.1));
+  const bt = optionValues(part, "bluetooth", ctx.year);
+  return bt.length > 1 && ctx.trim >= 0.4 ? { part: part.id, opts: { bluetooth: bt[bt.length - 1] } } : { part: part.id };
+}
+
+function pickOptical(ctx: Ctx): BuildPart | undefined {
+  if (ctx.who.thin) return undefined;
+  const y = ctx.year;
+  const keep = y <= 2011 ? 1 : y <= 2014 ? (ctx.who.budget === "premium" ? 0 : 0.5) : 0;
+  if (ctx.rng() >= keep) return undefined;
+  const rank = (p: Part) => (p.id.startsWith("bd") || p.id.startsWith("hd") ? 2 : p.id.startsWith("combo") ? 0 : 1);
+  const list = [...partsIn("optical", y, false)].sort((a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id));
+  if (list.length === 0) return undefined;
+  return { part: at(list, ctx.trim).id };
+}
+
+// ------------------------------------------------------------------ ports
+
+const PORT_DROP_ORDER = ["modem-rj11", "firewire-400", "pc-card", "lock-slot", "expresscard-54", "expresscard-34", "s-video", "dvi-d", "vga"];
+
+function portOn(id: string, year: number): boolean {
+  const p = partById(id);
+  return !!p && p.category === "port" && available(p, year);
+}
+
+/** Thunderbolt needs an Intel platform: anything else gets USB4 or USB-C in its place. */
+function fixPlatformPorts(ports: BuildPort[], cpu: Part, year: number): BuildPort[] {
+  if (vendorOf(cpu) === "intel") return ports;
+  return ports.map((p) =>
+    p.part.startsWith("thunderbolt")
+      ? { ...p, part: portOn("usb4-40g", year) ? "usb4-40g" : portOn("usb-c-10g", year) ? "usb-c-10g" : "usb-a-5g" }
+      : p,
+  );
+}
+
+function pickPorts(ctx: Ctx, layout: string, cpu: Part): BuildPort[] {
+  const y = ctx.year;
+  const who = ctx.who;
+  const sides = CONTENT.layouts.find((l) => l.id === layout)?.portSides ?? ["left", "right"];
+  const rear = sides.includes("rear");
+  const front = sides.includes("front");
+  const has = (id: string) => portOn(id, y);
+  const first = (...ids: string[]) => ids.find(has);
+  const intel = vendorOf(cpu) === "intel";
+  const conn = ctx.line.priorities.connectivity;
+  const out: [string, "power" | "video" | "net" | "usb" | "usbc" | "cards" | "audio" | "other"][] = [];
+
+  const usbCOnly = who.thin && y >= 2016 && (who.apple ? y < 2021 : ctx.rng() < 0.5);
+  if (!usbCOnly) out.push(["dc-jack", "power"]);
+
+  // USB-C and Thunderbolt.
+  if (y >= 2011 && who.apple && y < 2016) {
+    const tb = first(y >= 2013 ? "thunderbolt-2" : "thunderbolt-1", "thunderbolt-1", "mini-dp");
+    if (tb) out.push([tb, "video"]);
+  }
+  if (y >= 2015) {
+    const n = who.thin ? 2 : who.budget === "premium" ? 2 : 1;
+    const fast = who.budget !== "low" || ctx.pos > 0.6;
+    const id = intel && fast
+      ? first(y >= 2024 && who.gaming && who.budget === "premium" ? "thunderbolt-5" : "", "thunderbolt-4", "thunderbolt-3", "usb-c-10g", "usb-c-5g")
+      : first(fast ? "usb4-40g" : "", "usb-c-10g", "usb-c-5g");
+    if (id) for (let i = 0; i < (usbCOnly ? Math.max(2, n) : n); i++) out.push([id, "usbc"]);
+  }
+  if (usbCOnly && !out.some(([id]) => partById(id) && (firstShape(partById(id) as Part) as { charges?: boolean }).charges))
+    out.unshift(["dc-jack", "power"]);
+
+  // USB-A.
+  const usbA = who.thin ? (y < 2016 ? 2 : who.apple ? 0 : 1) : who.gaming || who.business ? 3 : who.large ? 4 : 2 + (ctx.pos < 0.5 ? 1 : 0);
+  const aId = y < 2010 ? "usb-a-2.0" : first(ctx.trim >= 0.6 ? "usb-a-10g" : "", "usb-a-5g", "usb-a-2.0");
+  if (aId) for (let i = 0; i < usbA; i++) out.push([aId, "usb"]);
+
+  // Video.
+  if (!who.thin && (y <= 2012 || (who.business && y <= 2016)) && has("vga")) out.push(["vga", "video"]);
+  if ((!who.thin && (y >= 2008 || who.perf !== "office")) || (who.thin && y >= 2013 && conn >= 0.04 && !who.apple)) {
+    const hdmi = first("hdmi-2.1", "hdmi-2.0", "hdmi-1.4", "hdmi-1.3");
+    if (hdmi) out.push([hdmi, "video"]);
+  }
+  if (who.gaming && who.large && y < 2010 && has("dvi-d")) out.push(["dvi-d", "video"]);
+
+  // Network.
+  const wired = y < 2016 ? !who.thin : who.gaming || who.large || (who.business && !who.thin) || (who.budget === "low" && ctx.rng() < 0.3);
+  if (wired || (who.business && y < 2013)) {
+    const eth = who.gaming && y >= 2020 ? first("ethernet-2.5g", "ethernet-1g") : y < 2008 && who.budget === "low" ? first("ethernet-100", "ethernet-1g") : first("ethernet-1g");
+    if (eth) out.push([eth, "net"]);
+  }
+  if (y <= 2008 && (who.business || who.budget === "low") && has("modem-rj11")) out.push(["modem-rj11", "other"]);
+
+  // Cards.
+  if (who.business && y <= 2012) {
+    const ec = first(who.thin ? "expresscard-34" : "expresscard-54", "expresscard-34");
+    if (ec) out.push([ec, "cards"]);
+  }
+  if (y >= 2008 && !(who.apple && y >= 2016 && y < 2021) && (conn >= 0.03 || !who.thin)) {
+    const sd = first(who.budget === "premium" && y >= 2018 ? "sd-reader-uhs2" : "", "sd-reader", "sd-reader-uhs2", "microsd-reader");
+    if (sd) out.push([sd, "cards"]);
+  }
+  if (y <= 2010 && (who.apple || (who.budget === "premium" && who.perf !== "office")) && has("firewire-400")) out.push(["firewire-400", "other"]);
+
+  // Audio and the lock.
+  const audio = first(y <= 2011 ? "headphone-mic" : "audio-combo", "audio-combo", "headphone-mic");
+  if (audio) out.push([audio, "audio"]);
+  if (!who.apple && (who.business || (who.budget === "low" && ctx.rng() < 0.5)) && has("lock-slot")) out.push(["lock-slot", "other"]);
+
+  // Walls: power and the big video and network ports rearmost, audio at the front where there is a front strip.
+  const left: string[] = [];
+  const right: string[] = [];
+  const back: string[] = [];
+  const fore: string[] = [];
+  let flip = false;
+  for (const [id, slot] of out) {
+    if (slot === "power") (who.gaming && rear ? back : left).push(id);
+    else if (slot === "video" || slot === "net") (rear && (who.gaming || id.startsWith("ethernet")) ? back : left).push(id);
+    else if (slot === "audio") (front && y <= 2011 ? fore : right).push(id);
+    else if (slot === "cards" || slot === "other") right.push(id);
+    else if (slot === "usbc") left.push(id);
+    else {
+      (flip ? left : right).push(id);
+      flip = !flip;
+    }
+  }
+  while (left.length > right.length + 2) {
+    const i = left.findIndex((id) => id.startsWith("usb-a"));
+    if (i < 0) break;
+    right.push(...left.splice(i, 1));
+  }
+  const list: BuildPort[] = [
+    ...left.map((part) => ({ part, side: "left" as Side })),
+    ...back.map((part) => ({ part, side: "rear" as Side })),
+    ...right.map((part) => ({ part, side: "right" as Side })),
+    ...fore.map((part) => ({ part, side: "front" as Side })),
+  ].filter((p) => p.part !== undefined);
+  return fixPlatformPorts(list, cpu, y);
+}
+
+/** Ports moved to the walls a new layout has. */
+function reseatPorts(ports: BuildPort[], layout: string): BuildPort[] {
+  const sides = CONTENT.layouts.find((l) => l.id === layout)?.portSides ?? ["left", "right"];
+  return ports.map((p) => (sides.includes(p.side) ? p : { ...p, side: p.side === "rear" || p.side === "front" ? "left" : p.side }));
+}
+
+/**
+ * Ports for a thinner wall: no Ethernet or VGA, USB-A down to one (or USB-C
+ * where the year has it), and a microSD slot for the full-size reader.
+ */
+function thinPorts(ports: BuildPort[], year: number): BuildPort[] {
+  const usbC = ["usb-c-10g", "usb-c-5g"].find((id) => portOn(id, year));
+  let usbA = 0;
+  const out: BuildPort[] = [];
+  for (const p of ports) {
+    if (p.part.startsWith("ethernet") || p.part === "vga" || p.part === "dvi-d" || p.part === "s-video" || p.part.startsWith("expresscard") || p.part === "pc-card" || p.part === "modem-rj11") continue;
+    if (p.part.startsWith("usb-a")) {
+      usbA++;
+      if (usbA > 1) {
+        if (usbC) out.push({ ...p, part: usbC });
+        continue;
+      }
+    }
+    if (p.part === "sd-reader" && portOn("microsd-reader", year)) {
+      out.push({ ...p, part: "microsd-reader" });
+      continue;
+    }
+    out.push(p);
+  }
+  return out;
+}
+
+/**
+ * The body the line's picks come out thinnest in: one solve per body at the
+ * panel's size, the line's most typical body winning a near tie.
+ */
+function thinnestBody(ctx: Ctx, c: Choices, t: Tally): void {
+  const bodies = bodiesFor(ctx);
+  if (bodies.length < 2) return;
+  const area = activeArea({ inches: c.screen.diag, aspect: c.screen.ratio } as PanelOption);
+  let best: { body: string; layout: string; ports: BuildPort[]; z: number } | undefined;
+  bodies.forEach((body, i) => {
+    if (t.solves >= MAX_SOLVES / 3) return;
+    const layout = layoutsFor(ctx, body, c)[0] ?? "a";
+    const ports = reseatPorts(c.ports, layout);
+    const lim = CONTENT.bodies.find((b) => b.id === body)?.limits ?? { x: [240, 450], y: [160, 330], z: [8, 55] };
+    const size: Size = {
+      x: clamp(up(area.x + 2 * c.screen.bezel + 6), lim.x[0], lim.x[1]),
+      y: clamp(up(area.y + 40), lim.y[0], lim.y[1]),
+      z: 15,
+    };
+    const fit = counted(t, assemble(ctx, { ...c, body, layout, ports }, size), false);
+    if (fit.problems.some((p) => !growable(p))) return;
+    const z = fit.min.z + i * (ctx.who.thin ? 0.75 : 2);
+    if (!best || z < best.z) best = { body, layout, ports, z };
+  });
+  if (best) {
+    c.body = best.body;
+    c.layout = best.layout;
+    c.ports = best.ports;
+  }
+}
+
+// ------------------------------------------------------------------ materials, finish, spend, price
+
+const PALETTE: Record<string, string[]> = {
+  plastic: ["#1b1b1c", "#2a2b2e", "#e9e9ea", "#3b4150", "#5a1e2a"],
+  aluminium: ["#c8cacd", "#8c8f94", "#2f3134", "#d6c3a5"],
+  magnesium: ["#1c1c1d", "#2b2d30", "#b9bbbe"],
+  cfrp: ["#161617", "#202124"],
+};
+
+function pickMaterials(ctx: Ctx, lighter = false): Record<Piece, string> {
+  const era = eraFor(ctx.year);
+  const ok = (m: string, piece: Piece) => {
+    const mat = CONTENT.materials.find((x) => x.id === m);
+    return !!mat && available(mat, ctx.year) && !!era.pieces[m]?.includes(piece);
+  };
+  const c = pct(ctx, "chassis");
+  const who = ctx.who;
+  let pick: [string, string, string];
+  if (who.apple) pick = ctx.line.id === "apple-macbook" && ctx.year < 2015 ? ["plastic", "plastic", "plastic"] : ["aluminium", "aluminium", "aluminium"];
+  else if (lighter) pick = ["magnesium", "magnesium", who.business ? "cfrp" : "magnesium"];
+  else if (c < 0.35) pick = ["plastic", "plastic", "plastic"];
+  else if (c < 0.55) pick = ["plastic", "plastic", ctx.year >= 2009 ? "aluminium" : "plastic"];
+  else if (c < 0.75) pick = who.business ? ["plastic", "magnesium", "magnesium"] : ["plastic", "aluminium", "aluminium"];
+  else pick = who.business ? ["magnesium", "magnesium", "cfrp"] : who.thin && ctx.line.priorities.portability >= 0.2 ? ["magnesium", "magnesium", "magnesium"] : ["aluminium", "aluminium", "aluminium"];
+  const out = {} as Record<Piece, string>;
+  PIECES.forEach((piece, i) => {
+    const want = pick[i];
+    out[piece] = ok(want, piece) ? want : ok("magnesium", piece) && want === "cfrp" ? "magnesium" : "plastic";
+  });
+  return out;
+}
+
+function pickFinish(ctx: Ctx, materials: Record<Piece, string>): Build["finish"] {
+  const main = materials.lid;
+  const colours = ctx.who.gaming ? ["#141415", "#1e1f22"] : (PALETTE[main] ?? PALETTE.plastic);
+  const colour = colours[Math.floor(ctx.rng() * colours.length) % colours.length];
+  const out = {} as Build["finish"];
+  for (const piece of PIECES) {
+    const mat = CONTENT.materials.find((x) => x.id === materials[piece]);
+    const fins = (mat?.finishes ?? ["matte"]).filter((f) => {
+      const tex = CONTENT.finishes.find((x) => x.id === f);
+      return tex && available(tex, ctx.year);
+    });
+    const pref =
+      materials[piece] === "plastic"
+        ? ctx.year <= 2012 && ctx.who.budget !== "premium" && !ctx.who.business
+          ? "glossy"
+          : ctx.who.business
+            ? "soft-touch"
+            : "matte"
+        : materials[piece] === "aluminium"
+          ? ctx.pos >= 0.5
+            ? "anodised"
+            : "brushed"
+          : ctx.who.business
+            ? "soft-touch"
+            : "matte";
+    const texture = fins.includes(pref) ? pref : (fins[0] ?? "matte");
+    // The underside is darker on anything that is not one colour all round.
+    const c = piece === "floor" && materials.floor !== materials.lid ? "#1d1d1f" : colour;
+    out[piece] = { colour: c, texture };
+  }
+  return out;
+}
+
+const QUALITY_STAT: Record<QualityKey, HeadlineStat> = {
+  display: "display",
+  keyboard: "keyboard",
+  trackpad: "trackpad",
+  speakers: "audio",
+  webcam: "connectivity",
+};
+
+function pickQuality(ctx: Ctx): NonNullable<Build["quality"]> {
+  const out: NonNullable<Build["quality"]> = {};
+  for (const key of QUALITY_KEYS) {
+    const stat = QUALITY_STAT[key] ?? "chassis";
+    const q = clamp01(ctx.trim - 0.35 + (ctx.line.priorities[stat] - MEAN_WEIGHT) * 3);
+    const r = Math.round(q * 20) / 20;
+    if (r > 0) out[key] = r;
+  }
+  return out;
+}
+
+function pickSpend(ctx: Ctx, all = false): Build["spend"] {
+  const w = ctx.line.priorities;
+  const thin = ctx.who.thin;
+  const compact = all ? 0.9 : thin ? clamp01(0.2 + w.portability * 3) : clamp01(w.portability * 1.5);
+  const r = (v: number) => Math.round(clamp01(v) * 20) / 20;
+  const out: Build["spend"] = {
+    material: r(all ? 1 : pct(ctx, "chassis") - 0.25),
+    packing: r(all ? 1 : thin ? 0.3 + w.portability * 3 : w.portability * 2),
+  };
+  if (compact > 0)
+    for (const k of ["battery", "keyboard", "trackpad", "cooling", "processor"] as const) out[k] = r(compact);
+  return out;
+}
+
+function pickPrice(ctx: Ctx): number {
+  const [lo, hi] = priceFor(ctx.line, ctx.year);
+  const p = lerp(lo, hi, ctx.pos);
+  return Math.max(199, Math.round(p / 50) * 50 - 1);
+}
+
+// ------------------------------------------------------------------ first picks
+
+function firstChoices(ctx: Ctx): Choices {
+  const cpu = pickCpu(ctx);
+  const gpu = wantsGpu(ctx, cpu) ? pickGpu(ctx, cpu) : undefined;
+  const screen = pickScreen(ctx);
+  const battery = pickBattery(ctx, screen);
+  const optical = pickOptical(ctx);
+  const bodies = bodiesFor(ctx);
+  const body = ctx.rng() < 0.6 ? bodies[0] : bodies[Math.floor(ctx.rng() * bodies.length) % bodies.length];
+  const partial: Partial<Choices> = { battery, optical };
+  const layout = layoutsFor(ctx, body, partial)[0] ?? "a";
+  const tp = pickTrackpad(ctx);
+  const materials = pickMaterials(ctx);
+  const w = ctx.line.priorities;
+  const loose = clamp01(1 - w.portability * 4);
+  return {
+    body,
+    layout,
+    cpu,
+    gpu,
+    memory: pickMemory(ctx, cpu),
+    storage: pickStorage(ctx),
+    screen,
+    battery,
+    cooling: pickCooling(ctx, cpu, gpu),
+    optical,
+    wireless: pickWireless(ctx),
+    keyboard: pickKeyboard(ctx, screen),
+    trackpad: tp.bp,
+    pad: tp.pad,
+    webcam: pickWebcam(ctx),
+    speakers: pickSpeakers(ctx),
+    ports: pickPorts(ctx, layout, cpu),
+    materials,
+    finish: pickFinish(ctx, materials),
+    spend: pickSpend(ctx),
+    quality: pickQuality(ctx),
+    price: pickPrice(ctx),
+    sig: Math.round(ctx.rng() * 0.35 * 20) / 20,
+    slack: ctx.who.thin
+      ? { x: 0, y: 0, z: 0 }
+      : { x: Math.round(ctx.rng() * 4 * loose), y: Math.round(ctx.rng() * 10 * loose), z: Math.round((0.5 + ctx.rng() * 2.5) * loose * 2) / 2 },
+  };
+}
+
+/** The plainest build the year allows: a last resort when the line's own picks never fit. */
+function safeChoices(ctx: Ctx): Choices {
+  const plain: Ctx = { ...ctx, trim: 0.3, who: { ...ctx.who, thin: false, gaming: false, large: false, perf: "office", silicon: false }, powerScale: 1, vendor: "intel" };
+  const cpu = pickCpu(plain);
+  const screen = pickScreen(plain, true);
+  const layout = "a";
+  const tp = pickTrackpad(plain);
+  const materials = { floor: "plastic", deck: "plastic", lid: "plastic" };
+  return {
+    body: "workhorse",
+    layout,
+    cpu,
+    memory: pickMemory(plain, cpu),
+    storage: pickStorage(plain, true),
+    screen,
+    battery: pickBattery(plain, screen, 0.5),
+    cooling: pickCooling(plain, cpu, undefined, 1),
+    wireless: pickWireless(plain),
+    keyboard: pickKeyboard(plain, screen),
+    trackpad: tp.bp,
+    speakers: pickSpeakers(plain, true),
+    ports: [
+      { part: "dc-jack", side: "left" },
+      { part: portOn("usb-a-5g", ctx.year) ? "usb-a-5g" : "usb-a-2.0", side: "right" },
+    ],
+    materials,
+    finish: pickFinish(plain, materials),
+    spend: {},
+    quality: {},
+    price: pickPrice(ctx),
+    slack: { x: 0, y: 0, z: 0 },
+    sig: 0,
+  };
+}
+
+// ------------------------------------------------------------------ the loop
+
+interface Tally {
+  solves: number;
+  sims: number;
+  start: number;
+}
+
+function counted(t: Tally, build: Build, auto: boolean): Fit {
+  t.solves++;
+  return solve(build, CONTENT, auto ? {} : { auto: false });
+}
+
+const up = (v: number) => Math.ceil(v * 2) / 2;
+
+/** A problem a bigger chassis can fix: a short axis, or a wall too short for its ports. */
+function growable(p: Problem): boolean {
+  return p.kind === "geometry" || (p.kind === "compat" && p.code === "no-room" && String(p.role).startsWith("port:"));
+}
+
+/**
+ * Grow the chassis from the body's least size to the build's minimum with every
+ * part where the layout puts it, add the line's slack, and check the result
+ * the way the game solves it.
+ */
+function settle(ctx: Ctx, c: Choices, t: Tally): { build: Build; fit: Fit } {
+  const body = CONTENT.bodies.find((b) => b.id === c.body);
+  const lim = body?.limits ?? { x: [240, 450], y: [160, 330], z: [8, 55] };
+  // Seed from the panel, so the first solve is not laid out in a shell far too small for it.
+  const area = activeArea({ inches: c.screen.diag, aspect: c.screen.ratio } as PanelOption);
+  let size: Size = {
+    x: clamp(up(area.x + 2 * c.screen.bezel + 6), lim.x[0], lim.x[1]),
+    y: clamp(up(area.y + 30), lim.y[0], lim.y[1]),
+    z: clamp(15, lim.z[0], lim.z[1]),
+  };
+  let fit: Fit | undefined;
+  for (let i = 0; i < 5 && t.solves < MAX_SOLVES; i++) {
+    fit = counted(t, assemble(ctx, c, size), false);
+    // A problem growing cannot fix: stop and let the fixes see it.
+    if (fit.problems.some((p) => !growable(p) || (p.kind === "geometry" && p.code === "too-big" && i > 0))) return { build: assemble(ctx, c, size), fit };
+    // Plan grows only; thickness follows the minimum both ways, as a bigger plan may need less of it.
+    const next: Size = {
+      x: Math.min(up(Math.max(size.x, fit.min.x)), lim.x[1]),
+      y: Math.min(up(Math.max(size.y, fit.min.y)), lim.y[1]),
+      z: clamp(up(fit.min.z), lim.z[0], lim.z[1]),
+    };
+    if (next.x === size.x && next.y === size.y && next.z === size.z) break;
+    size = next;
+  }
+  const slack: Size = {
+    x: Math.min(size.x + c.slack.x, lim.x[1]),
+    y: Math.min(size.y + c.slack.y, lim.y[1]),
+    z: Math.min(size.z + c.slack.z, lim.z[1]),
+  };
+  let build = assemble(ctx, c, slack);
+  fit = counted(t, build, true);
+  // The shape follows the size, so the slack can move the minimum a little: meet it, with a
+  // little more each time in case the shape moves it again.
+  let now = slack;
+  for (let k = 0; k < 3 && fit.problems.length > 0 && fit.problems.every(growable) && t.solves < MAX_SOLVES; k++) {
+    const f = fit;
+    now = {
+      x: Math.min(up(Math.max(now.x, f.min.x + 0.25 * k)), lim.x[1]),
+      y: Math.min(up(Math.max(now.y, f.min.y + 0.25 * k)), lim.y[1]),
+      z: Math.min(up(Math.max(now.z, f.min.z + 0.25 * k)), lim.z[1]),
+    };
+    build = assemble(ctx, c, now);
+    fit = counted(t, build, true);
+  }
+  return { build, fit: fit as Fit };
+}
+
+const clone = (c: Choices): Choices => ({ ...c, storage: [...c.storage], ports: [...c.ports], spend: { ...c.spend }, quality: { ...c.quality } });
+
+function nextOf<T>(list: T[], now: T): T | undefined {
+  const i = list.indexOf(now);
+  return list[i + 1];
+}
+
+/** One targeted change for the first problem, or undefined when nothing is left to try. */
+function fixProblems(ctx: Ctx, c0: Choices, problems: Problem[]): Choices | undefined {
+  const c = clone(c0);
+  const p = problems.find((x) => !(x.kind === "geometry" && x.code === "short")) ?? problems[0];
+  const bump = (k: string) => {
+    ctx.step[k] = (ctx.step[k] ?? 0) + 1;
+    return ctx.step[k] - 1;
+  };
+  const switchLayout = (): boolean => {
+    const next = nextOf(layoutsFor(ctx, c.body, c), c.layout);
+    if (!next) return false;
+    c.layout = next;
+    c.ports = reseatPorts(c.ports, next);
+    return true;
+  };
+  const switchBody = (): boolean => {
+    const next = nextOf(bodiesFor(ctx), c.body) ?? (c.body !== "workhorse" ? "workhorse" : undefined);
+    if (!next) return false;
+    c.body = next;
+    c.layout = layoutsFor(ctx, next, c)[0] ?? "a";
+    c.ports = reseatPorts(c.ports, c.layout);
+    return true;
+  };
+  const shrink = (): boolean => {
+    switch (bump("shrink")) {
+      case 0:
+        c.battery = pickBattery(ctx, c.screen, 0.35);
+        return true;
+      case 1:
+        c.optical = undefined;
+        c.storage = pickStorage(ctx, true);
+        return true;
+      case 2:
+        c.speakers = pickSpeakers(ctx, true);
+        c.keyboard = pickKeyboard(ctx, { ...c.screen, diag: 14 }, true);
+        return true;
+      case 3:
+        c.screen = pickScreen(ctx, true);
+        c.battery = pickBattery(ctx, c.screen, 0.5);
+        return true;
+      case 4:
+        return switchLayout() || switchBody();
+      case 5:
+        return switchBody();
+      default:
+        return false;
+    }
+  };
+
+  if (p.kind === "geometry") return shrink() ? c : undefined;
+  if (p.kind === "year") {
+    // A dated part slipped through: pick that category again, or drop it.
+    if (p.what === "panel") c.screen = { ...defaultScreen(ctx.year), diag: c.screen.diag };
+    else if (p.what === "part" || p.what === "option") {
+      const ref = p.ref.split(":")[0];
+      c.ports = c.ports.filter((x) => x.part !== ref);
+      if (c.optical?.part === ref) c.optical = undefined;
+      if (c.webcam?.part === ref) c.webcam = undefined;
+      if (c.speakers?.part === ref) c.speakers = undefined;
+      if (c.memory.part === ref) c.memory = { part: ref };
+    } else if (!switchLayout() && !switchBody()) return undefined;
+    return bump("year") < 4 ? c : undefined;
+  }
+  switch (p.code) {
+    case "no-room": {
+      const role = String(p.role);
+      if (role.startsWith("port:")) {
+        const side = role.slice(5) as Side;
+        const on = c.ports.filter((x) => x.side === side);
+        const drop = PORT_DROP_ORDER.find((id) => on.some((x) => x.part === id)) ?? on[on.length - 1]?.part;
+        const i = c.ports.findIndex((x) => x.side === side && x.part === drop);
+        if (i < 0) return shrink() ? c : undefined;
+        c.ports.splice(i, 1);
+        return c;
+      }
+      if (role === "odd" && bump("odd") > 0) {
+        c.optical = undefined;
+        return c;
+      }
+      if (role === "spk" && bump("spk") > 0) {
+        c.speakers = pickSpeakers(ctx, true);
+        if (ctx.step.spk > 2) c.speakers = undefined;
+        return c;
+      }
+      if (role === "drive" && bump("drive") > 0) {
+        c.storage = pickStorage(ctx, true);
+        return c;
+      }
+      if (role === "webcam") {
+        c.webcam = bump("cam") < 1 ? pickWebcam(ctx, 1) : undefined;
+        return c;
+      }
+      return switchLayout() || shrink() ? c : undefined;
+    }
+    case "bezel-fit":
+      if (p.role === "webcam") {
+        c.webcam = bump("cam") < 1 ? pickWebcam(ctx, 1) : undefined;
+        return c;
+      }
+      return switchBody() ? c : undefined;
+    case "overlap":
+      return switchLayout() || switchBody() ? c : undefined;
+    case "needs":
+      if (p.part.startsWith("thunderbolt")) c.ports = fixPlatformPorts(c.ports, c.cpu, ctx.year);
+      else if (p.part === c.gpu?.id) c.gpu = undefined;
+      else c.memory = pickMemory(ctx, c.cpu);
+      return bump("needs") < 3 ? c : undefined;
+    case "no-charging":
+      c.ports = [{ part: "dc-jack", side: c.ports[0]?.side ?? "left" }, ...c.ports];
+      return c;
+    case "screen":
+      c.screen = { ...defaultScreen(ctx.year), diag: clamp(c.screen.diag, 10, 18) };
+      return bump("screen") < 2 ? c : undefined;
+    case "missing":
+      return undefined;
+    case "port-side":
+      c.ports = reseatPorts(c.ports, c.layout);
+      return bump("side") < 2 ? c : undefined;
+    default:
+      return switchLayout() || switchBody() ? c : undefined;
+  }
+}
+
+const PERF_RANK: Record<PerfClass, number> = { office: 0, "mixed-use": 1, gaming: 2 };
+
+/** The thin and light thickness ceiling by year, mm (engine/price's era rows). */
+function thinMm(year: number): number {
+  if (year <= 2006) return 32;
+  if (year >= 2026) return 19;
+  return year <= 2016 ? lerp(32, 21, (year - 2006) / 10) : lerp(21, 19, (year - 2016) / 10);
+}
+
+interface Miss {
+  score: number;
+  thick: boolean;
+  big: boolean;
+  slow: boolean;
+}
+
+/** How far the valid build is from its class: thin enough, not too big, fast enough. */
+function missOf(ctx: Ctx, build: Build, fit: Fit, t: Tally): Miss {
+  t.sims++;
+  const m = simulate(build, fit, CONTENT);
+  const cls = classify(build, fit, m, weightOf(build, fit, CONTENT));
+  const target = ctx.shape.class;
+  const thick = target.body === "thin and light" && cls.body !== "thin and light";
+  // A medium machine far thicker than the year's thin ones counts as too big too.
+  const thickness = fit.frame.z + fit.lidZ;
+  const bulky = cls.body === "medium" && thickness > thinMm(ctx.year) * 1.5;
+  const big = target.body === "medium" && (cls.body === "large" || bulky);
+  const slow = cls.performance !== null && PERF_RANK[cls.performance] < PERF_RANK[target.performance];
+  return { score: (thick ? 2 : 0) + (big ? 1 : 0) + (slow ? PERF_RANK[target.performance] - PERF_RANK[cls.performance ?? "office"] : 0), thick, big, slow };
+}
+
+/** One swap toward the line's class, or undefined when nothing is left to try. */
+function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
+  const c = clone(c0);
+  const bump = (k: string) => {
+    ctx.step[k] = (ctx.step[k] ?? 0) + 1;
+    return ctx.step[k] - 1;
+  };
+  if (miss.slow) {
+    const s = bump("slow");
+    if (s > 3) return undefined;
+    if (!c.gpu && c.cpu.provides?.includes("dgpu")) c.gpu = pickGpu(ctx, c.cpu, ctx.who.gaming ? 0 : -0.3);
+    else if (c.gpu) c.gpu = pickGpu(ctx, c.cpu, 0.2 * (s + 1));
+    else setCpu(ctx, c, pickCpu(ctx, 0.2 * (s + 1)));
+    c.cooling = pickCooling(ctx, c.cpu, c.gpu, s > 0 ? 1 : 0);
+    return c;
+  }
+  if (miss.thick || miss.big) {
+    switch (bump("thin")) {
+      case 0:
+        c.spend = pickSpend(ctx, true);
+        c.slack = { x: 0, y: 0, z: 0 };
+        c.sig = 0;
+        return c;
+      case 1:
+        c.ports = thinPorts(c.ports, ctx.year);
+        return c;
+      case 2:
+        c.battery = pickBattery(ctx, c.screen, 0.3);
+        c.optical = undefined;
+        c.storage = pickStorage(ctx, true);
+        c.speakers = pickSpeakers(ctx, true);
+        return c;
+      case 3:
+        c.materials = pickMaterials(ctx, true);
+        c.finish = pickFinish(ctx, c.materials);
+        return c;
+      case 4:
+        ctx.powerScale *= 0.6;
+        c.gpu = ctx.who.gaming ? c.gpu : undefined;
+        setCpu(ctx, c, pickCpu(ctx), -0.2);
+        c.keyboard = pickKeyboard(ctx, c.screen, true);
+        return c;
+      case 5:
+        c.screen = pickScreen(ctx, true);
+        c.battery = pickBattery(ctx, c.screen, 0.4);
+        return c;
+      default:
+        return undefined;
+    }
+  }
+  return undefined;
+}
+
+/** One model of the line in the year. Always returns a build; `valid` says whether it solves clean. */
+export function generateModel(line: Line, year: number, rng: Rng): Generated {
+  const start = performance.now();
+  const shape = shapeFor(line, year);
+  const who = personaOf(line, shape, year);
+  const vendors = shape.cpu.filter((v) => v !== "apple" || who.silicon);
+  const pos = rng();
+  const ctx: Ctx = {
+    line,
+    year,
+    shape,
+    who,
+    rng,
+    pos,
+    trim: clamp01(BASE[who.budget] + (pos - 0.5) * 0.3),
+    vendor: (rng() < 0.7 ? vendors[0] : vendors[Math.floor(rng() * vendors.length) % vendors.length]) ?? "intel",
+    step: {},
+    powerScale: 1,
+  };
+  const t: Tally = { solves: 0, sims: 0, start };
+  let c: Choices | undefined = firstChoices(ctx);
+  // Start in the body that suits the picks best: some shapes cost the same parts far more thickness.
+  thinnestBody(ctx, c, t);
+  let best: { build: Build; score: number } | undefined;
+  let last: { build: Build; fit: Fit } | undefined;
+  // The time budget only cuts the search short once there is a valid build to return.
+  while (c && t.solves < MAX_SOLVES && (!best || performance.now() - start < MODEL_BUDGET_MS)) {
+    const r = settle(ctx, c, t);
+    last = r;
+    if (r.fit.problems.length > 0) {
+      c = fixProblems(ctx, c, r.fit.problems);
+      continue;
+    }
+    if (t.sims >= MAX_SIMS) {
+      if (!best) best = { build: r.build, score: Number.POSITIVE_INFINITY };
+      break;
+    }
+    const miss = missOf(ctx, r.build, r.fit, t);
+    if (!best || miss.score < best.score) best = { build: r.build, score: miss.score };
+    if (miss.score === 0) break;
+    c = fixPriority(ctx, c, miss);
+  }
+  if (best) return { build: best.build, valid: true, fallback: false, solves: t.solves, sims: t.sims, ms: performance.now() - start, problems: [] };
+  // Nothing the line picked came out clean: the plainest build the year allows.
+  const st: Tally = { solves: 0, sims: 0, start };
+  const safe = settle({ ...ctx, step: {} }, safeChoices(ctx), st);
+  t.solves += st.solves;
+  const ok = safe.fit.problems.length === 0;
+  const out = ok ? safe : (last ?? safe);
+  return {
+    build: out.build,
+    valid: ok,
+    fallback: true,
+    solves: t.solves,
+    sims: t.sims,
+    ms: performance.now() - start,
+    problems: out.fit.problems,
+  };
+}
+
+/** One model per line on sale in the year, the same every time for a seed. */
+export function generateYear(year: number, seed: number): GeneratedYear {
+  const start = performance.now();
+  const models: GeneratedModel[] = [];
+  let solves = 0;
+  for (const line of [...linesIn(year)].sort((a, b) => a.id.localeCompare(b.id))) {
+    const rng = rngOf(hashOf(seed, line.id, year));
+    const g = generateModel(line, year, rng);
+    solves += g.solves;
+    const cpu = partById(g.build.parts.processor?.[0]?.part ?? "");
+    const diag = g.build.screen?.diag ?? 14;
+    const name = modelName(line, {
+      n: nameFor(line, year),
+      year,
+      diag,
+      tier: pricePlace(line, year, g.build.price ?? 0),
+      vendor: cpu ? (vendorOf(cpu) ?? "intel") : "intel",
+      cpuName: cpu?.name ?? "",
+    });
+    models.push({ ...g, id: `${line.id}-${year}`, line: line.id, maker: line.maker, name });
+  }
+  return { year, seed, models, solves, ms: performance.now() - start };
+}
+
+/** Where a price sits in the line's range that year, 0 to 1. */
+function pricePlace(line: Line, year: number, price: number): number {
+  const [lo, hi] = priceFor(line, year);
+  return hi > lo ? clamp01((price - lo) / (hi - lo)) : 0.5;
+}

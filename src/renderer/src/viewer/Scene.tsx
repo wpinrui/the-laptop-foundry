@@ -1,5 +1,6 @@
 import { Html, OrbitControls } from "@react-three/drei";
-import { Canvas, type ThreeEvent, useThree } from "@react-three/fiber";
+import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
+import { VIEW_EVENT, VIEW_STEP, type View } from "../panel/fx";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import {
   memo,
@@ -989,6 +990,63 @@ function Overflow({ fit }: { fit: Fit }) {
 
 // ------------------------------------------------------------------ scene
 
+/**
+ * The screen's place, facing out of the lid with its top edge away from the
+ * hinge. Each frame it tells the page where the camera is: the angle above or
+ * below and beside the screen's normal, which the panel's viewing angle reads.
+ */
+function ScreenView({
+  portal,
+  heightMm,
+  position,
+  children,
+}: {
+  portal?: RefObject<HTMLDivElement | null>;
+  heightMm: number;
+  position: [number, number, number];
+  children: ReactNode;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const page = useRef<HTMLElement | null>(null);
+  const last = useRef<View | null>(null);
+  const eye = useMemo(() => new THREE.Vector3(), []);
+  useFrame(({ camera }) => {
+    const g = group.current;
+    if (!g) return;
+    if (!page.current?.isConnected) {
+      // A newly mounted page starts head-on: it needs the view again.
+      page.current = portal?.current?.querySelector<HTMLElement>(".panel-page") ?? null;
+      last.current = null;
+    }
+    const el = page.current;
+    if (!el) return;
+    g.worldToLocal(camera.getWorldPosition(eye));
+    // Behind the screen there is nothing to see.
+    if (eye.z <= 0) return;
+    const deg = 180 / Math.PI;
+    const view: View = {
+      v: Math.atan2(eye.y, eye.z) * deg,
+      h: Math.atan2(eye.x, eye.z) * deg,
+      half: Math.atan2(heightMm / 2, eye.length()) * deg,
+    };
+    const l = last.current;
+    if (
+      l &&
+      Math.abs(view.v - l.v) < VIEW_STEP &&
+      Math.abs(view.h - l.h) < VIEW_STEP &&
+      Math.abs(view.half - l.half) < VIEW_STEP
+    )
+      return;
+    last.current = view;
+    el.dispatchEvent(new CustomEvent(VIEW_EVENT, { detail: view }));
+  });
+  return (
+    <group ref={group} position={position} rotation={[Math.PI, 0, 0]}>
+      {children}
+    </group>
+  );
+}
+
 export const Model = memo(function Model({
   fit,
   year,
@@ -1199,23 +1257,27 @@ export const Model = memo(function Model({
             )}
             {screen && panelBox && (
               // The panel faces down when the lid is shut; its top edge is the one away from the hinge.
-              <Html
-                transform
-                // A fixed target: without it Html mounts on the canvas wrapper,
-                // remounts once events connect, and React 19 wipes the new root.
-                portal={portal as RefObject<HTMLElement>}
+              <ScreenView
+                portal={portal}
+                heightMm={screen.mm.y}
                 position={[
                   panelBox.at.x + panelBox.size.x / 2,
                   panelBox.at.y + panelBox.size.y / 2,
                   panelBox.at.z - 0.3,
                 ]}
-                rotation={[Math.PI, 0, 0]}
-                distanceFactor={(screen.mm.x * 400) / screen.width}
-                zIndexRange={[4, 0]}
-                wrapperClass="lid-screen"
               >
-                {screen.node}
-              </Html>
+                <Html
+                  transform
+                  // A fixed target: without it Html mounts on the canvas wrapper,
+                  // remounts once events connect, and React 19 wipes the new root.
+                  portal={portal as RefObject<HTMLElement>}
+                  distanceFactor={(screen.mm.x * 400) / screen.width}
+                  zIndexRange={[4, 0]}
+                  wrapperClass="lid-screen"
+                >
+                  {screen.node}
+                </Html>
+              </ScreenView>
             )}
           </group>
         </group>

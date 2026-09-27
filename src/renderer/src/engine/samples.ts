@@ -15,6 +15,8 @@ interface Spec {
   year: number;
   body: string;
   layout: string;
+  /** Outer size x, y and base z in mm; the body's default size when absent. */
+  size?: [number, number, number];
   parts: Partial<Record<Category, PartSpec | PartSpec[]>>;
   ports: [string, Side][];
   materials?: Partial<Record<Piece, string>>;
@@ -40,7 +42,7 @@ function toParts(spec: Spec["parts"]): Build["parts"] {
   return out;
 }
 
-/** Make a build from a compact spec, at the body's default size. */
+/** Make a build from a compact spec, at its size or else the body's default size. */
 export function makeBuild(spec: Spec, content: Content = CONTENT): Build {
   const body = content.bodies.find((b) => b.id === spec.body);
   const mat = {
@@ -55,7 +57,11 @@ export function makeBuild(spec: Spec, content: Content = CONTENT): Build {
     year: spec.year,
     body: spec.body,
     layout: spec.layout,
-    size: body ? { ...body.size } : { x: 300, y: 220, z: 20 },
+    size: spec.size
+      ? { x: spec.size[0], y: spec.size[1], z: spec.size[2] }
+      : body
+        ? { ...body.size }
+        : { x: 300, y: 220, z: 20 },
     parts: toParts(spec.parts),
     ports: spec.ports.map(([part, side]) => ({ part, side })),
     materials: mat,
@@ -100,6 +106,7 @@ export const SAMPLES: Sample[] = [
       year: 2006,
       body: "workhorse",
       layout: "b",
+      size: [376, 317, 23],
       parts: {
         processor: "core-duo-t2500",
         graphics: "radeon-x1400",
@@ -140,6 +147,7 @@ export const SAMPLES: Sample[] = [
       year: 2006,
       body: "workhorse",
       layout: "b",
+      size: [358, 290, 23],
       parts: {
         processor: "core-duo-t2500",
         graphics: "radeon-x1400",
@@ -176,6 +184,7 @@ export const SAMPLES: Sample[] = [
       year: 2006,
       body: "pillow",
       layout: "c",
+      size: [412.5, 300, 27],
       parts: {
         processor: "core2-duo-t7600",
         graphics: "geforce-go-7900-gtx",
@@ -215,6 +224,7 @@ export const SAMPLES: Sample[] = [
       year: 2006,
       body: "workhorse",
       layout: "b",
+      size: [270, 225, 23],
       parts: {
         processor: "core-duo-u2500",
         memory: ["ddr2-667-sodimm", { capacity: 1, slots: 1 }],
@@ -320,6 +330,7 @@ export const SAMPLES: Sample[] = [
       year: 2026,
       body: "shelf",
       layout: "a",
+      size: [364, 276, 22],
       parts: {
         processor: "core-ultra9-275hx",
         graphics: "rtx-5070ti-laptop",
@@ -357,6 +368,7 @@ export const SAMPLES: Sample[] = [
       year: 2026,
       body: "workhorse",
       layout: "a",
+      size: [399, 298, 22],
       parts: {
         processor: "core-ultra9-275hx",
         graphics: "rtx-5090-laptop",

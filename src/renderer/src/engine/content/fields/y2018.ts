@@ -301,7 +301,7 @@ const R: Rival[] = [
   rival(2018, "dell", "Alienware 17 R5", {
     body: "shelf",
     layout: "a",
-    size: [424, 333, 26],
+    size: [424, 330, 26],
     price: 2499,
     parts: {
       processor: "core-i7-8750h",

@@ -538,7 +538,7 @@ const R: Rival[] = [
       ["usb-a-2.0", "right"],
       ["mini-dp", "right"],
     ],
-    materials: { floor: "aluminium", deck: "magnesium", lid: "aluminium" },
+    materials: { floor: "magnesium", deck: "magnesium", lid: "aluminium" },
     spend: { material: 1, packing: 1 },
   }),
   rival(2012, "dell", "XPS 14 L421X", {

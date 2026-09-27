@@ -327,8 +327,10 @@ function solveAt(
       hinge: rear - (K.at.y + K.size.y),
     };
     if (!P) return { kb };
-    const gMax = Math.max(MIN_GAP, K.at.y - front - P.size.y);
-    const g = clamp(player.pad?.y ?? autoGap, MIN_GAP, gMax);
+    // The gap never pushes the pad past the front wall, even on a palm rest only the pad deep.
+    const gLo = Math.min(MIN_GAP, Math.max(0, K.at.y - off.side - P.size.y));
+    const gMax = Math.max(gLo, K.at.y - front - P.size.y);
+    const g = clamp(player.pad?.y ?? autoGap, gLo, gMax);
     P.at.y = K.at.y - g - P.size.y;
     return {
       kb,
@@ -338,7 +340,7 @@ function solveAt(
         y: g,
         w0: padW0,
         d0: padD0,
-        range: [MIN_GAP, gMax] as Range,
+        range: [gLo, gMax] as Range,
       },
     };
   };
@@ -942,9 +944,9 @@ function solveAt(
       const e = alongAxis(side);
       const [ulo, uhi] = own.get(u) ?? [z0, surface - off.top];
       // Centred on the outer side wall, from the bottom of the D panel to the top
-      // of the C panel, kept inside the walls.
+      // of the C panel, kept inside the walls and under any keyboard or trackpad over it.
       const zLo = ulo + floorCtx.lift;
-      const zHi = uhi - u.size.z;
+      const zHi = uhi + off.top - Math.max(coverOver(u.at, u.size), off.top) - u.size.z;
       const mid = (ulo - off.bottom + uhi + off.top) / 2;
       u.at.z = Math.min(Math.max(zLo, mid - u.size.z / 2), Math.max(zLo, zHi));
       if (report.ports[u.src]) continue;

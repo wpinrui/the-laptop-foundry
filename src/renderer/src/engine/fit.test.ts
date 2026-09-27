@@ -4,6 +4,7 @@
 // outside, determinism and a per-solve time budget. Approved as the one test
 // kept during MVP mode.
 import { describe, expect, it } from "vitest";
+import { pouchShape } from "./battery";
 import { available, CONTENT, panelsFor, partsFor } from "./content";
 import { zonesOf } from "./plan";
 import { SAMPLES } from "./samples";
@@ -159,18 +160,34 @@ function withSize(b: Build, size: Size): Build {
 }
 
 /**
- * Smallest size the body allows that fits. The x and y minimum never depend on
- * size; the z minimum depends on the footprint (the deck layer covers what lies
- * beneath it), so it is read at the minimum footprint.
+ * Smallest size the body allows that fits. The z minimum depends on the
+ * footprint (the deck layer covers what lies beneath it), and the x and y
+ * minimum on the thickness (a thinner base takes wider fans), so the size is
+ * walked to the minimum until it settles.
  */
 function minimumOf(
   b: Build,
   lim: Record<Axis, [number, number]>,
 ): { size: Size; min: Size } {
-  const first = solve(b).min;
-  const xy = { x: Math.max(first.x, lim.x[0]), y: Math.max(first.y, lim.y[0]) };
-  const min = solve(withSize(b, { ...xy, z: b.size.z })).min;
-  return { size: { ...xy, z: Math.max(min.z, lim.z[0]) }, min };
+  const clampTo = (m: Size): Size => ({
+    x: Math.max(m.x, lim.x[0]),
+    y: Math.max(m.y, lim.y[0]),
+    z: Math.max(m.z, lim.z[0]),
+  });
+  let min = solve(b).min;
+  for (let i = 0; i < 8; i++) {
+    const next = solve(withSize(b, clampTo(min))).min;
+    if (AXES.every((a) => Math.abs(next[a] - min[a]) < 1e-9)) return { size: clampTo(min), min };
+    min = next;
+  }
+  // Auto placement can swing between plans as the size changes: grow until the size holds its own minimum.
+  let size = clampTo(min);
+  for (let i = 0; i < 8; i++) {
+    min = solve(withSize(b, size)).min;
+    if (AXES.every((a) => min[a] <= size[a] + 1e-9)) break;
+    size = clampTo({ x: Math.max(size.x, min.x), y: Math.max(size.y, min.y), z: Math.max(size.z, min.z) });
+  }
+  return { size, min };
 }
 
 function withSpend(b: Build, v: number): Build {
@@ -711,14 +728,17 @@ describe("fit engine", () => {
     stats.failures.length = 0;
     expect(validateContent()).toEqual([]);
     for (const year of YEARS) {
+      // A pouch battery is sized freely, so it alone is a choice.
       const count = (c: Category | "port") =>
         partsFor(c, year).reduce(
           (n, p) =>
             n +
-            Math.max(
-              1,
-              Object.values(p.options ?? {}).reduce((m, v) => m * v.length, 1),
-            ),
+            (pouchShape(p)
+              ? 2
+              : Math.max(
+                  1,
+                  Object.values(p.options ?? {}).reduce((m, v) => m * v.length, 1),
+                )),
           0,
         );
       const optional = new Set<Category>([

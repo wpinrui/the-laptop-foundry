@@ -440,7 +440,7 @@ const R: Rival[] = [
     size: [312, 223, 15],
     price: 1799,
     parts: {
-      processor: "core-ultra7-265u",
+      processor: "core7-150u",
       memory: ["lpddr5x-soldered", { capacity: 16 }],
       storage: ["m2-2280-g4", { capacity: 512 }],
       display: "2021-14-1920x1200-ips",

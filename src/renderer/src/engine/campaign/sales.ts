@@ -23,6 +23,7 @@ import {
   WORD_OF_MOUTH,
 } from "./constants";
 import type { CampaignState, Quarter, QuarterStep } from "./index";
+import { awardFactor } from "./awards";
 import { criticsScore } from "./critics";
 import { launchQuarter, quarterIndex } from "./rivals";
 
@@ -153,6 +154,7 @@ export function splitDemand(
         screenFit(s, x.inches) *
         noveltyFactor(at - x.launch, s) *
         criticsFactor(x.review) *
+        awardFactor(state, x.id, s.id) *
         Math.max(0, brand) *
         (luck.get(x.id) ?? 1)
       );

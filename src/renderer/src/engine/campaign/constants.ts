@@ -1,4 +1,5 @@
 import type { SegmentId } from "../market/types";
+import type { AwardId } from "./awards";
 
 // Campaign constants. Money is in nominal US dollars.
 
@@ -206,6 +207,53 @@ export const REVIEW_SPAN = 70;
  * quarter after. Until then buyers read the critics as neutral.
  */
 export const CRITICS_DELAY = 1;
+
+// ------------------------------------------------------------------ awards
+
+/**
+ * The segments each award speaks to. Primary segments read it as a reason to
+ * buy; secondary ones notice it, at AWARD_SECONDARY of the effect. Laptop
+ * Tycoon's outlet affinities, spread over its six awards.
+ */
+export const AWARD_SEGMENTS: Record<AwardId, { primary: SegmentId[]; secondary: SegmentId[] }> = {
+  overall: {
+    primary: ["generalConsumer", "techEnthusiast", "student", "businessProfessional"],
+    secondary: ["creativeProfessional", "developer", "digitalNomad", "writer"],
+  },
+  value: {
+    primary: ["budgetBuyer", "student", "educationK12", "generalConsumer"],
+    secondary: ["fieldWorker", "writer"],
+  },
+  portable: {
+    primary: ["digitalNomad", "businessProfessional", "student", "writer"],
+    secondary: ["fieldWorker", "generalConsumer", "corporate"],
+  },
+  performance: {
+    primary: ["techEnthusiast", "developer", "videoEditor", "threeDArtist"],
+    secondary: ["creativeProfessional", "dayTrader", "musicProducer", "desktopReplacement"],
+  },
+  business: {
+    primary: ["corporate", "businessProfessional", "fieldWorker"],
+    secondary: ["dayTrader", "developer", "writer"],
+  },
+  gaming: {
+    primary: ["gamer", "esportsPro", "streamer"],
+    secondary: ["techEnthusiast", "desktopReplacement"],
+  },
+};
+
+/** A secondary segment's share of an award's effect, Tycoon's 1 against 5. */
+export const AWARD_SECONDARY = 0.2;
+
+/**
+ * A winner's appeal in a primary segment through the next year: 1 + this per
+ * award. Small next to the market score and brand; a 10% lift wins a few
+ * points of share.
+ */
+export const AWARD_APPEAL = 0.1;
+
+/** Perception a player's win adds at once in a primary segment, Tycoon's 5 of 50. */
+export const AWARD_PERCEPTION = 5;
 
 // ------------------------------------------------------------------ rival timing
 

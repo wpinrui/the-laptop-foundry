@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { SavedCompany } from "../../../preload/store";
+import { FIRST_START, LAST_START } from "../engine/campaign/constants";
 import { ASSETS } from "../viewer/reviewScenes";
 import "./foundry.css";
 
@@ -202,10 +203,6 @@ function NameField({
     </label>
   );
 }
-
-/** A campaign starts from 2006 to 2025. */
-export const FIRST_START = 2006;
-export const LAST_START = 2025;
 
 /** A new company is a sandbox, or a campaign from a start year. */
 export function NewCompany({

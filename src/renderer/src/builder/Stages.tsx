@@ -61,10 +61,11 @@ export interface StageProps {
 
 // ------------------------------------------------------------------ year
 
-export function YearColumn({ build, set }: StageProps) {
+/** `only` locks the pick to one year, as in a campaign. */
+export function YearColumn({ build, set, only }: StageProps & { only?: number }) {
   return (
     <div className="bd-years">
-      {YEARS.map((y) => (
+      {(only === undefined ? YEARS : [only]).map((y) => (
         <button
           type="button"
           key={y}

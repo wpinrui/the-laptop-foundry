@@ -183,9 +183,9 @@ export function App() {
     screen = (
       <NewCompany
         onBack={() => setMenu("start")}
-        onStart={(n) =>
+        onStart={(n, start) =>
           store()
-            .createCompany(n)
+            .createCompany(n, start)
             .then((c) => {
               refresh(c);
               setSelected(null);

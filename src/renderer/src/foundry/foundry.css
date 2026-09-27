@@ -530,3 +530,40 @@
   text-transform: none;
   color: var(--muted);
 }
+
+/* New company: sandbox or campaign, and a campaign's start year. */
+.fd-modes {
+  display: flex;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  margin-top: calc(32 * var(--u));
+}
+
+.fd-modes .fd-secondary.on {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.fd-start {
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  margin-left: calc(12 * var(--u));
+}
+
+.fd-start b {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: calc(32 * var(--u));
+  color: var(--text);
+}
+
+.fd-start .fd-text {
+  font-size: calc(32 * var(--u)) !important;
+  padding: 0 calc(6 * var(--u)) !important;
+}
+
+.fd-start .fd-text:disabled {
+  opacity: 0.3;
+}

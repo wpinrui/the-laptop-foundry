@@ -2,13 +2,14 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Box, Decor, Fit } from "../engine";
-import { Atmosphere, Lights, PLINTH_H, PLINTH_R } from "../foundry/Stage";
+import { Lights, PLINTH_H } from "../foundry/Stage";
 import { type Hover, Model, type Paint, Reflections, type Surfaces } from "../viewer/Scene";
 import { token } from "../viewer/theme";
 import { arrowDrag } from "./Arrows";
 import type { View } from "./view";
+import { Workshop } from "./Workshop";
 
-// The builder's scene: the laptop on the Foundry plinth, lit like the menus.
+// The builder's scene: the laptop on the workshop's turntable, lit like the menus.
 // The camera eases to each stage's view; dragging turns it round the laptop
 // and the wheel zooms, both springing back when the view changes.
 
@@ -142,7 +143,6 @@ export function BuilderScene({
   const nudge = useRef<Nudge>({ az: 0, el: 0, zoom: 1 });
   const drag = useRef<{ x: number; y: number; moved: number } | null>(null);
   const moved = useRef(0);
-  const floor = useMemo(() => new THREE.Color(token("ground")).multiplyScalar(3), []);
   const glowAt = useMemo(() => {
     const o = fit.shell.outer;
     return [0, PLINTH_H + o.z + o.y * 0.5, 260] as [number, number, number];
@@ -179,27 +179,19 @@ export function BuilderScene({
       }}
     >
       <Canvas
-        flat
         shadows
-        dpr={[1, 2]}
-        camera={{ fov: 30, near: 10, far: 6000, position: [0, 500, 800] }}
+        dpr={[1, 1.5]}
+        gl={{ toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 0.9 }}
+        camera={{ fov: 30, near: 10, far: 40000, position: [0, 500, 800] }}
         onPointerMissed={() => {
           if (moved.current < 4 && !arrowDrag.on && performance.now() >= arrowDrag.until) onMiss?.();
         }}
       >
-        <Atmosphere />
-        <Reflections intensity={0.12} />
-        <Lights />
-        <directionalLight position={[200, 1200, 1600]} color={token("stage-key")} intensity={0.5} />
+        <Workshop />
+        <Reflections intensity={0.5} />
+        <Lights dim={0.45} />
+        <directionalLight position={[200, 1200, 1600]} color={token("stage-key")} intensity={0.3} />
         {glow && <pointLight position={glowAt} color={token("screen-glow")} intensity={2.5} distance={0} decay={0} />}
-        <mesh rotation-x={-Math.PI / 2} receiveShadow>
-          <planeGeometry args={[20000, 20000]} />
-          <meshStandardMaterial color={floor} roughness={1} />
-        </mesh>
-        <mesh position={[0, PLINTH_H / 2, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[PLINTH_R, PLINTH_R, PLINTH_H, 96]} />
-          <meshStandardMaterial color={token("stage-plinth")} roughness={0.55} metalness={0.3} />
-        </mesh>
         <group
           position={[0, flip ? PLINTH_H + fit.shell.outer.z + fit.lidZ : PLINTH_H, 0]}
           rotation-x={flip ? Math.PI : 0}

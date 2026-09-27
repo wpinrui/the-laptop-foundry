@@ -173,7 +173,8 @@ function Rig({ view, turntable }: { view: StageView; turntable: RefObject<THREE.
   return null;
 }
 
-export function Lights() {
+/** The stage lights; `dim` scales them down for a lit room round the plinth. */
+export function Lights({ dim = 1 }: { dim?: number }) {
   const spot = useRef<THREE.SpotLight>(null);
   const key = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
@@ -189,12 +190,12 @@ export function Lights() {
   }, [scene]);
   return (
     <>
-      <hemisphereLight args={[token("stage-fill-sky"), token("stage-fill-ground"), 15]} />
+      <hemisphereLight args={[token("stage-fill-sky"), token("stage-fill-ground"), 15 * dim]} />
       <directionalLight
         ref={key}
         position={[-700, 1200, 800]}
         color={token("stage-key")}
-        intensity={2}
+        intensity={2 * dim}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-500}
@@ -210,13 +211,13 @@ export function Lights() {
         ref={spot}
         position={[-250, 1500, 350]}
         color={token("stage-key")}
-        intensity={1.2}
+        intensity={1.2 * dim}
         angle={0.24}
         penumbra={0.9}
         decay={0}
         distance={0}
       />
-      <directionalLight position={[600, 180, -800]} color={token("stage-rim")} intensity={6} />
+      <directionalLight position={[600, 180, -800]} color={token("stage-rim")} intensity={6 * dim} />
     </>
   );
 }

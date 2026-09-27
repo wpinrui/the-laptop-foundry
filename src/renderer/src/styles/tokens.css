@@ -185,18 +185,6 @@
   --ash-ridge: #3a2f2c;
   --ash-flake: #cfc6bf;
 
-  /* Workshop: bench, wall, pegboard and the warm lamp. */
-  --shop-bench: #7a5a40;
-  --shop-bench-edge: #5e3b22;
-  --shop-wall: #3b3029;
-  --shop-peg: #b99a74;
-  --shop-peg-hole: #2a211c;
-  --shop-shelf: #6d4a2e;
-  --shop-tool: #7d8791;
-  --shop-tool-grip: #b23a2a;
-  --shop-lamp: #ffd29a;
-  --shop-fill: #9fb7d9;
-
   /* Photo studio for the review's product shots. */
   --studio-bg: #e7e9ec;
   --studio-floor: #d9dce0;
@@ -219,6 +207,10 @@
   --stage-rim: #86a2ff;
   --stage-fill-sky: #4a382a;
   --stage-fill-ground: #0a0806;
+  /* The builder's workshop: its rooflight, sky and floor fill, and the clear colour while it loads. */
+  --workshop-roof: #f4f1ea;
+  --workshop-sky: #dfe4e6;
+  --workshop-ground: #5a5448;
   /* Builder (Foundry): stages ahead, chip and row lines, the selection glow. */
   --ahead: #6f655b;
   --line-chip: rgba(239, 230, 220, 0.22);

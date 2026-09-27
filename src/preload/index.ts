@@ -1,5 +1,5 @@
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
-import type { SavedCampaign, SavedCompany, SavedModel, Settings } from "./store";
+import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, Settings } from "./store";
 
 export interface FoxNav {
   frame: number;
@@ -44,6 +44,9 @@ const api = {
     /** Saves a year's generated market with the company. */
     saveMarket: (company: string, year: number, market: unknown): Promise<SavedCompany> =>
       ipcRenderer.invoke("store:save-market", company, year, market),
+    /** Saves the Notepad's documents with the company. */
+    saveNotes: (company: string, notes: SavedNote[]): Promise<SavedCompany> =>
+      ipcRenderer.invoke("store:save-notes", company, notes),
     deleteModel: (company: string, id: string): Promise<SavedCompany> =>
       ipcRenderer.invoke("store:delete-model", company, id),
     settings: (): Promise<Settings> => ipcRenderer.invoke("store:settings"),
@@ -76,4 +79,4 @@ const api = {
 if (process.isMainFrame && window.top === window.self) contextBridge.exposeInMainWorld("api", api);
 
 export type Api = typeof api;
-export type { SavedCampaign, SavedCompany, SavedModel, Settings };
+export type { SavedCampaign, SavedCompany, SavedModel, SavedNote, Settings };

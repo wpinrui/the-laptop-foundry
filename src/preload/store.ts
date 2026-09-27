@@ -14,6 +14,13 @@ export interface SavedModel {
   revealed?: number;
 }
 
+/** One saved notepad document. */
+export interface SavedNote {
+  name: string;
+  text: string;
+  updated: number;
+}
+
 /** A campaign company's state. A company without one is a sandbox. */
 export interface SavedCampaign {
   /** The year the campaign started in, 2006 to 2025. */
@@ -36,6 +43,8 @@ export interface SavedCompany {
   campaign?: SavedCampaign;
   /** Each opened year's generated market of rival models, by year. Opaque here: the renderer owns its shape. */
   markets?: Record<string, unknown>;
+  /** The in-game Notepad's documents. Absent for a company saved before it persisted them. */
+  notes?: SavedNote[];
 }
 
 export interface Settings {

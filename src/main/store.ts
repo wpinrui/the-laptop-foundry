@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/pro
 import { join } from "node:path";
 import { app } from "electron";
 import { handleTop } from "./ipc";
-import type { SavedCampaign, SavedCompany, SavedModel, Settings } from "../preload/store";
+import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, Settings } from "../preload/store";
 
 // Each company is one save: one JSON file in the companies folder of the user
 // data folder. Settings live in their own file. Writes go to a temporary file
@@ -52,6 +52,17 @@ function atomicWrite(path: string, value: unknown): Promise<void> {
   return queue;
 }
 
+function isNote(n: unknown): n is SavedNote {
+  const x = n as SavedNote;
+  return (
+    !!x &&
+    typeof x.name === "string" &&
+    x.name.trim() !== "" &&
+    typeof x.text === "string" &&
+    typeof x.updated === "number"
+  );
+}
+
 function isModel(m: unknown): m is SavedModel {
   const x = m as SavedModel;
   return (
@@ -77,6 +88,7 @@ function readCompany(raw: unknown, id: string): SavedCompany | null {
     models: Array.isArray(x.models) ? x.models.filter(isModel) : [],
     campaign: readCampaign(x.campaign),
     markets: x.markets && typeof x.markets === "object" && !Array.isArray(x.markets) ? x.markets : undefined,
+    notes: Array.isArray(x.notes) ? x.notes.filter(isNote) : undefined,
   };
 }
 
@@ -212,6 +224,11 @@ export function registerStore(): void {
     if (!market || typeof market !== "object") throw new Error("bad market");
     const c = await company(id);
     return put({ ...c, markets: { ...c.markets, [year]: market } });
+  });
+  handleTop("store:save-notes", async (_e, id: unknown, notes: unknown) => {
+    if (!Array.isArray(notes) || !notes.every(isNote)) throw new Error("bad notes");
+    const c = await company(id);
+    return put({ ...c, notes });
   });
   handleTop("store:delete-model",async (_e, id: unknown, modelId: unknown) => {
     if (typeof modelId !== "string") throw new Error("model id must be text");

@@ -320,21 +320,21 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
   // load or font redraws whatever canvas is current.
   const loaded = useMemo(() => {
     const images = new Map<string, HTMLImageElement>();
-    const urls: string[] = [];
+    const sources: { img: HTMLImageElement; src: () => string; blob: boolean }[] = [];
     const current = { redraw: () => {} };
     const redraw = () => current.redraw();
     for (const m of marks)
       if (m.kind === "svg" && m.svg) {
+        const svg = m.svg;
         const img = new Image();
-        const url = svgUrl(outlined(m) ? outlineSvg(m.svg, m) : m.svg);
-        urls.push(url);
         img.onload = redraw;
-        img.src = url;
+        sources.push({ img, src: () => svgUrl(outlined(m) ? outlineSvg(svg, m) : svg), blob: true });
         images.set(m.id, img);
       } else if (m.kind === "image" && m.image) {
+        const image = m.image;
         const img = new Image();
         img.onload = redraw;
-        img.src = m.image;
+        sources.push({ img, src: () => image, blob: false });
         images.set(m.id, img);
       }
     for (const m of marks)
@@ -343,11 +343,23 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
           ?.load(fontOf(m, 40))
           .then(redraw)
           .catch(() => {});
-    return { images, urls, current };
+    return { images, sources, current };
     // biome-ignore lint/correctness/useExhaustiveDependencies: reloaded when the marks' content changes
   }, [key]);
-  useEffect(() => () => {
-    for (const u of loaded.urls) URL.revokeObjectURL(u);
+  // The pictures' blob URLs are made and revoked by one effect: made in the
+  // memo, a mount's first cleanup (Strict Mode runs one on every mount)
+  // revoked them before the pictures loaded, and a freshly drawn laptop, such
+  // as free view's or the cafe's, lost every SVG and emoji decal.
+  useEffect(() => {
+    const urls: string[] = [];
+    for (const s of loaded.sources) {
+      const src = s.src();
+      if (s.blob) urls.push(src);
+      s.img.src = src;
+    }
+    return () => {
+      for (const u of urls) URL.revokeObjectURL(u);
+    };
   }, [loaded]);
   const made = useMemo(() => {
     const S = Math.min(8, 2048 / Math.max(face.w, face.h));

@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { type Fit, type Mark, type MarkSurface, outerSection, outerSpanAt } from "../engine";
+import { planDistance } from "../engine/shell";
 import { token } from "./theme";
 
 // The player's decoration on the Model: the bezel's own colour, and text or
@@ -18,6 +19,17 @@ export interface Face {
   rot: [number, number, number];
   /** How far the surface stands off the plane along its facing, at a point (x right, y up from the centre), where the body shapes it. */
   bulge?: (u: number, v: number) => number;
+  /** Whether a point (x right, y up from the centre) lies on the face's flat part, the only part marks print on. */
+  flat?: (u: number, v: number) => boolean;
+}
+
+/** Steepest slope a mark still prints over, rise per run. */
+const STEEP = 0.3;
+
+/** Whether the surface is gentle at a point: no steeper than STEEP either way. */
+function gentle(f: (u: number, v: number) => number, u: number, v: number): boolean {
+  const d = 0.5;
+  return Math.abs(f(u + d, v) - f(u - d, v)) <= 2 * d * STEEP && Math.abs(f(u, v + d) - f(u, v - d)) <= 2 * d * STEEP;
 }
 
 /** Faces in engine space: palm and bottom in the base's frame, lid and bezel in the closed lid's. */
@@ -34,6 +46,17 @@ export function faceOf(fit: Fit, surface: MarkSurface): Face {
     if (style.pm) return outerSpanAt(style, o, Math.min(o.x, Math.max(0, x)), y);
     return outerSection(style, o, y) ?? [0, o.z];
   };
+  // Marks stay off the plan's rounded or cut corners and the edge profile.
+  const inPlan = (x: number, y: number, W: number, H: number) =>
+    planDistance(x, y, W, H, style.corner, style.cornerKind === "chamfer") >= (style.pm ? 0 : style.profile);
+  const palmBulge = (u: number, v: number) => section(v, o.x / 2 + u)[1] - o.z;
+  const bottomBulge = (u: number, v: number) => -section(v, o.x / 2 - u)[0];
+  // On a perimeter body the flat face is where the edge zones leave the full height; elsewhere where the shape is gentle.
+  const baseFlat = (bulge: (u: number, v: number) => number) => (u: number, v: number) => {
+    if (!inPlan(o.x / 2 + u, o.y / 2 + v, o.x, o.y)) return false;
+    if (style.pm) return Math.abs(bulge(u, v)) < 0.05;
+    return !shaped || gentle(bulge, u, v);
+  };
   switch (surface) {
     case "palm":
       return {
@@ -41,7 +64,8 @@ export function faceOf(fit: Fit, surface: MarkSurface): Face {
         h: o.y,
         at: [o.x / 2, o.y / 2, o.z + 0.06],
         rot: [0, 0, 0],
-        ...(shaped ? { bulge: (u: number, v: number) => section(v, o.x / 2 + u)[1] - o.z } : {}),
+        ...(shaped ? { bulge: palmBulge } : {}),
+        flat: baseFlat(palmBulge),
       };
     case "bottom":
       // Read from below: right is the laptop's left.
@@ -50,7 +74,8 @@ export function faceOf(fit: Fit, surface: MarkSurface): Face {
         h: o.y,
         at: [o.x / 2, o.y / 2, -0.06],
         rot: [0, Math.PI, 0],
-        ...(shaped ? { bulge: (u: number, v: number) => -section(v, o.x / 2 - u)[0] } : {}),
+        ...(shaped ? { bulge: bottomBulge } : {}),
+        flat: baseFlat(bottomBulge),
       };
     case "lid":
       // Read from behind the open lid: up runs away from the hinge, right is the laptop's left.
@@ -60,6 +85,7 @@ export function faceOf(fit: Fit, surface: MarkSurface): Face {
         at: [o.x / 2, L / 2, lid.at.z + lid.size.z + 0.06],
         rot: [0, 0, Math.PI],
         ...(style.crown > 0 ? { bulge: (_u: number, v: number) => style.crown * Math.sin((Math.PI * (L / 2 - v)) / L) } : {}),
+        flat: (u: number, v: number) => inPlan(o.x / 2 + u, L / 2 + v, o.x, L),
       };
     case "bezel":
       // The lid's front face, read from the front with the lid open.
@@ -174,7 +200,33 @@ function svgUrl(svg: string): string {
   return URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
 }
 
-function drawFace(face: Face, marks: Mark[], canvas: HTMLCanvasElement, S: number, images: Map<string, HTMLImageElement>) {
+/** The face's flat part as an alpha mask, one pixel a millimetre. */
+function flatMask(face: Face): HTMLCanvasElement | null {
+  const flat = face.flat;
+  if (!flat) return null;
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(face.w));
+  c.height = Math.max(1, Math.round(face.h));
+  const g = c.getContext("2d");
+  if (!g) return null;
+  const img = g.createImageData(c.width, c.height);
+  const sx = face.w / c.width;
+  const sy = face.h / c.height;
+  for (let j = 0; j < c.height; j++)
+    for (let i = 0; i < c.width; i++)
+      if (flat((i + 0.5) * sx - face.w / 2, face.h / 2 - (j + 0.5) * sy)) img.data[(j * c.width + i) * 4 + 3] = 255;
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+function drawFace(
+  face: Face,
+  marks: Mark[],
+  canvas: HTMLCanvasElement,
+  S: number,
+  images: Map<string, HTMLImageElement>,
+  mask: HTMLCanvasElement | null,
+) {
   const g = canvas.getContext("2d");
   if (!g) return;
   g.clearRect(0, 0, canvas.width, canvas.height);
@@ -249,10 +301,17 @@ function drawFace(face: Face, marks: Mark[], canvas: HTMLCanvasElement, S: numbe
     }
     g.restore();
   }
+  if (mask) {
+    g.save();
+    g.globalCompositeOperation = "destination-in";
+    g.drawImage(mask, 0, 0, canvas.width, canvas.height);
+    g.restore();
+  }
 }
 
 function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
   const key = JSON.stringify(marks);
+  const mask = useMemo(() => flatMask(face), [face]);
   const made = useMemo(() => {
     const S = Math.min(8, 2048 / Math.max(face.w, face.h));
     const canvas = document.createElement("canvas");
@@ -264,7 +323,7 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
     const images = new Map<string, HTMLImageElement>();
     const urls: string[] = [];
     const redraw = () => {
-      drawFace(face, marks, canvas, S, images);
+      drawFace(face, marks, canvas, S, images, mask);
       tex.needsUpdate = true;
     };
     for (const m of marks)
@@ -290,7 +349,7 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
           .catch(() => {});
     return { tex, urls };
     // biome-ignore lint/correctness/useExhaustiveDependencies: redrawn when the marks' content changes
-  }, [key, face.w, face.h]);
+  }, [key, face.w, face.h, mask]);
   useEffect(
     () => () => {
       made.tex.dispose();
@@ -328,10 +387,12 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
 export function BaseMarks({ fit, marks }: { fit: Fit; marks: Mark[] | undefined }) {
   const palm = (marks ?? []).filter((m) => m.surface === "palm");
   const bottom = (marks ?? []).filter((m) => m.surface === "bottom");
+  const palmFace = useMemo(() => faceOf(fit, "palm"), [fit]);
+  const bottomFace = useMemo(() => faceOf(fit, "bottom"), [fit]);
   return (
     <>
-      {palm.length > 0 && <FaceMarks face={faceOf(fit, "palm")} marks={palm} />}
-      {bottom.length > 0 && <FaceMarks face={faceOf(fit, "bottom")} marks={bottom} />}
+      {palm.length > 0 && <FaceMarks face={palmFace} marks={palm} />}
+      {bottom.length > 0 && <FaceMarks face={bottomFace} marks={bottom} />}
     </>
   );
 }
@@ -340,10 +401,12 @@ export function BaseMarks({ fit, marks }: { fit: Fit; marks: Mark[] | undefined 
 export function LidDecor({ fit, marks }: { fit: Fit; marks: Mark[] | undefined }) {
   const lid = (marks ?? []).filter((m) => m.surface === "lid");
   const onBezel = (marks ?? []).filter((m) => m.surface === "bezel");
+  const lidFace = useMemo(() => faceOf(fit, "lid"), [fit]);
+  const bezelFace = useMemo(() => faceOf(fit, "bezel"), [fit]);
   return (
     <>
-      {lid.length > 0 && <FaceMarks face={faceOf(fit, "lid")} marks={lid} />}
-      {onBezel.length > 0 && <FaceMarks face={faceOf(fit, "bezel")} marks={onBezel} />}
+      {lid.length > 0 && <FaceMarks face={lidFace} marks={lid} />}
+      {onBezel.length > 0 && <FaceMarks face={bezelFace} marks={onBezel} />}
     </>
   );
 }

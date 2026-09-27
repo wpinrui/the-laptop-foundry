@@ -1,11 +1,12 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel, Settings } from "../../preload/store";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
-import { emptyBuild } from "./builder/structure";
+import { emptyBuild, toYear } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
 import { type Build, migrateBody, screenOf, type Subject } from "./engine";
+import { campaignOf, resolveQuarter, savedCampaign } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { Stage, type StageView } from "./foundry/Stage";
@@ -40,6 +41,7 @@ function latestModel(c: SavedCompany | null | undefined): SavedModel | null {
 
 export function App() {
   const [companies, setCompanies] = useState<SavedCompany[] | null>(null);
+  const ending = useRef(false);
   const [settings, setSettings] = useState<Settings>({ sound: true });
   const [company, setCompany] = useState<SavedCompany | null>(null);
   const [menu, setMenu] = useState<Menu>("start");
@@ -97,6 +99,7 @@ export function App() {
   if (!companies) return null;
 
   const name = company?.name ?? "";
+  const campaign = company?.campaign ? campaignOf(company.campaign) : null;
   const subject = (m: SavedModel): Subject => ({ id: m.id, name: m.name, company: name, build: m.build as Build });
   // The first review locks the model, so its review never changes.
   const review = (m: SavedModel) => {
@@ -137,8 +140,10 @@ export function App() {
 
   const duplicate = (id: string) => {
     const src = company?.models.find((m) => m.id === id);
-    if (src) {
-      setNaming(structuredClone(src.build) as Build);
+    if (src && !campaign?.over) {
+      const b = structuredClone(src.build) as Build;
+      // In a campaign every new model, a duplicate too, is built for the current year.
+      setNaming(campaign ? toYear(b, campaign.now.year) : b);
       setMenu("name");
     }
   };
@@ -157,6 +162,7 @@ export function App() {
           setOpen(null);
           duplicate(model.id);
         }}
+        yearLocked={!!campaign}
         reroll={(b) => randomName(b.year, inchesOf(b))}
         library={(company?.models ?? []).filter((x) => x.reviewed).map(subject)}
         sound={settings.sound}
@@ -183,9 +189,9 @@ export function App() {
     screen = (
       <NewCompany
         onBack={() => setMenu("start")}
-        onStart={(n) =>
+        onStart={(n, start) =>
           store()
-            .createCompany(n)
+            .createCompany(n, start)
             .then((c) => {
               refresh(c);
               setSelected(null);
@@ -245,6 +251,19 @@ export function App() {
     screen = (
       <LaptopList
         company={company}
+        campaign={campaign}
+        onEndQuarter={() => {
+          // One quarter per click: a second click before the save lands would resolve the same quarter again.
+          if (!campaign || ending.current) return;
+          ending.current = true;
+          const next = resolveQuarter(campaign, { models: company.models });
+          store()
+            .saveCampaign(company.id, savedCampaign(next))
+            .then(refresh)
+            .finally(() => {
+              ending.current = false;
+            });
+        }}
         selected={selected}
         onSelect={setSelected}
         onMenu={() => {
@@ -252,7 +271,7 @@ export function App() {
           setMenu("start");
         }}
         onNew={() => {
-          setNaming(emptyBuild());
+          setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
           setMenu("name");
         }}
         onUse={(id) => {

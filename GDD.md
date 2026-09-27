@@ -79,7 +79,7 @@ Processors and graphics are real named parts. Everything else is chosen by speci
 | Mainboard | Part of the internals |
 | Memory | Specification |
 | Storage | Hard disk or solid-state drive, at most two in total, limited by the body |
-| Display | Free specification: size, ratio, resolution, panel type, refresh rate and bezel. A combination nobody sold that year is a custom panel at a premium; only what no maker could build that year is blocked |
+| Display | Free specification: size, ratio, resolution, panel type, refresh rate, bezel, brightness and gamut. Panel type, density and refresh rate are gated per type and per year. Brightness is a slider up to the panel type's ceiling for the year, with an HDR peak on OLED and Mini-LED. Gamut is a chosen tier. A combination nobody sold that year is a custom panel at a premium; only what no maker could build that year is blocked |
 | Battery | Specification. A pouch is sized by length, depth and thickness, and its capacity follows |
 | Hot-swappable battery | Optional |
 | Cooling | No fan, one fan, two fans, or two fans on a vapour chamber. Fan size and the fan grill are the player's |
@@ -87,7 +87,7 @@ Processors and graphics are real named parts. Everything else is chosen by speci
 | Ports | Standards, laid out along a side wall in the player's list order |
 | Wireless | Standard |
 | Keyboard | Specification, plus keycap shape, colours and legends |
-| Trackpad | Specification |
+| Trackpad | Chosen by technology: buttons, clickpad from 2008, or haptic from 2015. Size is a free slider bounded by the palm rest. Surface, glass or Mylar, is a priced spec |
 | Webcam | Specification |
 | Speakers | Specification, plus grill and arrangement |
 
@@ -135,9 +135,10 @@ The operating system is always Windows. The player does not choose it and it aff
 ### Engineering spend
 
 - The player can spend more to make parts smaller or pack them tighter.
-- Each part has a Compact slider. Compact spend takes height and room off parts such as the keyboard, trackpad and speakers. The chassis has Packing and Material spend.
+- Each part has a Compact slider, shown only where it changes anything. Compact spend takes height and room off parts such as the keyboard, trackpad, display and speakers. The chassis has Packing and Material spend.
 - The player can spend more on better materials: lighter, better at heat transfer, or more durable.
-- Spending is free in version 0.1 and in sandbox mode. There is no trade-off, and maxing every slider is allowed.
+- Quality spend gives diminishing returns on the display (colour accuracy and uniformity), keyboard (key wobble, snap, actuation force and deck flex), trackpad (clickable share, friction, rattle and drivers), speakers (bass cutoff and level) and webcam (lens and sensor).
+- Spending is free in version 0.1 and in sandbox mode, and maxing every slider is allowed. Webcam quality is the one exception with a trade-off: it grows the webcam module. Every other spend has none.
 - All spending adds to the displayed cost price.
 
 ### Power

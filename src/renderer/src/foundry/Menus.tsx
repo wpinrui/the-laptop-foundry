@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { SavedCompany } from "../../../preload/store";
+import { FIRST_START, LAST_START } from "../engine/campaign/constants";
 import { ASSETS } from "../viewer/reviewScenes";
 import "./foundry.css";
 
@@ -203,17 +204,69 @@ function NameField({
   );
 }
 
-export function NewCompany({ onStart, onBack }: { onStart: (name: string) => void; onBack: () => void }) {
+/** A new company is a sandbox, or a campaign from a start year. */
+export function NewCompany({
+  onStart,
+  onBack,
+}: {
+  /** No start year makes a sandbox. */
+  onStart: (name: string, start?: number) => void;
+  onBack: () => void;
+}) {
   const [name, setName] = useState("");
+  const [campaign, setCampaign] = useState(false);
+  const [start, setStart] = useState(FIRST_START);
+  const step = (d: number) => setStart((y) => Math.min(LAST_START, Math.max(FIRST_START, y + d)));
   return (
     <Column onBack={onBack}>
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (name.trim()) onStart(name.trim());
+          if (name.trim()) onStart(name.trim(), campaign ? start : undefined);
         }}
       >
         <NameField label="Company" value={name} onChange={setName} />
+        <div className="fd-modes">
+          <button
+            type="button"
+            className={`fd-secondary${campaign ? " muted" : " on"}`}
+            aria-pressed={!campaign}
+            onClick={() => setCampaign(false)}
+          >
+            Sandbox
+          </button>
+          <button
+            type="button"
+            className={`fd-secondary${campaign ? " on" : " muted"}`}
+            aria-pressed={campaign}
+            onClick={() => setCampaign(true)}
+          >
+            Campaign
+          </button>
+          {campaign && (
+            <span className="fd-start">
+              <button
+                type="button"
+                className="fd-text"
+                aria-label="Earlier"
+                disabled={start <= FIRST_START}
+                onClick={() => step(-1)}
+              >
+                ‹
+              </button>
+              <b>{start}</b>
+              <button
+                type="button"
+                className="fd-text"
+                aria-label="Later"
+                disabled={start >= LAST_START}
+                onClick={() => step(1)}
+              >
+                ›
+              </button>
+            </span>
+          )}
+        </div>
         <div className="fd-actions">
           <button type="submit" className="fd-primary" disabled={!name.trim()}>
             Start

@@ -222,8 +222,7 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
   // A player's fan size is heard against the fan Auto would fit in its place.
   let fanAuto: number | undefined;
   if (fans.length > 0 && fanSizeOf(build) !== undefined) {
-    const auto = solve(withFanSize(build, undefined), content).boxes.find((b) => b.role === "fan" && b.kind === "unit");
-    fanAuto = auto ? Math.min(auto.size.x, auto.size.y) : undefined;
+    fanAuto = autoFan(withFanSize(build, undefined), content);
   }
   const finFace = fit.boxes
     .filter((b) => b.role === "fin" && b.kind === "unit")
@@ -256,6 +255,26 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
 // ------------------------------------------------------------------ cooling capacity
 
 /** How well a body material spreads heat to its outer surface, 0 to 1. */
+/** Auto's fan side per build, by content: a drag of the player's fan size keeps the same Auto build, so one solve serves every step. */
+const AUTO_FANS = new WeakMap<Content, Map<string, number | undefined>>();
+const AUTO_FANS_KEPT = 16;
+
+/** The side of the fan Auto fits in a build, mm. */
+function autoFan(auto: Build, content: Content): number | undefined {
+  let seen = AUTO_FANS.get(content);
+  if (!seen) {
+    seen = new Map();
+    AUTO_FANS.set(content, seen);
+  }
+  const key = JSON.stringify(auto);
+  if (seen.has(key)) return seen.get(key);
+  const fan = solve(auto, content).boxes.find((b) => b.role === "fan" && b.kind === "unit");
+  const side = fan ? Math.min(fan.size.x, fan.size.y) : undefined;
+  if (seen.size >= AUTO_FANS_KEPT) seen.delete(seen.keys().next().value as string);
+  seen.set(key, side);
+  return side;
+}
+
 const SPREAD: Record<string, number> = {
   plastic: 0.35,
   cfrp: 0.5,

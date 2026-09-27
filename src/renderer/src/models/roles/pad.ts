@@ -161,6 +161,28 @@ function buttonRow(
   }
 }
 
+/**
+ * The corner radii of the unit's outline in plan, width W by depth D: at the
+ * front corners and at the back, each the pad's own or its button row's, plus
+ * that row's inset. The deck cuts its hole to this outline, a hairline out.
+ */
+export function padOutline(
+  W: number,
+  D: number,
+  year: number,
+  opts: Record<string, unknown> = {},
+): { front: number; back: number } {
+  const modern = year >= 2015;
+  const front = opts.buttons === "separate" ? 1 : 0;
+  const back = opts.stick === "yes" ? 1 : 0;
+  const row = Math.min(ROW, (0.5 * D) / Math.max(1, front + back));
+  const phd = (D - (front + back) * row) / 2;
+  const s = 0.06 * Math.min(W, 2 * phd);
+  const pad = modern ? clamp(s, 4, 8) : clamp(s, 2.5, 4);
+  const btn = modern ? 1.2 + 0.8 : 2.4 + 1.2;
+  return { front: front ? btn : pad, back: back ? btn : pad };
+}
+
 function build(
   box: ModelBox,
   options: Record<string, string | number>,

@@ -40,7 +40,23 @@ export interface PlanCtx {
 /** The axis a zone packs along: a row every unit in it asks for, else the zone's own. */
 function packOf(fill: ZoneFill): ZoneNode["pack"] {
   const r = fill.units[0]?.row;
-  return r && fill.units.every((u) => u.row === r) ? r : fill.node.pack;
+  return r && r !== "bunch" && fill.units.every((u) => u.row === r)
+    ? r
+    : fill.node.pack;
+}
+
+/**
+ * A bunch: every unit in the zone asks for one, so they pack in a near-square
+ * block of lines along the zone's axis. Null when the zone packs one line.
+ */
+function bunchOf(fill: ZoneFill): Unit[][] | null {
+  const us = fill.units;
+  if (fill.node.pack === "z" || us.length < 3) return null;
+  if (!us.every((u) => u.row === "bunch")) return null;
+  const per = Math.ceil(Math.sqrt(us.length));
+  const lines: Unit[][] = [];
+  for (let i = 0; i < us.length; i += per) lines.push(us.slice(i, i + per));
+  return lines;
 }
 
 /** Gap between neighbours in this zone: the port gap in a port strip. */
@@ -191,6 +207,19 @@ function zoneMin(fill: ZoneFill, ctx: PlanCtx): Size | null {
   }
   const p = packOf(fill);
   const size: Size = { x: 0, y: 0, z: 0 };
+  const lines = bunchOf(fill);
+  if (lines && p !== "z") {
+    const o = other(p);
+    const g = gapOf(fill, ctx);
+    for (const l of lines) {
+      const len = l.reduce((s, u) => s + u.size[p], 0) + (l.length - 1) * g;
+      size[p] = Math.max(size[p], len);
+      size[o] += Math.max(...l.map((u) => u.size[o]));
+    }
+    size[o] += (lines.length - 1) * g;
+    size.z = Math.max(...units.map((u) => u.size.z)) + lift;
+    return size;
+  }
   for (const u of units) {
     // A skin sits on the outer bottom, so only its height above the inner floor counts.
     const h = u.skin ? Math.max(0, u.size.z - ctx.bottom) : u.size.z;
@@ -450,6 +479,32 @@ export function placeUnits(
     al: "start" | "centre" | "end",
   ) =>
     al === "start" ? lo : al === "end" ? hi - len : lo + (hi - lo - len) / 2;
+
+  const lines = bunchOf(fill);
+  if (lines && p !== "z") {
+    // Each line packs along the zone's axis; the lines stack across it.
+    const o = other(p);
+    const g = gapOf(fill, ctx);
+    const deep = lines.map((l) => Math.max(...l.map((u) => u.size[o])));
+    const block = deep.reduce((s, d) => s + d, 0) + (lines.length - 1) * g;
+    const [olo, ohi] = range(o);
+    const al = alignOf(o);
+    let oc = put(olo, ohi, block, al);
+    lines.forEach((l, i) => {
+      const len = l.reduce((s, u) => s + u.size[p], 0) + (l.length - 1) * g;
+      const [plo, phi] = range(p);
+      let c = put(plo, phi, len, alignOf(p));
+      for (const u of l) {
+        const pos: Vec3 = { x: 0, y: 0, z: zBase };
+        pos[p] = c;
+        pos[o] = put(oc, oc + deep[i], u.size[o], al);
+        c += u.size[p] + g;
+        out.push({ ...u, at: pos, size: { ...u.size }, zone: node.zone });
+      }
+      oc += deep[i] + g;
+    });
+    return out;
+  }
 
   let cursor = 0;
   let total = 0;

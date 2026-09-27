@@ -573,7 +573,7 @@ function PlaceChips({
       )}
       {at.rows && (
         <div className="bd-field">
-          <Label>Row</Label>
+          <Label>Arrange</Label>
           <Chips>
             <Chip
               caps
@@ -582,18 +582,21 @@ function PlaceChips({
             >
               Auto
             </Chip>
-            <Chip
-              on={pin.row === "x"}
-              onClick={() => set((b) => withPin(b, slotKey, "row", "x"))}
-            >
-              Across
-            </Chip>
-            <Chip
-              on={pin.row === "y"}
-              onClick={() => set((b) => withPin(b, slotKey, "row", "y"))}
-            >
-              Along
-            </Chip>
+            {(
+              [
+                ["bunch", "Bunch"],
+                ["x", "Line across"],
+                ["y", "Line along"],
+              ] as const
+            ).map(([r, label]) => (
+              <Chip
+                key={r}
+                on={pin.row === r}
+                onClick={() => set((b) => withPin(b, slotKey, "row", r))}
+              >
+                {label}
+              </Chip>
+            ))}
           </Chips>
         </div>
       )}

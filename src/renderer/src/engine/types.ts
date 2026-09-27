@@ -557,12 +557,15 @@ export interface Placement {
   parts?: Record<string, PartPin>;
 }
 
+/** How a speaker set's units sit in each zone: a line across, a line along, or a bunch. */
+export type SpkRow = PlanAxis | "bunch";
+
 /** A movable floor part's pinned zone and turn. Either left out means auto. */
 export interface PartPin {
   zone?: string;
   turn?: boolean;
-  /** Speakers: the axis the units line up along in their zone, in place of the zone's own. */
-  row?: PlanAxis;
+  /** Speakers: one line along an axis, or a bunch, in place of the zone's own line. */
+  row?: SpkRow;
 }
 
 /** Keycaps as the player styled them. Colours are hex. */
@@ -820,7 +823,7 @@ export interface PlaceReport {
   cam?: { x: number; range: Range };
   panel?: { y: number; range: Range };
   /** Movable floor parts by slot: where each sits, and the zones it may sit in. */
-  parts?: Record<string, { zone: string; turn: boolean; turns: boolean; row?: PlanAxis; rows: boolean; zones: { id: string; name: string }[] }>;
+  parts?: Record<string, { zone: string; turn: boolean; turns: boolean; row?: SpkRow; rows: boolean; zones: { id: string; name: string }[] }>;
   /** One per build port, in build order. Null when the port was not placed. */
   ports: ({ along: number; height: number; box: string } | null)[];
 }

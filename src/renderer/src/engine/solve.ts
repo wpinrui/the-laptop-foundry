@@ -42,7 +42,7 @@ import type {
   Opening,
   Piece,
   PlaceReport,
-  PlanAxis,
+  SpkRow,
   Problem,
   Range,
   Role,
@@ -122,11 +122,11 @@ interface Choice {
   zone?: string;
   turn: boolean;
   /** Speakers: the axis their units line up along, absent the zone's own. */
-  row?: PlanAxis;
+  row?: SpkRow;
 }
 /** Rows auto placement tries: a speaker set may line up either way. */
-const rowsOf = (role: Role): (PlanAxis | undefined)[] =>
-  role === "spk" ? [undefined, "x", "y"] : [undefined];
+const rowsOf = (role: Role): (SpkRow | undefined)[] =>
+  role === "spk" ? [undefined, "x", "y", "bunch"] : [undefined];
 type Arrangement = Record<string, Choice>;
 type Slot = {
   role: Role;
@@ -422,7 +422,7 @@ function solveAt(
     if (UPRIGHT.has(u.role)) pin.turn = false;
     // Older saves may hold a turn this no longer knows: that is auto.
     else if (typeof pinned?.turn === "boolean") pin.turn = pinned.turn;
-    if (u.role === "spk" && (pinned?.row === "x" || pinned?.row === "y"))
+    if (u.role === "spk" && (pinned?.row === "x" || pinned?.row === "y" || pinned?.row === "bunch"))
       pin.row = pinned.row;
     const stacks = STACKERS.has(u.role)
       ? HOSTS.filter((h) => floorUnits.some((f) => f.role === h)).map(

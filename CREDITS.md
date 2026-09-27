@@ -63,3 +63,28 @@ Textures:
 | Wool Boucle (normal map only) | Rug | https://polyhaven.com/a/wool_boucle |
 
 Everything else in the scene was built for this project and falls under the repository's own licence.
+
+## Legend and decal fonts
+
+These fonts are vendored in `src/renderer/src/assets/fonts/` (Latin subset, from [Fontsource](https://fontsource.org)) for keyboard legends and text decals. Every one is licensed under the **SIL Open Font License 1.1**; each licence text sits beside its files as `OFL-<font>.txt`.
+
+| Font | Copyright | Source |
+|---|---|---|
+| Inter | The Inter Project Authors | https://github.com/rsms/inter |
+| Roboto | The Roboto Project Authors | https://github.com/googlefonts/roboto-classic |
+| Open Sans | The Open Sans Project Authors | https://github.com/googlefonts/opensans |
+| Lato | Lukasz Dziedzic (Reserved Font Name "Lato") | https://www.latofonts.com |
+| Montserrat | The Montserrat Project Authors | https://github.com/JulietaUla/Montserrat |
+| Poppins | The Poppins Project Authors | https://github.com/itfoundry/Poppins |
+| Work Sans | The Work Sans Project Authors | https://github.com/weiweihuanghuang/Work-Sans |
+| DM Sans | The DM Sans Project Authors | https://github.com/googlefonts/dm-fonts |
+| Manrope | The Manrope Project Authors | https://github.com/sharanda/manrope |
+| Oswald | The Oswald Project Authors | https://github.com/googlefonts/OswaldFont |
+| Bebas Neue | The Bebas Neue Project Authors | https://github.com/dharmatype/Bebas-Neue |
+| Playfair Display | The Playfair Display Project Authors (Reserved Font Name "Playfair Display") | https://github.com/clauseggers/Playfair-Display |
+| IBM Plex Mono | IBM Corp. | https://github.com/IBM/plex |
+| JetBrains Mono | The JetBrains Mono Project Authors | https://github.com/JetBrains/JetBrainsMono |
+| Rubik | The Rubik Project Authors | https://github.com/googlefonts/rubik |
+| Space Mono | The Space Mono Project Authors | https://github.com/googlefonts/spacemono |
+| IBM Plex Sans | IBM Corp. | https://github.com/IBM/plex (via the `@fontsource/ibm-plex-sans` package) |
+| Barlow Condensed | The Barlow Project Authors | https://github.com/jpt/barlow (via the `@fontsource/barlow-condensed` package) |

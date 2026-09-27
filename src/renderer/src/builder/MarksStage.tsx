@@ -10,6 +10,7 @@ import type { SetBuild } from "./Parts";
 import type { StageProps } from "./Stages";
 import { downscaleImage, sanitiseSvg } from "./svg";
 import { Dropdown } from "./Dropdown";
+import { fontOptions, snapWeight, WEIGHT_NAME, weightsOf } from "./fonts";
 import { Card, Chip, Chips, Label, Slider, TraySep } from "./ui";
 
 // The Marks stage (Decals to the player): text, imported SVG or raster image, preset and emoji marks on the lid, palm rest, bottom
@@ -23,16 +24,7 @@ export const SURFACES: [MarkSurface, string][] = [
   ["bezel", "Bezel"],
 ];
 
-export const MARK_FONTS: [string, string][] = [
-  ["Barlow Condensed", "Barlow"],
-  ["IBM Plex Sans", "Plex Sans"],
-  ["Space Mono", "Space Mono"],
-  ["Rubik", "Rubik"],
-];
-
 const PROCESSES: Mark["process"][] = ["etched", "printed", "embossed"];
-const WEIGHTS = [400, 500, 600, 700];
-const WEIGHT_NAME: Record<number, string> = { 400: "Regular", 500: "Medium", 600: "Semibold", 700: "Bold" };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -517,8 +509,8 @@ export function MarksColumn({
               <Dropdown
                 label="Decal font"
                 value={m.font}
-                options={MARK_FONTS.map(([font, name]) => ({ key: font, label: name, style: { fontFamily: `"${font}"` } }))}
-                onChange={(font) => edit((x) => ({ ...x, font }))}
+                options={fontOptions()}
+                onChange={(font) => edit((x) => ({ ...x, font, weight: snapWeight(font, x.weight) }))}
               />
             </div>
           )}
@@ -534,7 +526,10 @@ export function MarksColumn({
               <span />
             )}
             {m.kind === "text" ? (
-              <button type="button" className="bd-field bd-cell" onClick={() => edit((x) => ({ ...x, weight: WEIGHTS[(WEIGHTS.indexOf(x.weight) + 1) % WEIGHTS.length] }))}>
+              <button type="button" className="bd-field bd-cell" onClick={() => edit((x) => {
+                  const ws = weightsOf(x.font);
+                  return { ...x, weight: ws[(ws.indexOf(snapWeight(x.font, x.weight)) + 1) % ws.length] };
+                })}>
                 <Label>Weight</Label>
                 <span className="bd-value">{WEIGHT_NAME[m.weight] ?? m.weight}</span>
               </button>

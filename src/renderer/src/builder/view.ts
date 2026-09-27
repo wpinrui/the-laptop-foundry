@@ -6,7 +6,7 @@ import { PLINTH_H } from "../foundry/Stage";
 // angle round the laptop (az), an elevation (el), a distance as a multiple of
 // the laptop's larger plan side (k), and a target point.
 
-export type ViewName = "hero" | "deck" | "keys" | "lid" | "side" | "screen" | "part" | "front" | "finish" | "xray" | "bottom";
+export type ViewName = "hero" | "deck" | "keys" | "lid" | "side" | "screen" | "part" | "front" | "finish" | "xray" | "bottom" | "grill";
 
 export interface View {
   az: number;
@@ -38,7 +38,15 @@ export function viewFor(
   name: ViewName,
   fit: Fit,
   lidAngle: number,
-  opt: { shift: number; zoom?: number; lift?: number; part?: Box; side?: "left" | "right" | "rear" | "front" },
+  opt: {
+    shift: number;
+    zoom?: number;
+    lift?: number;
+    part?: Box;
+    side?: "left" | "right" | "rear" | "front";
+    /** A speaker grill panel to frame: its centre, engine mm, and whether it is on the front wall. */
+    grill?: { x: number; y: number; z: number; front: boolean };
+  },
 ): View {
   const o = fit.shell.outer;
   const W = o.x;
@@ -134,6 +142,13 @@ export function viewFor(
       el = 0.86;
       k = 2.1;
       t = [0, PLINTH_H + H * 0.5, 10];
+      break;
+    case "grill":
+      // The deck grill from three quarters above on its side; the front one low from the front.
+      az = opt.grill?.front ? -0.3 : -0.6;
+      el = opt.grill?.front ? 0.14 : 0.72;
+      k = opt.grill?.front ? 0.62 : 0.72;
+      t = opt.grill ? toWorld(fit, opt.grill) : [0, PLINTH_H + H, 0];
       break;
     case "part": {
       az = -0.55;

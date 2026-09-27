@@ -27,6 +27,7 @@ import {
 import { insideLitres, Silhouette, silhouetteExtent } from "./bodyShape";
 import { BatteryFields } from "./BatteryFields";
 import { FanField, GrillField } from "./FanField";
+import { SpeakerGrillField } from "./SpeakerGrillField";
 import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
@@ -610,7 +611,8 @@ export function InsideColumn({
   set,
   slot,
   onSlot,
-}: StageProps & { slot: string; onSlot: (key: string) => void }) {
+  onGrillView,
+}: StageProps & { slot: string; onSlot: (key: string) => void; onGrillView?: (on: boolean) => void }) {
   const slots = insideSlots(build);
   const current = slots.find((s) => s.key === slot) ?? slots[0];
   const spend = build.spend[current.cat] ?? 0;
@@ -632,6 +634,9 @@ export function InsideColumn({
             <FanField build={build} fit={fit} set={set} />
             <GrillField build={build} fit={fit} set={set} />
           </>
+        )}
+        {has && current.cat === "speakers" && current.index === 0 && (
+          <SpeakerGrillField build={build} fit={fit} set={set} onView={onGrillView} />
         )}
         {has && current.index === 0 && (
           <SliderField

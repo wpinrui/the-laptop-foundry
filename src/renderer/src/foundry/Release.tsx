@@ -7,6 +7,8 @@ import {
   type CampaignState,
   DEFAULT_RUN,
   isRefresh,
+  publicationQuarter,
+  quarterLabel,
   releaseQuote,
   reorderQuote,
   stepRun,
@@ -70,6 +72,16 @@ export function ReleasePanel({
         <div className="fd-release-stock">
           <small>Stock</small>
           <b>{released.stock.toLocaleString("en-US")}</b>
+        </div>
+      )}
+      {released && (
+        <div className="fd-release-stock">
+          <small>Review</small>
+          <b>
+            {campaign.reviews[model.id]
+              ? campaign.reviews[model.id].score.toFixed(1)
+              : quarterLabel(publicationQuarter(released.quarter))}
+          </b>
         </div>
       )}
       <div className="fd-release-run">

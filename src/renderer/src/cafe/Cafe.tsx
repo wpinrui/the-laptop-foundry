@@ -166,7 +166,7 @@ export function Cafe({
             blurField();
             lock();
           }
-        } else if (s.active && (s.aim || s.using)) {
+        } else if (s.active && (s.aim === "laptop" || s.using)) {
           unlock();
           setFull(true);
         }
@@ -179,7 +179,7 @@ export function Cafe({
           unlock();
           setUsing(true);
         }
-      } else if (e.code === "KeyC" && (s.using || s.full || (s.active && s.aim === "laptop"))) {
+      } else if (e.code === "KeyC" && (s.using || s.full || (s.active && s.aim !== null))) {
         s.onPlug();
       }
     };
@@ -191,8 +191,9 @@ export function Cafe({
   const charge = { key: "C", label: plugged ? "Unplug" : "Plug in" };
   if (active && using)
     prompts = [{ key: "E", label: "Stand" }, charge, { key: "F", label: "Full screen" }];
-  else if (active && aim)
+  else if (active && aim === "laptop")
     prompts = [{ key: "E", label: "Use" }, charge, { key: "F", label: "Full screen" }];
+  else if (active && aim === "power") prompts = [charge];
 
   const k = page ? Math.min(w / page.width, h / page.height) : 1;
   return (

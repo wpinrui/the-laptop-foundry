@@ -1,214 +1,121 @@
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { type ReactNode, type RefObject, Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import cafeUrl from "../assets/cafe/laptop-foundry-cafe.glb?url";
 import type { Decor, Fit } from "../engine";
 import { Model, Reflections, type Surfaces } from "../viewer/Scene";
 import { token } from "../viewer/theme";
+import COLLIDERS from "./colliders.json";
 
-// The cafe in first person: a procedural room of tables, chairs, a counter
-// and a bright window, with the player's laptop on the middle table. Units
-// are mm, floor at y = 0, the laptop's table at the origin.
+// The cafe in first person: the designer's exported room (metres, loaded
+// under a group scaled to mm) with the player's laptop on the middle table.
+// Units are mm, floor at y = 0, the laptop's table at the origin.
 
-export type Aim = "laptop" | null;
+export type Aim = "laptop" | "power" | null;
 
-const ROOM = { x0: -3500, x1: 3500, z0: -3000, z1: 3600, h: 3000 };
+const M = 1000;
+const ROOM = { x0: -7000, x1: 7000, z0: -3400, z1: 6600 };
 const EYE = 1620;
 const SPEED = 1500;
 const LOOK = 0.0022;
-const TABLE_Y = 770;
 const REACH = 2000;
 const SETTLE_MS = 600;
-/** Where the eye rests seated, and where the player stands up to. */
-const SEAT: [number, number, number] = [-110, 1180, 560];
-const STAND: [number, number, number] = [-110, EYE, 980];
-/** The seated eye looks here: the middle of the screen. */
-const SCREEN_AT: [number, number, number] = [0, TABLE_Y + 150, -40];
+/** How close the player's eye gets to a wall or collider. */
+const BODY = 280;
+/** Where the player first stands, in the aisle behind the table. */
+const START: [number, number, number] = [1500, EYE, 1900];
+/** The socket sits flush in the table top; this is how much the aim dot catches. */
+const SOCKET = new THREE.Vector3(70, 50, 70);
+/** The sun's shadow map is redrawn for this many frames after mount, then held. */
+const SHADOW_FRAMES = 90;
 
-interface Table {
-  x: number;
-  z: number;
-  /** Chair angles round the table, radians; 0 is +z. */
-  chairs: number[];
-  cup?: [number, number];
+type V3 = [number, number, number];
+
+interface Anchors {
+  laptop: V3;
+  seat: V3;
+  stand: V3;
+  screenAt: V3;
+  power: V3;
 }
 
-const TABLES: Table[] = [
-  { x: 0, z: 0, chairs: [0], cup: [210, 140] },
-  { x: -1900, z: -1500, chairs: [0.4, Math.PI + 0.4], cup: [-60, -90] },
-  { x: 2150, z: 350, chairs: [Math.PI / 2 + 0.2, -Math.PI / 2 + 0.2], cup: [80, -110] },
-  { x: -2250, z: 1500, chairs: [1.2, Math.PI + 1.2] },
-  { x: 700, z: -1950, chairs: [Math.PI / 2, -Math.PI / 2], cup: [-120, 60] },
-];
-const COUNTER = { x0: 1500, x1: 3500, z0: -3000, z1: -2300 };
-/** How close the player can get to a table's centre. */
-const TABLE_CLEAR = 620;
+const RECTS = COLLIDERS.map((c) => ({ x0: c.x0 * M, z0: c.z0 * M, x1: c.x1 * M, z1: c.z1 * M }));
 
-function Mat({ c, r = 0.8, m = 0 }: { c: string; r?: number; m?: number }) {
-  return <meshStandardMaterial color={token(c)} roughness={r} metalness={m} />;
-}
-
-function Chair({ x, z, a }: { x: number; z: number; a: number }) {
-  // The chair sits 600 mm out from the table and faces its centre.
-  const cx = x + Math.sin(a) * 620;
-  const cz = z + Math.cos(a) * 620;
-  const legs: [number, number][] = [
-    [-180, -180],
-    [180, -180],
-    [-180, 180],
-    [180, 180],
-  ];
-  return (
-    <group position={[cx, 0, cz]} rotation-y={a}>
-      <mesh position={[0, 460, 0]} castShadow receiveShadow>
-        <boxGeometry args={[440, 40, 440]} />
-        <Mat c="cafe-chair" r={0.7} />
-      </mesh>
-      <mesh position={[0, 760, 200]} rotation-x={-0.12} castShadow>
-        <boxGeometry args={[440, 520, 30]} />
-        <Mat c="cafe-chair" r={0.7} />
-      </mesh>
-      {legs.map(([lx, lz]) => (
-        <mesh key={`${lx}${lz}`} position={[lx, 220, lz]} castShadow>
-          <cylinderGeometry args={[12, 12, 440, 8]} />
-          <Mat c="cafe-iron" r={0.5} m={0.4} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function CafeTable({ t }: { t: Table }) {
-  return (
-    <group>
-      <group position={[t.x, 0, t.z]}>
-        <mesh position={[0, TABLE_Y - 20, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[420, 420, 40, 64]} />
-          <Mat c="cafe-top" r={0.55} />
-        </mesh>
-        <mesh position={[0, (TABLE_Y - 40) / 2, 0]} castShadow>
-          <cylinderGeometry args={[35, 35, TABLE_Y - 40, 16]} />
-          <Mat c="cafe-iron" r={0.5} m={0.4} />
-        </mesh>
-        <mesh position={[0, 15, 0]} castShadow receiveShadow>
-          <cylinderGeometry args={[250, 270, 30, 48]} />
-          <Mat c="cafe-iron" r={0.5} m={0.4} />
-        </mesh>
-        {t.cup && (
-          <mesh position={[t.cup[0], TABLE_Y + 55, t.cup[1]]} castShadow>
-            <cylinderGeometry args={[45, 35, 110, 24]} />
-            <Mat c="cafe-cup" r={0.4} />
-          </mesh>
-        )}
-      </group>
-      {t.chairs.map((a) => (
-        <Chair key={a} x={t.x} z={t.z} a={a} />
-      ))}
-    </group>
-  );
-}
-
-function Room() {
-  const w = ROOM.x1 - ROOM.x0;
-  const d = ROOM.z1 - ROOM.z0;
-  const cx = (ROOM.x0 + ROOM.x1) / 2;
-  const cz = (ROOM.z0 + ROOM.z1) / 2;
-  const win = { x0: -500, x1: 1900, y0: 1000, y1: 2750 };
-  const wall = (pos: [number, number, number], size: [number, number, number]) => (
-    <mesh position={pos} receiveShadow castShadow>
-      <boxGeometry args={size} />
-      <Mat c="cafe-room-wall" r={0.95} />
-    </mesh>
-  );
-  const z = ROOM.z0 - 50;
-  return (
-    <group>
-      <mesh rotation-x={-Math.PI / 2} position={[cx, 0, cz]} receiveShadow>
-        <planeGeometry args={[w, d]} />
-        <Mat c="cafe-floor" r={0.85} />
-      </mesh>
-      <mesh rotation-x={Math.PI / 2} position={[cx, ROOM.h, cz]}>
-        <planeGeometry args={[w, d]} />
-        <Mat c="cafe-shade" r={1} />
-      </mesh>
-      {/* Back wall, built round the window opening. */}
-      {wall([(ROOM.x0 + win.x0) / 2, ROOM.h / 2, z], [win.x0 - ROOM.x0, ROOM.h, 100])}
-      {wall([(win.x1 + ROOM.x1) / 2, ROOM.h / 2, z], [ROOM.x1 - win.x1, ROOM.h, 100])}
-      {wall([(win.x0 + win.x1) / 2, win.y0 / 2, z], [win.x1 - win.x0, win.y0, 100])}
-      {wall([(win.x0 + win.x1) / 2, (win.y1 + ROOM.h) / 2, z], [win.x1 - win.x0, ROOM.h - win.y1, 100])}
-      <mesh position={[(win.x0 + win.x1) / 2, (win.y0 + win.y1) / 2, z - 40]}>
-        <planeGeometry args={[win.x1 - win.x0, win.y1 - win.y0]} />
-        <meshBasicMaterial color={token("cafe-window")} toneMapped={false} />
-      </mesh>
-      {[win.x0 + 30, (win.x0 + win.x1) / 2, win.x1 - 30].map((x) => (
-        <mesh key={x} position={[x, (win.y0 + win.y1) / 2, z + 40]}>
-          <boxGeometry args={[60, win.y1 - win.y0, 40]} />
-          <Mat c="cafe-frame" />
-        </mesh>
-      ))}
-      {[win.y0 + 20, win.y1 - 20].map((y) => (
-        <mesh key={y} position={[(win.x0 + win.x1) / 2, y, z + 40]}>
-          <boxGeometry args={[win.x1 - win.x0, 40, 40]} />
-          <Mat c="cafe-frame" />
-        </mesh>
-      ))}
-      {wall([cx, ROOM.h / 2, ROOM.z1 + 50], [w, ROOM.h, 100])}
-      {wall([ROOM.x0 - 50, ROOM.h / 2, cz], [100, ROOM.h, d])}
-      {wall([ROOM.x1 + 50, ROOM.h / 2, cz], [100, ROOM.h, d])}
-      {/* The counter along the back right. */}
-      <mesh
-        position={[(COUNTER.x0 + COUNTER.x1) / 2, 520, (COUNTER.z0 + COUNTER.z1) / 2]}
-        castShadow
-        receiveShadow
-      >
-        <boxGeometry args={[COUNTER.x1 - COUNTER.x0, 1040, COUNTER.z1 - COUNTER.z0]} />
-        <Mat c="cafe-counter" r={0.8} />
-      </mesh>
-      <mesh
-        position={[(COUNTER.x0 + COUNTER.x1) / 2 - 20, 1060, (COUNTER.z0 + COUNTER.z1) / 2 + 20]}
-        castShadow
-        receiveShadow
-      >
-        <boxGeometry args={[COUNTER.x1 - COUNTER.x0 + 40, 40, COUNTER.z1 - COUNTER.z0 + 80]} />
-        <Mat c="cafe-counter-top" r={0.5} />
-      </mesh>
-      {TABLES.map((t) => (
-        <CafeTable key={`${t.x},${t.z}`} t={t} />
-      ))}
-    </group>
-  );
+function useCafe(): { scene: THREE.Group; anchors: Anchors } {
+  const gltf = useLoader(GLTFLoader, cafeUrl);
+  return useMemo(() => {
+    const scene = gltf.scene;
+    scene.updateMatrixWorld(true);
+    const at = (name: string): V3 => {
+      const v = new THREE.Vector3();
+      scene.getObjectByName(`anchor_${name}`)?.getWorldPosition(v);
+      return [v.x * M, v.y * M, v.z * M];
+    };
+    const street = new Set<THREE.Object3D>();
+    for (const n of ["distant", "exterior"]) scene.getObjectByName(n)?.traverse((o) => street.add(o));
+    scene.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      const unlit = mats.some((m) => m.type === "MeshBasicMaterial");
+      const clear = mats.some((m) => m.transparent);
+      mesh.receiveShadow = !unlit;
+      // Glass lets the sun through, and the street stays out of the shadow map.
+      mesh.castShadow = !unlit && !clear && !street.has(mesh);
+    });
+    return {
+      scene,
+      anchors: {
+        laptop: at("laptop"),
+        seat: at("seatEye"),
+        stand: at("standEye"),
+        screenAt: at("screenAt"),
+        power: at("power"),
+      },
+    };
+  }, [gltf]);
 }
 
 function Lights() {
   const sun = useRef<THREE.DirectionalLight>(null);
   const scene = useThree((s) => s.scene);
+  const gl = useThree((s) => s.gl);
+  const frames = useRef(0);
   useEffect(() => {
     const aim = new THREE.Object3D();
-    aim.position.set(0, 0, 600);
+    aim.position.set(0, 0, 1200);
     scene.add(aim);
     if (sun.current) sun.current.target = aim;
     return () => {
       scene.remove(aim);
     };
   }, [scene]);
+  // The room is static: draw the shadows while everything settles, then hold them.
+  useFrame(() => {
+    if (frames.current >= SHADOW_FRAMES) return;
+    frames.current++;
+    gl.shadowMap.needsUpdate = true;
+  });
   return (
     <>
-      <hemisphereLight args={[token("cafe-sky"), token("cafe-shade"), 0.9]} />
+      <hemisphereLight args={[token("cafe-sky"), token("cafe-shade"), 0.25]} />
       <directionalLight
         ref={sun}
-        position={[700, 2900, -2900]}
+        position={[3000, 7000, -7500]}
         color={token("cafe-sun")}
-        intensity={1.9}
+        intensity={2.6}
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-4000}
-        shadow-camera-right={4000}
-        shadow-camera-top={4000}
-        shadow-camera-bottom={-4000}
-        shadow-camera-near={100}
-        shadow-camera-far={9000}
-        shadow-bias={-0.0005}
+        shadow-camera-left={-8500}
+        shadow-camera-right={8500}
+        shadow-camera-top={8500}
+        shadow-camera-bottom={-8500}
+        shadow-camera-near={1000}
+        shadow-camera-far={20000}
+        shadow-bias={-0.0004}
+        shadow-normalBias={20}
       />
-      <pointLight position={[0, 2600, 400]} color={token("stage-key")} intensity={0.6} decay={0} distance={0} />
     </>
   );
 }
@@ -221,23 +128,23 @@ function lookAngles(from: THREE.Vector3, at: THREE.Vector3): { yaw: number; pitc
   return { yaw: Math.atan2(-d.x, -d.z), pitch: Math.atan2(d.y, Math.hypot(d.x, d.z)) };
 }
 
-/** Keeps the walking player inside the room and out of the tables and counter. */
+/** Keeps the walking player inside the room and out of the colliders. */
 function collide(p: THREE.Vector3) {
-  p.x = clamp(p.x, ROOM.x0 + 300, ROOM.x1 - 300);
-  p.z = clamp(p.z, ROOM.z0 + 300, ROOM.z1 - 300);
-  for (const t of TABLES) {
-    const dx = p.x - t.x;
-    const dz = p.z - t.z;
-    const r = Math.hypot(dx, dz);
-    if (r < TABLE_CLEAR && r > 0) {
-      p.x = t.x + (dx / r) * TABLE_CLEAR;
-      p.z = t.z + (dz / r) * TABLE_CLEAR;
-    }
-  }
-  if (p.x > COUNTER.x0 - 300 && p.z < COUNTER.z1 + 300) {
-    // Push out along the shallower side.
-    if (COUNTER.z1 + 300 - p.z < p.x - (COUNTER.x0 - 300)) p.z = COUNTER.z1 + 300;
-    else p.x = COUNTER.x0 - 300;
+  p.x = clamp(p.x, ROOM.x0 + BODY, ROOM.x1 - BODY);
+  p.z = clamp(p.z, ROOM.z0 + BODY, ROOM.z1 - BODY);
+  for (const r of RECTS) {
+    const x0 = r.x0 - BODY;
+    const x1 = r.x1 + BODY;
+    const z0 = r.z0 - BODY;
+    const z1 = r.z1 + BODY;
+    if (p.x <= x0 || p.x >= x1 || p.z <= z0 || p.z >= z1) continue;
+    // Push out through the nearest side.
+    const out = [p.x - x0, x1 - p.x, p.z - z0, z1 - p.z];
+    const i = out.indexOf(Math.min(...out));
+    if (i === 0) p.x = x0;
+    else if (i === 1) p.x = x1;
+    else if (i === 2) p.z = z0;
+    else p.z = z1;
   }
 }
 
@@ -245,23 +152,29 @@ function Player({
   seated,
   active,
   laptop,
+  anchors,
   onAim,
   onClickAim,
 }: {
   seated: boolean;
   active: boolean;
   laptop: RefObject<THREE.Group | null>;
+  anchors: Anchors;
   onAim: (a: Aim) => void;
   onClickAim: RefObject<Aim>;
 }) {
   const camera = useThree((s) => s.camera);
-  const pos = useRef(new THREE.Vector3(-300, EYE, 2600));
-  const look = useRef(lookAngles(pos.current, new THREE.Vector3(0, TABLE_Y, 0)));
+  const pos = useRef(new THREE.Vector3(...START));
+  const look = useRef(lookAngles(pos.current, new THREE.Vector3(...anchors.laptop)));
   const keys = useRef(new Set<string>());
   const move = useRef({ phase: 0, amount: 0, clock: 0 });
   const settle = useRef<{ from: THREE.Vector3; to: THREE.Vector3; at: number } | null>(null);
   const aimed = useRef<Aim>(null);
   const bounds = useRef({ box: new THREE.Box3(), at: -10 });
+  const socket = useMemo(
+    () => new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(...anchors.power), SOCKET),
+    [anchors.power],
+  );
   const ray = useMemo(() => new THREE.Raycaster(), []);
   const wasSeated = useRef(seated);
 
@@ -296,9 +209,9 @@ function Player({
     m.clock += dt;
     if (wasSeated.current !== seated) {
       wasSeated.current = seated;
-      const to = new THREE.Vector3(...(seated ? SEAT : STAND));
+      const to = new THREE.Vector3(...(seated ? anchors.seat : anchors.stand));
       settle.current = { from: pos.current.clone(), to, at: m.clock };
-      if (seated) look.current = lookAngles(to, new THREE.Vector3(...SCREEN_AT));
+      if (seated) look.current = lookAngles(to, new THREE.Vector3(...anchors.screenAt));
     }
     const s = settle.current;
     let walking = 0;
@@ -335,19 +248,25 @@ function Player({
     );
     camera.rotation.set(l.pitch, l.yaw, Math.sin(m.phase) * 0.006 * m.amount, "YXZ");
 
-    // What the aim dot is on.
+    // What the aim dot is on: the laptop, or the power socket beside it.
     let next: Aim = null;
+    ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+    const far = seated ? 1200 : REACH;
+    const origin = ray.ray.origin;
+    const hit = new THREE.Vector3();
+    let best = far;
     const lap = laptop.current;
     if (lap) {
-      ray.setFromCamera(new THREE.Vector2(0, 0), camera);
-      ray.far = seated ? 1200 : REACH;
       // The laptop's bounds are cheap to hit and forgiving to aim at.
       if (m.clock - bounds.current.at > 1) {
         bounds.current = { box: new THREE.Box3().setFromObject(lap), at: m.clock };
       }
-      const hit = ray.ray.intersectBox(bounds.current.box, new THREE.Vector3());
-      if (hit && hit.distanceTo(ray.ray.origin) < ray.far) next = "laptop";
+      if (ray.ray.intersectBox(bounds.current.box, hit) && hit.distanceTo(origin) < best) {
+        best = hit.distanceTo(origin);
+        next = "laptop";
+      }
     }
+    if (ray.ray.intersectBox(socket, hit) && hit.distanceTo(origin) < best) next = "power";
     if (next !== aimed.current) {
       aimed.current = next;
       onClickAim.current = next;
@@ -355,6 +274,45 @@ function Player({
     }
   });
   return null;
+}
+
+type ModelProps = Omit<Parameters<typeof Model>[0], "lidAngle" | "xray" | "labelFor" | "onHover">;
+
+function Room({
+  model,
+  seated,
+  active,
+  onAim,
+  aimRef,
+}: {
+  model: ModelProps;
+  seated: boolean;
+  active: boolean;
+  onAim: (a: Aim) => void;
+  aimRef: RefObject<Aim>;
+}) {
+  const { scene, anchors } = useCafe();
+  const laptop = useRef<THREE.Group>(null);
+  const noLabel = useMemo(() => () => "", []);
+  const noHover = useMemo(() => () => {}, []);
+  return (
+    <>
+      <group scale={M}>
+        <primitive object={scene} />
+      </group>
+      <group ref={laptop} position={anchors.laptop}>
+        <Model {...model} lidAngle={105} xray={false} labelFor={noLabel} onHover={noHover} />
+      </group>
+      <Player
+        seated={seated}
+        active={active}
+        laptop={laptop}
+        anchors={anchors}
+        onAim={onAim}
+        onClickAim={aimRef}
+      />
+    </>
+  );
 }
 
 export function World({
@@ -382,32 +340,26 @@ export function World({
   aimRef: RefObject<Aim>;
 }) {
   const overlay = useRef<HTMLDivElement | null>(null);
-  const laptop = useRef<THREE.Group>(null);
-  const noLabel = useMemo(() => () => "", []);
-  const noHover = useMemo(() => () => {}, []);
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      <Canvas shadows dpr={[1, 2]} camera={{ fov: 62, near: 10, far: 20000 }}>
+      <Canvas
+        shadows={{ enabled: true, type: THREE.PCFShadowMap, autoUpdate: false }}
+        dpr={[1, 1.5]}
+        gl={{ toneMapping: THREE.NeutralToneMapping }}
+        camera={{ fov: 62, near: 10, far: 80000 }}
+      >
         <color attach="background" args={[token("cafe-shade")]} />
-        <Reflections intensity={0.3} />
+        <Reflections intensity={0.8} />
         <Lights />
-        <Room />
-        <group ref={laptop} position={[0, TABLE_Y, 0]}>
-          <Model
-            fit={fit}
-            year={year}
-            lidAngle={105}
-            colours={colours}
-            decor={decor}
-            surfaces={surfaces}
-            xray={false}
-            labelFor={noLabel}
-            onHover={noHover}
-            screen={screen}
-            portal={overlay}
+        <Suspense fallback={null}>
+          <Room
+            model={{ fit, year, colours, decor, surfaces, screen, portal: overlay }}
+            seated={seated}
+            active={active}
+            onAim={onAim}
+            aimRef={aimRef}
           />
-        </group>
-        <Player seated={seated} active={active} laptop={laptop} onAim={onAim} onClickAim={aimRef} />
+        </Suspense>
       </Canvas>
       {/* The on-screen page mounts here, over the canvas. It takes the
           pointer only while the player is using the laptop. */}

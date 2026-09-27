@@ -118,6 +118,14 @@
   z-index: 2;
 }
 
+/* Under the corner: the player's own view settings. */
+.bd-view {
+  width: calc(240 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(12 * var(--u));
+}
+
 .bd-missing,
 .bd-strip {
   font-family: var(--font-display) !important;

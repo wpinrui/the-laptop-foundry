@@ -1,4 +1,5 @@
 import { type BrowserWindow, session, type WebFrameMain, webFrameMain } from "electron";
+import { adblockCommit, adblockHeaders, adblockLoaded, adblockRequest, loadAdblock } from "./adblock";
 
 // The in-game browser: real sites load in sandboxed iframes inside the laptop
 // OS's window. The main process lets those frames load (it strips the headers
@@ -28,6 +29,14 @@ function tabFrame(win: BrowserWindow, pid: number, rid: number): WebFrameMain | 
   }
 }
 
+function siteFrame(pid: number, rid: number): WebFrameMain | null {
+  try {
+    return webFrameMain.fromId(pid, rid) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Takes document.startViewTransition away from a site's frame. A view
  * transition inside an out-of-process iframe crashes that frame's renderer on
@@ -45,11 +54,32 @@ function noViewTransitions(pid: number, rid: number): void {
   } catch {}
 }
 
+/**
+ * A request a site made, as opposed to the game: it comes from a frame below
+ * the game's top frame and is not for the game's own origin. A tab's own
+ * document is left alone, the way a browser never blocks the page you typed.
+ */
+function siteRequest(
+  win: BrowserWindow,
+  d: { webContentsId?: number; frame?: WebFrameMain | null; resourceType: string; url: string },
+  appOrigin: (url: string) => boolean,
+): boolean {
+  if (d.webContentsId !== win.webContents.id || appOrigin(d.url)) return false;
+  const f = d.frame;
+  if (!f || !isSiteFrame(win, f)) return false;
+  if (d.resourceType === "subFrame" && f.parent?.frameTreeNodeId === win.webContents.mainFrame.frameTreeNodeId) return false;
+  return true;
+}
+
 export function registerFox(win: BrowserWindow, appOrigin: (url: string) => boolean): void {
+  loadAdblock();
   const wc = win.webContents;
   const send = (channel: string, payload: unknown) => {
     if (!wc.isDestroyed()) wc.send(channel, payload);
   };
+
+  // Electron keeps one listener per webRequest event, so the ad blocker runs
+  // from inside these rather than registering its own.
 
   // Let sites be framed, but only inside the game's own window and only for
   // subframes: the game's pages keep their headers.
@@ -76,12 +106,17 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
       }
       headers[k] = v;
     }
-    cb({ responseHeaders: headers });
+    cb({ responseHeaders: adblockHeaders(d, headers) });
   });
 
-  // The game's own pages never load inside the browser.
+  // The game's own pages never load inside the browser, and sites lose their
+  // ads and trackers.
   session.defaultSession.webRequest.onBeforeRequest({ urls: ["http://*/*", "https://*/*"] }, (d, cb) => {
-    cb({ cancel: d.resourceType === "subFrame" && d.webContentsId === wc.id && appOrigin(d.url) });
+    if (d.resourceType === "subFrame" && d.webContentsId === wc.id && appOrigin(d.url)) {
+      cb({ cancel: true });
+      return;
+    }
+    cb(siteRequest(win, d, appOrigin) ? adblockRequest(d) : {});
   });
 
   // Sites get no permissions; the game keeps what it asks for.
@@ -121,6 +156,8 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
   wc.on("did-frame-navigate", (_e, url, _code, _status, main, pid, rid) => {
     if (main) return;
     noViewTransitions(pid, rid);
+    const f = siteFrame(pid, rid);
+    if (f && web(url) && !appOrigin(url)) adblockCommit(f, url);
     report(tabFrame(win, pid, rid), url);
   });
   wc.on("did-navigate-in-page", (_e, url, main, pid, rid) => {
@@ -128,6 +165,8 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
   });
   wc.on("did-frame-finish-load", (_e, main, pid, rid) => {
     if (main) return;
+    const sf = siteFrame(pid, rid);
+    if (sf && web(sf.url) && !appOrigin(sf.url)) adblockLoaded(sf);
     const f = tabFrame(win, pid, rid);
     if (!f) return;
     f.executeJavaScript("String(document.title)")

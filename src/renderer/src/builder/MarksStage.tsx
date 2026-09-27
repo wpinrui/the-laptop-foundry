@@ -634,7 +634,7 @@ export function MarksTray({
             return;
           }
           const s = base();
-          add({ ...s, kind: "svg", text: got.name, svg, size: surface === "lid" ? 20 : s.size * 1.6 });
+          add({ ...s, kind: "svg", text: got.name, svg, original: true, size: surface === "lid" ? 20 : s.size * 1.6 });
         }}
       />
       <Card dashed width={140} name="Add text" onClick={() => !locked && add({ ...base(), kind: "text", text: defaultText })} />

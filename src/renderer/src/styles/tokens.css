@@ -163,6 +163,9 @@
   --cafe-sun: #ffd9b0;
   --cafe-sky: #ffdcb8;
   --cafe-shade: #2a1a10;
+  --cafe-lamp: #ffe8cc;
+  /* Tints the designer's white terrazzo floor texture. */
+  --cafe-floor: #7c7c7c;
   --desk-2006-a: #3a6ea5;
   --desk-2006-b: #7fb2e5;
   --desk-2026-a: #1d2b53;

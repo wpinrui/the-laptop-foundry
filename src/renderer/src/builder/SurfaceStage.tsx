@@ -159,6 +159,16 @@ export function SurfaceColumn({
             {rep.kb && <Centred />}
             <PartChips cat="keyboard" build={build} set={set} />
             <OptionChips cat="keyboard" build={build} set={set} />
+            {build.parts.keyboard?.[0] && (
+              <SliderField
+                label="Compact"
+                value={Math.round((build.spend.keyboard ?? 0) * 100)}
+                unit="%"
+                min={0}
+                max={100}
+                onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, keyboard: v / 100 } }))}
+              />
+            )}
           </>
         )}
         {item === "trackpad" && (

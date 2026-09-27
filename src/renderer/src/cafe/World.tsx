@@ -264,7 +264,9 @@ function Player({
       onClickAim.current = next;
       onAim(next);
     }
-  });
+    // Before the default frame hooks, so the screen's Html follows this
+    // frame's camera, not the last one.
+  }, -1);
   return null;
 }
 

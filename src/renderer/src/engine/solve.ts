@@ -149,10 +149,18 @@ type Slot = {
   pin: Partial<Choice>;
 };
 
+/** Each unit id's slot, worked out once. */
+const SLOT_OF = new Map<string, string>();
+
 /** The build slot a unit came from: "storage:1" for the second drive. */
 function slotOf(u: Unit): string {
-  const [cat, n] = u.id.split(":");
-  return `${cat}:${n}`;
+  let slot = SLOT_OF.get(u.id);
+  if (slot === undefined) {
+    const [cat, n] = u.id.split(":");
+    slot = `${cat}:${n}`;
+    SLOT_OF.set(u.id, slot);
+  }
+  return slot;
 }
 
 /** Parts that open through their zone's outer face. */
@@ -185,7 +193,8 @@ function solveFit(
   opts: { auto?: boolean },
 ): Fit {
   const fixed = opts.auto === false ? "base" : null;
-  const fit = solveAt(build, content, fixed);
+  const shared: Shared = {};
+  const fit = solveAt(build, content, fixed, shared);
   const size = fit.shell.outer;
   const short = AXES.filter((a) => fit.frame[a] > size[a] + FIT_TOL);
   if (short.length === 0) return fit;
@@ -197,6 +206,7 @@ function solveFit(
     { ...build, size: { ...fit.frame } },
     content,
     arrangementOf.get(fit) ?? fixed ?? "base",
+    shared,
   );
   // The minimum is where the frame settled; what is short or too big is
   // measured against the player's size, and the rest stands as solved there.
@@ -216,11 +226,35 @@ function solveFit(
 /** The arrangement each solved fit was laid out with. */
 const arrangementOf = new WeakMap<Fit, Arrangement>();
 
+/**
+ * What every layout of one build shares: its compatibility problems, which
+ * do not depend on the size or the arrangement.
+ */
+interface Shared {
+  compat?: Problem[];
+}
+
+/**
+ * A plan's minimum and problems so far, before the rest is laid out: false
+ * when that already rules the plan out, so the rest need not be.
+ */
+type Gate = (min: Size, problems: Problem[]) => boolean;
+
+function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | null, shared: Shared): Fit;
 function solveAt(
   build: Build,
   content: Content,
   fixed: Arrangement | "base" | null,
-): Fit {
+  shared: Shared,
+  gate: Gate,
+): Fit | null;
+function solveAt(
+  build: Build,
+  content: Content,
+  fixed: Arrangement | "base" | null,
+  shared: Shared,
+  gate?: Gate,
+): Fit | null {
   const idx = indexContent(content);
   const body = idx.bodies.get(build.body);
   const layout = idx.layouts.get(build.layout);
@@ -231,7 +265,8 @@ function solveAt(
   if (!deckPlan || !lidPlan)
     throw new Error(`Layout ${layout.id} references a missing plan`);
   const era = eraFor(build.year, content.eras);
-  const problems: Problem[] = checkCompat(build, idx, era, body, layout);
+  shared.compat ??= checkCompat(build, idx, era, body, layout);
+  const problems: Problem[] = [...shared.compat];
   const lim = body.limits;
   const size: Size = {
     x: clamp(build.size.x, lim.x[0], lim.x[1]),
@@ -564,7 +599,7 @@ function solveAt(
       return h / (1 - g * (1 - tp.front));
     };
     const decks = new Map<number, PlanSolve>();
-    choice = arrange(slots, base, room, !!tp, (arr, bar) => {
+    const planMin = (arr: Arrangement, bar?: number) => {
       // The plan minimum alone: floor and deck, the deck's hinge strip behind a rear battery.
       const all = arranged(arr);
       const ups = all.filter((u) => u.over);
@@ -725,6 +760,22 @@ function solveAt(
         );
       }
       m.z = z;
+      return m;
+    };
+    // The search meets many plans more than once: each is laid out once.
+    const seen = new Map<string, ReturnType<typeof planMin>>();
+    const keys = [...slots.keys()];
+    choice = arrange(slots, base, room, !!tp, (arr, bar) => {
+      let key = bar === undefined ? "" : String(bar);
+      for (const k of keys) {
+        const c = arr[k];
+        key += `\u0001${c.zone ?? "\u0002"}\u0003${c.turn}\u0003${c.row ?? ""}`;
+      }
+      let m = seen.get(key);
+      if (!m) {
+        m = planMin(arr, bar);
+        seen.set(key, m);
+      }
       return m;
     });
   }
@@ -1116,6 +1167,9 @@ function solveAt(
         by: min[a] - size[a],
       });
   }
+
+  // Problems only grow from here, and the minimum is settled.
+  if (gate && !gate(min, problems)) return null;
 
   // Short axes lay out at their minimum; the shell is still drawn at the player's size.
   const F: Size = { x: FX, y: FY, z: Math.max(size.z, min.z) };
@@ -1634,19 +1688,19 @@ function solveAt(
       .map((p) => JSON.stringify(p));
   // On a taper it must rank ahead of the layout's own as solved in full.
   const thick = !!style.taper || !!style.pm;
+  const own = lost(fit.problems);
+  const better: Gate = (min, ps) =>
+    (thick
+      ? compareRank(rankOf(min, size, true), rankOf(fit.min, size, true)) < 0
+      : ((min.x <= fit.min.x + 0.01 && min.y <= fit.min.y + 0.01) ||
+          (!inside(fit.min) && inside(min))) &&
+        min.z <= Math.max(fit.min.z, size.z) + EPS) &&
+    ps.length <= fit.problems.length &&
+    lost(ps).every((p) => own.includes(p));
+  // Each is checked once its minimum is known, and laid out in full only if it may win.
   for (const arr of choice) {
-    const f = solveAt(build, content, arr);
-    if (
-      (thick
-        ? compareRank(rankOf(f.min, size, true), rankOf(fit.min, size, true)) <
-          0
-        : ((f.min.x <= fit.min.x + 0.01 && f.min.y <= fit.min.y + 0.01) ||
-            (!inside(fit.min) && inside(f.min))) &&
-          f.min.z <= Math.max(fit.min.z, size.z) + EPS) &&
-      f.problems.length <= fit.problems.length &&
-      lost(f.problems).every((p) => lost(fit.problems).includes(p))
-    )
-      return f;
+    const f = solveAt(build, content, arr, shared, better);
+    if (f && better(f.min, f.problems)) return f;
   }
   return fit;
 }
@@ -1829,7 +1883,9 @@ function stackAt(
     (p, q) => (q.top === Infinity ? 1 : 0) - (p.top === Infinity ? 1 : 0),
   );
   let best: { at: Vec3; on: number } | null = null;
-  for (const x of xs)
+  for (const x of xs) {
+    // Only what overlaps this column can touch a place in it.
+    const column = order.filter((g) => Math.min(x + w, g.x1) - Math.max(x, g.x0) > EPS);
     for (const y of ys) {
       const cx = x + w / 2;
       const cy = y + d / 2;
@@ -1838,10 +1894,10 @@ function stackAt(
       let top = floorZ0;
       let on = 0;
       let ok = true;
-      for (const g of order) {
+      for (const g of column) {
         const ox = Math.min(x + w, g.x1) - Math.max(x, g.x0);
         const oy = Math.min(y + d, g.y1) - Math.max(y, g.y0);
-        if (ox <= EPS || oy <= EPS) continue;
+        if (oy <= EPS) continue;
         if (g.top === Infinity) {
           ok = false;
           break;
@@ -1858,6 +1914,7 @@ function stackAt(
       )
         best = { at: { x, y, z }, on };
     }
+  }
   return best?.at ?? null;
 }
 

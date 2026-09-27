@@ -28,6 +28,23 @@ function tabFrame(win: BrowserWindow, pid: number, rid: number): WebFrameMain | 
   }
 }
 
+/**
+ * Takes document.startViewTransition away from a site's frame. A view
+ * transition inside an out-of-process iframe crashes that frame's renderer on
+ * its compositor thread (YouTube starts one a few seconds into a watch page),
+ * and the crashed frame shows as a grey page. Without the API, sites fall back
+ * to swapping content directly. Runs as each document commits, before the
+ * site gets round to a transition.
+ */
+function noViewTransitions(pid: number, rid: number): void {
+  try {
+    webFrameMain
+      .fromId(pid, rid)
+      ?.executeJavaScript("delete Document.prototype.startViewTransition")
+      .catch(() => {});
+  } catch {}
+}
+
 export function registerFox(win: BrowserWindow, appOrigin: (url: string) => boolean): void {
   const wc = win.webContents;
   const send = (channel: string, payload: unknown) => {
@@ -102,7 +119,9 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
     if (f && web(url)) send("fox:nav", { frame: f.frameTreeNodeId, name: f.name, url });
   };
   wc.on("did-frame-navigate", (_e, url, _code, _status, main, pid, rid) => {
-    if (!main) report(tabFrame(win, pid, rid), url);
+    if (main) return;
+    noViewTransitions(pid, rid);
+    report(tabFrame(win, pid, rid), url);
   });
   wc.on("did-navigate-in-page", (_e, url, main, pid, rid) => {
     if (!main) report(tabFrame(win, pid, rid), url);

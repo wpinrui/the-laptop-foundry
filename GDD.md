@@ -314,7 +314,7 @@ This is the highest-priority technical requirement. For every combination of cho
 
 ### Fit solving
 
-- Layout plus parts produces the minimum body dimensions deterministically.
+- Layout, body shape and parts produce the minimum body dimensions deterministically.
 - It runs fast enough for live feedback on every change.
 
 ### Shared simulation

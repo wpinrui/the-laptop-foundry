@@ -58,6 +58,8 @@ const api = {
     onEscape: (cb: () => void) => listen("fox:escape", cb),
     /** A site entered or left full screen in a tab. */
     onFull: (cb: (m: FoxFull) => void) => listen("fox:full", cb),
+    /** The laptop's speakers and where the player is, for the tabs' sound. */
+    speaker: (state: unknown): void => ipcRenderer.send("fox-speaker:set", state),
   },
 };
 

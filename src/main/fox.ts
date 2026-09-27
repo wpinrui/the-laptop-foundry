@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { type BrowserWindow, session, type WebFrameMain, webFrameMain } from "electron";
 import { adblockHeaders, adblockRequest, loadAdblock, registerAdblockIpc } from "./adblock";
 import { exitFull, FAKE_FULLSCREEN, FULL_TOKEN } from "./fullscreen";
+import { registerSpeakerIpc } from "./speaker";
 import { sponsorBlock } from "./sponsorblock";
 
 // The in-game browser: real sites load in sandboxed iframes inside the laptop
@@ -160,13 +161,15 @@ export function registerFox(
   sitePreload = join(__dirname, "../preload/site.js"),
 ): void {
   loadAdblock();
-  registerAdblockIpc((f) => {
+  const isSite = (f: WebFrameMain | null): boolean => {
     try {
       return !win.isDestroyed() && f?.top?.frameTreeNodeId === win.webContents.mainFrame.frameTreeNodeId && isSiteFrame(win, f) && !appOrigin(f.url);
     } catch {
       return false;
     }
-  });
+  };
+  registerAdblockIpc(isSite);
+  registerSpeakerIpc(win, isSite);
   // Runs at document start in site frames (see src/preload/site.ts).
   if (!session.defaultSession.getPreloadScripts().some((p) => p.id === "fox-site")) {
     session.defaultSession.registerPreloadScript({ type: "frame", id: "fox-site", filePath: sitePreload });

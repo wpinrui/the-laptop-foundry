@@ -332,6 +332,11 @@ function keyClass(legend: string): "letters" | "mods" | "accent" {
   return "letters";
 }
 
+/** The key plate's thickness in a keyboard box of this height; every cap stands above it. */
+export function keyPlateThickness(height: number, year: number): number {
+  return year >= 2015 ? Math.min(0.5, 0.18 * height) : Math.min(0.8, 0.14 * height);
+}
+
 function build(
   box: ModelBox,
   options: Record<string, string | number>,
@@ -361,7 +366,7 @@ function build(
   const p = Math.min(px, pz);
 
   // Vertical stack: plate at the bottom, cap tops at the top of the box.
-  const plateT = modern ? Math.min(0.5, 0.18 * H) : Math.min(0.8, 0.14 * H);
+  const plateT = keyPlateThickness(H, ctx.year);
   const plateTop = yBot + plateT;
   const wantCap = modern ? (mech ? 2.4 : 0.4 + 0.8 * travel) : 1.3 + travel;
   const capH = Math.max(0.6, Math.min(wantCap, yTop - plateTop - 0.2));

@@ -16,6 +16,7 @@ import * as THREE from "three";
 import type { Box, Build, Decor, Fit, Side } from "../engine";
 import { bumperBlock, shellSurface } from "../engine";
 import { LID_GROUP } from "../models/roles/hinge";
+import { keyPlateThickness } from "../models/roles/keys";
 import { BaseMarks, LidDecor } from "./Decor";
 import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
@@ -779,12 +780,12 @@ const WELL_CLEAR = 0.2;
  * and lit up the inside of the shell floor as a pale strip along the far
  * edges (worst through a glass trackpad).
  */
-function Well({ well: w, top }: { well: Wells[number]; top: number }) {
+function Well({ well: w, top, floor }: { well: Wells[number]; top: number; floor?: number }) {
   const x0 = w.at.x - WELL_CLEAR;
   const y0 = w.at.y - WELL_CLEAR;
   const sx = w.size.x + 2 * WELL_CLEAR;
   const sy = w.size.y + 2 * WELL_CLEAR;
-  const z0 = w.at.z - 0.05;
+  const z0 = floor ?? w.at.z - 0.05;
   // The walls stop just under the top case, so their top edge never meets its face.
   const h = top - WELL_CLEAR - z0;
   const colour = token("color-opening");
@@ -808,6 +809,20 @@ function Well({ well: w, top }: { well: Wells[number]; top: number }) {
       ))}
     </group>
   );
+}
+
+/**
+ * How deep a well's floor goes. Under a keyboard it lies just over the key
+ * plate: sculpted caps tilt and dish well below the top wall on a thin deck,
+ * and a floor at the top wall's underside cut dark bites out of their tops.
+ * Any other unit keeps the floor under the top wall.
+ */
+function wellFloor(fit: Fit, w: Wells[number], year: number): number | undefined {
+  const keys = fit.boxes.find(
+    (b) => b.kind === "unit" && b.role === "keys" && b.at.x === w.at.x && b.at.y === w.at.y,
+  );
+  if (!keys) return undefined;
+  return keys.at.z + keyPlateThickness(keys.size.z, year) + 0.15;
 }
 
 function Openings({ fit }: { fit: Fit }) {
@@ -969,7 +984,10 @@ export const Model = memo(function Model({
           mode="deck"
           wells={fit.shell.wells}
         />
-        {!xray && fit.shell.wells.map((w) => <Well key={`${w.at.x}-${w.at.y}`} well={w} top={out.z} />)}
+        {!xray &&
+          fit.shell.wells.map((w) => (
+            <Well key={`${w.at.x}-${w.at.y}`} well={w} top={out.z} floor={wellFloor(fit, w, year)} />
+          ))}
         <Openings fit={fit} />
         {workshop && !table && <Workshop out={out} />}
         {table && (

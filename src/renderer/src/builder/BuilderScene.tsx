@@ -14,6 +14,8 @@ import { Workshop } from "./Workshop";
 // and the wheel zooms, both springing back when the view changes.
 
 const EASE_MS = 600;
+/** The builder camera's field of view, degrees. Free view sets its own and this is put back. */
+const FOV = 30;
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -31,7 +33,18 @@ interface Pose {
   shift: number;
 }
 
-function Rig({ view, nudge, resetKey }: { view: View; nudge: RefObject<Nudge>; resetKey: string }) {
+function Rig({
+  view,
+  nudge,
+  resetKey,
+  active,
+}: {
+  view: View;
+  nudge: RefObject<Nudge>;
+  resetKey: string;
+  /** Off in free view: the pose is held, so the camera comes back exactly where it was. */
+  active: boolean;
+}) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
   const now = useRef<Pose | null>(null);
@@ -40,6 +53,7 @@ function Rig({ view, nudge, resetKey }: { view: View; nudge: RefObject<Nudge>; r
   const clock = useRef(0);
   const last = useRef<{ view: View; key: string } | null>(null);
   useFrame((_, dt) => {
+    if (!active) return;
     clock.current += dt;
     const want: Pose = {
       az: view.az,
@@ -82,6 +96,7 @@ function Rig({ view, nudge, resetKey }: { view: View; nudge: RefObject<Nudge>; r
     );
     camera.lookAt(cur.t);
     camera.aspect = size.width / size.height;
+    camera.fov = FOV;
     camera.setViewOffset(size.width, size.height, -cur.shift * size.width, 0, size.width, size.height);
     camera.updateProjectionMatrix();
   });
@@ -112,7 +127,16 @@ export function BuilderScene({
   onMiss,
   decor,
   flip,
+  free,
+  freeUsing = false,
+  paused = false,
 }: {
+  /** Free view: draws the walkable laptop and player in place of the builder's laptop and camera. */
+  free?: (portal: RefObject<HTMLDivElement | null>) => ReactNode;
+  /** In free view, the player is using the laptop: its screen takes the pointer. */
+  freeUsing?: boolean;
+  /** Free view's pause: the scene blurs behind the menu. */
+  paused?: boolean;
   decor?: Decor;
   /** Turn the laptop over onto its lid, to show the bottom. */
   flip?: boolean;
@@ -143,6 +167,7 @@ export function BuilderScene({
   const nudge = useRef<Nudge>({ az: 0, el: 0, zoom: 1 });
   const drag = useRef<{ x: number; y: number; moved: number } | null>(null);
   const moved = useRef(0);
+  const overlay = useRef<HTMLDivElement | null>(null);
   const glowAt = useMemo(() => {
     const o = fit.shell.outer;
     return [0, PLINTH_H + o.z + o.y * 0.5, 260] as [number, number, number];
@@ -150,14 +175,15 @@ export function BuilderScene({
   useEffect(() => () => screen?.dispose(), [screen]);
   return (
     <div
-      className="bd-scene"
+      className={`bd-scene cafe-world${paused ? " paused" : ""}`}
       onPointerDown={(e) => {
+        if (free) return;
         drag.current = { x: e.clientX, y: e.clientY, moved: 0 };
         moved.current = 0;
       }}
       onPointerMove={(e) => {
         const d = drag.current;
-        if (!d || e.buttons === 0 || arrowDrag.on) return;
+        if (!d || e.buttons === 0 || arrowDrag.on || free) return;
         const dx = e.clientX - d.x;
         const dy = e.clientY - d.y;
         d.x = e.clientX;
@@ -175,6 +201,7 @@ export function BuilderScene({
         drag.current = null;
       }}
       onWheel={(e) => {
+        if (free) return;
         nudge.current.zoom = Math.min(2, Math.max(0.45, nudge.current.zoom * Math.exp(e.deltaY * 0.001)));
       }}
     >
@@ -182,9 +209,9 @@ export function BuilderScene({
         shadows
         dpr={[1, 1.5]}
         gl={{ toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 0.9 }}
-        camera={{ fov: 30, near: 10, far: 40000, position: [0, 500, 800] }}
+        camera={{ fov: FOV, near: 10, far: 40000, position: [0, 500, 800] }}
         onPointerMissed={() => {
-          if (moved.current < 4 && !arrowDrag.on && performance.now() >= arrowDrag.until) onMiss?.();
+          if (!free && moved.current < 4 && !arrowDrag.on && performance.now() >= arrowDrag.until) onMiss?.();
         }}
       >
         <Workshop />
@@ -192,6 +219,9 @@ export function BuilderScene({
         <Lights dim={0.45} />
         <directionalLight position={[200, 1200, 1600]} color={token("stage-key")} intensity={0.3} />
         {glow && <pointLight position={glowAt} color={token("screen-glow")} intensity={2.5} distance={0} decay={0} />}
+        {free ? (
+          free(overlay)
+        ) : (
         <group
           position={[0, flip ? PLINTH_H + fit.shell.outer.z + fit.lidZ : PLINTH_H, 0]}
           rotation-x={flip ? Math.PI : 0}
@@ -221,8 +251,16 @@ export function BuilderScene({
             lidExtra={lidExtra}
           />
         </group>
-        <Rig view={view} nudge={nudge} resetKey={resetKey} />
+        )}
+        <Rig view={view} nudge={nudge} resetKey={resetKey} active={!free} />
       </Canvas>
+      {/* Free view's on-screen page mounts here, over the canvas. It takes the
+          pointer only while the player is using the laptop. */}
+      <div
+        ref={overlay}
+        className={`cafe-overlay${freeUsing ? " using" : ""}`}
+        style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
+      />
     </div>
   );
 }

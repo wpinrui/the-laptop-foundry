@@ -158,6 +158,9 @@ export function App() {
           duplicate(model.id);
         }}
         reroll={(b) => randomName(b.year, inchesOf(b))}
+        library={(company?.models ?? []).filter((x) => x.reviewed).map(subject)}
+        sound={settings.sound}
+        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
     );
 

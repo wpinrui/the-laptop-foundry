@@ -179,23 +179,36 @@ function Lights() {
   );
 }
 
-const easeOut = (t: number) => 1 - (1 - t) ** 3;
-const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+export const easeOut = (t: number) => 1 - (1 - t) ** 3;
+export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-function lookAngles(from: THREE.Vector3, at: THREE.Vector3): { yaw: number; pitch: number } {
+export function lookAngles(from: THREE.Vector3, at: THREE.Vector3): { yaw: number; pitch: number } {
   const d = at.clone().sub(from);
   return { yaw: Math.atan2(-d.x, -d.z), pitch: Math.atan2(d.y, Math.hypot(d.x, d.z)) };
 }
 
+/** A floor plan rectangle, mm. */
+export interface Rect {
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+}
+
 /** Keeps the walking player inside the room and out of the colliders. */
 function collide(p: THREE.Vector3) {
-  p.x = clamp(p.x, ROOM.x0 + BODY, ROOM.x1 - BODY);
-  p.z = clamp(p.z, ROOM.z0 + BODY, ROOM.z1 - BODY);
-  for (const r of RECTS) {
-    const x0 = r.x0 - BODY;
-    const x1 = r.x1 + BODY;
-    const z0 = r.z0 - BODY;
-    const z1 = r.z1 + BODY;
+  collideIn(p, ROOM, RECTS, BODY);
+}
+
+/** Keeps a point `body` mm inside `room` and `body` mm clear of each rectangle. */
+export function collideIn(p: THREE.Vector3, room: Rect, rects: Rect[], body: number) {
+  p.x = clamp(p.x, room.x0 + body, room.x1 - body);
+  p.z = clamp(p.z, room.z0 + body, room.z1 - body);
+  for (const r of rects) {
+    const x0 = r.x0 - body;
+    const x1 = r.x1 + body;
+    const z0 = r.z0 - body;
+    const z1 = r.z1 + body;
     if (p.x <= x0 || p.x >= x1 || p.z <= z0 || p.z >= z1) continue;
     // Push out through the nearest side.
     const out = [p.x - x0, x1 - p.x, p.z - z0, z1 - p.z];

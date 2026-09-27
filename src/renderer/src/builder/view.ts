@@ -28,7 +28,7 @@ export function centreOf(b: Box): { x: number; y: number; z: number } {
 }
 
 /** A lid point `r` mm from the hinge along the lid, at `lidAngle` degrees open. */
-function lidPoint(fit: Fit, r: number, lidAngle: number): { y: number; z: number } {
+export function lidPoint(fit: Fit, r: number, lidAngle: number): { y: number; z: number } {
   const o = fit.shell.outer;
   const a = (lidAngle * Math.PI) / 180;
   return { y: PLINTH_H + o.z + r * Math.sin(a), z: -o.y / 2 + r * Math.cos(a) };

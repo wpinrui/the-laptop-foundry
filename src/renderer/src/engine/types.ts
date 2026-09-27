@@ -614,6 +614,8 @@ export interface Box {
   edge?: Side;
   /** Turned a quarter in plan: size x and y are swapped from the part's own. */
   turn?: boolean;
+  /** The floor role this unit is stacked over. */
+  over?: Role;
 }
 
 export interface Opening {

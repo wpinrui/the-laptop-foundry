@@ -45,6 +45,8 @@ export interface Unit {
   to?: string;
   /** Turned a quarter in plan: size x and y are already swapped. */
   turn?: boolean;
+  /** The floor role this unit sits over, stacked on top of it rather than beside it. */
+  over?: Role;
 }
 
 /** A block on the derived mainboard. */

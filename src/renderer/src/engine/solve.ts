@@ -1,4 +1,4 @@
-import { buildBoard } from "./board";
+import { type Board, buildBoard } from "./board";
 import { checkCompat } from "./compat";
 import { CONTENT, type Content, eraFor, indexContent } from "./content";
 import { fanSizeOf } from "./fan";
@@ -90,13 +90,39 @@ const KB_REAR_GAP = 4;
 /** Movable roles that never turn: an optical tray must face its side wall. */
 const UPRIGHT = new Set<Role>(["odd"]);
 
+/**
+ * Stacking. A drive or an optical drive may sit over the board or a battery
+ * instead of beside it, where the chassis is thick enough for both. Over the
+ * board it keeps clear of the hot chips and their heat pipes; nothing ever sits
+ * over a fan, a fin stack, a hinge or a port. An optical drive still loads from
+ * its side wall, so it stacks only flush against that wall.
+ */
+const STACKERS = new Set<Role>(["drive", "odd"]);
+const HOSTS: Role[] = ["board", "battery"];
+const HOST_NAMES: Record<string, string> = {
+  board: "Over board",
+  battery: "Over battery",
+};
+/** Floor roles a stacked part may reach over besides its host. */
+const UNDER_OK = new Set<string>(["board", "battery", "drive", "spk"]);
+/** Air between a stacked part and what it sits over, mm. */
+const STACK_GAP = 1.5;
+/** Room kept round a hot chip and its heat pipe, mm. */
+const HOT_MARGIN = 6;
+const OVER = "over:";
+
 /** A movable part's place: a zone by name (absent: where its role goes) and a quarter turn. */
 interface Choice {
   zone?: string;
   turn: boolean;
 }
 type Arrangement = Record<string, Choice>;
-type Slot = { role: Role; zones: ZoneNode[]; pin: Partial<Choice> };
+type Slot = {
+  role: Role;
+  zones: ZoneNode[];
+  stacks: string[];
+  pin: Partial<Choice>;
+};
 
 /** The build slot a unit came from: "storage:1" for the second drive. */
 function slotOf(u: Unit): string {
@@ -203,9 +229,14 @@ function solveAt(
   const deckCut = deckLoss(style, lidZ);
   const lidCut = size.y - Math.min(size.y, hingeAxis(style, size, lidZ).y);
   // The least outer size each plan needs, from its plan minimum.
-  const needX = (f: number, d: number, l: number) => Math.max(f + 2 * off.side, d + 2 * off.side, l + 2 * sl);
+  const needX = (f: number, d: number, l: number) =>
+    Math.max(f + 2 * off.side, d + 2 * off.side, l + 2 * sl);
   const needY = (f: number, d: number, l: number) =>
-    Math.max(f + off.side + offRear, d + 2 * off.side + deckCut, l + 2 * sl + lidCut);
+    Math.max(
+      f + off.side + offRear,
+      d + 2 * off.side + deckCut,
+      l + 2 * sl + lidCut,
+    );
 
   // The keyboard and trackpad sit in wells in the top case, flush with the top
   // surface, on the deck structure. Over them the floor runs up to that layer;
@@ -289,9 +320,16 @@ function solveAt(
     const pin: Partial<Choice> = {};
     if (UPRIGHT.has(u.role)) pin.turn = false;
     else if (pinned?.turn !== undefined) pin.turn = pinned.turn;
+    const stacks = STACKERS.has(u.role)
+      ? HOSTS.filter((h) => floorUnits.some((f) => f.role === h)).map(
+          (h) => OVER + h,
+        )
+      : [];
     const pz = zones.find((z) => z.zone === pinned?.zone);
     if (pz) pin.zone = pz.zone;
-    slots.set(key, { role: u.role, zones, pin });
+    else if (pinned?.zone && stacks.includes(pinned.zone))
+      pin.zone = pinned.zone;
+    slots.set(key, { role: u.role, zones, stacks, pin });
   }
   const base: Arrangement = {};
   for (const [key, sl0] of slots)
@@ -300,15 +338,23 @@ function solveAt(
     floorUnits.map((u) => {
       const c = MOVABLE.has(u.role) && u.part ? arr[slotOf(u)] : undefined;
       if (!c || (!c.zone && !c.turn)) return u;
+      const over = c.zone?.startsWith(OVER)
+        ? (c.zone.slice(OVER.length) as Role)
+        : undefined;
       return {
         ...u,
         size: c.turn
           ? { x: u.size.y, y: u.size.x, z: u.size.z }
           : { ...u.size },
-        ...(c.zone ? { to: c.zone } : {}),
+        ...(c.zone && !over ? { to: c.zone } : {}),
+        ...(over ? { over } : {}),
         ...(c.turn ? { turn: true } : {}),
       };
     });
+  const oddSide =
+    zonesOf(layout.floor).find(
+      (z) => z.edge && (z.takes.includes("odd") || z.may?.includes("odd")),
+    )?.edge ?? "right";
 
   // Plans auto placement found that need a smaller base, checked in full at the end.
   let choice: Arrangement[] = [];
@@ -318,64 +364,168 @@ function solveAt(
       deal(lidPlan.root, lidUnits).fills,
       flatCtx,
     ).mins.get(lidPlan.root) ?? { x: 0, y: 0 };
-    choice = arrange(
-      slots,
-      base,
-      {
-        x: clamp(build.size.x, body.limits.x[0], body.limits.x[1]),
-        y: clamp(build.size.y, body.limits.y[0], body.limits.y[1]),
-      },
-      (arr) => {
-        // The plan minimum alone: floor and deck, the deck's hinge strip behind a rear battery.
-        const d = deal(layout.floor, arranged(arr));
-        const fl = measure(layout.floor, d.fills, floorCtx);
-        let strip = 0;
-        for (const f of fl.fills.values())
-          if (
-            f.min &&
-            f.node.edge === "rear" &&
-            f.node.takes.includes("battery")
-          )
-            strip = Math.max(strip, f.min.y);
-        const deckUnits = em.deck.map((u) =>
-          u.role === "hinge-strip"
-            ? { ...u, size: { ...u.size, y: Math.max(u.size.y, strip) } }
-            : u,
+    const room = size;
+    choice = arrange(slots, base, room, (arr, bar) => {
+      // The plan minimum alone: floor and deck, the deck's hinge strip behind a rear battery.
+      const all = arranged(arr);
+      const ups = all.filter((u) => u.over);
+      const d = deal(
+        layout.floor,
+        ups.length > 0 ? all.filter((u) => !u.over) : all,
+      );
+      const fl = measure(layout.floor, d.fills, floorCtx);
+      let strip = 0;
+      for (const f of fl.fills.values())
+        if (f.min && f.node.edge === "rear" && f.node.takes.includes("battery"))
+          strip = Math.max(strip, f.min.y);
+      const deckUnits = em.deck.map((u) =>
+        u.role === "hinge-strip"
+          ? { ...u, size: { ...u.size, y: Math.max(u.size.y, strip) } }
+          : u,
+      );
+      const fmin = fl.mins.get(fl.root) ?? { x: 0, y: 0 };
+      const dk = measure(
+        deckPlan.root,
+        deal(deckPlan.root, deckUnits).fills,
+        flatCtx,
+      );
+      const dmin = dk.mins.get(deckPlan.root) ?? { x: 0, y: 0 };
+      const m = {
+        x: needX(fmin.x, dmin.x, lmin.x),
+        y: needY(fmin.y, dmin.y, lmin.y),
+        z: undefined as number | undefined,
+        lost: d.unplaced.length,
+      };
+      if (ups.length === 0) return m;
+      // Before laying anything out: a stack that cannot beat the bar, or
+      // could not fit under the player's thickness even over the lowest host,
+      // is out. A removable pack starts on the outer bottom.
+      const low = (h: Role | undefined) =>
+        h === "board"
+          ? off.bottom + board.size.z
+          : Math.min(
+              ...floorUnits
+                .filter((f) => f.role === h)
+                .map((f) => (f.skin ? 0 : off.bottom) + f.size.z),
+            );
+      if (
+        bar !== undefined &&
+        (m.x <= room.x + 1e-6 && m.y <= room.y + 1e-6 ? 0 : 1e9) + m.x * m.y >=
+          bar
+      ) {
+        m.lost = Infinity;
+        return m;
+      }
+      if (
+        ups.some(
+          (u) => low(u.over) + STACK_GAP + u.size.z + off.top > room.z + 1e-6,
+        )
+      ) {
+        m.z = Infinity;
+        return m;
+      }
+      // A stack: lay the floor out at its tightest, where a stack has least room,
+      // then find each stacked part its place and the thickness it needs there.
+      const foot = { x: m.x - 2 * off.side, y: m.y - off.side - offRear };
+      const at0 = { x: off.side, y: off.side };
+      place(fl, at0, foot);
+      place(dk, at0, { x: foot.x, y: m.y - 2 * off.side - deckCut });
+      const top: PlacedUnit[] = [];
+      for (const f of dk.fills.values())
+        top.push(...placeUnits(f, flatCtx, 0, 0));
+      // The thickness the rest of the floor needs once the stacked parts leave it.
+      let z = off.bottom + off.top;
+      for (const u of top)
+        z = Math.max(z, off.bottom + Math.max(deckLayer(u), off.top));
+      const laid: PlacedUnit[] = [];
+      for (const f of fl.fills.values()) {
+        const opening = isOpeningZone(f);
+        for (const u of placeUnits(f, floorCtx, off.bottom, 0)) {
+          laid.push(u);
+          z = Math.max(
+            z,
+            u.at.z +
+              u.size.z +
+              Math.max(
+                coverIn(top, u.at, u.size, deckLayer),
+                off.top,
+                opening ? pTop : 0,
+              ),
+          );
+        }
+      }
+      const ground = stackGround(laid, board, em.chamber);
+      const inner = {
+        x0: off.side,
+        y0: off.side,
+        x1: off.side + foot.x,
+        y1: off.side + foot.y,
+      };
+      for (const u of ups) {
+        const at = stackAt(
+          u,
+          ground,
+          inner,
+          u.role === "odd" ? oddSide : undefined,
+          off.bottom,
         );
-        const fmin = fl.mins.get(fl.root) ?? { x: 0, y: 0 };
-        const dmin = measure(
-          deckPlan.root,
-          deal(deckPlan.root, deckUnits).fills,
-          flatCtx,
-        ).mins.get(deckPlan.root) ?? { x: 0, y: 0 };
-        return {
-          x: needX(fmin.x, dmin.x, lmin.x),
-          y: needY(fmin.y, dmin.y, lmin.y),
-          lost: d.unplaced.length,
-        };
-      },
-    );
+        if (!at) {
+          m.lost++;
+          continue;
+        }
+        ground.push({
+          x0: at.x,
+          y0: at.y,
+          x1: at.x + u.size.x,
+          y1: at.y + u.size.y,
+          top: Infinity,
+          host: undefined,
+        });
+        z = Math.max(
+          z,
+          at.z +
+            u.size.z +
+            Math.max(
+              coverIn(top, at, u.size, deckLayer),
+              off.top,
+              u.role === "odd" ? pTop : 0,
+            ),
+        );
+      }
+      m.z = z;
+      return m;
+    });
   }
   const arr = fixed === null || fixed === "base" ? base : fixed;
   const floorArranged = arranged(arr);
   floorUnits.length = 0;
-  floorUnits.push(...floorArranged);
+  floorUnits.push(...floorArranged.filter((u) => !u.over));
+  // Parts stacked over another: placed once the floor under them is laid out.
+  const stacked = floorArranged.filter((u) => u.over);
 
   const floorDeal = deal(layout.floor, floorUnits);
   report.parts = {};
   for (const [key, sl0] of slots) {
-    let at: ZoneNode | undefined;
+    let at: string | undefined;
     for (const f of floorDeal.fills.values())
       if (
         !at &&
         f.units.some((u) => u.part && MOVABLE.has(u.role) && slotOf(u) === key)
       )
-        at = f.node;
+        at = f.node.zone;
+    const up = stacked.find((u) => u.part && slotOf(u) === key);
+    if (up?.over) at = OVER + up.over;
     report.parts[key] = {
-      zone: at?.zone ?? "",
+      zone: at ?? "",
       turn: arr[key]?.turn ?? false,
       turns: !UPRIGHT.has(sl0.role),
-      zones: sl0.zones.map((z) => ({ id: z.zone, name: z.name ?? z.zone })),
+      zones: [
+        ...sl0.zones.map((z) => ({ id: z.zone, name: z.name ?? z.zone })),
+        ...sl0.stacks.map((id) => ({
+          id,
+          name: HOST_NAMES[id.slice(OVER.length)] ?? id,
+        })),
+      ],
     };
   }
   const deckDeal = deal(deckPlan.root, em.deck);
@@ -412,7 +562,10 @@ function solveAt(
   // keyboard over the strip behind it (the hinge strip or a rear battery).
   const dm0 = m2(deck);
   const stripY = em.deck.find((u) => u.role === "hinge-strip")?.size.y ?? 0;
-  const kbBack = Math.min(Math.max(0, -(player.kb?.y ?? 0)), Math.max(0, stripY - KB_REAR_GAP));
+  const kbBack = Math.min(
+    Math.max(0, -(player.kb?.y ?? 0)),
+    Math.max(0, stripY - KB_REAR_GAP),
+  );
   const dm = { x: dm0.x, y: dm0.y - kbBack };
   const lm = m2(lid);
 
@@ -427,8 +580,11 @@ function solveAt(
     const need = e === "x" ? minX : minY;
     if (size[e] >= need - 0.01) continue;
     const rest = floorUnits.filter((u) => u.role !== role);
-    const wm = m2(measure(layout.floor, deal(layout.floor, rest).fills, floorCtx));
-    const without = e === "x" ? needX(wm.x, dm.x, lm.x) : needY(wm.y, dm.y, lm.y);
+    const wm = m2(
+      measure(layout.floor, deal(layout.floor, rest).fills, floorCtx),
+    );
+    const without =
+      e === "x" ? needX(wm.x, dm.x, lm.x) : needY(wm.y, dm.y, lm.y);
     if (without >= need - 0.01) continue;
     for (const u of floorUnits) {
       if (u.role !== role || !u.part || seenNoRoom.has(`${u.part}|${u.role}`))
@@ -496,19 +652,7 @@ function solveAt(
   const coverOver = (
     at: { x: number; y: number },
     sz: { x: number; y: number },
-  ) => {
-    let c = 0;
-    for (const u of deckPlaced) {
-      if (u.spacer) continue;
-      const hit =
-        u.at.x < at.x + sz.x - EPS &&
-        at.x < u.at.x + u.size.x - EPS &&
-        u.at.y < at.y + sz.y - EPS &&
-        at.y < u.at.y + u.size.y - EPS;
-      if (hit) c = Math.max(c, deckLayer(u));
-    }
-    return c;
-  };
+  ) => coverIn(deckPlaced, at, sz, deckLayer);
   // Minimum z at this footprint. Each floor part needs its own height plus
   // whatever sits over it: the deck layer where a keyboard or trackpad covers
   // that part, else the top wall; openings also stay clear of the top edge
@@ -520,11 +664,19 @@ function solveAt(
   // each thickness tried; the plan stays as laid out at the drawn size.
   const bandAt = (y0: number, y1: number, Z: number) =>
     spanBand(style, { x: FX, y: FY, z: Z }, off, walls.bottom, y0, y1);
-  const shapes = new Map<number, { s: ResolvedStyle; o: typeof off; lift: number; pTop: number }>();
+  const shapes = new Map<
+    number,
+    { s: ResolvedStyle; o: typeof off; lift: number; pTop: number }
+  >();
   const shapeAt = (Z: number) => {
     let r = shapes.get(Z);
     if (!r) {
-      const s = resolveStyle(body.style, { ...size, z: Z }, build.shape?.[body.id], lidZ);
+      const s = resolveStyle(
+        body.style,
+        { ...size, z: Z },
+        build.shape?.[body.id],
+        lidZ,
+      );
       const o = baseOffsets(s, walls);
       r = { s, o, lift: profileLift(s, o.bottom), pTop: profileTop(s) };
       shapes.set(Z, r);
@@ -536,7 +688,13 @@ function solveAt(
    * opening's lift aside), with `cover` mm of deck layer over it, fits over
    * this depth span.
    */
-  const zFor = (y0: number, y1: number, stack: number, cover: number, opening: boolean): number => {
+  const zFor = (
+    y0: number,
+    y1: number,
+    stack: number,
+    cover: number,
+    opening: boolean,
+  ): number => {
     const slack = (Z: number) => {
       const { s, o, lift, pTop: pt } = shapeAt(Z);
       const b = spanBand(s, { x: FX, y: FY, z: Z }, o, walls.bottom, y0, y1);
@@ -546,7 +704,13 @@ function solveAt(
     };
     let lo = 0;
     let hi = 2 * lim.z[1];
-    if (slack(hi) < 0) return off.bottom + stack + (opening ? floorCtx.lift : 0) + Math.max(cover, off.top, opening ? pTop : 0);
+    if (slack(hi) < 0)
+      return (
+        off.bottom +
+        stack +
+        (opening ? floorCtx.lift : 0) +
+        Math.max(cover, off.top, opening ? pTop : 0)
+      );
     for (let i = 0; i < 24; i++) {
       const mid = (lo + hi) / 2;
       if (slack(mid) >= 0) hi = mid;
@@ -556,20 +720,80 @@ function solveAt(
   };
   let minZ = off.bottom + off.top;
   const cover = new Map<unknown, number>();
+  const laid: PlacedUnit[] = [];
   for (const f of floor.fills.values()) {
     if (!f.min || !f.at || !f.size) continue;
     const opening = isOpeningZone(f);
     let zoneCover = 0;
     for (const u of placeUnits(f, floorCtx, off.bottom, 0)) {
+      laid.push(u);
       const c = coverOver(u.at, u.size);
       zoneCover = Math.max(zoneCover, c);
-      const stack = u.at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
+      const stack =
+        u.at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
       minZ = Math.max(minZ, zFor(u.at.y, u.at.y + u.size.y, stack, c, opening));
     }
     cover.set(f.node, zoneCover);
   }
   for (const u of deckPlaced)
-    if (!u.spacer) minZ = Math.max(minZ, zFor(u.at.y, u.at.y + u.size.y, 0, deckLayer(u), false));
+    if (!u.spacer)
+      minZ = Math.max(
+        minZ,
+        zFor(u.at.y, u.at.y + u.size.y, 0, deckLayer(u), false),
+      );
+
+  // Stacked parts: each over its host, as low as what lies under it allows.
+  const placedStack: PlacedUnit[] = [];
+  const inner = {
+    x0: off.side,
+    y0: off.side,
+    x1: off.side + innerFoot.x,
+    y1: off.side + innerFoot.y,
+  };
+  const under = stackGround(laid, board, em.chamber);
+  for (const u of stacked) {
+    const at = stackAt(
+      u,
+      under,
+      inner,
+      u.role === "odd" ? oddSide : undefined,
+      off.bottom,
+    );
+    if (!at) {
+      if (u.part && !seenNoRoom.has(`${u.part}|${u.role}`)) {
+        seenNoRoom.add(`${u.part}|${u.role}`);
+        problems.push({
+          kind: "compat",
+          code: "no-room",
+          part: u.part,
+          role: u.role,
+        });
+      }
+      continue;
+    }
+    const p: PlacedUnit = {
+      ...u,
+      at,
+      size: { ...u.size },
+      zone: `${OVER}${u.over}:${u.id}`,
+    };
+    placedStack.push(p);
+    // Nothing else stacks on a stacked part.
+    under.push({
+      x0: at.x,
+      y0: at.y,
+      x1: at.x + u.size.x,
+      y1: at.y + u.size.y,
+      top: Infinity,
+      host: undefined,
+    });
+    const opening = u.role === "odd";
+    const stack = at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
+    minZ = Math.max(
+      minZ,
+      zFor(at.y, at.y + u.size.y, stack, coverOver(at, u.size), opening),
+    );
+  }
 
   const min: Size = { x: minX, y: minY, z: minZ };
   for (const a of AXES) {
@@ -629,7 +853,10 @@ function solveAt(
     // Each part sits on the floor under its own depth span, which may lie lower than the zone's highest.
     const own = new Map<PlacedUnit, [number, number]>();
     for (const u of units) {
-      const ub = bandAt(u.at.y, u.at.y + u.size.y, F.z) ?? [z0, surface - off.top];
+      const ub = bandAt(u.at.y, u.at.y + u.size.y, F.z) ?? [
+        z0,
+        surface - off.top,
+      ];
       own.set(u, ub);
       if (zone.pack !== "z") u.at.z += Math.min(0, ub[0] - z0);
     }
@@ -713,6 +940,42 @@ function solveAt(
         anchors.push({ kind: "opening", at, opening: o });
       }
     }
+  }
+
+  for (const u of placedStack) {
+    const edge = u.role === "odd" ? oddSide : undefined;
+    // On what now lies under it, as the body's shape leaves the floor there.
+    let base = bandAt(u.at.y, u.at.y + u.size.y, F.z)?.[0] ?? floorZ0;
+    for (const b of placedFloor)
+      if (
+        !b.spacer &&
+        b.at.x < u.at.x + u.size.x - 0.05 &&
+        u.at.x < b.at.x + b.size.x - 0.05 &&
+        b.at.y < u.at.y + u.size.y - 0.05 &&
+        u.at.y < b.at.y + b.size.y - 0.05
+      )
+        base = Math.max(base, b.at.z + b.size.z);
+    u.at.z = base + STACK_GAP;
+    placedFloor.push(u);
+    boxes.push(unitBox(u, "floor", edge));
+    if (!edge) continue;
+    const e = alongAxis(edge);
+    const o: Opening = {
+      id: `opening:${u.id}`,
+      kind: "bay",
+      side: edge,
+      part: u.part,
+      u: [u.at[e], u.at[e] + u.size[e]],
+      z: [u.at.z, u.at.z + u.size.z],
+    };
+    openings.push(o);
+    const at: Vec3 = { x: 0, y: 0, z: (o.z[0] + o.z[1]) / 2 };
+    at[e] = (o.u[0] + o.u[1]) / 2;
+    if (edge === "left") at.x = 0;
+    else if (edge === "right") at.x = F.x;
+    else if (edge === "front") at.y = 0;
+    else at.y = F.y;
+    anchors.push({ kind: "opening", at, opening: o });
   }
 
   // Deck: parts hang from the deck structure under the top wall.
@@ -998,7 +1261,11 @@ function solveAt(
         size: { x: size.x, y: size.y - lidCut, z: lidZ },
         inner: {
           at: { x: sl, y: sl, z: lidInnerZ0 },
-          size: { x: size.x - 2 * sl, y: size.y - lidCut - 2 * sl, z: lidInnerZ },
+          size: {
+            x: size.x - 2 * sl,
+            y: size.y - lidCut - 2 * sl,
+            z: lidInnerZ,
+          },
         },
       },
       bands: { floor: [floorZ0, topWall], deck: [F.z - DB, F.z] },
@@ -1011,14 +1278,23 @@ function solveAt(
     routes,
     problems,
   };
-  // A better plan must need no more room on any axis and bring no more problems than the layout's own.
+  // A better plan must need no more room across the base and bring no more
+  // problems than the layout's own; it may need more thickness, up to the player's.
+  // One that fits the chassis beats one that does not, as auto placement ranks them.
+  const inside = (m: Size) => m.x <= size.x + 0.01 && m.y <= size.y + 0.01;
+  // Nor may it leave out a part the layout's own has room for.
+  const lost = (ps: Problem[]) =>
+    ps
+      .filter((p) => p.kind === "compat" && p.code === "no-room")
+      .map((p) => JSON.stringify(p));
   for (const arr of choice) {
     const f = solveAt(build, content, arr);
     if (
-      f.min.x <= fit.min.x + 0.01 &&
-      f.min.y <= fit.min.y + 0.01 &&
-      f.min.z <= fit.min.z + 0.01 &&
-      f.problems.length <= fit.problems.length
+      ((f.min.x <= fit.min.x + 0.01 && f.min.y <= fit.min.y + 0.01) ||
+        (!inside(fit.min) && inside(f.min))) &&
+      f.min.z <= Math.max(fit.min.z, size.z) + EPS &&
+      f.problems.length <= fit.problems.length &&
+      lost(f.problems).every((p) => lost(fit.problems).includes(p))
     )
       return f;
   }
@@ -1039,7 +1315,197 @@ function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
     ...(u.opts ? { opts: u.opts } : {}),
     ...(edge ? { edge } : {}),
     ...(u.turn ? { turn: true } : {}),
+    ...(u.over ? { over: u.over } : {}),
   };
+}
+
+/** The deck layer over a plan rect: the deepest keyboard or trackpad well that covers it. */
+function coverIn(
+  deck: PlacedUnit[],
+  at: { x: number; y: number },
+  sz: { x: number; y: number },
+  layer: (u: Unit) => number,
+): number {
+  let c = 0;
+  for (const u of deck) {
+    if (u.spacer) continue;
+    const hit =
+      u.at.x < at.x + sz.x - EPS &&
+      at.x < u.at.x + u.size.x - EPS &&
+      u.at.y < at.y + sz.y - EPS &&
+      at.y < u.at.y + u.size.y - EPS;
+    if (hit) c = Math.max(c, layer(u));
+  }
+  return c;
+}
+
+/** A patch of floor seen from above: how high it reaches (Infinity: nothing may sit over it) and the host it belongs to. */
+interface Ground {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  top: number;
+  host: Role | undefined;
+}
+
+/**
+ * What a stacked part could sit over: every floor part's height, the board's
+ * own chips, and keep-outs over the fans, the hot chips and their heat pipes.
+ * The fans are laid out at their thinnest, so at their widest.
+ */
+function stackGround(
+  laid: PlacedUnit[],
+  board: Board,
+  chamber: boolean,
+): Ground[] {
+  const out: Ground[] = [];
+  const no = (x0: number, y0: number, x1: number, y1: number) =>
+    out.push({ x0, y0, x1, y1, top: Infinity, host: undefined });
+  const hot: { x0: number; y0: number; x1: number; y1: number }[] = [];
+  for (const u of laid) {
+    if (u.spacer) continue;
+    const r = {
+      x0: u.at.x,
+      y0: u.at.y,
+      x1: u.at.x + u.size.x,
+      y1: u.at.y + u.size.y,
+    };
+    if (u.role === "board") {
+      // Over the board a part clears its tallest component, cooler included.
+      out.push({ ...r, top: u.at.z + u.size.z, host: "board" });
+      const bx = (u.size.x - board.size.x) / 2;
+      for (const b of board.blocks) {
+        if (!b.hot) continue;
+        const x0 = u.at.x + bx + b.at.x;
+        const y0 = u.at.y + b.at.y;
+        hot.push({ x0, y0, x1: x0 + b.size.x, y1: y0 + b.size.y });
+      }
+    } else if (UNDER_OK.has(u.role)) {
+      out.push({
+        ...r,
+        top: u.at.z + u.size.z,
+        host: u.role === "battery" ? "battery" : undefined,
+      });
+    } else no(r.x0, r.y0, r.x1, r.y1);
+  }
+  const m = HOT_MARGIN;
+  for (const h of hot) no(h.x0 - m, h.y0 - m, h.x1 + m, h.y1 + m);
+  if (chamber && hot.length > 0)
+    no(
+      Math.min(...hot.map((h) => h.x0)) - m,
+      Math.min(...hot.map((h) => h.y0)) - m,
+      Math.max(...hot.map((h) => h.x1)) + m,
+      Math.max(...hot.map((h) => h.y1)) + m,
+    );
+  // Heat pipes run from each hot chip along x, then along y, to each fin stack.
+  const w = 3 + m;
+  for (const h of hot) {
+    const sx = (h.x0 + h.x1) / 2;
+    const sy = (h.y0 + h.y1) / 2;
+    for (const f of laid) {
+      if (f.role !== "fin") continue;
+      const dx = f.at.x + f.size.x / 2;
+      const dy = f.at.y + f.size.y / 2;
+      no(Math.min(sx, dx) - w, sy - w, Math.max(sx, dx) + w, sy + w);
+      no(dx - w, Math.min(sy, dy) - w, dx + w, Math.max(sy, dy) + w);
+    }
+  }
+  return out;
+}
+
+/**
+ * Where a stacked part sits: its centre over its host, over nothing that must
+ * stay clear, inside the walls and, for an optical drive, flush with the wall
+ * it loads from. The lowest such place wins, then the one most over its host.
+ */
+function stackAt(
+  u: Unit,
+  ground: Ground[],
+  inner: { x0: number; y0: number; x1: number; y1: number },
+  side: Side | undefined,
+  floorZ0: number,
+): Vec3 | null {
+  const w = u.size.x;
+  const d = u.size.y;
+  const hosts = ground.filter((g) => g.host === u.over && g.top !== Infinity);
+  if (hosts.length === 0) return null;
+  const cands = (
+    a0: "x0" | "y0",
+    a1: "x1" | "y1",
+    len: number,
+    lo: number,
+    hi: number,
+    fixed?: number,
+  ) => {
+    if (fixed !== undefined) return [fixed];
+    const set = new Set<number>([lo, hi - len]);
+    // Flush against the host's edges, or against something that must stay clear.
+    for (const g of ground) {
+      if (g.top !== Infinity && g.host !== u.over) continue;
+      set.add(g[a0]);
+      set.add(g[a1]);
+      set.add(g[a0] - len);
+      set.add(g[a1] - len);
+    }
+    return [...set].filter(
+      (v) =>
+        v >= lo - EPS &&
+        v + len <= hi + EPS &&
+        hosts.some((h) => v + len / 2 > h[a0] && v + len / 2 < h[a1]),
+    );
+  };
+  const xs = cands(
+    "x0",
+    "x1",
+    w,
+    inner.x0,
+    inner.x1,
+    side === "right" ? inner.x1 - w : side === "left" ? inner.x0 : undefined,
+  );
+  const ys = cands(
+    "y0",
+    "y1",
+    d,
+    inner.y0,
+    inner.y1,
+    side === "rear" ? inner.y1 - d : side === "front" ? inner.y0 : undefined,
+  );
+  // Keep-outs first, so most places fail on the first few.
+  const order = [...ground].sort(
+    (p, q) => (q.top === Infinity ? 1 : 0) - (p.top === Infinity ? 1 : 0),
+  );
+  let best: { at: Vec3; on: number } | null = null;
+  for (const x of xs)
+    for (const y of ys) {
+      const cx = x + w / 2;
+      const cy = y + d / 2;
+      if (!hosts.some((h) => cx > h.x0 && cx < h.x1 && cy > h.y0 && cy < h.y1))
+        continue;
+      let top = floorZ0;
+      let on = 0;
+      let ok = true;
+      for (const g of order) {
+        const ox = Math.min(x + w, g.x1) - Math.max(x, g.x0);
+        const oy = Math.min(y + d, g.y1) - Math.max(y, g.y0);
+        if (ox <= 0.05 || oy <= 0.05) continue;
+        if (g.top === Infinity) {
+          ok = false;
+          break;
+        }
+        top = Math.max(top, g.top);
+        if (g.host === u.over) on += ox * oy;
+      }
+      if (!ok) continue;
+      const z = top + STACK_GAP;
+      if (
+        !best ||
+        z < best.at.z - EPS ||
+        (Math.abs(z - best.at.z) <= EPS && on > best.on + EPS)
+      )
+        best = { at: { x, y, z }, on };
+    }
+  return best?.at ?? null;
 }
 
 /**
@@ -1053,8 +1519,11 @@ function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
 function arrange(
   slots: Map<string, Slot>,
   base: Arrangement,
-  room: { x: number; y: number },
-  planMin: (arr: Arrangement) => { x: number; y: number; lost: number },
+  room: { x: number; y: number; z: number },
+  planMin: (
+    arr: Arrangement,
+    bar?: number,
+  ) => { x: number; y: number; z?: number; lost: number },
 ): Arrangement[] {
   const free = [...slots].filter(
     ([, s]) => s.pin.zone === undefined || s.pin.turn === undefined,
@@ -1065,10 +1534,13 @@ function arrange(
     m.x <= room.x + 1e-6 && m.y <= room.y + 1e-6;
   const area = (m: { x: number; y: number }) =>
     (inRoom(m) ? 0 : 1e9) + m.x * m.y;
-  const fits = (m: { x: number; y: number; lost: number }) =>
+  const fitsPlan = (m: { x: number; y: number; lost: number }) =>
     m.lost <= own.lost &&
     ((m.x <= own.x + 1e-6 && m.y <= own.y + 1e-6) ||
       (!inRoom(own) && inRoom(m)));
+  // A stack must also fit under the player's thickness.
+  const fits = (m: { x: number; y: number; z?: number; lost: number }) =>
+    fitsPlan(m) && (m.z === undefined || m.z <= room.z + 1e-6);
   const found: { arr: Arrangement; area: number; moves: number }[] = [];
   const movesOf = (arr: Arrangement) =>
     Object.keys(arr).filter((k) => !sameChoice(arr[k], base[k])).length;
@@ -1109,6 +1581,50 @@ function arrange(
           }
         }
       best = next;
+    }
+    if (best === start) break;
+  }
+  // Then stacking, part by part from the best plan: a part left on auto may
+  // go over each host, turned or not, where the chassis is thick enough. One
+  // too thick for the player still leads on when nothing better does: stacking
+  // another part next can bring the whole back under.
+  // The best plan that fits the player's thickness, beside the path taken.
+  let anchor = best;
+  for (let pass = 0; pass < 2; pass++) {
+    const start = best;
+    for (const [key, s] of free) {
+      if (s.pin.zone !== undefined || s.stacks.length === 0) continue;
+      const turns = s.pin.turn !== undefined ? [s.pin.turn] : [false, true];
+      let next: Arrangement | undefined;
+      let step: Arrangement | undefined;
+      let stepArea = bestArea - 1;
+      for (const from of best === anchor ? [best] : [best, anchor])
+        for (const zone of s.stacks)
+          for (const turn of turns) {
+            const c: Choice = { zone, turn };
+            if (sameChoice(c, from[key])) continue;
+            const arr = { ...from, [key]: c };
+            // Only a stack that would beat the best so far is worth laying out.
+            const m = planMin(arr, bestArea - 1);
+            if (!fitsPlan(m)) continue;
+            const a = area(m);
+            if (!fits(m)) {
+              // A step only where the stack itself could fit under the player's thickness.
+              if (m.z !== Infinity && a < stepArea) {
+                stepArea = a;
+                step = arr;
+              }
+              continue;
+            }
+            if (a < area(own) - 1)
+              found.push({ arr, area: a, moves: movesOf(arr) });
+            if (a < bestArea - 1) {
+              bestArea = a;
+              next = arr;
+            }
+          }
+      if (next) best = anchor = next;
+      else if (step) best = step;
     }
     if (best === start) break;
   }

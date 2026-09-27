@@ -68,15 +68,7 @@ export {
   type Results,
   results,
 } from "./bench";
-export {
-  MAKERS,
-  type Maker,
-  RIVALS,
-  type Rival,
-  RIVAL_YEARS,
-  rivalsFor,
-  rivalYear,
-} from "./content/rivals";
+export { allRivals, type Rival, rivalById, rivalsFor } from "./market/field";
 export {
   type BarChart,
   type Chart,

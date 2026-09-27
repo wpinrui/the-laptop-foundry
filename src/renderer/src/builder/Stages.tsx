@@ -13,8 +13,7 @@ import {
   type PartPin,
   partsFor,
   profilesOf,
-  RIVALS,
-  rivalYear,
+  rivalsFor,
   rivalSubject,
   type PerimSides,
   type Signature,
@@ -26,6 +25,7 @@ import {
   YEARS,
 } from "../engine";
 import { insideLitres, Silhouette, silhouetteExtent } from "./bodyShape";
+import { useMarket } from "../market/markets";
 import { BatteryFields } from "./BatteryFields";
 import { FanField, GrillField } from "./FanField";
 import { SpeakerGrillField } from "./SpeakerGrillField";
@@ -714,9 +714,10 @@ export function PriceColumn({
   }, [build, fit]);
   const priced = cost > 0;
   const price = build.price ?? snapPrice(cost * 1.45);
+  const opened = useMarket(build.year);
   const rivals = useMemo(() => {
-    if (!priced) return [];
-    return RIVALS.filter((r) => r.build.year === rivalYear(build.year))
+    if (!priced || !opened) return [];
+    return [...rivalsFor(build.year)]
       .sort(
         (a, b) =>
           Math.abs((a.build.price ?? 0) - price) -
@@ -729,7 +730,7 @@ export function PriceColumn({
         price: r.build.price ?? 0,
         kg: factsOf(rivalSubject(r)).kg,
       }));
-  }, [priced, build.year, price]);
+  }, [priced, opened, build.year, price]);
   const lo = Math.max(1, Math.round(cost * 0.5));
   const hi = Math.max(lo + 10, Math.round(cost * 3));
   const margin = price - cost;

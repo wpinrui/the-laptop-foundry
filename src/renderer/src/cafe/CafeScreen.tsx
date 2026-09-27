@@ -10,7 +10,7 @@ import {
   panelOf,
   PROFILES,
   type ProfileId,
-  RIVALS,
+  allRivals,
   results,
   reviewOf,
   rivalSubject,
@@ -52,6 +52,7 @@ import { PanelPage } from "../panel/PanelPage";
 import { setSpeakerOs, speakerOf } from "../panel/speaker";
 import type { Room } from "../panel/tuning";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
+import { useMarket, useMarkets } from "../market/markets";
 import { usePhotos } from "../viewer/Photos";
 import { surfacesOf } from "../viewer/Scene";
 import { Cafe } from "./Cafe";
@@ -108,7 +109,7 @@ function useNow(): Date {
 function rankingOf(own: string, ownScore: number | null, edition: number): RankRow[] {
   const era = eraOf(edition);
   const best = new Map<string, number>();
-  for (const r of RIVALS) {
+  for (const r of allRivals()) {
     if (eraOf(r.build.year) !== era) continue;
     try {
       const f = factsOf(rivalSubject(r));
@@ -285,6 +286,8 @@ export function useLaptopOs({
     () => [...KILNBENCH].reverse().find((e) => e.year <= build.year)?.year ?? KILNBENCH[0].year,
   );
   const [gameYear, setGameYear] = useState(() => gameEdition(build.year));
+  const markets = useMarkets();
+  useMarket(build.year, benchYear);
   const [preset, setPreset] = useState<Preset>("high");
   const benchR = useMemo(() => results(build, m, benchYear), [build, m, benchYear]);
   const gameR = useMemo(() => results(build, m, gameYear), [build, m, gameYear]);
@@ -439,9 +442,9 @@ export function useLaptopOs({
     // Only reviewed models have a review; an unreviewed one is not listed.
     return [
       ...library.map((x) => ({ subject: x, own: true })),
-      ...RIVALS.map((x) => ({ subject: rivalSubject(x), own: false })),
+      ...allRivals().map((x) => ({ subject: rivalSubject(x), own: false })),
     ];
-  }, [library]);
+  }, [library, markets]);
   const shown = useMemo(() => {
     if (app !== "web" || current === INDEX) return null;
     return entries.find((x) => x.subject.id === current)?.subject ?? subject;
@@ -455,7 +458,7 @@ export function useLaptopOs({
   }, [build]);
   const ranking = useMemo(
     () => rankingOf(cpuName, benchR?.bench.multi ?? null, benchYear),
-    [cpuName, benchR, benchYear],
+    [cpuName, benchR, benchYear, markets],
   );
   const gpuName = useMemo(() => {
     const g = CONTENT.parts.find((p) => p.id === build.parts.graphics?.[0]?.part);

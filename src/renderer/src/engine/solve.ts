@@ -45,7 +45,17 @@ import { bezelUnits, emit, spendOf, type Unit } from "./units";
 import { panelOf } from "./screen";
 
 const AXES: Axis[] = ["x", "y", "z"];
-const BLOCK_ROLES = new Set(["cpu", "gpu", "vrm", "chipset", "mem", "m2", "wlan", "bt", "tb"]);
+const BLOCK_ROLES = new Set([
+  "cpu",
+  "gpu",
+  "vrm",
+  "chipset",
+  "mem",
+  "m2",
+  "wlan",
+  "bt",
+  "tb",
+]);
 const EPS = 1e-9;
 /** Floor a vapour chamber's plate takes between the chips and the fans, mm. */
 const CHAMBER_PLATE = 10;
@@ -66,7 +76,9 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 /** Floor roles auto placement may turn a quarter or move to another zone the layout allows. */
-const MOVABLE = new Set<Role>(["drive", "battery", "spk"]);
+const MOVABLE = new Set<Role>(["drive", "battery", "spk", "odd"]);
+/** Movable roles that never turn: an optical tray must face its side wall. */
+const UPRIGHT = new Set<Role>(["odd"]);
 
 /** A movable part's place: a zone by name (absent: where its role goes) and a quarter turn. */
 interface Choice {
@@ -82,7 +94,8 @@ function slotOf(u: Unit): string {
   return `${cat}:${n}`;
 }
 
-const sameChoice = (a: Choice, b: Choice) => a.zone === b.zone && a.turn === b.turn;
+const sameChoice = (a: Choice, b: Choice) =>
+  a.zone === b.zone && a.turn === b.turn;
 
 /**
  * Solve a build into an assembly. Pure and deterministic: the same build
@@ -90,11 +103,19 @@ const sameChoice = (a: Choice, b: Choice) => a.zone === b.zone && a.turn === b.t
  * player left on auto are turned or moved where that needs a smaller base;
  * `auto: false` leaves them where the layout puts them.
  */
-export function solve(build: Build, content: Content = CONTENT, opts: { auto?: boolean } = {}): Fit {
+export function solve(
+  build: Build,
+  content: Content = CONTENT,
+  opts: { auto?: boolean } = {},
+): Fit {
   return solveAt(build, content, opts.auto === false ? "base" : null);
 }
 
-function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | null): Fit {
+function solveAt(
+  build: Build,
+  content: Content,
+  fixed: Arrangement | "base" | null,
+): Fit {
   const idx = indexContent(content);
   const body = idx.bodies.get(build.body);
   const layout = idx.layouts.get(build.layout);
@@ -133,8 +154,12 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
   const player = build.place ?? {};
   const report: PlaceReport = { ports: build.ports.map(() => null) };
   const padUnit = em.deck.find((u) => u.role === "pad");
-  const padW0: Range = padUnit ? [Math.round(padUnit.size.x * 0.6), Math.round(padUnit.size.x * 1.4)] : [0, 0];
-  const padD0: Range = padUnit ? [Math.round(padUnit.size.y * 0.6), Math.round(padUnit.size.y * 1.4)] : [0, 0];
+  const padW0: Range = padUnit
+    ? [Math.round(padUnit.size.x * 0.6), Math.round(padUnit.size.x * 1.4)]
+    : [0, 0];
+  const padD0: Range = padUnit
+    ? [Math.round(padUnit.size.y * 0.6), Math.round(padUnit.size.y * 1.4)]
+    : [0, 0];
   if (padUnit) {
     if (player.pad?.w) padUnit.size.x = clamp(player.pad.w, padW0[0], padW0[1]);
     if (player.pad?.d) padUnit.size.y = clamp(player.pad.d, padD0[0], padD0[1]);
@@ -162,7 +187,8 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
   // Sustained chip heat, shared over the fans.
   const sustained = (cat: "processor" | "graphics") => {
     const part = idx.parts.get(build.parts[cat]?.[0]?.part ?? "");
-    const own = build.power?.high?.[cat === "processor" ? "cpu" : "gpu"]?.sustained;
+    const own =
+      build.power?.high?.[cat === "processor" ? "cpu" : "gpu"]?.sustained;
     return part?.power ? Math.max(part.power.sustained, own ?? 0) : 0;
   };
   const chipWatts = sustained("processor") + sustained("graphics");
@@ -177,9 +203,17 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
   const fanUnit = em.floor.find((u) => u.role === "fan");
   let fanSide: number | undefined;
   if (fanUnit && fanWatts !== undefined) {
-    const band = clamp(build.size.z, body.limits.z[0], body.limits.z[1]) - off.bottom - Math.max(DB, off.top) - lift;
+    const band =
+      clamp(build.size.z, body.limits.z[0], body.limits.z[1]) -
+      off.bottom -
+      Math.max(DB, off.top) -
+      lift;
     const fz = clamp(band, fanUnit.size.z, era.fan.max.z);
-    fanSide = clamp(fanSideFor(fanWatts, fz), era.fan.min.x, (era.fan.min.x + era.fan.max.x) / 2);
+    fanSide = clamp(
+      fanSideFor(fanWatts, fz),
+      era.fan.min.x,
+      (era.fan.min.x + era.fan.max.x) / 2,
+    );
   }
   const floorCtx: PlanCtx = {
     gap,
@@ -211,23 +245,29 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
     if (!MOVABLE.has(u.role) || !u.part) continue;
     const key = slotOf(u);
     if (slots.has(key)) continue;
-    const zones = floorZones.filter((z) => z.name && (z.takes.includes(u.role) || z.may?.includes(u.role)));
+    const zones = floorZones.filter(
+      (z) => z.name && (z.takes.includes(u.role) || z.may?.includes(u.role)),
+    );
     const pinned = player.parts?.[key];
     const pin: Partial<Choice> = {};
-    if (pinned?.turn !== undefined) pin.turn = pinned.turn;
+    if (UPRIGHT.has(u.role)) pin.turn = false;
+    else if (pinned?.turn !== undefined) pin.turn = pinned.turn;
     const pz = zones.find((z) => z.zone === pinned?.zone);
     if (pz) pin.zone = pz.zone;
     slots.set(key, { role: u.role, zones, pin });
   }
   const base: Arrangement = {};
-  for (const [key, sl0] of slots) base[key] = { zone: sl0.pin.zone, turn: sl0.pin.turn ?? false };
+  for (const [key, sl0] of slots)
+    base[key] = { zone: sl0.pin.zone, turn: sl0.pin.turn ?? false };
   const arranged = (arr: Arrangement): Unit[] =>
     floorUnits.map((u) => {
       const c = MOVABLE.has(u.role) && u.part ? arr[slotOf(u)] : undefined;
       if (!c || (!c.zone && !c.turn)) return u;
       return {
         ...u,
-        size: c.turn ? { x: u.size.y, y: u.size.x, z: u.size.z } : { ...u.size },
+        size: c.turn
+          ? { x: u.size.y, y: u.size.x, z: u.size.z }
+          : { ...u.size },
         ...(c.zone ? { to: c.zone } : {}),
         ...(c.turn ? { turn: true } : {}),
       };
@@ -236,25 +276,56 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
   // Plans auto placement found that need a smaller base, checked in full at the end.
   let choice: Arrangement[] = [];
   if (fixed === null) {
-    const lmin = measure(lidPlan.root, deal(lidPlan.root, lidUnits).fills, flatCtx).mins.get(lidPlan.root) ?? { x: 0, y: 0 };
-    choice = arrange(slots, base, (arr) => {
-      // The plan minimum alone: floor and deck, the deck's hinge strip behind a rear battery.
-      const d = deal(layout.floor, arranged(arr));
-      const fl = measure(layout.floor, d.fills, floorCtx);
-      let strip = 0;
-      for (const f of fl.fills.values())
-        if (f.min && f.node.edge === "rear" && f.node.takes.includes("battery")) strip = Math.max(strip, f.min.y);
-      const deckUnits = em.deck.map((u) =>
-        u.role === "hinge-strip" ? { ...u, size: { ...u.size, y: Math.max(u.size.y, strip) } } : u,
-      );
-      const fmin = fl.mins.get(fl.root) ?? { x: 0, y: 0 };
-      const dmin = measure(deckPlan.root, deal(deckPlan.root, deckUnits).fills, flatCtx).mins.get(deckPlan.root) ?? { x: 0, y: 0 };
-      return {
-        x: Math.max(fmin.x + 2 * off.side, dmin.x + 2 * off.side, lmin.x + 2 * sl),
-        y: Math.max(fmin.y + 2 * off.side, dmin.y + 2 * off.side, lmin.y + 2 * sl),
-        lost: d.unplaced.length,
-      };
-    });
+    const lmin = measure(
+      lidPlan.root,
+      deal(lidPlan.root, lidUnits).fills,
+      flatCtx,
+    ).mins.get(lidPlan.root) ?? { x: 0, y: 0 };
+    choice = arrange(
+      slots,
+      base,
+      {
+        x: clamp(build.size.x, body.limits.x[0], body.limits.x[1]),
+        y: clamp(build.size.y, body.limits.y[0], body.limits.y[1]),
+      },
+      (arr) => {
+        // The plan minimum alone: floor and deck, the deck's hinge strip behind a rear battery.
+        const d = deal(layout.floor, arranged(arr));
+        const fl = measure(layout.floor, d.fills, floorCtx);
+        let strip = 0;
+        for (const f of fl.fills.values())
+          if (
+            f.min &&
+            f.node.edge === "rear" &&
+            f.node.takes.includes("battery")
+          )
+            strip = Math.max(strip, f.min.y);
+        const deckUnits = em.deck.map((u) =>
+          u.role === "hinge-strip"
+            ? { ...u, size: { ...u.size, y: Math.max(u.size.y, strip) } }
+            : u,
+        );
+        const fmin = fl.mins.get(fl.root) ?? { x: 0, y: 0 };
+        const dmin = measure(
+          deckPlan.root,
+          deal(deckPlan.root, deckUnits).fills,
+          flatCtx,
+        ).mins.get(deckPlan.root) ?? { x: 0, y: 0 };
+        return {
+          x: Math.max(
+            fmin.x + 2 * off.side,
+            dmin.x + 2 * off.side,
+            lmin.x + 2 * sl,
+          ),
+          y: Math.max(
+            fmin.y + 2 * off.side,
+            dmin.y + 2 * off.side,
+            lmin.y + 2 * sl,
+          ),
+          lost: d.unplaced.length,
+        };
+      },
+    );
   }
   const arr = fixed === null || fixed === "base" ? base : fixed;
   const floorArranged = arranged(arr);
@@ -266,10 +337,15 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
   for (const [key, sl0] of slots) {
     let at: ZoneNode | undefined;
     for (const f of floorDeal.fills.values())
-      if (!at && f.units.some((u) => u.part && MOVABLE.has(u.role) && slotOf(u) === key)) at = f.node;
+      if (
+        !at &&
+        f.units.some((u) => u.part && MOVABLE.has(u.role) && slotOf(u) === key)
+      )
+        at = f.node;
     report.parts[key] = {
       zone: at?.zone ?? "",
       turn: arr[key]?.turn ?? false,
+      turns: !UPRIGHT.has(sl0.role),
       zones: sl0.zones.map((z) => ({ id: z.zone, name: z.name ?? z.zone })),
     };
   }
@@ -335,13 +411,25 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
     const need = e === "x" ? minX : minY;
     if (size[e] >= need - 0.01) continue;
     const rest = floorUnits.filter((u) => u.role !== role);
-    const wm = m2(measure(layout.floor, deal(layout.floor, rest).fills, floorCtx));
-    const without = Math.max(wm[e] + 2 * off.side, dm[e] + 2 * off.side, lm[e] + 2 * sl);
+    const wm = m2(
+      measure(layout.floor, deal(layout.floor, rest).fills, floorCtx),
+    );
+    const without = Math.max(
+      wm[e] + 2 * off.side,
+      dm[e] + 2 * off.side,
+      lm[e] + 2 * sl,
+    );
     if (without >= need - 0.01) continue;
     for (const u of floorUnits) {
-      if (u.role !== role || !u.part || seenNoRoom.has(`${u.part}|${u.role}`)) continue;
+      if (u.role !== role || !u.part || seenNoRoom.has(`${u.part}|${u.role}`))
+        continue;
       seenNoRoom.add(`${u.part}|${u.role}`);
-      problems.push({ kind: "compat", code: "no-room", part: u.part, role: u.role });
+      problems.push({
+        kind: "compat",
+        code: "no-room",
+        part: u.part,
+        role: u.role,
+      });
     }
   }
   const FX = Math.max(size.x, minX);
@@ -374,12 +462,23 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
     const ky = clamp(player.kb?.y ?? 0, kbMin, kbMax);
     const autoGap = P ? K.at.y - (P.at.y + P.size.y) : 0;
     K.at.y -= ky;
-    report.kb = { y: ky, range: [kbMin, kbMax], hinge: rear - (K.at.y + K.size.y) };
+    report.kb = {
+      y: ky,
+      range: [kbMin, kbMax],
+      hinge: rear - (K.at.y + K.size.y),
+    };
     if (P) {
       const gMax = Math.max(MIN_GAP, K.at.y - front - P.size.y);
       const g = clamp(player.pad?.y ?? autoGap, MIN_GAP, gMax);
       P.at.y = K.at.y - g - P.size.y;
-      report.pad = { w: P.size.x, d: P.size.y, y: g, w0: padW0, d0: padD0, range: [MIN_GAP, gMax] };
+      report.pad = {
+        w: P.size.x,
+        d: P.size.y,
+        y: g,
+        w0: padW0,
+        d0: padD0,
+        range: [MIN_GAP, gMax],
+      };
     }
   }
   const coverOver = (
@@ -475,24 +574,33 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
     // the outer side wall.
     const units = placeUnits(fill, floorCtx, floorZ0, room);
     for (const u of units) {
-      if (!u.role.startsWith("port:") || u.src === undefined || !zone.edge) continue;
+      if (!u.role.startsWith("port:") || u.src === undefined || !zone.edge)
+        continue;
       const side = zone.edge;
       const e = alongAxis(side);
       // Centred on the outer side wall, from the bottom of the D panel to the top
       // of the C panel, kept inside the walls.
       const zLo = floorZ0 + floorCtx.lift;
       const zHi = F.z - off.top - u.size.z;
-      u.at.z = Math.min(Math.max(zLo, (F.z - u.size.z) / 2), Math.max(zLo, zHi));
+      u.at.z = Math.min(
+        Math.max(zLo, (F.z - u.size.z) / 2),
+        Math.max(zLo, zHi),
+      );
       if (report.ports[u.src]) continue;
       // along is to the connector's centre: from the rear on side walls, from the left otherwise.
       const c = u.at[e] + u.size[e] / 2;
       const fromRear = side === "left" || side === "right";
-      report.ports[u.src] = { along: fromRear ? F.y - c : c, height: u.at.z, box: `floor:${u.id}` };
+      report.ports[u.src] = {
+        along: fromRear ? F.y - c : c,
+        height: u.at.z,
+        box: `floor:${u.id}`,
+      };
     }
     for (const u of units) {
       // A hinge mount hangs under the top wall at the rear, where the lid
       // pivots, not on the floor. The zone's room already clears its height.
-      if (u.role === "hinge") u.at.z = Math.max(floorZ0, floorZ0 + room - u.size.z);
+      if (u.role === "hinge")
+        u.at.z = Math.max(floorZ0, floorZ0 + room - u.size.z);
       placedFloor.push(u);
       boxes.push(unitBox(u, "floor", zone.edge));
       if (u.skin)
@@ -605,13 +713,17 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
           f.at = { ...f.at, y: Math.min(y1, end) };
           f.size = { ...f.size, y: Math.max(0, end - y1) };
         }
-      } else if (player.panel && (f.node.zone === "panel" || f.node.zone.startsWith("bezel-"))) {
+      } else if (
+        player.panel &&
+        (f.node.zone === "panel" || f.node.zone.startsWith("bezel-"))
+      ) {
         f.at = { ...f.at, y: y0 };
         f.size = { ...f.size, y: h };
       }
     }
   }
-  const bandOf = (fill: (typeof lidFills)[number]) => bands.find((b) => b.fill === fill)?.band;
+  const bandOf = (fill: (typeof lidFills)[number]) =>
+    bands.find((b) => b.fill === fill)?.band;
   const seenBand = new Set<string>();
   for (const zone of zonesOf(lidPlan.root)) {
     const fill = lid.fills.get(zone);
@@ -655,7 +767,13 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
         const key = `${u.role}|${band}`;
         if (!fits && !seenBand.has(key)) {
           seenBand.add(key);
-          problems.push({ kind: "compat", code: "bezel-fit", part: u.part ?? u.id, role: u.role, band });
+          problems.push({
+            kind: "compat",
+            code: "bezel-fit",
+            part: u.part ?? u.id,
+            role: u.role,
+            band,
+          });
         }
       }
       boxes.push(
@@ -756,7 +874,9 @@ function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | n
     hits.add(k);
     problems.push({ kind: "compat", code: "overlap", part, with: what });
   };
-  const solid = boxes.filter((b) => b.kind === "unit" && !BLOCK_ROLES.has(String(b.role)));
+  const solid = boxes.filter(
+    (b) => b.kind === "unit" && !BLOCK_ROLES.has(String(b.role)),
+  );
   for (const id of moved) {
     const a = solid.find((b) => b.id === id);
     if (!a) continue;
@@ -864,22 +984,33 @@ function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
 /**
  * Plans that need a smaller base than the layout's own, best first: each slot
  * left on auto tries every zone it may sit in, turned and not, one slot at a
- * time from the best so far, twice over. A plan must need no more room on
- * either axis and lose no more parts than the layout's own; the smallest area wins.
+ * time from the best so far, twice over. A plan must lose no more parts than
+ * the layout's own, and need no more room on either axis, unless the layout's
+ * own overflows the chassis and the plan fits it. A plan that fits the chassis
+ * beats one that does not; then the smallest area wins.
  */
 function arrange(
   slots: Map<string, Slot>,
   base: Arrangement,
+  room: { x: number; y: number },
   planMin: (arr: Arrangement) => { x: number; y: number; lost: number },
 ): Arrangement[] {
-  const free = [...slots].filter(([, s]) => s.pin.zone === undefined || s.pin.turn === undefined);
+  const free = [...slots].filter(
+    ([, s]) => s.pin.zone === undefined || s.pin.turn === undefined,
+  );
   if (free.length === 0) return [];
   const own = planMin(base);
-  const area = (m: { x: number; y: number }) => m.x * m.y;
+  const inRoom = (m: { x: number; y: number }) =>
+    m.x <= room.x + 1e-6 && m.y <= room.y + 1e-6;
+  const area = (m: { x: number; y: number }) =>
+    (inRoom(m) ? 0 : 1e9) + m.x * m.y;
   const fits = (m: { x: number; y: number; lost: number }) =>
-    m.x <= own.x + 1e-6 && m.y <= own.y + 1e-6 && m.lost <= own.lost;
+    m.lost <= own.lost &&
+    ((m.x <= own.x + 1e-6 && m.y <= own.y + 1e-6) ||
+      (!inRoom(own) && inRoom(m)));
   const found: { arr: Arrangement; area: number; moves: number }[] = [];
-  const movesOf = (arr: Arrangement) => Object.keys(arr).filter((k) => !sameChoice(arr[k], base[k])).length;
+  const movesOf = (arr: Arrangement) =>
+    Object.keys(arr).filter((k) => !sameChoice(arr[k], base[k])).length;
   let best = base;
   let bestArea = area(own);
   for (let pass = 0; pass < 2; pass++) {
@@ -888,7 +1019,12 @@ function arrange(
       const zones: (string | undefined)[] =
         s.pin.zone !== undefined
           ? [s.pin.zone]
-          : [undefined, ...s.zones.filter((z) => !z.takes.includes(s.role)).map((z) => z.zone)];
+          : [
+              undefined,
+              ...s.zones
+                .filter((z) => !z.takes.includes(s.role))
+                .map((z) => z.zone),
+            ];
       const turns = s.pin.turn !== undefined ? [s.pin.turn] : [false, true];
       let next = best;
       for (const zone of zones)
@@ -899,7 +1035,12 @@ function arrange(
           const m = planMin(arr);
           if (!fits(m)) continue;
           const a = area(m);
-          if (a < area(own) - 1 && !found.some((f) => Object.keys(arr).every((k) => sameChoice(f.arr[k], arr[k]))))
+          if (
+            a < area(own) - 1 &&
+            !found.some((f) =>
+              Object.keys(arr).every((k) => sameChoice(f.arr[k], arr[k])),
+            )
+          )
             found.push({ arr, area: a, moves: movesOf(arr) });
           if (a < bestArea - 1) {
             bestArea = a;

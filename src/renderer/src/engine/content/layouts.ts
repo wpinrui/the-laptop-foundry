@@ -8,9 +8,9 @@ import type { Layout, Node, Plan } from "../types";
 // Cross-axis, every child stretches to its parent, so a zone reaches an outer
 // edge exactly when it is the first or last child on the way down that axis.
 
-// Layout A, "Battery front": battery row across the full front, fans venting
-// rear either side of the board, rear ports between the fans, side ports in
-// the rear block beside the hinges.
+// Layout A, "Battery front": battery row across the full front with the optical
+// bay at its right end, fans venting rear either side of the board, rear ports
+// between the fans, side ports in the rear block beside the hinges.
 const floorA: Node = {
   split: "y",
   children: [
@@ -35,6 +35,17 @@ const floorA: Node = {
           align: "centre",
         },
         { zone: "spk-r", takes: ["spk"], pack: "y", grow: 1, align: "centre" },
+        // The optical drive loads from the right side: here at the front
+        // corner, or in the rear row ahead of the right side ports.
+        {
+          zone: "optical-bay",
+          takes: ["odd"],
+          pack: "x",
+          grow: 0,
+          edge: "right",
+          capacity: 1,
+          name: "Battery row",
+        },
       ],
     },
     {
@@ -110,6 +121,16 @@ const floorA: Node = {
         {
           split: "y",
           children: [
+            {
+              zone: "optical-rear",
+              takes: [],
+              may: ["odd"],
+              pack: "x",
+              grow: 0,
+              edge: "right",
+              capacity: 1,
+              name: "Board row",
+            },
             {
               zone: "ports-right",
               takes: ["port:right"],

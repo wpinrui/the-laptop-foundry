@@ -655,7 +655,7 @@ export interface PlaceReport {
   cam?: { x: number; range: Range };
   panel?: { y: number; range: Range };
   /** Movable floor parts by slot: where each sits, and the zones it may sit in. */
-  parts?: Record<string, { zone: string; turn: boolean; zones: { id: string; name: string }[] }>;
+  parts?: Record<string, { zone: string; turn: boolean; turns: boolean; zones: { id: string; name: string }[] }>;
   /** One per build port, in build order. Null when the port was not placed. */
   ports: ({ along: number; height: number; box: string } | null)[];
 }

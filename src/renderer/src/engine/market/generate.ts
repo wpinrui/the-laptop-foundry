@@ -4,7 +4,7 @@ import { offeredGenerationIds } from "../content/chips/gens";
 import { activeArea } from "../content/display";
 import { pouchDensity, pouchShape } from "../battery";
 import { padLimits, padShapeOf } from "../pad";
-import { type Budget, classify, costOf, type PerfClass, weightOf } from "../price";
+import { type Budget, classify, costOf, type PerfClass, partPrice, weightOf } from "../price";
 import {
   defaultScreen,
   gamutsFor,
@@ -87,6 +87,10 @@ export interface Generated {
   ms: number;
   /** Problems left on the returned build: empty when valid. */
   problems: Problem[];
+  /** The line's price for the model, before any raise to cover its parts. */
+  listPrice: number;
+  /** The parts cost more than the line's price allows, so the price was raised. */
+  repriced: boolean;
 }
 
 export interface GeneratedModel extends Generated {
@@ -190,14 +194,24 @@ interface Ctx {
   step: Record<string, number>;
   /** Scales the processor and graphics power window down on thin fixes. */
   powerScale: number;
+  /** Percentile cuts per pick, taken to fit the parts budget. */
+  cut: Record<string, number>;
+  /** Shrinks that stick once a fix has taken them, so a later pick does not undo them. */
+  batteryShrink: number;
+  smallStorage: boolean;
+  lighter: boolean;
+  /** Picks the budget fit leaves alone: what a class fix just paid for. */
+  protect: Set<string>;
+  /** Actual cost over the estimate, last seen: the estimate lays the parts in a rough shell. */
+  costBias: number;
 }
 
 const BASE: Record<Budget, number> = { low: 0.2, midrange: 0.5, premium: 0.78 };
 const MEAN_WEIGHT = 1 / 12;
 
 /** Percentile for a part that serves a headline stat. */
-function pct(ctx: Ctx, stat: HeadlineStat, shift = 0): number {
-  return clamp01(ctx.trim + (ctx.line.priorities[stat] - MEAN_WEIGHT) * 1.5 + shift);
+function pct(ctx: Ctx, stat: HeadlineStat, shift = 0, key?: string): number {
+  return clamp01(ctx.trim + (ctx.line.priorities[stat] - MEAN_WEIGHT) * 1.5 + shift - (key ? (ctx.cut[key] ?? 0) : 0));
 }
 
 function personaOf(line: Line, shape: LineShape, year: number): Persona {
@@ -326,7 +340,7 @@ function pickCpu(ctx: Ctx, shift = 0): Part {
   const inWindow = list.filter((p) => (p.power?.rated ?? 0) >= lo && (p.power?.rated ?? 0) <= hi);
   if (inWindow.length > 0) list = inWindow;
   list = [...list].sort((a, b) => speedOf(a) - speedOf(b) || a.id.localeCompare(b.id));
-  return at(list, pct(ctx, "app", shift));
+  return at(list, pct(ctx, "app", shift, "cpu"));
 }
 
 function gpuWindow(ctx: Ctx): number {
@@ -357,7 +371,7 @@ function pickGpu(ctx: Ctx, cpu: Part, shift = 0): Part | undefined {
   // Gaming lines spread over the whole range by their place in it; others buy a modest part.
   const g = ctx.line.priorities.games;
   const p = ctx.who.gaming ? ctx.trim + (g - 0.3) * 2 : ctx.trim - 0.3 + g * 2;
-  return at(list, clamp01(p + shift));
+  return at(list, clamp01(p + shift - (ctx.cut.gpu ?? 0)));
 }
 
 const memoryCache = new Map<string, Part[]>();
@@ -385,13 +399,22 @@ function pickMemory(ctx: Ctx, cpu: Part): BuildPart {
   if (ctx.who.thin && list.some(soldered)) list = list.filter(soldered);
   else if (!ctx.who.thin && list.some((p) => !soldered(p))) list = list.filter((p) => !soldered(p));
   list = [...list].sort((a, b) => b.from - a.from || a.id.localeCompare(b.id));
-  const part = list[0] ?? fits[0] ?? partsIn("memory", ctx.year, false)[0];
-  const opts: Record<string, OptionValue> = {};
-  const cap = numericAt(optionValues(part, "capacity", ctx.year, provided), pct(ctx, "app", -0.1) * 0.9);
-  if (cap !== undefined) opts.capacity = cap;
-  const slots = optionValues(part, "slots", ctx.year);
-  if (slots.length > 0) opts.slots = ctx.who.thin && slots.includes(1) ? 1 : slots.includes(2) ? 2 : slots[0];
-  return Object.keys(opts).length > 0 ? { part: part.id, opts } : { part: part.id };
+  const cut = ctx.cut.memory ?? 0;
+  const build = (part: Part): BuildPart => {
+    const opts: Record<string, OptionValue> = {};
+    const cap = numericAt(optionValues(part, "capacity", ctx.year, provided), pct(ctx, "app", -0.1, "memory") * 0.9);
+    if (cap !== undefined) opts.capacity = cap;
+    const slots = optionValues(part, "slots", ctx.year);
+    // A tight budget fills one slot.
+    if (slots.length > 0) opts.slots = (ctx.who.thin || cut >= 0.9) && slots.includes(1) ? 1 : slots.includes(2) ? 2 : slots[0];
+    return Object.keys(opts).length > 0 ? { part: part.id, opts } : { part: part.id };
+  };
+  // A tight budget buys the cheapest kind the platform takes rather than the newest.
+  if (cut >= 0.6 && list.length > 1) {
+    const priced = list.filter((p) => p.id !== "lpddr5x-on-package").map((p) => ({ bp: build(p), usd: partPrice("memory", build(p), ctx.year) }));
+    if (priced.length > 0) return priced.reduce((a, b) => (b.usd < a.usd ? b : a)).bp;
+  }
+  return build(list[0] ?? fits[0] ?? partsIn("memory", ctx.year, false)[0]);
 }
 
 /** A new processor, with memory and graphics that go with it. */
@@ -427,17 +450,19 @@ const bayDrive = (p: Part) => {
   return s.kind === "box" && s.units.some((u) => u.size.z >= 7);
 };
 
-function pickStorage(ctx: Ctx, small = false): BuildPart[] {
+function pickStorage(ctx: Ctx, small = false, count?: number): BuildPart[] {
+  if (small) ctx.smallStorage = true;
+  small = ctx.smallStorage;
   let list = partsIn("storage", ctx.year, false);
   if ((ctx.who.thin || small) && list.some((p) => !bayDrive(p))) list = list.filter((p) => !bayDrive(p));
   // One in ten of every gen: the smallest M.2 cards are for tablets and handhelds.
   if (list.some((p) => p.id !== "m2-2230-g4" && p.id !== "m2-2242-g4"))
     list = list.filter((p) => p.id !== "m2-2230-g4" && p.id !== "m2-2242-g4");
   list = [...list].sort((a, b) => storageRank(a) - storageRank(b) || a.id.localeCompare(b.id));
-  const part = at(list, pct(ctx, "app", -0.05));
-  const cap = numericAt(optionValues(part, "capacity", ctx.year), pct(ctx, "app", -0.15));
+  const part = at(list, pct(ctx, "app", -0.05, "storage"));
+  const cap = numericAt(optionValues(part, "capacity", ctx.year), pct(ctx, "app", -0.15, "storage"));
   const one: BuildPart = cap !== undefined ? { part: part.id, opts: { capacity: cap } } : { part: part.id };
-  const two = ctx.who.large && !small && ctx.rng() < 0.4;
+  const two = count !== undefined ? count > 1 && !small : ctx.who.large && !small && ctx.rng() < 0.4;
   return two ? [one, { ...one }] : [one];
 }
 
@@ -457,19 +482,22 @@ function panelScore(p: PanelOption): number {
   return ppiOf(p.inches, p.res) * Math.sqrt(p.nits) * (1 + (GAMUT_RANK[p.gamut] ?? 0) * 0.3) * bonus * (1 + Math.max(...p.refresh) / 600);
 }
 
-function pickScreen(ctx: Ctx, towardSmall = false): ScreenSpec {
+function pickScreen(ctx: Ctx, towardSmall = false, keep?: number): ScreenSpec {
   const [lo, hi] = ctx.shape.screen;
   const year = ctx.year;
   const rows = panelsFor(year).filter((p) => p.inches >= lo - 0.06 && p.inches <= hi + 0.06 && kindAvailable(kindOf(p), year));
   const sizes = [...new Set(rows.map((p) => p.inches))].sort((a, b) => a - b);
-  const pd = pct(ctx, "display");
+  const pd = pct(ctx, "display", 0, "screen");
   let spec: ScreenSpec;
   let rowNits: number | undefined;
   let rowGamut: string | undefined;
   if (sizes.length > 0) {
     // Thin lines lean small, large and gaming lines lean big.
     const lean = towardSmall ? 0 : ctx.who.thin ? 0.3 : ctx.who.large || ctx.who.gaming ? 0.75 : 0.5;
-    const diag = at(sizes, clamp01(lean + (ctx.rng() - 0.5) * 0.7));
+    const diag =
+      keep !== undefined
+        ? sizes.reduce((a, b) => (Math.abs(b - keep) < Math.abs(a - keep) ? b : a))
+        : at(sizes, clamp01(lean + (ctx.rng() - 0.5) * 0.7));
     const same = rows.filter((p) => p.inches === diag).sort((a, b) => panelScore(a) - panelScore(b) || a.id.localeCompare(b.id));
     const row = at(same, pd);
     const rates = [...row.refresh].sort((a, b) => a - b);
@@ -480,7 +508,7 @@ function pickScreen(ctx: Ctx, towardSmall = false): ScreenSpec {
   } else {
     // No panel sold in the line's range that year: a custom one at the nearest size the line used.
     const base = defaultScreen(year);
-    const diag = Math.round((towardSmall ? lo : lerp(lo, hi, ctx.rng())) * 10) / 10;
+    const diag = keep ?? Math.round((towardSmall ? lo : lerp(lo, hi, ctx.rng())) * 10) / 10;
     const kind = base.panel;
     const res = standardResolutions(base.ratio, diag, year, kind);
     spec = { ...base, diag, res: res.length > 0 ? at(res, pd) : base.res };
@@ -504,10 +532,12 @@ function activeWidth(s: ScreenSpec): number {
 
 function pickBattery(ctx: Ctx, screen: ScreenSpec, shrink = 0): BuildPart {
   const year = ctx.year;
+  shrink = Math.max(shrink, ctx.batteryShrink);
+  ctx.batteryShrink = shrink;
   const list = partsIn("battery", year, false);
   const cells = list.find((p) => firstShape(p).kind === "cells");
   const pouches = list.filter((p) => firstShape(p).kind === "pouch").sort((a, b) => b.from - a.from);
-  const pb = clamp01(pct(ctx, "battery") - shrink);
+  const pb = clamp01(pct(ctx, "battery", 0, "battery") - shrink);
   const useCells = cells && (pouches.length === 0 || (!ctx.who.thin && (year < 2010 || (year < 2013 && ctx.pos < 0.5))));
   if (useCells) {
     const counts = optionValues(cells, "cells", year);
@@ -858,12 +888,14 @@ const PALETTE: Record<string, string[]> = {
 };
 
 function pickMaterials(ctx: Ctx, lighter = false): Record<Piece, string> {
+  if (lighter) ctx.lighter = true;
+  lighter = ctx.lighter;
   const era = eraFor(ctx.year);
   const ok = (m: string, piece: Piece) => {
     const mat = CONTENT.materials.find((x) => x.id === m);
     return !!mat && available(mat, ctx.year) && !!era.pieces[m]?.includes(piece);
   };
-  const c = pct(ctx, "chassis");
+  const c = pct(ctx, "chassis", 0, "materials");
   const who = ctx.who;
   let pick: [string, string, string];
   if (who.apple) pick = ctx.line.id === "apple-macbook" && ctx.year < 2015 ? ["plastic", "plastic", "plastic"] : ["aluminium", "aluminium", "aluminium"];
@@ -967,6 +999,247 @@ function pricedAtCost(build: Build, fit: Fit): Build {
   return { ...build, price: Math.ceil((floor + 1) / 50) * 50 - 1 };
 }
 
+// ------------------------------------------------------------------ parts budget
+
+/**
+ * The share of its price a line spends on parts: a budget or midrange machine
+ * about 55 to 70 percent, a premium one 45 to 60, the rest being margin the
+ * brand is paid for. The picks aim under this, and a class fix may spend up to
+ * the hard ceiling before the line would have to raise its price.
+ */
+function shareOf(ctx: Ctx): number {
+  return ctx.who.budget === "premium" ? 0.58 : 0.66;
+}
+const HARD_SHARE = MAX_COST_SHARE - 0.015;
+
+/** A cheap cost estimate: the parts in a shell sized from the panel, no solve. */
+function estimate(ctx: Ctx, c: Choices): number {
+  return rawEstimate(assemble(ctx, c, { x: 0, y: 0, z: 0 })) * ctx.costBias;
+}
+
+function rawEstimate(build: Build): number {
+  const lim = CONTENT.bodies.find((b) => b.id === build.body)?.limits ?? { x: [240, 450], y: [160, 330], z: [8, 55] };
+  const screen = build.screen ?? defaultScreen(build.year);
+  const area = activeArea({ inches: screen.diag, aspect: screen.ratio } as PanelOption);
+  const size: Size = {
+    x: clamp(up(area.x + 2 * screen.bezel + 6), lim.x[0], lim.x[1]),
+    y: clamp(up(area.y + 40), lim.y[0], lim.y[1]),
+    z: 15,
+  };
+  return costOf({ ...build, size }, { frame: size } as Fit).total;
+}
+
+const SPEND_COMPACT = ["battery", "keyboard", "trackpad", "cooling", "processor"] as const;
+
+interface Move {
+  /** The pick it touches, for protection. */
+  key: string;
+  /** How much the line cares about what it gives up. */
+  weight: number;
+  apply: (c: Choices) => boolean;
+}
+
+/** Every one-step saving the budget fit may take. */
+function movesOf(ctx: Ctx): Move[] {
+  const w = ctx.line.priorities;
+  /** Cut a pick's percentile until the pick changes, or give up. */
+  const recut = (key: string, pick: () => string, d = 0.15): boolean => {
+    const before = pick();
+    for (let i = 0; i < 6; i++) {
+      if ((ctx.cut[key] ?? 0) >= 1.2) return false;
+      ctx.cut[key] = (ctx.cut[key] ?? 0) + d;
+      if (pick() !== before) return true;
+    }
+    return false;
+  };
+  const moves: Move[] = [
+    {
+      key: "cpu",
+      weight: w.app,
+      apply: (c) =>
+        recut("cpu", () => {
+          const cpu = pickCpu(ctx);
+          if (cpu.id !== c.cpu.id) setCpu(ctx, c, cpu);
+          return c.cpu.id;
+        }),
+    },
+    {
+      key: "gpu",
+      weight: w.games + (ctx.who.gaming ? 0.1 : 0),
+      apply: (c) => {
+        if (!c.gpu) return false;
+        const done = recut("gpu", () => {
+          c.gpu = pickGpu(ctx, c.cpu);
+          return c.gpu?.id ?? "";
+        });
+        // A line that does not sell on games drops the chip once the cheapest one is still too dear.
+        if (!done && !ctx.who.gaming) c.gpu = undefined;
+        c.cooling = pickCooling(ctx, c.cpu, c.gpu);
+        return done || !c.gpu;
+      },
+    },
+    {
+      key: "memory",
+      weight: w.app * 0.8,
+      apply: (c) =>
+        recut("memory", () => {
+          c.memory = pickMemory(ctx, c.cpu);
+          return JSON.stringify(c.memory);
+        }),
+    },
+    {
+      key: "storage",
+      weight: w.app * 0.6,
+      apply: (c) => {
+        if (c.storage.length > 1) {
+          c.storage = c.storage.slice(0, 1);
+          return true;
+        }
+        return recut("storage", () => {
+          c.storage = pickStorage(ctx, false, 1);
+          return JSON.stringify(c.storage);
+        });
+      },
+    },
+    {
+      key: "screen",
+      weight: w.display,
+      apply: (c) =>
+        recut("screen", () => {
+          c.screen = pickScreen(ctx, false, c.screen.diag);
+          return JSON.stringify(c.screen);
+        }),
+    },
+    {
+      key: "battery",
+      weight: w.battery,
+      apply: (c) =>
+        recut("battery", () => {
+          c.battery = pickBattery(ctx, c.screen);
+          return JSON.stringify(c.battery);
+        }),
+    },
+    {
+      key: "materials",
+      weight: w.chassis,
+      apply: (c) => {
+        const done = recut("materials", () => {
+          c.materials = pickMaterials(ctx);
+          return JSON.stringify(c.materials);
+        });
+        if (done) c.finish = pickFinish(ctx, c.materials);
+        return done;
+      },
+    },
+    {
+      key: "ports",
+      weight: w.connectivity,
+      apply: (c) => {
+        const ports = thinPorts(c.ports, ctx.year);
+        if (ports.length === c.ports.length && ports.every((p, i) => p.part === c.ports[i].part)) return false;
+        c.ports = ports;
+        return true;
+      },
+    },
+    {
+      key: "optical",
+      weight: 0.05,
+      apply: (c) => {
+        if (!c.optical) return false;
+        c.optical = undefined;
+        return true;
+      },
+    },
+  ];
+  for (const k of QUALITY_KEYS)
+    moves.push({
+      key: "quality",
+      weight: w[QUALITY_STAT[k] ?? "chassis"],
+      apply: (c) => {
+        const q = c.quality[k] ?? 0;
+        if (q <= 0) return false;
+        const next = Math.round(Math.max(0, q - 0.2) * 20) / 20;
+        if (next > 0) c.quality[k] = next;
+        else delete c.quality[k];
+        return true;
+      },
+    });
+  const lower = (keys: readonly string[]) => (c: Choices) => {
+    let any = false;
+    for (const k of keys) {
+      const v = c.spend[k as keyof Build["spend"]] ?? 0;
+      if (v <= 0) continue;
+      c.spend[k as keyof Build["spend"]] = Math.round(Math.max(0, v - 0.2) * 20) / 20;
+      any = true;
+    }
+    return any;
+  };
+  moves.push(
+    { key: "spend", weight: w.chassis, apply: lower(["material"]) },
+    { key: "spend", weight: w.portability, apply: lower(["packing"]) },
+    { key: "spend", weight: w.portability, apply: lower(SPEND_COMPACT) },
+  );
+  return moves;
+}
+
+/**
+ * Cut the picks until the estimate fits the budget, each step taking the
+ * saving that costs the line least of what it cares about per dollar.
+ */
+function fitBudget(ctx: Ctx, c: Choices, share = shareOf(ctx)): void {
+  const cap = c.price * share;
+  let cost = estimate(ctx, c);
+  for (let i = 0; i < 24 && cost > cap; i++) {
+    let best: { score: number; move: Move; cost: number } | undefined;
+    for (const move of movesOf(ctx)) {
+      if (ctx.protect.has(move.key)) continue;
+      const saved = { cut: { ...ctx.cut }, batteryShrink: ctx.batteryShrink, smallStorage: ctx.smallStorage, lighter: ctx.lighter };
+      const trial = clone(c);
+      const rng = ctx.rng;
+      ctx.rng = () => 0.5;
+      const ok = move.apply(trial);
+      ctx.rng = rng;
+      Object.assign(ctx, saved);
+      if (!ok) continue;
+      const after = estimate(ctx, trial);
+      const saving = cost - after;
+      if (saving <= 0.5) continue;
+      const score = saving / (move.weight + 0.03);
+      if (!best || score > best.score) best = { score, move, cost: after };
+    }
+    if (!best) return;
+    best.move.apply(c);
+    cost = estimate(ctx, c);
+  }
+}
+
+/**
+ * Raise the compaction, packing and material spend as far toward `level` as
+ * the budget allows. Returns false when it could not raise them at all.
+ */
+function spendWithin(ctx: Ctx, c: Choices, level: number, share: number): boolean {
+  const cap = c.price * share;
+  const now = c.spend;
+  const at = (l: number): Build["spend"] => {
+    const out: Build["spend"] = { ...now };
+    out.packing = Math.max(now.packing ?? 0, l);
+    out.material = Math.max(now.material ?? 0, Math.min(l, 1));
+    for (const k of SPEND_COMPACT) out[k] = Math.max(now[k] ?? 0, Math.round(l * 0.9 * 20) / 20);
+    return out;
+  };
+  let got: Build["spend"] | undefined;
+  for (let l = level; l > 0.05; l -= 0.1) {
+    const spend = at(Math.round(l * 20) / 20);
+    if (estimate(ctx, { ...c, spend }) <= cap) {
+      got = spend;
+      break;
+    }
+  }
+  if (!got || JSON.stringify(got) === JSON.stringify(now)) return false;
+  c.spend = got;
+  return true;
+}
+
 // ------------------------------------------------------------------ first picks
 
 function firstChoices(ctx: Ctx): Choices {
@@ -983,7 +1256,7 @@ function firstChoices(ctx: Ctx): Choices {
   const materials = pickMaterials(ctx);
   const w = ctx.line.priorities;
   const loose = clamp01(1 - w.portability * 4);
-  return {
+  const c: Choices = {
     body,
     layout,
     cpu,
@@ -1011,11 +1284,13 @@ function firstChoices(ctx: Ctx): Choices {
       ? { x: 0, y: 0, z: 0 }
       : { x: Math.round(ctx.rng() * 4 * loose), y: Math.round(ctx.rng() * 10 * loose), z: Math.round((0.5 + ctx.rng() * 2.5) * loose * 2) / 2 },
   };
+  fitBudget(ctx, c);
+  return c;
 }
 
 /** The plainest build the year allows: a last resort when the line's own picks never fit. */
 function safeChoices(ctx: Ctx): Choices {
-  const plain: Ctx = { ...ctx, trim: 0.3, who: { ...ctx.who, thin: false, gaming: false, large: false, perf: "office", silicon: false }, powerScale: 1, vendor: "intel" };
+  const plain: Ctx = { ...ctx, trim: 0.3, who: { ...ctx.who, thin: false, gaming: false, large: false, perf: "office", silicon: false }, powerScale: 1, vendor: "intel", cut: {}, batteryShrink: 0, smallStorage: false, lighter: false };
   const cpu = pickCpu(plain);
   const screen = pickScreen(plain, true);
   const layout = "a";
@@ -1264,24 +1539,39 @@ interface Miss {
   thick: boolean;
   big: boolean;
   slow: boolean;
+  /** Parts past the line's budget. */
+  dear: boolean;
 }
 
 /** How far the valid build is from its class: thin enough, not too big, fast enough. */
 function missOf(ctx: Ctx, build: Build, fit: Fit, t: Tally): Miss {
-  t.sims++;
-  const m = simulate(build, fit, CONTENT);
-  const cls = classify(build, fit, m, weightOf(build, fit, CONTENT));
   const target = ctx.shape.class;
+  const needsSim = target.performance !== "office";
+  if (needsSim) t.sims++;
+  const m = needsSim ? simulate(build, fit, CONTENT) : ({} as ReturnType<typeof simulate>);
+  const cls = classify(build, fit, m, weightOf(build, fit, CONTENT));
   const thick = target.body === "thin and light" && cls.body !== "thin and light";
   // A medium machine far thicker than the year's thin ones counts as too big too.
   const thickness = fit.frame.z + fit.lidZ;
   const bulky = cls.body === "medium" && thickness > thinMm(ctx.year) * 1.5;
   const big = target.body === "medium" && (cls.body === "large" || bulky);
   const slow = cls.performance !== null && PERF_RANK[cls.performance] < PERF_RANK[target.performance];
-  return { score: (thick ? 2 : 0) + (big ? 1 : 0) + (slow ? PERF_RANK[target.performance] - PERF_RANK[cls.performance ?? "office"] : 0), thick, big, slow };
+  const cost = costOf(build, fit).total;
+  // Calibrate the estimate against the real shell.
+  ctx.costBias = clamp(cost / Math.max(1, rawEstimate(build)), 0.8, 1.3);
+  const price = build.price ?? 1;
+  const dear = cost > price * shareOf(ctx);
+  const penalty = cost > price * MAX_COST_SHARE ? 1.5 : dear ? 0.25 : 0;
+  return {
+    score: (thick ? 2 : 0) + (big ? 1 : 0) + (slow ? PERF_RANK[target.performance] - PERF_RANK[cls.performance ?? "office"] : 0) + penalty,
+    thick,
+    big,
+    slow,
+    dear,
+  };
 }
 
-/** One swap toward the line's class, or undefined when nothing is left to try. */
+/** One swap toward the line's class or its budget, or undefined when nothing is left to try. */
 function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
   const c = clone(c0);
   const bump = (k: string) => {
@@ -1291,45 +1581,76 @@ function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
   if (miss.slow) {
     const s = bump("slow");
     if (s > 3) return undefined;
+    // Speed is the class: give back what the budget fit took from the chips.
+    delete ctx.cut.cpu;
+    delete ctx.cut.gpu;
     if (!c.gpu && c.cpu.provides?.includes("dgpu")) c.gpu = pickGpu(ctx, c.cpu, ctx.who.gaming ? 0 : -0.3);
     else if (c.gpu) c.gpu = pickGpu(ctx, c.cpu, 0.2 * (s + 1));
     else setCpu(ctx, c, pickCpu(ctx, 0.2 * (s + 1)));
     c.cooling = pickCooling(ctx, c.cpu, c.gpu, s > 0 ? 1 : 0);
+    // Pay for the speed out of the rest of the machine.
+    ctx.protect.add("cpu").add("gpu");
+    fitBudget(ctx, c);
     return c;
   }
   if (miss.thick || miss.big) {
-    switch (bump("thin")) {
-      case 0:
-        c.spend = pickSpend(ctx, true);
-        c.slack = { x: 0, y: 0, z: 0 };
-        c.sig = 0;
-        return c;
-      case 1:
-        c.ports = thinPorts(c.ports, ctx.year);
-        return c;
-      case 2:
-        c.battery = pickBattery(ctx, c.screen, 0.3);
-        c.optical = undefined;
-        c.storage = pickStorage(ctx, true);
-        c.speakers = pickSpeakers(ctx, true);
-        return c;
-      case 3:
-        c.materials = pickMaterials(ctx, true);
-        c.finish = pickFinish(ctx, c.materials);
-        return c;
-      case 4:
-        ctx.powerScale *= 0.6;
-        c.gpu = ctx.who.gaming ? c.gpu : undefined;
-        setCpu(ctx, c, pickCpu(ctx), -0.2);
-        c.keyboard = pickKeyboard(ctx, c.screen, true);
-        return c;
-      case 5:
-        c.screen = pickScreen(ctx, true);
-        c.battery = pickBattery(ctx, c.screen, 0.4);
-        return c;
-      default:
-        return undefined;
+    // Thinness by the cheap means first: fewer ports, a smaller battery and drives, cooler parts.
+    // Compaction spend only as far as the budget allows, and past it only to the hard ceiling.
+    for (;;) {
+      const s = bump("thin");
+      switch (s) {
+        case 0:
+          c.slack = { x: 0, y: 0, z: 0 };
+          c.sig = 0;
+          c.ports = thinPorts(c.ports, ctx.year);
+          break;
+        case 1:
+          c.battery = pickBattery(ctx, c.screen, 0.3);
+          c.optical = undefined;
+          c.storage = pickStorage(ctx, true);
+          c.speakers = pickSpeakers(ctx, true);
+          break;
+        case 2:
+          ctx.powerScale *= 0.6;
+          c.gpu = ctx.who.gaming ? c.gpu : undefined;
+          setCpu(ctx, c, pickCpu(ctx), -0.2);
+          c.keyboard = pickKeyboard(ctx, c.screen, true);
+          break;
+        case 3:
+          fitBudget(ctx, c);
+          if (!spendWithin(ctx, c, 0.6, shareOf(ctx))) continue;
+          ctx.protect.add("spend");
+          return c;
+        case 4:
+          if (ctx.lighter) continue;
+          c.materials = pickMaterials(ctx, true);
+          c.finish = pickFinish(ctx, c.materials);
+          ctx.protect.add("materials");
+          break;
+        case 5:
+          fitBudget(ctx, c);
+          if (!spendWithin(ctx, c, 1, shareOf(ctx))) continue;
+          ctx.protect.add("spend");
+          return c;
+        case 6:
+          c.screen = pickScreen(ctx, true);
+          c.battery = pickBattery(ctx, c.screen, 0.4);
+          break;
+        case 7:
+          if (!spendWithin(ctx, c, 1, HARD_SHARE)) continue;
+          ctx.protect.add("spend");
+          return c;
+        default:
+          return undefined;
+      }
+      fitBudget(ctx, c);
+      return c;
     }
+  }
+  if (miss.dear) {
+    const before = JSON.stringify(c);
+    fitBudget(ctx, c);
+    return JSON.stringify(c) === before || bump("dear") > 3 ? undefined : c;
   }
   return undefined;
 }
@@ -1352,6 +1673,12 @@ export function generateModel(line: Line, year: number, rng: Rng): Generated {
     vendor: (rng() < 0.7 ? vendors[0] : vendors[Math.floor(rng() * vendors.length) % vendors.length]) ?? "intel",
     step: {},
     powerScale: 1,
+    cut: {},
+    batteryShrink: 0,
+    smallStorage: false,
+    lighter: false,
+    protect: new Set(),
+    costBias: 1,
   };
   const t: Tally = { solves: 0, sims: 0, start };
   let c: Choices | undefined = firstChoices(ctx);
@@ -1376,15 +1703,23 @@ export function generateModel(line: Line, year: number, rng: Rng): Generated {
     if (miss.score === 0) break;
     c = fixPriority(ctx, c, miss);
   }
-  if (best) return { build: pricedAtCost(best.build, best.fit), valid: true, fallback: false, solves: t.solves, sims: t.sims, ms: performance.now() - start, problems: [] };
+  if (best) {
+    const build = pricedAtCost(best.build, best.fit);
+    const listPrice = best.build.price ?? 0;
+    return { build, valid: true, fallback: false, solves: t.solves, sims: t.sims, ms: performance.now() - start, problems: [], listPrice, repriced: build.price !== listPrice };
+  }
   // Nothing the line picked came out clean: the plainest build the year allows.
   const st: Tally = { solves: 0, sims: 0, start };
   const safe = settle({ ...ctx, step: {} }, safeChoices(ctx), st);
   t.solves += st.solves;
   const ok = safe.fit.problems.length === 0;
   const out = ok ? safe : (last ?? safe);
+  const build = pricedAtCost(out.build, out.fit);
+  const listPrice = out.build.price ?? 0;
   return {
-    build: pricedAtCost(out.build, out.fit),
+    build,
+    listPrice,
+    repriced: build.price !== listPrice,
     valid: ok,
     fallback: true,
     solves: t.solves,

@@ -7,7 +7,8 @@ import { singleAt } from "../sim/curves";
 import { specs as specsOf } from "../sim/specs";
 import { solve } from "../solve";
 import type { Build, Fit, Part } from "../types";
-import { BASS_K, BASS_RANGE, DSP_BASS, DSP_FROM, GRILL_LOSS, LOUD_WATTS, SPEAKER_WATTS, SPEAKER_WATTS_DEFAULT } from "../../panel/tuning";
+import { BASS_RANGE, GRILL_LOSS, LOUD_WATTS } from "../../panel/tuning";
+import { speakerModel } from "../speaker";
 import type { HeadlineStat } from "./types";
 
 // The market score's headline stats (GDD, Version 0.2, "Market score"): one
@@ -86,7 +87,7 @@ function opt(build: Build, cat: keyof Build["parts"], part: Part | undefined, ke
  * (Cinebench R23 scale), both at the sustained power after 30 minutes. Before
  * the cooling can be simulated, the boost figures stand in.
  */
-function appOf(build: Build, m: Measurements, content: Content): number {
+export function appOf(build: Build, m: Measurements, content: Content): number {
   const c = m.cooling;
   const p = m.performance;
   if (!p) return 0;
@@ -101,7 +102,7 @@ function appOf(build: Build, m: Measurements, content: Content): number {
  * edition at the high preset, each capped at FPS_CAP. A game that refuses to
  * run counts 0.
  */
-function gamesOf(r: Results | null): number {
+export function gamesOf(r: Results | null): number {
   if (!r || r.games.length === 0) return 0;
   let sum = 0;
   for (const g of r.games) {
@@ -112,7 +113,7 @@ function gamesOf(r: Results | null): number {
 }
 
 /** Battery life: hours of web browsing in the balanced profile, the review's test. */
-function batteryOf(m: Measurements): number {
+export function batteryOf(m: Measurements): number {
   const b = m.battery;
   return b ? (b.runtime[b.balanced]?.web ?? 0) : 0;
 }
@@ -130,7 +131,7 @@ function batteryOf(m: Measurements): number {
  *   3 / (3 + mean DeltaE)                 accuracy
  *   sqrt(uniformity)                      evenness
  */
-function displayOf(build: Build, m: Measurements, content: Content): number {
+export function displayOf(build: Build, m: Measurements, content: Content): number {
   const lab = m.lab.display;
   const panel = panelOf(build, content);
   if (!lab || !panel) return 0;
@@ -156,7 +157,7 @@ function displayOf(build: Build, m: Measurements, content: Content): number {
  * Chassis and build: the case's durability index (materials and material
  * spend, lid weighted most), 0 to 1.
  */
-function chassisOf(m: Measurements): number {
+export function chassisOf(m: Measurements): number {
   // Build-quality specs from the audit (a chassis quality or design figure,
   // if one lands) multiply in here.
   return m.durability.index;
@@ -179,53 +180,50 @@ const LIGHT: Record<string, number> = {
  *   pitch / 19                           full-size pitch is 1
  *   lighting, 1 to 1.12                  see LIGHT
  *   mechanical 1.1, numpad 1.03
- *   0.8 + 0.2 x deck durability          a stiff deck flexes less
+ *   1 / (1 + 0.3 x wobble in mm)         loose keys rattle
+ *   0.8 + 0.4 x snap                     a crisp tactile bump
+ *   1 - 0.01 x |force - 58 g|            too light or too heavy
+ *   1 - 0.01 x force spread in %         uneven keys
+ *   1 / (1 + 0.25 x deck flex in mm)     a stiff deck
  */
-function keyboardOf(build: Build, m: Measurements, content: Content): number {
+export function keyboardOf(build: Build, _m: Measurements, content: Content): number {
   const kb = specsOf(build, content).keyboard;
   if (!kb) return 0;
-  // Audit K1 adds key wobble (mm), snap ratio (%), actuation force (g) and
-  // deck flex (mm) as specs. Each becomes one more factor here; deck flex
-  // replaces the durability term below.
   return (
     Math.sqrt(kb.travel + 0.5) *
     (kb.pitch / 19) *
     (LIGHT[kb.light] ?? 1) *
     (kb.mechanical ? 1.1 : 1) *
     (kb.numpad ? 1.03 : 1) *
-    (0.8 + 0.2 * m.durability.deck)
+    (1 / (1 + 0.3 * kb.wobble)) *
+    (0.8 + (0.4 * kb.snap) / 100) *
+    (1 - 0.01 * Math.abs(kb.force - 58)) *
+    (1 - 0.01 * kb.forceSpread) *
+    (1 / (1 + 0.25 * kb.flex))
   );
 }
 
-/** From this year a pad with no finish chosen is glass (types.ts, Build.pad). */
-const GLASS_FROM = 2015;
-
 /**
- * Trackpad:
+ * Trackpad, from the specs:
  *   sqrt(area in cm2)                    the pad as fitted, after the size sliders
  *   haptic 1.2, clickpad 1.1, separate buttons 1
- *   glass 1.1, matte plastic 1
+ *   0.85 + 0.15 x clickable share        clickpads that click only near the bottom
+ *   1.2 - 0.6 x friction                 glass glides, mylar drags
+ *   1 / (1 + rattle in mm)               play before the click
+ *   Precision drivers 1.1
  *   pointing stick 1.05
  */
-function trackpadOf(build: Build, fit: Fit, content: Content): number {
-  const part = partIn(build, "trackpad", content);
-  if (!part) return 0;
-  const shape = !Array.isArray(part.shape) && part.shape.kind === "pad" ? part.shape : undefined;
-  const w = fit.place.pad?.w ?? shape?.x ?? 0;
-  const d = fit.place.pad?.d ?? shape?.y ?? 0;
-  const mechanism = opt(build, "trackpad", part, "mechanism");
-  const buttons = opt(build, "trackpad", part, "buttons");
-  const stick = opt(build, "trackpad", part, "stick") === "yes";
-  const glass = (build.pad?.finish ?? (build.year >= GLASS_FROM ? "glass" : "matte")) === "glass";
-  // Audit T1 to T5 turn the parts into the technology (buttons, clickpad,
-  // haptic) and add clickable share (%), friction, rattle (mm) and driver
-  // (Precision or not) as specs, with the surface as a dated spec. Those
-  // replace the mechanism and surface factors here.
+export function trackpadOf(build: Build, _fit: Fit, content: Content): number {
+  const tp = specsOf(build, content).trackpad;
+  if (!tp) return 0;
   return (
-    Math.sqrt((w * d) / 100) *
-    (mechanism === "haptic" ? 1.2 : buttons === "clickpad" ? 1.1 : 1) *
-    (glass ? 1.1 : 1) *
-    (stick ? 1.05 : 1)
+    Math.sqrt(tp.area) *
+    (tp.kind === "haptic" ? 1.2 : tp.kind === "clickpad" ? 1.1 : 1) *
+    (tp.kind === "buttons" ? 1 : 0.85 + (0.15 * tp.clickArea) / 100) *
+    (1.2 - 0.6 * tp.friction) *
+    (1 / (1 + tp.rattle)) *
+    (tp.driver === "precision" ? 1.1 : 1) *
+    (tp.stick ? 1.05 : 1)
   );
 }
 
@@ -279,7 +277,7 @@ const PORT_GBPS: Record<string, number> = {
  *   Wi-Fi             log2(1 + measured receive Mbit/s / 10)
  *   Bluetooth         +1
  */
-function connectivityOf(build: Build, m: Measurements, content: Content): number {
+export function connectivityOf(build: Build, m: Measurements, content: Content): number {
   let points = 0;
   const chargeSides = new Set<string>();
   for (const bp of build.ports) {
@@ -308,7 +306,7 @@ function connectivityOf(build: Build, m: Measurements, content: Content): number
  * hottest skin point over the room in degrees (at least 1) and sones is the
  * sustained fan noise as perceived loudness, 2 ^ ((dB(A) - 40) / 10).
  */
-function thermalsOf(m: Measurements): number {
+export function thermalsOf(m: Measurements): number {
   const c = m.cooling;
   if (!c) return 0;
   const rise = Math.max(1, c.peakSkin - AMBIENT);
@@ -319,31 +317,31 @@ function thermalsOf(m: Measurements): number {
 // ------------------------------------------------------------------ audio
 
 /**
- * Audio, from the same speaker model the in-game sound uses (panel/speaker.ts):
+ * Audio, from the same speaker model the in-game sound uses (engine/speaker.ts),
+ * so the speaker quality spend counts:
  *   level      sqrt(watts / LOUD_WATTS), capped at 1, less the grill's loss
  *   bass       1 + log2(highest cutoff / cutoff), octaves of bass gained
  *   stereo 1, mono 0.7
  */
-function audioOf(build: Build, fit: Fit, content: Content): number {
-  const part = partIn(build, "speakers", content);
-  if (!part) return 0;
-  const shapes = Array.isArray(part.shape) ? part.shape : [part.shape];
-  let area = 0;
-  let count = 0;
-  for (const s of shapes)
-    if (s.kind === "box")
-      for (const u of s.units) {
-        const d = [u.size.x, u.size.y, u.size.z].sort((a, b) => b - a);
-        area += d[0] * d[1] * (u.count ?? 1);
-        count += u.count ?? 1;
-      }
-  area = Math.max(area, 200);
-  const [lo, hi] = BASS_RANGE;
-  const hp = Math.min(hi, Math.max(lo, (BASS_K / Math.sqrt(area)) * (part.from >= DSP_FROM ? DSP_BASS : 1)));
-  const watts = SPEAKER_WATTS[part.id] ?? SPEAKER_WATTS_DEFAULT;
+export function audioOf(build: Build, fit: Fit, content: Content): number {
+  const spk = speakerModel(build, content);
+  if (!spk) return 0;
+  const hi = BASS_RANGE[1];
   const place = fit.shell.speakerGrill?.place ?? "none";
-  const level = Math.sqrt(Math.min(1, watts / LOUD_WATTS)) * 10 ** (GRILL_LOSS[place] / 20);
-  // Audit S1's speaker quality slider (lower bass cutoff, higher level) feeds
-  // hp and level here once it lands, the same way it feeds the in-game sound.
-  return level * (1 + Math.log2(hi / hp)) * (count >= 2 ? 1 : 0.7);
+  const level = Math.sqrt(Math.min(1, spk.watts / LOUD_WATTS)) * 10 ** (GRILL_LOSS[place] / 20);
+  return level * (1 + Math.log2(hi / spk.hp)) * (spk.count >= 2 ? 1 : 0.7);
+}
+
+// ------------------------------------------------------------------ camera
+
+/**
+ * Camera, not a headline stat but the review scores it:
+ *   sqrt(megapixels)                     detail
+ *   sqrt(sensor / 4.5 x 2.4 / aperture)  light gathered, the 2006 norm is 1
+ *   IR 1.1
+ */
+export function cameraOf(build: Build, content: Content = CONTENT): number {
+  const cam = specsOf(build, content).webcam;
+  if (!cam) return 0;
+  return Math.sqrt(cam.megapixels) * Math.sqrt((cam.sensor / 4.5) * (2.4 / cam.aperture)) * (cam.ir ? 1.1 : 1);
 }

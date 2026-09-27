@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
-import { rollScores } from "../engine";
+import { type Build, scoresOf } from "../engine";
 import "./foundry.css";
 
 // The laptop list: the rail of models on the left, the selected one on the
@@ -10,6 +10,15 @@ import "./foundry.css";
 export function yearOf(m: SavedModel): number | undefined {
   const y = (m.build as { year?: unknown } | null)?.year;
   return typeof y === "number" ? y : undefined;
+}
+
+/** A reviewed model's overall review score, or null if it cannot be scored. */
+function overallOf(m: SavedModel, company: string): number | null {
+  try {
+    return scoresOf({ id: m.id, name: m.name, company, build: m.build as Build }).overall;
+  } catch {
+    return null;
+  }
 }
 
 /** Models, most recently changed first. */
@@ -41,7 +50,7 @@ export function LaptopList({
   onDelete: (id: string) => void;
 }) {
   const models = useMemo(
-    () => sortedModels(company).map((m) => ({ m, block: buildBlock(m.build) })),
+    () => sortedModels(company).map((m) => ({ m, block: buildBlock(m.build), score: m.reviewed ? overallOf(m, company.name) : null })),
     [company],
   );
   const [armed, setArmed] = useState<string | null>(null);
@@ -90,7 +99,7 @@ export function LaptopList({
           </button>
         </header>
         <div ref={rows} className="fd-rows">
-          {models.map(({ m, block }) => (
+          {models.map(({ m, block, score }) => (
             <button
               key={m.id}
               type="button"
@@ -108,7 +117,7 @@ export function LaptopList({
                   {block && <em>{block}</em>}
                 </small>
               </span>
-              {m.reviewed && <span className="fd-score">{Math.round(rollScores(m.id).overall)}</span>}
+              {score !== null && <span className="fd-score">{Math.round(score)}</span>}
             </button>
           ))}
         </div>

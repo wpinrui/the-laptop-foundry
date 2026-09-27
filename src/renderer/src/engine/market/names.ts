@@ -18,7 +18,7 @@ export interface NameCtx {
 
 /** 3, 5 or 7 by tier: the range digit many makers use. */
 const t357 = (t: number) => (t < 0.4 ? 3 : t < 0.7 ? 5 : 7);
-const inch = (d: number) => Math.round(d);
+const inch = (d: number) => Math.floor(d + 0.05);
 const letter = (i: number) => String.fromCharCode(65 + (((i % 26) + 26) % 26));
 const chip = (c: NameCtx) => {
   const m = /Apple (M\d+(?: Pro| Max)?)/.exec(c.cpuName);

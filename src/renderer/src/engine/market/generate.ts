@@ -73,8 +73,8 @@ export function hashOf(...parts: (string | number)[]): number {
 export const MAX_SOLVES = 30;
 /** Most simulations one model may spend on the class check. */
 const MAX_SIMS = 4;
-/** Wall-clock budget per model, ms. The loop stops at the next step past it. */
-export const MODEL_BUDGET_MS = 200;
+/** Wall-clock budget per model, ms: past it, the loop stops at the next step once it holds a valid build. */
+export const MODEL_BUDGET_MS = 250;
 
 export interface Generated {
   build: Build;
@@ -307,7 +307,7 @@ function cpuWindow(ctx: Ctx): [number, number] {
   const w = ctx.who;
   const s = ctx.powerScale;
   if (w.thin) return w.perf === "office" ? [0, (ctx.year < 2011 ? 25 : 28) * s] : [0, 45 * s];
-  if (w.gaming || w.large) return [(ctx.year < 2011 ? 30 : 35) * s, 250];
+  if (w.gaming || w.large) return [(ctx.year < 2011 ? 30 : 42) * s, 250];
   if (w.perf === "mixed-use") return [15 * s, 47 * s];
   return [8, 35 * s];
 }
@@ -315,7 +315,8 @@ function cpuWindow(ctx: Ctx): [number, number] {
 function pickCpu(ctx: Ctx, shift = 0): Part {
   const year = ctx.year;
   const gens = offeredGenerationIds(year);
-  const all = partsIn("processor", year, ctx.who.silicon);
+  // Only chips some memory of the year fits: a platform may be listed before its memory.
+  const all = partsIn("processor", year, ctx.who.silicon).filter((p) => memoryFor(p, year, ctx.who.silicon).length > 0);
   const fresh = (p: Part) => !p.gen || gens.has(p.gen);
   let list = all.filter((p) => vendorOf(p) === ctx.vendor && fresh(p));
   if (list.length === 0) list = all.filter((p) => vendorOf(p) === ctx.vendor);
@@ -359,9 +360,22 @@ function pickGpu(ctx: Ctx, cpu: Part, shift = 0): Part | undefined {
   return at(list, clamp01(p + shift));
 }
 
+const memoryCache = new Map<string, Part[]>();
+/** Memory of the year the processor takes. */
+function memoryFor(cpu: Part, year: number, rival: boolean): Part[] {
+  const key = `${cpu.id}|${year}|${rival}`;
+  let hit = memoryCache.get(key);
+  if (!hit) {
+    const provided = new Set(cpu.provides ?? []);
+    hit = partsIn("memory", year, rival).filter((p) => (p.needs ?? []).every((n) => provided.has(n)));
+    memoryCache.set(key, hit);
+  }
+  return hit;
+}
+
 function pickMemory(ctx: Ctx, cpu: Part): BuildPart {
   const provided = new Set(cpu.provides ?? []);
-  const fits = partsIn("memory", ctx.year, ctx.who.silicon).filter((p) => (p.needs ?? []).every((n) => provided.has(n)));
+  const fits = memoryFor(cpu, ctx.year, ctx.who.silicon);
   // Soldered memory on thin lines where the platform takes it; the newest kind otherwise.
   const soldered = (p: Part) => {
     const s = firstShape(p);
@@ -1075,13 +1089,17 @@ function settle(ctx: Ctx, c: Choices, t: Tally): { build: Build; fit: Fit } {
   };
   let build = assemble(ctx, c, slack);
   fit = counted(t, build, true);
-  // The shape follows the size, so the slack can move the minimum a little: meet it.
-  if (fit.problems.length > 0 && fit.problems.every((p) => p.kind === "geometry" && p.code === "short") && t.solves < MAX_SOLVES) {
-    build = assemble(ctx, c, {
-      x: Math.min(up(Math.max(slack.x, fit.min.x)), lim.x[1]),
-      y: Math.min(up(Math.max(slack.y, fit.min.y)), lim.y[1]),
-      z: Math.min(up(Math.max(slack.z, fit.min.z)), lim.z[1]),
-    });
+  // The shape follows the size, so the slack can move the minimum a little: meet it, with a
+  // little more each time in case the shape moves it again.
+  let now = slack;
+  for (let k = 0; k < 3 && fit.problems.length > 0 && fit.problems.every(growable) && t.solves < MAX_SOLVES; k++) {
+    const f = fit;
+    now = {
+      x: Math.min(up(Math.max(now.x, f.min.x + 0.25 * k)), lim.x[1]),
+      y: Math.min(up(Math.max(now.y, f.min.y + 0.25 * k)), lim.y[1]),
+      z: Math.min(up(Math.max(now.z, f.min.z + 0.25 * k)), lim.z[1]),
+    };
+    build = assemble(ctx, c, now);
     fit = counted(t, build, true);
   }
   return { build, fit: fit as Fit };
@@ -1326,7 +1344,8 @@ export function generateModel(line: Line, year: number, rng: Rng): Generated {
   thinnestBody(ctx, c, t);
   let best: { build: Build; score: number } | undefined;
   let last: { build: Build; fit: Fit } | undefined;
-  while (c && t.solves < MAX_SOLVES && performance.now() - start < MODEL_BUDGET_MS) {
+  // The time budget only cuts the search short once there is a valid build to return.
+  while (c && t.solves < MAX_SOLVES && (!best || performance.now() - start < MODEL_BUDGET_MS)) {
     const r = settle(ctx, c, t);
     last = r;
     if (r.fit.problems.length > 0) {

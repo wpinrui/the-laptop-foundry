@@ -17,6 +17,7 @@ import type { Box, Build, Decor, Fit, Side } from "../engine";
 import { bumperBlock, shellSurface } from "../engine";
 import { LID_GROUP } from "../models/roles/hinge";
 import { keyPlateThickness } from "../models/roles/keys";
+import { padOutline } from "../models/roles/pad";
 import { BaseMarks, LidDecor } from "./Decor";
 import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
@@ -382,6 +383,47 @@ function Units({
 
 type Wells = Fit["shell"]["wells"];
 const LAP = 1.5;
+/** A trackpad well's corner radii, front and back; a well without one is square with a lap. */
+type Round = { front: number; back: number } | undefined;
+
+/** The trackpad well's corner radii, per well, from the pad unit in it. */
+function wellRounds(fit: Fit, year: number): Round[] {
+  return fit.shell.wells.map((w) => {
+    const pad = fit.boxes.find(
+      (b) => b.kind === "unit" && b.role === "pad" && b.at.x === w.at.x && b.at.y === w.at.y,
+    );
+    return pad ? padOutline(pad.size.x, pad.size.y, year, pad.opts) : undefined;
+  });
+}
+
+/**
+ * The deck's hole round a trackpad: the pad's own outline, a hairline out, so
+ * the pad sits flush with a fine dark gap and nothing lies under the deck at
+ * its edge. A lap here hid the pad's edge and the well's lining a fraction of
+ * a mm under a deck pushed back in depth, and at a low angle they showed
+ * through it as a dark frame round the pad.
+ */
+function roundHole(w: Wells[number], r: NonNullable<Round>): THREE.Path {
+  const x0 = w.at.x - WELL_CLEAR;
+  const y0 = w.at.y - WELL_CLEAR;
+  const x1 = w.at.x + w.size.x + WELL_CLEAR;
+  const y1 = w.at.y + w.size.y + WELL_CLEAR;
+  const max = Math.min(x1 - x0, y1 - y0) / 2 - 0.01;
+  const rf = Math.max(0.05, Math.min(r.front + WELL_CLEAR, max));
+  const rb = Math.max(0.05, Math.min(r.back + WELL_CLEAR, max));
+  const hole = new THREE.Path();
+  hole.moveTo(x0 + rf, y0);
+  hole.lineTo(x1 - rf, y0);
+  hole.absarc(x1 - rf, y0 + rf, rf, -Math.PI / 2, 0, false);
+  hole.lineTo(x1, y1 - rb);
+  hole.absarc(x1 - rb, y1 - rb, rb, 0, Math.PI / 2, false);
+  hole.lineTo(x0 + rb, y1);
+  hole.absarc(x0 + rb, y1 - rb, rb, Math.PI / 2, Math.PI, false);
+  hole.lineTo(x0, y0 + rf);
+  hole.absarc(x0 + rf, y0 + rf, rf, Math.PI, 1.5 * Math.PI, false);
+  hole.closePath();
+  return hole;
+}
 
 /**
  * The shell surface. "open" leaves out the flat top face, which the deck
@@ -396,6 +438,7 @@ function surfaceGeometry(
   wells: Wells = [],
   cuts: Cuts = {},
   wallDepth = 0,
+  rounds: Round[] = [],
 ): THREE.BufferGeometry {
   const open = mode === "deck" || mode === "floor" ? [] : (Object.keys(cuts) as Side[]);
   const data = shellSurface(size, style, profile, 8, open);
@@ -404,7 +447,12 @@ function surfaceGeometry(
     // The flat front of the top face, with the wells cut, and whatever the
     // body raises or rounds behind it (a shelf, a spine) as the shell has it.
     const shape = new THREE.Shape(data.deck.outline.map(([x, y]) => new THREE.Vector2(x, y)));
-    for (const w of wells) {
+    for (const [i, w] of wells.entries()) {
+      const round = rounds[i];
+      if (round) {
+        shape.holes.push(roundHole(w, round));
+        continue;
+      }
       const hole = new THREE.Path();
       // The deck laps over the edge of each module by a little, as a real
       // top case does, so no internals show in the gap at the well's edge.
@@ -485,6 +533,7 @@ function Shell({
   offset = 2,
   mode = "full",
   wells,
+  rounds,
   cuts,
   wallDepth,
 }: {
@@ -499,6 +548,8 @@ function Shell({
   offset?: number;
   mode?: "full" | "open" | "deck" | "walls" | "floor" | "back";
   wells?: Wells;
+  /** Per well, a trackpad's corner radii: its hole follows the pad's outline. */
+  rounds?: Round[];
   /** Port openings cut through the side walls, so a solid shell shows the connectors. */
   cuts?: Cuts;
   /** Side wall thickness: how deep the port holes run to the connector faces. */
@@ -506,8 +557,8 @@ function Shell({
 }) {
   const look = surfaceLook(surface);
   const geometry = useMemo(
-    () => surfaceGeometry(size, style, profile, mode, wells, cuts, wallDepth),
-    [size.x, size.y, size.z, style, profile, mode, wells, cuts, wallDepth],
+    () => surfaceGeometry(size, style, profile, mode, wells, cuts, wallDepth, rounds),
+    [size.x, size.y, size.z, style, profile, mode, wells, cuts, wallDepth, rounds],
   );
   const edges = useMemo(
     () => new THREE.EdgesGeometry(geometry, 25),
@@ -525,7 +576,11 @@ function Shell({
       <mesh geometry={geometry} renderOrder={2}>
         {/* Units sit flush on the shell's faces (a cover-glass panel IS the
             lid's front face), so the shell is pushed back in depth: a flush
-            unit face wins cleanly instead of z-fighting the shell's fan. */}
+            unit face wins cleanly instead of z-fighting the shell's fan.
+            The deck is pushed by a constant only: a slope-scaled push grows
+            at a low angle until the well linings and unit edges a fraction
+            of a mm under it show through as a dark frame. Nothing sits
+            flush over it now that the trackpad's hole follows the pad. */}
         <meshStandardMaterial
           // Remount on mode change so three recompiles the transparency state.
           key={xray ? "xray" : "solid"}
@@ -537,7 +592,7 @@ function Shell({
           roughness={look.roughness}
           metalness={look.metalness}
           polygonOffset
-          polygonOffsetFactor={offset}
+          polygonOffsetFactor={mode === "deck" ? 0 : offset}
           polygonOffsetUnits={offset}
         />
       </mesh>
@@ -784,14 +839,21 @@ const WELL_CLEAR = 0.2;
  * and lit up the inside of the shell floor as a pale strip along the far
  * edges (worst through a glass trackpad).
  */
-function Well({ well: w, top, floor, tint }: { well: Wells[number]; top: number; floor?: number; tint?: string }) {
+function Well({
+  well: w,
+  top,
+  floor,
+  tint,
+  flush,
+}: { well: Wells[number]; top: number; floor?: number; tint?: string; flush?: boolean }) {
   const x0 = w.at.x - WELL_CLEAR;
   const y0 = w.at.y - WELL_CLEAR;
   const sx = w.size.x + 2 * WELL_CLEAR;
   const sy = w.size.y + 2 * WELL_CLEAR;
   const z0 = floor ?? w.at.z - 0.05;
   // The walls stop just under the top case, so their top edge never meets its face.
-  const h = top - WELL_CLEAR - z0;
+  // A trackpad's hole is cut on them, so theirs rise to its edge and close the gap.
+  const h = (flush ? top : top - WELL_CLEAR) - z0;
   const colour = tint ?? token("color-opening");
   // A player's colour takes the light, so it reads as a surface; the stock dark stays flat.
   const mat = tint ? (
@@ -974,6 +1036,7 @@ export const Model = memo(function Model({
   const lidSize = fit.shell.lid.size;
   // Each port's own model draws its connector face; the wall is cut open over it.
   const cuts = useMemo(() => portCuts(fit), [fit]);
+  const rounds = useMemo(() => wellRounds(fit, year), [fit, year]);
 
 
   return (
@@ -1001,9 +1064,10 @@ export const Model = memo(function Model({
           offset={1}
           mode="deck"
           wells={fit.shell.wells}
+          rounds={rounds}
         />
         {!xray &&
-          fit.shell.wells.map((w) => {
+          fit.shell.wells.map((w, i) => {
             const floor = wellFloor(fit, w, year);
             return (
               <Well
@@ -1011,6 +1075,7 @@ export const Model = memo(function Model({
                 well={w}
                 top={out.z}
                 floor={floor}
+                flush={rounds[i] !== undefined}
                 tint={floor === undefined ? undefined : decor?.keyDeck}
               />
             );

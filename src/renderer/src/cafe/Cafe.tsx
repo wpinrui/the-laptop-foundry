@@ -5,8 +5,8 @@ import type { Surfaces } from "../viewer/Scene";
 import { type Aim, World } from "./World";
 
 // The cafe's first-person shell: pointer lock, the aim dot and prompts, the
-// use (seated, free cursor on the screen) and full-screen modes, and the pause
-// menu. The laptop's own screen
+// sit (seated, looking and zooming), use (seated, free cursor on the screen)
+// and full-screen modes, and the pause menu. The laptop's own screen
 // (battery, power profile, apps) stays inside the in-game OS.
 
 interface Page {
@@ -93,8 +93,10 @@ export function Cafe({
   onLeave: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  // Using: seated at the laptop with the pointer free to work its screen.
-  const [using, setUsing] = useState(false);
+  // Sitting: seated, pointer locked, looking around. Using: seated with the
+  // pointer free to work the laptop's screen.
+  const [pose, setPose] = useState<"stand" | "sit" | "use">("stand");
+  const using = pose === "use";
   const [full, setFull] = useState(false);
   const [paused, setPaused] = useState(false);
   const [aim, setAim] = useState<Aim>(null);
@@ -147,8 +149,8 @@ export function Cafe({
     document.exitPointerLock();
   }, []);
 
-  const state = useRef({ using, full, paused, aim, active, resume, onPlug });
-  state.current = { using, full, paused, aim, active, resume, onPlug };
+  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug });
+  state.current = { pose, using, full, paused, aim, active, resume, onPlug };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
@@ -172,13 +174,21 @@ export function Cafe({
         }
       } else if (e.code === "KeyE" && s.active) {
         if (s.using) {
-          setUsing(false);
+          setPose("sit");
           blurField();
           lock();
         } else if (s.aim === "laptop") {
-          unlock();
-          setUsing(true);
+          if (s.pose === "sit") {
+            unlock();
+            setPose("use");
+          } else setPose("sit");
         }
+      } else if (e.code === "KeyQ" && s.active && s.pose !== "stand") {
+        if (s.using) {
+          blurField();
+          lock();
+        }
+        setPose("stand");
       } else if (e.code === "KeyC" && (s.using || s.full || (s.active && s.aim !== null))) {
         s.onPlug();
       }
@@ -189,10 +199,14 @@ export function Cafe({
 
   let prompts: Prompt[] = [];
   const charge = { key: "C", label: plugged ? "Unplug" : "Plug in" };
-  if (active && using)
-    prompts = [{ key: "E", label: "Stand" }, charge, { key: "F", label: "Full screen" }];
-  else if (active && aim === "laptop")
-    prompts = [{ key: "E", label: "Use" }, charge, { key: "F", label: "Full screen" }];
+  const stand = { key: "Q", label: "Stand" };
+  const screen = { key: "F", label: "Full screen" };
+  if (active && using) prompts = [{ key: "E", label: "Stop using" }, stand, charge, screen];
+  else if (active && pose === "sit") {
+    if (aim === "laptop") prompts = [{ key: "E", label: "Use" }, stand, charge, screen];
+    else if (aim === "power") prompts = [stand, charge];
+    else prompts = [stand];
+  } else if (active && aim === "laptop") prompts = [{ key: "E", label: "Sit" }, charge, screen];
   else if (active && aim === "power") prompts = [charge];
 
   const k = page ? Math.min(w / page.width, h / page.height) : 1;
@@ -216,7 +230,8 @@ export function Cafe({
           decor={decor}
           surfaces={surfaces}
           screen={page && !full ? page : undefined}
-          seated={using}
+          seated={pose !== "stand"}
+          using={using}
           active={active}
           onAim={setAim}
           aimRef={aimRef}

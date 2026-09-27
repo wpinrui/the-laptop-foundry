@@ -245,6 +245,13 @@ const SPREAD: Record<string, number> = {
   aluminium: 0.9,
 };
 
+/**
+ * Die resistance multiplier without a fan. With no heat pipes the die sheds
+ * into a thin spreader plate, so it runs far above it: a MacBook Air M4
+ * throttles to about 11 W with its die at the limit and its shell near 45 °C.
+ */
+const FANLESS_DIE = 4.5;
+
 interface Cooler {
   /** Sink to room through the skin, W/K. */
   passive: number;
@@ -265,8 +272,9 @@ export function cooler(f: Facts): Cooler {
   const spread =
     f.materials.reduce((s, m) => s + (SPREAD[m] ?? 0.35), 0) / f.materials.length;
   const areaM2 = (2 * x * y) / 1e6;
-  const passive =
-    2.2 * areaM2 * spread * (1 + 0.3 * f.materialSpend) * (f.fanCount === 0 ? 1.3 : 1);
+  // The skin path is the same body with or without a fan, so a fan only ever
+  // adds to it.
+  const passive = 2.2 * areaM2 * spread * (1 + 0.3 * f.materialSpend);
 
   // Airflow grows with fan diameter and thickness; the fin face sets how much
   // of it picks up heat. 2006 fin stacks and pipes are coarser.
@@ -285,15 +293,16 @@ export function cooler(f: Facts): Cooler {
   const capacity = 250 * litres + 40 * f.fans.length + 60;
   // The case's mean rise over the room is a share of the sink's: the rest
   // drops across the gap and pads between them. Thinner bodies close that gap.
-  // Without a fan the sink is a spreader plate the case sees across a wider gap.
-  const skin = (f.fanCount === 0 ? 0.23 : 0.37) * Math.min(1.5, (13 / z) ** 0.15);
+  // The share is the same with or without a fan: at equal power a fanless
+  // sink runs hotter, so its case does too.
+  const skin = 0.37 * Math.min(1.5, (13 / z) ** 0.15);
   return {
     passive,
     active,
     loudest,
     capacity,
     skin,
-    die: f.fanCount === 0 ? 1.5 : 1,
+    die: f.fanCount === 0 ? FANLESS_DIE : 1,
   };
 }
 

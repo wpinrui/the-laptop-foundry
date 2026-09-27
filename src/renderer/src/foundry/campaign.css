@@ -125,6 +125,122 @@
   color: var(--warning);
 }
 
+/* Marketing: a head with the quarter's campaign cost that opens a table of segments. */
+.fd-marketing {
+  display: flex;
+  flex-direction: column;
+  padding: calc(8 * var(--u)) calc(12 * var(--u));
+  background: color-mix(in srgb, var(--ground-deep) 80%, transparent);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-marketing-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(24 * var(--u));
+  padding: calc(4 * var(--u)) calc(4 * var(--u));
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-display);
+  color: var(--muted);
+  font-weight: 500;
+  font-size: calc(16 * var(--u));
+}
+
+.fd-marketing-head b {
+  font-weight: 700;
+  font-size: calc(18 * var(--u));
+  color: var(--text);
+}
+
+.fd-marketing-head:hover span,
+.fd-marketing-head:focus-visible span {
+  color: var(--accent);
+}
+
+.fd-marketing table {
+  border-collapse: collapse;
+  font-size: calc(13 * var(--u));
+}
+
+.fd-marketing th,
+.fd-marketing td {
+  padding: calc(1 * var(--u)) calc(6 * var(--u));
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fd-marketing th {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.fd-marketing tbody th {
+  text-align: left;
+}
+
+.fd-marketing td {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fd-marketing .short,
+.fd-marketing-head .short {
+  color: var(--warning);
+}
+
+.fd-marketing td.up {
+  color: var(--accent);
+}
+
+.fd-marketing-reach {
+  position: relative;
+  width: calc(90 * var(--u));
+}
+
+.fd-marketing-reach i {
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  background: var(--accent-wash);
+  border-right: 2px solid var(--accent);
+}
+
+.fd-marketing-reach span {
+  position: relative;
+}
+
+.fd-marketing-tier {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(2 * var(--u));
+}
+
+.fd-marketing-tier .fd-text {
+  font-size: calc(16 * var(--u)) !important;
+  padding: 0 calc(6 * var(--u)) !important;
+  line-height: 1;
+}
+
+.fd-marketing-tier .fd-text:disabled {
+  opacity: 0.3;
+}
+
+.fd-marketing-tier b {
+  min-width: calc(28 * var(--u));
+  text-align: center;
+  color: var(--muted);
+}
+
+.fd-marketing-tier b.on {
+  color: var(--accent);
+}
+
 .fd-release .fd-primary:disabled {
   opacity: 0.4;
 }

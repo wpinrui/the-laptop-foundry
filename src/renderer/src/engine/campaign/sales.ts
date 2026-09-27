@@ -23,6 +23,7 @@ import {
   WORD_OF_MOUTH,
 } from "./constants";
 import type { CampaignState, Quarter, QuarterStep } from "./index";
+import { criticsScore } from "./critics";
 import { launchQuarter, quarterIndex } from "./rivals";
 
 // The sales simulation (GDD, Version 0.2, "Sales"), ported from Laptop
@@ -213,7 +214,7 @@ export function profileOf(id: string, build: Build): Profile {
 }
 
 /** A rival's launch as a quarter index. A stand-in for last year's model reads as launched a year earlier. */
-function rivalLaunch(company: string, r: Rival, at: number): number {
+export function rivalLaunch(company: string, r: Rival, at: number): number {
   const launch = quarterIndex({ year: r.build.year, quarter: launchQuarter(company, r.line, r.build.year) });
   return launch > at ? launch - 4 : launch;
 }
@@ -227,7 +228,7 @@ export function sellersOf(state: CampaignState, models: { id: string; build: unk
     if (!m || r.stock <= 0 || quarterIndex(r.quarter) > at) continue;
     const build = { ...(m.build as Build), price: r.price };
     const p = profileOf(id, build);
-    out.push({ id, maker: null, ...p, price: r.price, launch: quarterIndex(r.quarter), stock: r.stock });
+    out.push({ id, maker: null, ...p, review: criticsScore(state, id), price: r.price, launch: quarterIndex(r.quarter), stock: r.stock });
   }
   const on = new Set(state.onSale);
   for (const r of rivals) {
@@ -237,6 +238,7 @@ export function sellersOf(state: CampaignState, models: { id: string; build: unk
       id: r.id,
       maker: r.maker,
       ...p,
+      review: criticsScore(state, r.id),
       price: r.build.price ?? 0,
       launch: rivalLaunch(company, r, at),
       stock: Number.POSITIVE_INFINITY,

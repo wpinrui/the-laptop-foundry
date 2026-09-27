@@ -198,6 +198,15 @@ export const MARKET_SPAN = 9;
 export const REVIEW_PAR = 65;
 export const REVIEW_SPAN = 70;
 
+// ------------------------------------------------------------------ critics
+
+/**
+ * Quarters from a laptop going on sale to its review in print. Critics need
+ * a unit, a few weeks of testing and an editor, so a launch is reviewed the
+ * quarter after. Until then buyers read the critics as neutral.
+ */
+export const CRITICS_DELAY = 1;
+
 // ------------------------------------------------------------------ rival timing
 
 /**

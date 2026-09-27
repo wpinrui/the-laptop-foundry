@@ -1,4 +1,5 @@
 import type { SavedCampaign, SavedModel } from "../../../../preload/store";
+import { type PublishedReview, publishReviews, reviewsOf } from "./critics";
 import { type Brand, brandOf, market, newBrand, type SegmentOutcome, updatePerception } from "./brand";
 import { END_YEAR, FIRST_START, LAST_START, STARTING_CASH } from "./constants";
 import { entryOf, type LedgerEntry, NO_SPEND, type Spent, settle, spentOf } from "./finance";
@@ -13,6 +14,7 @@ import { type SalesRecord, salesRecordOf, simulateSales, wordOfMouth } from "./s
 
 export * from "./brand";
 export * from "./constants";
+export * from "./critics";
 export * from "./finance";
 export * from "./release";
 export * from "./rivals";
@@ -49,6 +51,8 @@ export interface CampaignState {
   sales: SalesRecord[];
   /** The quarter's buyers' outcomes, from sales to marketing. Empty between quarters. */
   outcomes: SegmentOutcome[];
+  /** Published reviews by model or rival id. A laptop with none counts as par with buyers. */
+  reviews: Record<string, PublishedReview>;
 }
 
 /** What a quarter's resolution reads besides the campaign state. */
@@ -86,6 +90,7 @@ export function newCampaign(start: number): CampaignState {
     onSale: [],
     sales: [],
     outcomes: [],
+    reviews: {},
   };
 }
 
@@ -115,6 +120,7 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     onSale: Array.isArray(s.onSale) ? s.onSale.filter((x): x is string => typeof x === "string") : [],
     sales: Array.isArray(s.sales) ? s.sales.map(salesRecordOf).filter((r): r is SalesRecord => !!r) : [],
     outcomes: [],
+    reviews: reviewsOf(s.reviews),
   };
 }
 
@@ -135,9 +141,6 @@ export function savedCampaign(state: CampaignState): SavedCampaign {
 
 // ------------------------------------------------------------------ quarter steps
 // Each step plugs a later system into the quarter. They run in this order.
-
-/** Critics review the laptops launched this quarter. */
-export const publishReviews: QuarterStep = (state) => state;
 
 /** Paid campaigns run, and reach and reputation move with sales and reviews. */
 export const runMarketing: QuarterStep = (state) => ({

@@ -174,7 +174,7 @@ export const BODIES: Body[] = [
   },
   {
     // A straight wedge: one flat underside plane from a thick rear to a thin front,
-    // square edges. Thin enough for modern wedge ultrabooks: 16 mm tapering to 4 mm.
+    // square edges. Tapers to a razor front edge, like the 17 mm to 3 mm wedge ultrabooks.
     id: "wedge",
     name: "Wedge",
     from: 2003,
@@ -185,7 +185,7 @@ export const BODIES: Body[] = [
       edge: "square",
       corner: s(0.03, "short", 3, 10),
       profile: 0,
-      taper: { front: [0.7, 0.25], minFront: 4, run: 0.9, linear: true },
+      taper: { front: [0.7, 0.08], minFront: 1, run: 0.9, linear: true },
       hinge: "full",
       latch: false,
       signature: "taper",

@@ -12,6 +12,7 @@ import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./fo
 import { Bankrupt, FinancePanel } from "./foundry/Finance";
 import { MarketingPanel } from "./foundry/Marketing";
 import { ReleasePanel } from "./foundry/Release";
+import { SalesPanel } from "./foundry/Sales";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
 import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
@@ -357,6 +358,7 @@ export function App() {
         {screen}
         <div className="fd-side">
           <FinancePanel campaign={campaign} />
+          <SalesPanel campaign={campaign} models={company.models} />
           <MarketingPanel
             campaign={campaign}
             open={marketing}

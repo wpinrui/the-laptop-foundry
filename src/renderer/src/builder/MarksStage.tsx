@@ -224,7 +224,7 @@ function EmojiBrowser({
               key={e.code}
               title={e.name}
               className="bd-emoji"
-              onMouseEnter={() => ghostOf(e)}
+              onMouseEnter={(ev) => ev.buttons === 0 && ghostOf(e)}
               onMouseLeave={() => {
                 hover.current++;
                 onGhost(null);
@@ -288,7 +288,7 @@ function PresetBrowser({
                   type="button"
                   key={d.id}
                   className="bd-preset"
-                  onMouseEnter={() => onGhost({ ...presetMark(fit, marks, surface, d), ghost: true })}
+                  onMouseEnter={(ev) => ev.buttons === 0 && onGhost({ ...presetMark(fit, marks, surface, d), ghost: true })}
                   onMouseLeave={() => onGhost(null)}
                   onClick={() => onPick(d)}
                 >

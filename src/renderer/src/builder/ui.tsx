@@ -130,7 +130,8 @@ export function SliderField({
   return (
     <div
       className="bd-field"
-      onPointerEnter={onHover && (() => setOver(true))}
+      // A pointer sweeping past with a button held is panning the view, not hovering.
+      onPointerEnter={onHover && ((e) => e.buttons === 0 && setOver(true))}
       onPointerLeave={onHover && (() => setOver(false))}
       onPointerDown={onHover && (() => setHeld(true))}
     >
@@ -241,7 +242,8 @@ export function Card({
       className={["bd-card", on ? "on" : "", off ? "off" : "", dashed ? "dashed" : ""].join(" ")}
       style={width ? ({ "--w": width } as CSSProperties) : undefined}
       onClick={onClick}
-      onPointerEnter={onHover && (() => onHover(true))}
+      // A pointer sweeping past with a button held is panning the view, not hovering.
+      onPointerEnter={onHover && ((e) => e.buttons === 0 && onHover(true))}
       onPointerLeave={onHover && (() => onHover(false))}
     >
       {dashed ? (

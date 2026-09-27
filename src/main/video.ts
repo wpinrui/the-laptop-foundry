@@ -4,10 +4,10 @@ import { join } from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
 import { handleTop } from "./ipc";
 
-// The quarter video's narration and export. The voice is Piper's "norman"
-// (VITS, public domain data) run offline by sherpa-onnx's native addon; no
-// language model and no network. scripts/fetch-voice.mjs puts the model in
-// resources/voice. Without it the video plays silent, on caption timing.
+// The quarter video's narration and export. The voice is Kokoro-82M
+// (Apache-2.0) run offline by sherpa-onnx's native addon; no language model
+// and no network. scripts/fetch-voice.mjs puts the model in
+// resources/voice/kokoro. Without it the video plays silent, on caption timing.
 
 interface Audio {
   samples: Float32Array;
@@ -21,6 +21,10 @@ interface Tts {
 const MAX_LINES = 24;
 const MAX_CHARS = 400;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
+/** The narrators, by name, as Kokoro v1.0's speaker ids. */
+const NARRATORS: Record<string, number> = { michael: 16, heart: 3 };
+/** A touch quicker than Kokoro's own pace, for a short. */
+const SPEED = 1.08;
 const COMPANY = /^[0-9a-f-]{36}$/i;
 const QUARTER = /^\d{4}q[1-4](-v\d{1,3})?$/;
 
@@ -45,9 +49,10 @@ let loading: Promise<Tts | null> | null = null;
 /** The voice, loaded once on first use. Null when the model or the addon is missing. */
 function voice(): Promise<Tts | null> {
   loading ??= (async () => {
-    const dir = voiceDir();
-    const model = join(dir, "en_US-norman-medium.onnx");
-    if (!existsSync(model)) return null;
+    const dir = join(voiceDir(), "kokoro");
+    // The full-precision model when it was fetched (yarn voice --fp32), else the int8 one.
+    const model = [join(dir, "model.onnx"), join(dir, "model.int8.onnx")].find((m) => existsSync(m));
+    if (!model) return null;
     try {
       type Sherpa = { OfflineTts: { createAsync(config: unknown): Promise<Tts> } };
       // A CommonJS module: its exports may only be on the default.
@@ -55,7 +60,14 @@ function voice(): Promise<Tts | null> {
       const sherpa = mod.default ?? mod;
       return await sherpa.OfflineTts.createAsync({
         model: {
-          vits: { model, tokens: join(dir, "tokens.txt"), dataDir: join(dir, "espeak-ng-data") },
+          kokoro: {
+            model,
+            voices: join(dir, "voices.bin"),
+            tokens: join(dir, "tokens.txt"),
+            dataDir: join(dir, "espeak-ng-data"),
+            lexicon: join(dir, "lexicon-us-en.txt"),
+            lang: "en-us",
+          },
           numThreads: 4,
           provider: "cpu",
           debug: 0,
@@ -71,16 +83,17 @@ function voice(): Promise<Tts | null> {
 }
 
 export function registerVideo(): void {
-  /** One clip per line, or null when there is no voice. */
-  handleTop("video:say", async (_e, lines: unknown) => {
+  /** One clip per line in the named narrator's voice, or null when there is no voice. */
+  handleTop("video:say", async (_e, lines: unknown, narrator: unknown) => {
     if (!Array.isArray(lines) || lines.length > MAX_LINES || !lines.every((l) => typeof l === "string"))
       throw new Error("video:say: lines must be strings");
+    const sid = typeof narrator === "string" && narrator in NARRATORS ? NARRATORS[narrator] : NARRATORS.michael;
     const tts = await voice();
     if (!tts) return null;
     const clips: Float32Array[] = [];
     // Electron's V8 refuses the addon's external buffers, so every clip is copied out.
     for (const text of lines as string[]) {
-      const a = await tts.generateAsync({ text: text.slice(0, MAX_CHARS), sid: 0, speed: 1.05, enableExternalBuffer: false });
+      const a = await tts.generateAsync({ text: text.slice(0, MAX_CHARS), sid, speed: SPEED, enableExternalBuffer: false });
       clips.push(a.samples);
     }
     return { sampleRate: tts.sampleRate, clips };

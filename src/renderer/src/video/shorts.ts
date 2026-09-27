@@ -20,7 +20,7 @@ export interface ReadyShort {
 type Entry = { state: "busy" } | ({ state: "ready" } & ReadyShort);
 
 /** Bumped when the video changes, so a short kept on disk from before is made again. */
-const VERSION = 2;
+const VERSION = 3;
 
 /** Ready videos kept in memory; older ones fall out. */
 const KEEP = 6;
@@ -90,7 +90,9 @@ export function prepareShort(key: string, company: string, quarter: Quarter, ind
     const name = saveName(short);
     const kept = await window.api.video.kept(company, file).catch(() => null);
     if (kept) return { blob: new Blob([kept as Uint8Array<ArrayBuffer>], { type: "video/mp4" }), name };
-    const voice = await window.api.video.say(short.lines.map((l) => l.say)).catch(() => null);
+    // Two narrators, taking turns by quarter.
+    const narrator = index % 2 === 0 ? "michael" : "heart";
+    const voice = await window.api.video.say(short.lines.map((l) => l.say), narrator).catch(() => null);
     if (cancelled) return null;
     const blob = await renderShort(short, lookFor(index), voice, () => cancelled);
     void blob

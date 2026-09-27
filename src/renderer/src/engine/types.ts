@@ -728,6 +728,37 @@ export interface GrillFit {
 
 export type GrillStyle = "stock" | "none" | "uniform" | "bottom";
 
+export type SpeakerPlace = "none" | "deck" | "front";
+export type SpeakerPattern = "dots" | "slots" | "bars" | "hex";
+
+/**
+ * One speaker grill panel. On the deck: centred at (cx, cy), s across x and l
+ * along y, its holes on the deck's top at their own depth. On the front: on
+ * the front face, centred at (cx, cz), s tall and l along x.
+ */
+export interface SpeakerPanel {
+  surface: "deck" | "front";
+  cx: Mm;
+  cy: Mm;
+  cz: Mm;
+  s: Mm;
+  l: Mm;
+}
+
+/** The speaker grill as solved: where it may go and what is drawn. */
+export interface SpeakerGrillFit {
+  /** Where it is drawn: the player's place where it fits, else the era's stock. */
+  place: SpeakerPlace;
+  fits: { deck: boolean; front: boolean };
+  frontOffered: boolean;
+  pattern: SpeakerPattern;
+  hole: Mm;
+  /** Each pattern's hole range on the drawn panels, and whether its least hole fits two across. */
+  range: Record<SpeakerPattern, { min: Mm; max: Mm; ok: boolean }>;
+  web: Mm;
+  panels: SpeakerPanel[];
+}
+
 export type Anchor =
   | { kind: "hinge"; from: Vec3; to: Vec3 }
   | { kind: "opening"; at: Vec3; opening: Opening }
@@ -757,6 +788,8 @@ export interface Shell {
   cutouts: Opening[];
   /** The fan grill, on builds with fans. */
   grill?: GrillFit;
+  /** The speaker grill, on builds with speakers. Drawn only: it is not a cutout. */
+  speakerGrill?: SpeakerGrillFit;
   /** Holes in the bottom wall where a removable pack forms the underside. */
   hatches: { at: Vec3; size: Size }[];
   /** Openings in the top wall where the keyboard and trackpad sit flush with the top surface. */

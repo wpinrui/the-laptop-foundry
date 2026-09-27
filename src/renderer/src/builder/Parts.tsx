@@ -15,6 +15,7 @@ import {
   pouchDensity,
   pouchShape,
   solve,
+  speakerGrillOpts,
 } from "../engine";
 import { formatOption, panelLabel } from "./format";
 import { problemText } from "./problems";
@@ -63,6 +64,9 @@ export function withPart(b: Build, cat: Category, index: number, id: string): Bu
     // A new cooler keeps the player's fan size.
     const fan = cat === "cooling" ? list[index]?.opts?.fan : undefined;
     list[index] = fan === undefined ? { part: id } : { part: id, opts: { fan } };
+    // New speakers keep the player's grill.
+    const grill = cat === "speakers" ? speakerGrillOpts(b.parts[cat]?.[index]?.opts) : {};
+    if (Object.keys(grill).length > 0) list[index] = { part: id, opts: grill };
   }
   const parts = { ...b.parts };
   if (list.length === 0) delete parts[cat];

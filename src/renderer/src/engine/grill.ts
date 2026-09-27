@@ -149,7 +149,7 @@ export function grillBevel(
 }
 
 /** Flat part of one side's outer face at u along it, as z, or null. */
-function faceAt(
+export function faceAt(
   style: ResolvedStyle,
   outer: Size,
   side: Side,

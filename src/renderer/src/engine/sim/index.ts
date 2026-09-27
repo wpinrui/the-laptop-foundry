@@ -252,6 +252,23 @@ const SPREAD: Record<string, number> = {
  */
 const FANLESS_DIE = 4.5;
 
+/**
+ * Heat the fans' airflow carries over the fins, on top of what sizes them.
+ * Fans are sized for the chips' heat; this is the headroom a real stack has
+ * past that, so a fan pays off in watts, temperature and noise.
+ */
+const FAN_GAIN = 1.3;
+
+/**
+ * Die resistance multipliers with fans. Heat pipes pull the die closer to the
+ * sink than the base figure; a second fan brings its own pipes, and a vapour
+ * chamber replaces them with one plate. A cooler die also lets the fans
+ * chasing it spin slower.
+ */
+const PIPE_DIE = 0.95;
+const TWIN_DIE = 0.85;
+const CHAMBER_DIE = 0.75;
+
 interface Cooler {
   /** Sink to room through the skin, W/K. */
   passive: number;
@@ -277,17 +294,30 @@ export function cooler(f: Facts): Cooler {
   const passive = 2.2 * areaM2 * spread * (1 + 0.3 * f.materialSpend);
 
   // Airflow grows with fan diameter and thickness; the fin face sets how much
-  // of it picks up heat. 2006 fin stacks and pipes are coarser.
+  // of it picks up heat, more for cooling than for noise. 2006 fin stacks and
+  // pipes are coarser.
   const tech = f.year < 2012 ? 0.9 : 1;
-  let hardware = 0;
+  const count = Math.max(1, f.fans.length);
+  let airflow = 0;
   f.fans.forEach((fan) => {
-    hardware += 0.7 * (fan.d / 50) ** 1.2 * (fan.h / 10) ** 0.8;
+    airflow += 0.7 * (fan.d / 50) ** 1.2 * (fan.h / 10) ** 0.8;
   });
-  hardware *= Math.min(1.4, Math.max(0.5, f.finFace / Math.max(1, f.fans.length) / 5)) ** 0.5;
-  hardware *= tech * (f.chamber ? 1.6 : 1);
+  const fin = Math.min(1.4, Math.max(0.5, f.finFace / count / 5));
+  const hardware = airflow * fin ** 0.5 * tech * (f.chamber ? 1.6 : 1);
   const active =
-    hardware * (1 + 0.3 * f.coolingSpend) * (1 + 0.1 * f.materialSpend);
-  const loudest = hardware > 0 ? Math.max(30, 36 + 20 * Math.log10(hardware / 0.5)) : 0;
+    FAN_GAIN *
+    airflow *
+    fin ** 0.8 *
+    tech *
+    (f.chamber ? 1.6 : 1) *
+    (1 + 0.3 * f.coolingSpend) *
+    (1 + 0.1 * f.materialSpend);
+  // Noise follows one fan's airflow; a second fan adds 3 dB at the same speed,
+  // so at the same heat two fans spin slower and run quieter than one.
+  const loudest =
+    hardware > 0
+      ? Math.max(30, 36 + 20 * Math.log10(hardware / count / 0.5) + 10 * Math.log10(count))
+      : 0;
 
   const litres = (x * y * z) / 1e6;
   const capacity = 250 * litres + 40 * f.fans.length + 60;
@@ -302,7 +332,7 @@ export function cooler(f: Facts): Cooler {
     loudest,
     capacity,
     skin,
-    die: f.fanCount === 0 ? FANLESS_DIE : 1,
+    die: f.fanCount === 0 ? FANLESS_DIE : f.chamber ? CHAMBER_DIE : f.fanCount >= 2 ? TWIN_DIE : PIPE_DIE,
   };
 }
 

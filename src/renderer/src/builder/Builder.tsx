@@ -26,7 +26,10 @@ import { problemText, STAGE_NAME, STAGES, type Stage, stageOf } from "./problems
 import { screenTexture } from "./screens";
 import { ownerOf } from "../os/types";
 import { useBootingScreen } from "../os/useOsScreen";
+import { SectionView } from "./bodyShape";
+import { toBody } from "./structure";
 import {
+  type ChassisPreview,
   ChassisColumn,
   ChassisTray,
   InsideColumn,
@@ -224,6 +227,17 @@ export function Builder({
   const [listOpen, setListOpen] = useState(false);
 
   const fit = useMemo(() => solve(build), [build]);
+  // On the Chassis stage: a body under the pointer shows on the plinth, and the section view while the signature slider is held.
+  const [preview, setPreview] = useState<ChassisPreview>({});
+  useEffect(() => setPreview({}), [stage]);
+  const previewFit = useMemo(() => {
+    if (!preview.body || preview.body === build.body) return fit;
+    try {
+      return solve(toBody(build, preview.body));
+    } catch {
+      return fit;
+    }
+  }, [preview.body, build, fit]);
   const valid = fit.problems.length === 0;
   const measured = useMemo(() => (valid ? simulate(build, fit) : null), [valid, build, fit]);
   const stats = useMemo(() => statsOf(build, fit, measured), [measured, build, fit]);
@@ -373,8 +387,8 @@ export function Builder({
       column = <YearColumn {...props} />;
       break;
     case "chassis":
-      column = <ChassisColumn {...props} />;
-      tray = <ChassisTray {...props} />;
+      column = <ChassisColumn {...props} onPreview={setPreview} />;
+      tray = <ChassisTray {...props} onPreview={setPreview} />;
       break;
     case "screen":
       column = <ScreenColumn {...props} />;
@@ -450,7 +464,7 @@ export function Builder({
   return (
     <div className="fd bd">
       <BuilderScene
-        fit={fit}
+        fit={previewFit}
         year={build.year}
         view={view}
         resetKey={`${stage}:${stage === "inside" ? slot.key : stage === "surface" ? `${surfaceItem}:${portSide ?? ""}` : stage === "marks" ? markSurface : ""}:${powering}`}
@@ -488,6 +502,11 @@ export function Builder({
         onPick={inside ? pick : surface ? pickSurface : marking ? deselectMark : undefined}
         onMiss={marking ? deselectMark : undefined}
       />
+      {stage === "chassis" && preview.section && (
+        <div className="bd-section">
+          <SectionView fit={fit} />
+        </div>
+      )}
       <div className={stage === "inside" ? "bd-scrim wide" : "bd-scrim"} />
       {TRAY.has(stage) && !powering && <div className="bd-scrim-bottom" />}
 

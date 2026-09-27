@@ -41,6 +41,10 @@ export interface Unit {
   opts?: Record<string, OptionValue>;
   /** Index into build.ports for a port unit. */
   src?: number;
+  /** The zone this unit is moved to, by name, in place of the first that takes its role. */
+  to?: string;
+  /** Turned a quarter in plan: size x and y are already swapped. */
+  turn?: boolean;
 }
 
 /** A block on the derived mainboard. */

@@ -9,6 +9,7 @@ import {
   eraFor,
   factsOf,
   type Fit,
+  type PartPin,
   partsFor,
   profilesOf,
   RIVALS,
@@ -268,6 +269,60 @@ function PowerLimit({ build, set, cat }: { build: Build; set: SetBuild; cat: "pr
   );
 }
 
+/** Pin one field of a movable part's place, or give it back to auto with undefined. */
+function withPin<K extends keyof PartPin>(b: Build, key: string, field: K, v: PartPin[K] | undefined): Build {
+  const all = { ...b.place?.parts };
+  const pin: PartPin = { ...all[key] };
+  if (v === undefined) delete pin[field];
+  else pin[field] = v;
+  if (Object.keys(pin).length > 0) all[key] = pin;
+  else delete all[key];
+  const place = { ...b.place };
+  if (Object.keys(all).length > 0) place.parts = all;
+  else delete place.parts;
+  return { ...b, place };
+}
+
+/** Where a movable floor part sits and whether it is turned: auto, or pinned by the player. */
+function PlaceChips({ build, fit, set, slotKey }: { build: Build; fit: Fit; set: SetBuild; slotKey: string }) {
+  const at = fit.place.parts?.[slotKey];
+  if (!at) return null;
+  const pin = build.place?.parts?.[slotKey] ?? {};
+  return (
+    <>
+      {at.zones.length > 1 && (
+        <div className="bd-field">
+          <Label>Place</Label>
+          <Chips>
+            <Chip caps on={pin.zone === undefined} onClick={() => set((b) => withPin(b, slotKey, "zone", undefined))}>
+              Auto
+            </Chip>
+            {at.zones.map((z) => (
+              <Chip key={z.id} on={pin.zone === z.id} onClick={() => set((b) => withPin(b, slotKey, "zone", z.id))}>
+                {z.name}
+              </Chip>
+            ))}
+          </Chips>
+        </div>
+      )}
+      <div className="bd-field">
+        <Label>Turn</Label>
+        <Chips>
+          <Chip caps on={pin.turn === undefined} onClick={() => set((b) => withPin(b, slotKey, "turn", undefined))}>
+            Auto
+          </Chip>
+          <Chip on={pin.turn === false} onClick={() => set((b) => withPin(b, slotKey, "turn", false))}>
+            0°
+          </Chip>
+          <Chip on={pin.turn === true} onClick={() => set((b) => withPin(b, slotKey, "turn", true))}>
+            90°
+          </Chip>
+        </Chips>
+      </div>
+    </>
+  );
+}
+
 export function InsideColumn({
   build,
   fit,
@@ -294,6 +349,7 @@ export function InsideColumn({
             onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, [current.cat]: v / 100 } }))}
           />
         )}
+        {has && <PlaceChips build={build} fit={fit} set={set} slotKey={`${current.cat}:${current.index}`} />}
         {(current.cat === "processor" || current.cat === "graphics") && has && (
           <PowerLimit build={build} set={set} cat={current.cat} />
         )}

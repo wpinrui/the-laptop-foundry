@@ -109,7 +109,9 @@ export function renderUnit(
   const module = key ? MODELS.get(key) : undefined;
   if (!key || !module) return placeholder(role, box, opts, ctx);
 
-  const { box: mbox, rotationX } = toModelSpace(box.piece, box.size);
+  // A part turned a quarter in plan is built at its own size, then turned.
+  const own = box.turn ? { x: box.size.y, y: box.size.x, z: box.size.z } : box.size;
+  const { box: mbox, rotationX } = toModelSpace(box.piece, own);
   const base = {
     year: opts.year,
     piece: box.piece,
@@ -153,7 +155,12 @@ export function renderUnit(
       );
     return fallback;
   }
-  return centre(wrapper, box);
+  if (!box.turn) return centre(wrapper, box);
+  const turned = new THREE.Group();
+  turned.userData.model = true;
+  turned.rotation.z = Math.PI / 2;
+  turned.add(wrapper);
+  return centre(turned, box);
 }
 
 /** Placeholder geometry is shared for the app's lifetime; a model's own geometry is freed with it. */

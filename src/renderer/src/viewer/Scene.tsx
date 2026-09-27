@@ -248,7 +248,7 @@ function useUnitsGroup(
     const failed: string[] = [];
     for (const b of boxes) {
       seen.add(b.id);
-      const key = `${b.role}|${b.part ?? ""}|${b.size.x.toFixed(3)}|${b.size.y.toFixed(3)}|${b.size.z.toFixed(3)}|${JSON.stringify(b.opts ?? {})}|${b.edge ?? ""}|${year}|${hinge}`;
+      const key = `${b.role}|${b.part ?? ""}|${b.size.x.toFixed(3)}|${b.size.y.toFixed(3)}|${b.size.z.toFixed(3)}|${JSON.stringify(b.opts ?? {})}|${b.edge ?? ""}|${b.turn ? "turn" : ""}|${year}|${hinge}`;
       let label = b.role as string;
       try {
         label = labelFor(b);

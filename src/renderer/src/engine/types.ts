@@ -154,6 +154,10 @@ export interface ZoneNode {
   capacity?: number;
   /** Keeps its share of the slack when empty, so its neighbours stay put. */
   keep?: boolean;
+  /** Roles that may be moved here, by auto placement or the player, besides those it takes. */
+  may?: Role[];
+  /** Short name for the builder's placement control, on zones a movable part can sit in. */
+  name?: string;
 }
 
 export type Node = SplitNode | ZoneNode;
@@ -422,6 +426,14 @@ export interface Placement {
   cam?: { x: number };
   /** Display panel: its top edge's distance below the lid's top edge (the top bezel). */
   panel?: { y: number };
+  /** Floor parts the player pinned, by slot ("storage:0"): a zone and a quarter turn in plan. Absent fields are auto. */
+  parts?: Record<string, PartPin>;
+}
+
+/** A movable floor part's pinned zone and turn. Either left out means auto. */
+export interface PartPin {
+  zone?: string;
+  turn?: boolean;
 }
 
 /** Keycaps as the player styled them. Colours are hex. */
@@ -536,6 +548,8 @@ export interface Box {
   opts?: Record<string, OptionValue>;
   /** The outer edge the unit's zone sits on (vents, ports, bays). */
   edge?: Side;
+  /** Turned a quarter in plan: size x and y are swapped from the part's own. */
+  turn?: boolean;
 }
 
 export interface Opening {
@@ -640,6 +654,8 @@ export interface PlaceReport {
   pad?: { w: number; d: number; y: number; w0: Range; d0: Range; range: Range };
   cam?: { x: number; range: Range };
   panel?: { y: number; range: Range };
+  /** Movable floor parts by slot: where each sits, and the zones it may sit in. */
+  parts?: Record<string, { zone: string; turn: boolean; zones: { id: string; name: string }[] }>;
   /** One per build port, in build order. Null when the port was not placed. */
   ports: ({ along: number; height: number; box: string } | null)[];
 }

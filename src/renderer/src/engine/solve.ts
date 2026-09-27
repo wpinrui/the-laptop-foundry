@@ -23,6 +23,7 @@ import {
 } from "./shell";
 import type {
   Anchor,
+  ZoneNode,
   Axis,
   Box,
   Build,
@@ -64,11 +65,36 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
 
+/** Floor roles auto placement may turn a quarter or move to another zone the layout allows. */
+const MOVABLE = new Set<Role>(["drive", "battery", "spk"]);
+
+/** A movable part's place: a zone by name (absent: where its role goes) and a quarter turn. */
+interface Choice {
+  zone?: string;
+  turn: boolean;
+}
+type Arrangement = Record<string, Choice>;
+type Slot = { role: Role; zones: ZoneNode[]; pin: Partial<Choice> };
+
+/** The build slot a unit came from: "storage:1" for the second drive. */
+function slotOf(u: Unit): string {
+  const [cat, n] = u.id.split(":");
+  return `${cat}:${n}`;
+}
+
+const sameChoice = (a: Choice, b: Choice) => a.zone === b.zone && a.turn === b.turn;
+
 /**
  * Solve a build into an assembly. Pure and deterministic: the same build
- * always gives the same fit. No rendering dependency.
+ * always gives the same fit. No rendering dependency. Movable floor parts the
+ * player left on auto are turned or moved where that needs a smaller base;
+ * `auto: false` leaves them where the layout puts them.
  */
-export function solve(build: Build, content: Content = CONTENT): Fit {
+export function solve(build: Build, content: Content = CONTENT, opts: { auto?: boolean } = {}): Fit {
+  return solveAt(build, content, opts.auto === false ? "base" : null);
+}
+
+function solveAt(build: Build, content: Content, fixed: Arrangement | "base" | null): Fit {
   const idx = indexContent(content);
   const body = idx.bodies.get(build.body);
   const layout = idx.layouts.get(build.layout);
@@ -178,7 +204,75 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     finDepth: em.finDepth,
   };
 
+  // Movable floor parts, by slot, with the zones each may sit in and the player's pins.
+  const floorZones = zonesOf(layout.floor);
+  const slots = new Map<string, Slot>();
+  for (const u of floorUnits) {
+    if (!MOVABLE.has(u.role) || !u.part) continue;
+    const key = slotOf(u);
+    if (slots.has(key)) continue;
+    const zones = floorZones.filter((z) => z.name && (z.takes.includes(u.role) || z.may?.includes(u.role)));
+    const pinned = player.parts?.[key];
+    const pin: Partial<Choice> = {};
+    if (pinned?.turn !== undefined) pin.turn = pinned.turn;
+    const pz = zones.find((z) => z.zone === pinned?.zone);
+    if (pz) pin.zone = pz.zone;
+    slots.set(key, { role: u.role, zones, pin });
+  }
+  const base: Arrangement = {};
+  for (const [key, sl0] of slots) base[key] = { zone: sl0.pin.zone, turn: sl0.pin.turn ?? false };
+  const arranged = (arr: Arrangement): Unit[] =>
+    floorUnits.map((u) => {
+      const c = MOVABLE.has(u.role) && u.part ? arr[slotOf(u)] : undefined;
+      if (!c || (!c.zone && !c.turn)) return u;
+      return {
+        ...u,
+        size: c.turn ? { x: u.size.y, y: u.size.x, z: u.size.z } : { ...u.size },
+        ...(c.zone ? { to: c.zone } : {}),
+        ...(c.turn ? { turn: true } : {}),
+      };
+    });
+
+  // Plans auto placement found that need a smaller base, checked in full at the end.
+  let choice: Arrangement[] = [];
+  if (fixed === null) {
+    const lmin = measure(lidPlan.root, deal(lidPlan.root, lidUnits).fills, flatCtx).mins.get(lidPlan.root) ?? { x: 0, y: 0 };
+    choice = arrange(slots, base, (arr) => {
+      // The plan minimum alone: floor and deck, the deck's hinge strip behind a rear battery.
+      const d = deal(layout.floor, arranged(arr));
+      const fl = measure(layout.floor, d.fills, floorCtx);
+      let strip = 0;
+      for (const f of fl.fills.values())
+        if (f.min && f.node.edge === "rear" && f.node.takes.includes("battery")) strip = Math.max(strip, f.min.y);
+      const deckUnits = em.deck.map((u) =>
+        u.role === "hinge-strip" ? { ...u, size: { ...u.size, y: Math.max(u.size.y, strip) } } : u,
+      );
+      const fmin = fl.mins.get(fl.root) ?? { x: 0, y: 0 };
+      const dmin = measure(deckPlan.root, deal(deckPlan.root, deckUnits).fills, flatCtx).mins.get(deckPlan.root) ?? { x: 0, y: 0 };
+      return {
+        x: Math.max(fmin.x + 2 * off.side, dmin.x + 2 * off.side, lmin.x + 2 * sl),
+        y: Math.max(fmin.y + 2 * off.side, dmin.y + 2 * off.side, lmin.y + 2 * sl),
+        lost: d.unplaced.length,
+      };
+    });
+  }
+  const arr = fixed === null || fixed === "base" ? base : fixed;
+  const floorArranged = arranged(arr);
+  floorUnits.length = 0;
+  floorUnits.push(...floorArranged);
+
   const floorDeal = deal(layout.floor, floorUnits);
+  report.parts = {};
+  for (const [key, sl0] of slots) {
+    let at: ZoneNode | undefined;
+    for (const f of floorDeal.fills.values())
+      if (!at && f.units.some((u) => u.part && MOVABLE.has(u.role) && slotOf(u) === key)) at = f.node;
+    report.parts[key] = {
+      zone: at?.zone ?? "",
+      turn: arr[key]?.turn ?? false,
+      zones: sl0.zones.map((z) => ({ id: z.zone, name: z.name ?? z.zone })),
+    };
+  }
   const deckDeal = deal(deckPlan.root, em.deck);
   const lidDeal = deal(lidPlan.root, lidUnits);
   const seenNoRoom = new Set<string>();
@@ -695,7 +789,7 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     if (hit) hitAt(a.part ?? a.id, String(hit.role));
   }
 
-  return {
+  const fit: Fit = {
     place: report,
     min,
     frame: F,
@@ -736,6 +830,18 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     routes,
     problems,
   };
+  // A better plan must need no more room on any axis and bring no more problems than the layout's own.
+  for (const arr of choice) {
+    const f = solveAt(build, content, arr);
+    if (
+      f.min.x <= fit.min.x + 0.01 &&
+      f.min.y <= fit.min.y + 0.01 &&
+      f.min.z <= fit.min.z + 0.01 &&
+      f.problems.length <= fit.problems.length
+    )
+      return f;
+  }
+  return fit;
 }
 
 function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
@@ -751,5 +857,59 @@ function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
     ...(u.skin ? { skin: true } : {}),
     ...(u.opts ? { opts: u.opts } : {}),
     ...(edge ? { edge } : {}),
+    ...(u.turn ? { turn: true } : {}),
   };
+}
+
+/**
+ * Plans that need a smaller base than the layout's own, best first: each slot
+ * left on auto tries every zone it may sit in, turned and not, one slot at a
+ * time from the best so far, twice over. A plan must need no more room on
+ * either axis and lose no more parts than the layout's own; the smallest area wins.
+ */
+function arrange(
+  slots: Map<string, Slot>,
+  base: Arrangement,
+  planMin: (arr: Arrangement) => { x: number; y: number; lost: number },
+): Arrangement[] {
+  const free = [...slots].filter(([, s]) => s.pin.zone === undefined || s.pin.turn === undefined);
+  if (free.length === 0) return [];
+  const own = planMin(base);
+  const area = (m: { x: number; y: number }) => m.x * m.y;
+  const fits = (m: { x: number; y: number; lost: number }) =>
+    m.x <= own.x + 1e-6 && m.y <= own.y + 1e-6 && m.lost <= own.lost;
+  const found: { arr: Arrangement; area: number; moves: number }[] = [];
+  const movesOf = (arr: Arrangement) => Object.keys(arr).filter((k) => !sameChoice(arr[k], base[k])).length;
+  let best = base;
+  let bestArea = area(own);
+  for (let pass = 0; pass < 2; pass++) {
+    const start = best;
+    for (const [key, s] of free) {
+      const zones: (string | undefined)[] =
+        s.pin.zone !== undefined
+          ? [s.pin.zone]
+          : [undefined, ...s.zones.filter((z) => !z.takes.includes(s.role)).map((z) => z.zone)];
+      const turns = s.pin.turn !== undefined ? [s.pin.turn] : [false, true];
+      let next = best;
+      for (const zone of zones)
+        for (const turn of turns) {
+          const c: Choice = { zone, turn };
+          if (sameChoice(c, best[key])) continue;
+          const arr = { ...best, [key]: c };
+          const m = planMin(arr);
+          if (!fits(m)) continue;
+          const a = area(m);
+          if (a < area(own) - 1 && !found.some((f) => Object.keys(arr).every((k) => sameChoice(f.arr[k], arr[k]))))
+            found.push({ arr, area: a, moves: movesOf(arr) });
+          if (a < bestArea - 1) {
+            bestArea = a;
+            next = arr;
+          }
+        }
+      best = next;
+    }
+    if (best === start) break;
+  }
+  found.sort((p, q) => p.area - q.area || p.moves - q.moves);
+  return found.slice(0, 3).map((f) => f.arr);
 }

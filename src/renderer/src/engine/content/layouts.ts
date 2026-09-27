@@ -25,6 +25,7 @@ const floorA: Node = {
           grow: 1,
           align: "centre",
           capacity: 2,
+          name: "Battery row",
         },
         {
           zone: "battery",
@@ -87,6 +88,17 @@ const floorA: Node = {
               align: "centre",
             },
           ],
+        },
+        // A drive moved beside the board, into the rear row.
+        {
+          zone: "drive-board",
+          takes: [],
+          may: ["drive"],
+          pack: "x",
+          grow: 0,
+          align: "centre",
+          capacity: 2,
+          name: "Board row",
         },
         {
           zone: "fan-r",
@@ -181,6 +193,7 @@ const floorB: Node = {
                   grow: 1,
                   align: "centre",
                   capacity: 2,
+                  name: "Front",
                 },
                 {
                   zone: "spk-r",
@@ -192,11 +205,27 @@ const floorB: Node = {
               ],
             },
             {
-              zone: "board",
-              takes: ["board"],
-              pack: "x",
-              grow: 2,
-              align: "centre",
+              split: "x",
+              children: [
+                {
+                  zone: "board",
+                  takes: ["board"],
+                  pack: "x",
+                  grow: 2,
+                  align: "centre",
+                },
+                // A drive moved beside the board.
+                {
+                  zone: "drive-board",
+                  takes: [],
+                  may: ["drive"],
+                  pack: "x",
+                  grow: 0,
+                  align: "centre",
+                  capacity: 2,
+                  name: "Board row",
+                },
+              ],
             },
           ],
         },
@@ -243,6 +272,17 @@ const floorB: Node = {
           edge: "rear",
           align: "centre",
         },
+        // A drive moved beside the battery, into the rear row.
+        {
+          zone: "drive-rear",
+          takes: [],
+          may: ["drive"],
+          pack: "x",
+          grow: 0,
+          align: "centre",
+          capacity: 2,
+          name: "Battery row",
+        },
         {
           zone: "hinge-r",
           takes: ["hinge"],
@@ -285,6 +325,7 @@ const floorC: Node = {
               grow: 1,
               align: "centre",
               capacity: 2,
+              name: "Side bay",
             },
           ],
         },
@@ -368,6 +409,17 @@ const floorC: Node = {
           pack: "x",
           grow: 4,
           edge: "rear",
+        },
+        // A drive moved beside the battery, into the rear row.
+        {
+          zone: "drive-rear",
+          takes: [],
+          may: ["drive"],
+          pack: "x",
+          grow: 0,
+          align: "centre",
+          capacity: 2,
+          name: "Battery row",
         },
         {
           zone: "battery",

@@ -33,9 +33,10 @@ export function rival(
   spec: RivalSpec,
 ): Rival {
   const build = makeBuild({ year, ...spec });
-  // The listed size is the target; a rival never ships short of its own minimum.
+  // The listed size is the target; a rival never ships short of its own minimum,
+  // taken with every part where its layout puts it, so auto placement never resizes a rival.
   const target: Size = { x: spec.size[0], y: spec.size[1], z: spec.size[2] };
-  const min = solve({ ...build, size: target }).min;
+  const min = solve({ ...build, size: target }, undefined, { auto: false }).min;
   const up = (v: number) => Math.ceil(v * 2) / 2;
   const size: Size = {
     x: up(Math.max(target.x, min.x)),
@@ -96,7 +97,7 @@ export function trim(
     price,
     screen: change.parts?.display !== undefined ? undefined : base.build.screen,
   });
-  const min = solve(build).min;
+  const min = solve(build, undefined, { auto: false }).min;
   const up = (v: number) => Math.ceil(v * 2) / 2;
   const size: Size = {
     x: up(Math.max(build.size.x, min.x)),

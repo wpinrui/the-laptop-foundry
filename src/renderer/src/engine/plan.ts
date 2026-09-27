@@ -85,6 +85,15 @@ export function deal(
   const cursor = new Map<string, number>();
   const unplaced: Unit[] = [];
   for (const u of units) {
+    // A unit moved to a zone goes there while it has room, else where its role goes.
+    if (u.to) {
+      const z = zones.find((z2) => z2.zone === u.to && (z2.takes.includes(u.role) || z2.may?.includes(u.role)));
+      const fill = z && (fills.get(z) as ZoneFill);
+      if (z && fill && (z.capacity === undefined || fill.units.length < z.capacity)) {
+        fill.units.push(u);
+        continue;
+      }
+    }
     const takers = zones.filter((z) => z.takes.includes(u.role));
     let start = cursor.get(u.role) ?? 0;
     let placed = false;

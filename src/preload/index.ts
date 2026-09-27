@@ -6,6 +6,11 @@ export interface FoxNav {
   name: string;
   url: string;
 }
+export interface FoxFull {
+  frame: number;
+  name: string;
+  on: boolean;
+}
 export interface FoxTitle {
   frame: number;
   name: string;
@@ -51,6 +56,8 @@ const api = {
     onTitle: (cb: (m: FoxTitle) => void) => listen("fox:title", cb),
     onOpen: (cb: (url: string) => void) => listen("fox:open", cb),
     onEscape: (cb: () => void) => listen("fox:escape", cb),
+    /** A site entered or left full screen in a tab. */
+    onFull: (cb: (m: FoxFull) => void) => listen("fox:full", cb),
   },
 };
 

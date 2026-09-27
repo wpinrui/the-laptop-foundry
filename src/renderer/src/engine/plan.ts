@@ -21,6 +21,8 @@ export interface PlanCtx {
   fanWatts?: number;
   /** Least fan side the build needs, mm: its fan zones reserve this much floor per fan. */
   fanSide?: number;
+  /** The player's fan side, mm: each fan is that size whatever the room. */
+  fanFixed?: number;
   /** Room in from the fans, mm: a vapour chamber's plate reaching from the chips to them. */
   plate?: number;
   /** Gap between neighbouring ports on a wall, mm; other units use `gap`. */
@@ -346,10 +348,9 @@ export function placeUnits(
       Math.max(fans[0]?.size.z ?? lim.min.z, bandH - lift),
     );
     const needed = ctx.fanWatts === undefined ? Infinity : fanSideFor(ctx.fanWatts, fz);
-    const side = Math.min(
-      lim.max.x,
-      Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth - plate, needed)),
-    );
+    const side =
+      ctx.fanFixed ??
+      Math.min(lim.max.x, Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth - plate, needed)));
     const group = k * side + Math.max(0, k - 1) * ctx.gap;
     let u0 = at[e] + fill.koLo + (sz[e] - fill.koLo - fill.koHi - group) / 2;
     const atEnd = node.edge === "right" || node.edge === "rear";

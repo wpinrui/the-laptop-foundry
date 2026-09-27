@@ -1,6 +1,7 @@
 import { buildBoard } from "./board";
 import { checkCompat } from "./compat";
 import { CONTENT, type Content, eraFor, indexContent } from "./content";
+import { fanSizeOf } from "./fan";
 import {
   alongAxis,
   deal,
@@ -202,7 +203,13 @@ function solveAt(
   // Past that a fan only grows into free room.
   const fanUnit = em.floor.find((u) => u.role === "fan");
   let fanSide: number | undefined;
-  if (fanUnit && fanWatts !== undefined) {
+  // The player's fan size holds each fan at that diameter, room or not.
+  const fanFixed = fanUnit ? fanSizeOf(build) : undefined;
+  if (fanFixed !== undefined) {
+    fanSide = fanFixed;
+    for (const u of em.floor)
+      if (u.role === "fan") u.size = { ...u.size, x: fanFixed, y: fanFixed };
+  } else if (fanUnit && fanWatts !== undefined) {
     const band =
       clamp(build.size.z, body.limits.z[0], body.limits.z[1]) -
       off.bottom -
@@ -224,6 +231,7 @@ function solveAt(
     finDepth: em.finDepth,
     fanWatts,
     fanSide,
+    fanFixed,
     // A vapour chamber's plate reaches in from the fans to the chips.
     plate: em.chamber ? CHAMBER_PLATE : 0,
     // Ports sit a fixed finger's width apart: roomier on older machines.

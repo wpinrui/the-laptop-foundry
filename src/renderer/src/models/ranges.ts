@@ -5,6 +5,7 @@ import {
   CATEGORIES,
   CONTENT,
   eraFor,
+  FAN_MIN,
   type OptionValue,
   type Piece,
   panelsFor,
@@ -299,8 +300,8 @@ export function modelRanges(): Map<ModelKey, RoleRange> {
       if (key === "fan") {
         input.min = {
           ...input.min,
-          width: era.fan.min.x,
-          depth: era.fan.min.x,
+          width: Math.min(era.fan.min.x, FAN_MIN),
+          depth: Math.min(era.fan.min.x, FAN_MIN),
         };
         input.max = {
           ...input.max,

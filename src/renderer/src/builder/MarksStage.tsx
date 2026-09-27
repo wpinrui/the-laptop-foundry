@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Build, Fit, Mark, MarkSurface } from "../engine";
-import { faceOf, markExtent, outlined, strokeOf } from "../viewer/Decor";
+import { faceOf, markBounds, markExtent, outlined, strokeOf } from "../viewer/Decor";
 import { token } from "../viewer/theme";
 import { DragArrow, Dashed, Outline } from "./Arrows";
 import { ColourPicker } from "./ColourPicker";
@@ -67,13 +67,34 @@ function setMark(b: Build, id: string, f: (m: Mark) => Mark): Build {
 /** A mark's allowed centre range on its face. */
 function limits(fit: Fit, m: Mark): { x: [number, number]; y: [number, number] } {
   const f = faceOf(fit, m.surface);
-  const e = markExtent(m);
+  const e = markBounds(m);
   const hx = Math.max(0, f.w / 2 - e.w / 2);
   const hy = Math.max(0, f.h / 2 - e.h / 2);
   return { x: [-hx, hx], y: [-hy, hy] };
 }
 
 const clamp = (v: number, [lo, hi]: [number, number]) => Math.min(hi, Math.max(lo, v));
+
+/** Quarter turns the rotation slider catches within a few degrees of. */
+const QUARTERS = [-180, -90, 0, 90, 180];
+const ROTATION_CHIPS: [number, string][] = [
+  [0, "0°"],
+  [90, "90°"],
+  [180, "180°"],
+  [-90, "270°"],
+];
+
+function snapRotation(v: number): number {
+  const q = QUARTERS.find((d) => Math.abs(d - v) <= 3);
+  return q ?? v;
+}
+
+/** The mark turned to deg, moved back onto the face if its turned bounds now overhang. */
+function turned(fit: Fit, m: Mark, deg: number): Mark {
+  const r = { ...m, rotation: deg };
+  const lim = limits(fit, r);
+  return { ...r, x: clamp(r.x, lim.x), y: clamp(r.y, lim.y) };
+}
 const sameColour = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /** Which browser is open in the column, if any. */
@@ -352,6 +373,23 @@ export function MarksColumn({
       <Slider label="decal size" value={m.size} min={1.5} max={m.kind === "text" ? 60 : 200} step={0.5} onChange={(v) => edit((x) => ({ ...x, size: v }))} />
     </div>
   );
+  const deg = m?.rotation ?? 0;
+  const rotation = m && (
+    <div className="bd-field">
+      <div className="bd-line">
+        <Label>Rotation</Label>
+        <span className="bd-value">{deg}°</span>
+      </div>
+      <Slider label="decal rotation" value={deg} min={-180} max={180} step={1} mark={0} onChange={(v) => edit((x) => turned(fit, x, snapRotation(v)))} />
+      <Chips>
+        {ROTATION_CHIPS.map(([d, name]) => (
+          <Chip key={d} on={deg === d || (d === 180 && deg === -180)} onClick={() => edit((x) => turned(fit, x, d))}>
+            {name}
+          </Chip>
+        ))}
+      </Chips>
+    </div>
+  );
   const colour = m && (
     <button type="button" className="bd-field bd-cell" onClick={() => setColourOpen(!colourOpen)}>
       <Label>Colour</Label>
@@ -418,6 +456,7 @@ export function MarksColumn({
             {position}
           </div>
           {colourOpen && <ColourPicker compact value={m.colour} disabled={locked} onChange={(hex) => edit((x) => ({ ...x, colour: hex }))} />}
+          {rotation}
           {style}
           <div className="bd-field">
             <Label>Process</Label>
@@ -510,6 +549,7 @@ export function MarksColumn({
             {position}
           </div>
           {colourOpen && <ColourPicker compact value={m.colour} disabled={locked} onChange={(hex) => edit((x) => ({ ...x, colour: hex }))} />}
+          {rotation}
           {style}
           <RemoveMark set={set} id={m.id} onSelect={onSelect} />
         </div>
@@ -654,25 +694,25 @@ export function MarkHandles({ build, fit, set, selected, locked }: { build: Buil
   const e = markExtent(m);
   const w = e.w * 1.12 + 2;
   const h = e.h * 1.25 + 2;
+  const b = markBounds(m);
+  const bw = b.w * 1.12 + 2;
+  const bh = b.h * 1.25 + 2;
   const lim = limits(fit, m);
   const z = 0.6;
+  // The outline turns with the mark, clockwise as the face is read.
+  const a = ((m.rotation ?? 0) * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const corner = (dx: number, dy: number): [number, number, number] => [m.x + dx * cos + dy * sin, m.y - dx * sin + dy * cos, z];
   return (
     <group position={f.at} rotation={f.rot}>
-      <Outline
-        handles
-        corners={[
-          [m.x - w / 2, m.y - h / 2, z],
-          [m.x + w / 2, m.y - h / 2, z],
-          [m.x + w / 2, m.y + h / 2, z],
-          [m.x - w / 2, m.y + h / 2, z],
-        ]}
-      />
+      <Outline handles corners={[corner(-w / 2, -h / 2), corner(w / 2, -h / 2), corner(w / 2, h / 2), corner(-w / 2, h / 2)]} />
       <Dashed a={[0, -f.h / 2 + 4, z]} b={[0, f.h / 2 - 4, z]} />
       <Dashed a={[-f.w / 2 + 4, 0, z]} b={[f.w / 2 - 4, 0, z]} />
       <DragArrow
         at={[m.x, m.y, z + 1.5]}
         dir={[1, 0, 0]}
-        reach={w / 2 + 16}
+        reach={bw / 2 + 16}
         value={m.x}
         range={lim.x}
         snaps={[0]}
@@ -682,7 +722,7 @@ export function MarkHandles({ build, fit, set, selected, locked }: { build: Buil
       <DragArrow
         at={[m.x, m.y, z + 1.5]}
         dir={[0, 1, 0]}
-        reach={h / 2 + 16}
+        reach={bh / 2 + 16}
         value={m.y}
         range={lim.y}
         snaps={[0]}

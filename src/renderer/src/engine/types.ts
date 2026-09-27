@@ -621,6 +621,8 @@ export interface Mark {
   /** Offset of the mark's centre from the surface's centre, right and up as the surface is read. */
   x: number;
   y: number;
+  /** Turn about the mark's centre in degrees, clockwise as the surface is read. Absent means 0. */
+  rotation?: number;
 }
 
 export interface BuildPart {

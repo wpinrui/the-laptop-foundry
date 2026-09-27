@@ -1,6 +1,7 @@
 import { join, normalize, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, Menu, net, protocol } from "electron";
+import { registerFox } from "./fox";
 import { registerStore } from "./store";
 import { registerSvgImport } from "./svg";
 
@@ -43,8 +44,21 @@ function createWindow(): void {
 
   window.on("ready-to-show", () => window.show());
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    window.loadURL(process.env.ELECTRON_RENDERER_URL);
+  const dev = process.env.ELECTRON_RENDERER_URL;
+  const index = pathToFileURL(join(__dirname, "../renderer/index.html")).href;
+  const devOrigin = dev ? new URL(dev).origin : null;
+  const appOrigin = (url: string): boolean => {
+    try {
+      if (devOrigin) return new URL(url).origin === devOrigin;
+      return url.split("#")[0].split("?")[0] === index;
+    } catch {
+      return false;
+    }
+  };
+  registerFox(window, appOrigin);
+
+  if (dev) {
+    window.loadURL(dev);
   } else {
     window.loadFile(join(__dirname, "../renderer/index.html"));
   }

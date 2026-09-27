@@ -20,9 +20,10 @@ export const APP_NAME: Record<AppId, string> = {
   kiln: "Kilnbench",
   ash: "Ashfall",
   web: "Notebookcheck",
+  fox: "Firefox",
   sys: "System",
 };
-const DESK_APPS: AppId[] = ["kiln", "ash", "web", "sys"];
+const DESK_APPS: AppId[] = ["kiln", "ash", "web", "fox", "sys"];
 
 const PROFILE_NAME: Record<ProfileId, string> = { high: "High", medium: "Medium", low: "Low" };
 const PRESET_NAME: Record<Preset, string> = { low: "Low", medium: "Medium", high: "High", ultra: "Ultra" };
@@ -135,7 +136,7 @@ function Tray({ era, power, muted, year, now, trayOpen, onTray }: TaskbarProps) 
   );
 }
 
-const PINNED: AppId[] = ["web", "kiln", "ash", "sys"];
+const PINNED: AppId[] = ["fox", "web", "kiln", "ash", "sys"];
 
 export function Taskbar(p: TaskbarProps) {
   const { era, app, minimised, onOpen, onTask } = p;
@@ -172,7 +173,7 @@ export function Taskbar(p: TaskbarProps) {
         <span>start</span>
       </button>
       <span className="os-quick">
-        {(["web", "sys"] as AppId[]).map((a) => (
+        {(["fox", "web", "sys"] as AppId[]).map((a) => (
           <button key={a} type="button" onClick={() => onOpen?.(a)} aria-label={APP_NAME[a]}>
             <Glyph app={a} s={18} />
           </button>

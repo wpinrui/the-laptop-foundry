@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { FoxIcon } from "./Fox";
 import type { AppId } from "./types";
 
 // The OS's icons, drawn in CSS so every era can restyle them: 2006 bevelled
@@ -18,6 +19,7 @@ export function Mark({ s }: { s: number }) {
 const DIM = [2, 6, 8];
 
 export function Glyph({ app, s }: { app: AppId; s: number }) {
+  if (app === "fox") return <FoxIcon s={s} />;
   if (app === "kiln")
     return (
       <i className="osi osi-kiln" style={size(s)}>

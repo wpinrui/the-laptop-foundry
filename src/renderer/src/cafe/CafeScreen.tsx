@@ -37,6 +37,7 @@ import {
   Toast,
   Win,
 } from "../os/Os";
+import { FoxApp, useFox } from "../os/Fox";
 import { SYS_SIZE, SYS_TITLE } from "../os/shots";
 import { sysGroups } from "../os/sys";
 import { type AppId, duration, ownerOf, type Power } from "../os/types";
@@ -218,6 +219,7 @@ function OsCafeScreen({
   const [heat, setHeat] = useState(0);
   const [kiln, setKiln] = useState({ running: false, progress: 0, elapsed: 0, result: null as number | null });
   const [web, setWeb] = useState({ list: [INDEX], at: 0, n: 0 });
+  const fox = useFox(app === "fox", () => setApp(null));
   const now = useNow();
 
   const tl = useMemo(
@@ -269,7 +271,7 @@ function OsCafeScreen({
       }
       if (battery) {
         const d = battery.draw[profile] ?? battery.draw[battery.balanced];
-        const draw = !d ? 0 : s.load ? d.load : s.app === "web" ? d.web : d.idle;
+        const draw = !d ? 0 : s.load ? d.load : s.app === "web" || s.app === "fox" ? d.web : d.idle;
         setWh((w) =>
           s.plugged
             ? Math.min(battery.wh, w + (battery.wh / 120) * dt)
@@ -316,7 +318,7 @@ function OsCafeScreen({
   }, [toast]);
 
   const d = battery ? (battery.draw[profile] ?? battery.draw[battery.balanced]) : undefined;
-  const drawW = !d ? 0 : load ? d.load : app === "web" ? d.web : d.idle;
+  const drawW = !d ? 0 : load ? d.load : app === "web" || app === "fox" ? d.web : d.idle;
   const power: Power = {
     battery: !!battery,
     pct,
@@ -380,6 +382,7 @@ function OsCafeScreen({
     setMinimised(false);
     setDismissed(null);
     if (a === "web") setWeb((w) => ({ list: [INDEX], at: 0, n: w.n + 1 }));
+    if (a === "fox") fox.reset();
     setApp(a);
   };
   const close = () => {
@@ -471,6 +474,12 @@ function OsCafeScreen({
             {review && <ReviewSite review={review} onOpen={go} onHome={() => go(INDEX)} photos={photos} />}
           </div>
         </Browser>
+      </Win>
+    );
+  else if (app === "fox")
+    win = (
+      <Win app="fox" title={fox.tab.title === "New Tab" ? "Mozilla Firefox" : fox.tab.title} w={99999} h={99999} {...winProps}>
+        <FoxApp fox={fox} />
       </Win>
     );
   else if (app === "sys") {

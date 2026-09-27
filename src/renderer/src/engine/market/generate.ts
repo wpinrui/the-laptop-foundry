@@ -357,8 +357,9 @@ function wantsGpu(ctx: Ctx, cpu: Part): boolean {
   return ctx.line.priorities.games >= 0.03 && ctx.rng() < 0.25;
 }
 
-function pickGpu(ctx: Ctx, cpu: Part, shift = 0): Part | undefined {
-  if (!cpu.provides?.includes("dgpu")) return undefined;
+/** Graphics the processor and the line's power window take, slowest first. */
+function gpusFor(ctx: Ctx, cpu: Part): Part[] {
+  if (!cpu.provides?.includes("dgpu")) return [];
   const gens = offeredGenerationIds(ctx.year);
   const all = partsIn("graphics", ctx.year, false);
   let list = all.filter((p) => !p.gen || gens.has(p.gen));
@@ -366,8 +367,12 @@ function pickGpu(ctx: Ctx, cpu: Part, shift = 0): Part | undefined {
   const hi = gpuWindow(ctx);
   const inWindow = list.filter((p) => (p.power?.rated ?? 0) <= hi);
   if (inWindow.length > 0) list = inWindow;
+  return [...list].sort((a, b) => speedOf(a) - speedOf(b) || a.id.localeCompare(b.id));
+}
+
+function pickGpu(ctx: Ctx, cpu: Part, shift = 0): Part | undefined {
+  const list = gpusFor(ctx, cpu);
   if (list.length === 0) return undefined;
-  list = [...list].sort((a, b) => speedOf(a) - speedOf(b) || a.id.localeCompare(b.id));
   // Gaming lines spread over the whole range by their place in it; others buy a modest part.
   const g = ctx.line.priorities.games;
   const p = ctx.who.gaming ? ctx.trim + (g - 0.3) * 2 : ctx.trim - 0.3 + g * 2;
@@ -1189,27 +1194,38 @@ function movesOf(ctx: Ctx): Move[] {
 function fitBudget(ctx: Ctx, c: Choices, share = shareOf(ctx)): void {
   const cap = c.price * share;
   let cost = estimate(ctx, c);
-  for (let i = 0; i < 24 && cost > cap; i++) {
-    let best: { score: number; move: Move; cost: number } | undefined;
-    for (const move of movesOf(ctx)) {
-      if (ctx.protect.has(move.key)) continue;
-      const saved = { cut: { ...ctx.cut }, batteryShrink: ctx.batteryShrink, smallStorage: ctx.smallStorage, lighter: ctx.lighter };
-      const trial = clone(c);
-      const rng = ctx.rng;
-      ctx.rng = () => 0.5;
-      const ok = move.apply(trial);
-      ctx.rng = rng;
-      Object.assign(ctx, saved);
-      if (!ok) continue;
-      const after = estimate(ctx, trial);
-      const saving = cost - after;
-      if (saving <= 0.5) continue;
-      const score = saving / (move.weight + 0.03);
-      if (!best || score > best.score) best = { score, move, cost: after };
+  if (cost <= cap) return;
+  /** Saving per unit of what the line cares about, if the move were taken now. */
+  const score = (move: Move): number => {
+    const saved = { cut: { ...ctx.cut }, batteryShrink: ctx.batteryShrink, smallStorage: ctx.smallStorage, lighter: ctx.lighter };
+    const trial = clone(c);
+    const rng = ctx.rng;
+    ctx.rng = () => 0.5;
+    const ok = move.apply(trial);
+    ctx.rng = rng;
+    Object.assign(ctx, saved);
+    if (!ok) return 0;
+    const saving = cost - estimate(ctx, trial);
+    return saving <= 0.5 ? 0 : saving / (move.weight + 0.03);
+  };
+  // Lazy greedy: a move's score only falls as others are taken, so re-score the leader alone
+  // and take it when it still leads.
+  let queue = movesOf(ctx)
+    .filter((m) => !ctx.protect.has(m.key))
+    .map((move) => ({ move, score: score(move) }))
+    .filter((q) => q.score > 0);
+  for (let i = 0; i < 60 && cost > cap && queue.length > 0; i++) {
+    queue.sort((a, b) => b.score - a.score);
+    const top = queue[0];
+    top.score = score(top.move);
+    if (top.score <= 0) {
+      queue = queue.slice(1);
+      continue;
     }
-    if (!best) return;
-    best.move.apply(c);
+    if (queue.length > 1 && top.score < queue[1].score) continue;
+    top.move.apply(c);
     cost = estimate(ctx, c);
+    top.score = score(top.move);
   }
 }
 
@@ -1561,7 +1577,8 @@ function missOf(ctx: Ctx, build: Build, fit: Fit, t: Tally): Miss {
   ctx.costBias = clamp(cost / Math.max(1, rawEstimate(build)), 0.8, 1.3);
   const price = build.price ?? 1;
   const dear = cost > price * shareOf(ctx);
-  const penalty = cost > price * MAX_COST_SHARE ? 1.5 : dear ? 0.25 : 0;
+  // Under the class counts for more than over the budget: past the ceiling the line raises its price.
+  const penalty = cost > price * MAX_COST_SHARE ? 0.5 : dear ? 0.25 : 0;
   return {
     score: (thick ? 2 : 0) + (big ? 1 : 0) + (slow ? PERF_RANK[target.performance] - PERF_RANK[cls.performance ?? "office"] : 0) + penalty,
     thick,
@@ -1585,7 +1602,12 @@ function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
     delete ctx.cut.cpu;
     delete ctx.cut.gpu;
     if (!c.gpu && c.cpu.provides?.includes("dgpu")) c.gpu = pickGpu(ctx, c.cpu, ctx.who.gaming ? 0 : -0.3);
-    else if (c.gpu) c.gpu = pickGpu(ctx, c.cpu, 0.2 * (s + 1));
+    else if (c.gpu) {
+      // The next chips up, a few at a time: the cheapest that makes the class, not the line's top pick.
+      const list = gpusFor(ctx, c.cpu);
+      const i = list.findIndex((p) => p.id === c.gpu?.id);
+      c.gpu = list[Math.min(list.length - 1, i + Math.max(1, Math.round(list.length * 0.1 * (s + 1))))] ?? c.gpu;
+    }
     else setCpu(ctx, c, pickCpu(ctx, 0.2 * (s + 1)));
     c.cooling = pickCooling(ctx, c.cpu, c.gpu, s > 0 ? 1 : 0);
     // Pay for the speed out of the rest of the machine.
@@ -1621,12 +1643,19 @@ function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
           if (!spendWithin(ctx, c, 0.6, shareOf(ctx))) continue;
           ctx.protect.add("spend");
           return c;
-        case 4:
+        case 4: {
+          // Lighter materials only where the budget has room for them.
           if (ctx.lighter) continue;
-          c.materials = pickMaterials(ctx, true);
+          const materials = pickMaterials(ctx, true);
+          if (estimate(ctx, { ...c, materials }) > c.price * shareOf(ctx)) {
+            ctx.lighter = false;
+            continue;
+          }
+          c.materials = materials;
           c.finish = pickFinish(ctx, c.materials);
           ctx.protect.add("materials");
           break;
+        }
         case 5:
           fitBudget(ctx, c);
           if (!spendWithin(ctx, c, 1, shareOf(ctx))) continue;

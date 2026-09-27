@@ -155,10 +155,10 @@ const floorA: Node = {
   ],
 };
 
-// Layout B, "Battery rear": front port strip; then side columns with the side
-// ports running from the front back to the fan (left) and the optical bay
-// (right), speakers and drive bay in front of the board between them; then
-// hinges either side of the removable battery on the rear edge.
+// Layout B, "Battery rear": front port strip; then side columns with the fan
+// (left) and the optical bay (right) in front and the side ports behind them,
+// toward the rear; speakers and drive bay in front of the board between them;
+// then hinges either side of the removable battery on the rear edge.
 const floorB: Node = {
   split: "y",
   children: [
@@ -177,6 +177,13 @@ const floorB: Node = {
           split: "y",
           children: [
             {
+              zone: "fan",
+              takes: ["fan", "fin"],
+              pack: "y",
+              grow: 4,
+              edge: "left",
+            },
+            {
               zone: "ports-left",
               takes: ["port:left"],
               pack: "y",
@@ -184,13 +191,6 @@ const floorB: Node = {
               edge: "left",
               align: "end",
               packFrom: "end",
-            },
-            {
-              zone: "fan",
-              takes: ["fan", "fin"],
-              pack: "y",
-              grow: 4,
-              edge: "left",
             },
           ],
         },
@@ -254,6 +254,14 @@ const floorB: Node = {
           split: "y",
           children: [
             {
+              zone: "optical-bay",
+              takes: ["odd"],
+              pack: "x",
+              grow: 1,
+              edge: "right",
+              capacity: 1,
+            },
+            {
               zone: "ports-right",
               takes: ["port:right"],
               pack: "y",
@@ -261,14 +269,6 @@ const floorB: Node = {
               edge: "right",
               align: "end",
               packFrom: "end",
-            },
-            {
-              zone: "optical-bay",
-              takes: ["odd"],
-              pack: "x",
-              grow: 1,
-              edge: "right",
-              capacity: 1,
             },
           ],
         },

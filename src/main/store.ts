@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/pro
 import { join } from "node:path";
 import { app } from "electron";
 import { handleTop } from "./ipc";
-import type { SavedCompany, SavedModel, Settings } from "../preload/store";
+import type { SavedCampaign, SavedCompany, SavedModel, Settings } from "../preload/store";
 
 // Each company is one save: one JSON file in the companies folder of the user
 // data folder. Settings live in their own file. Writes go to a temporary file
@@ -18,6 +18,20 @@ const legacyFile = () => join(app.getPath("userData"), "foundry.json");
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_NAME = 60;
+/** A campaign starts from 2006 to 2025 and runs to the end of 2026. */
+const FIRST_START = 2006;
+const LAST_START = 2025;
+
+function isStart(y: unknown): y is number {
+  return typeof y === "number" && Number.isInteger(y) && y >= FIRST_START && y <= LAST_START;
+}
+
+/** A saved campaign, or undefined for a sandbox company. */
+function readCampaign(raw: unknown): SavedCampaign | undefined {
+  const x = raw as Partial<SavedCampaign> | null | undefined;
+  if (!x || !isStart(x.start)) return undefined;
+  return { start: x.start };
+}
 
 let companies: Map<string, SavedCompany> | null = null;
 let settings: Settings | null = null;
@@ -58,6 +72,7 @@ function readCompany(raw: unknown, id: string): SavedCompany | null {
     created: typeof x.created === "number" ? x.created : now,
     played: typeof x.played === "number" ? x.played : now,
     models: Array.isArray(x.models) ? x.models.filter(isModel) : [],
+    campaign: readCampaign(x.campaign),
   };
 }
 
@@ -149,11 +164,13 @@ async function loadSettings(): Promise<Settings> {
 
 export function registerStore(): void {
   handleTop("store:companies", async () => list(await all()));
-  handleTop("store:create-company", async (_e, name: unknown) => {
+  handleTop("store:create-company", async (_e, name: unknown, start: unknown) => {
     if (typeof name !== "string" || !name.trim() || name.trim().length > MAX_NAME)
       throw new Error("company name must be text");
+    if (start !== null && start !== undefined && !isStart(start)) throw new Error("bad campaign start");
     const now = Date.now();
-    return put({ version: 1, id: randomUUID(), name: name.trim(), created: now, played: now, models: [] });
+    const c: SavedCompany = { version: 1, id: randomUUID(), name: name.trim(), created: now, played: now, models: [] };
+    return put(isStart(start) ? { ...c, campaign: { start } } : c);
   });
   handleTop("store:open-company", async (_e, id: unknown) => {
     const c = await company(id);

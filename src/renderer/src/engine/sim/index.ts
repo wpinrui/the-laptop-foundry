@@ -162,6 +162,8 @@ interface Facts {
   fanCount: number;
   coolingSpend: number;
   materialSpend: number;
+  /** Parts stacked over the board, each shading a little of its heat from the skin. */
+  covered?: number;
 }
 
 /** Discrete graphics power. A switchable part is powered down at idle, so it idles at nothing. */
@@ -243,6 +245,7 @@ export function facts(build: Build, fit: Fit, content: Content): Facts {
     fanCount: fanShape?.kind === "fan" ? fanShape.count : 0,
     coolingSpend: build.spend.cooling ?? 0,
     materialSpend: build.spend.material ?? 0,
+    covered: fit.boxes.filter((b) => b.over === "board").length,
   };
 }
 
@@ -309,7 +312,7 @@ export function cooler(f: Facts): Cooler {
   const areaM2 = (2 * x * y) / 1e6;
   // The skin path is the same body with or without a fan, so a fan only ever
   // adds to it.
-  const passive = 2.2 * areaM2 * spread * (1 + 0.3 * f.materialSpend);
+  const passive = 2.2 * areaM2 * spread * (1 + 0.3 * f.materialSpend) * (1 - 0.05 * (f.covered ?? 0));
 
   // Airflow grows with fan diameter and thickness; the fin face sets how much
   // of it picks up heat, more for cooling than for noise. 2006 fin stacks and

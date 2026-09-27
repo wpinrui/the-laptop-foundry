@@ -362,8 +362,9 @@ function check(build: Build, fit: Fit): string[] {
       fail(`${u.id} leaves the deck layer`);
     if (u.role === "keys" && u.at.z + u.size.z > shell.lid.at.z + EPS)
       fail("keycaps reach the closed lid");
-    // Every unit inside its zone.
+    // Every unit inside its zone; a stacked part sits over its host instead, clear of the rest.
     const zb = zoneBoxes.get(`${u.piece}:${u.zone}`);
+    if (u.over) continue;
     if (!zb) fail(`${u.id} has no zone box`);
     else if (
       (["x", "y"] as const).some(

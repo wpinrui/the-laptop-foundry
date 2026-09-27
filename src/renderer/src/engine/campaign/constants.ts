@@ -54,3 +54,32 @@ export const DESIGN_COST = { new: 300_000, refresh: 75_000 };
  * reasoning above.
  */
 export const TOOLING_COST = { new: 700_000, refresh: 50_000 };
+
+// ------------------------------------------------------------------ finances
+
+/**
+ * The retailers' share of each sale's retail price. Laptop margins at big box
+ * stores and e-tailers ran near 15 to 25%; a new brand gets no better than
+ * the middle of that.
+ */
+export const RETAILER_CUT = 0.2;
+
+/**
+ * Fixed overhead per quarter: a small team of about 15 engineers, buyers and
+ * support staff at around $10k a quarter each, loaded. Doing nothing costs
+ * $600k a year, so sitting on the starting cash is no strategy.
+ */
+export const OVERHEAD_BASE = 150_000;
+
+/**
+ * Overhead per quarter for each line on the market (a released model with
+ * stock): its product manager, channel support, spares and warranty desk.
+ */
+export const OVERHEAD_PER_LINE = 40_000;
+
+/**
+ * Holding cost per quarter as a share of the stock's production cost:
+ * warehousing, insurance and the cash tied up. Around 16% a year, the low
+ * end of the usual 15 to 30%, since laptops are small and dense.
+ */
+export const HOLDING_RATE = 0.04;

@@ -9,6 +9,7 @@ import { type Build, migrateBody, screenOf, type Subject } from "./engine";
 import { type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
+import { Bankrupt, FinancePanel } from "./foundry/Finance";
 import { ReleasePanel } from "./foundry/Release";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
@@ -303,20 +304,36 @@ export function App() {
       />
     );
   const current = company?.models.find((m) => m.id === selected);
-  if (menu === "list" && company && campaign && current)
+  if (menu === "list" && company && campaign?.bankrupt)
+    screen = (
+      <Bankrupt
+        name={company.name}
+        campaign={campaign}
+        onMenu={() => {
+          setCompany(null);
+          setMenu("start");
+        }}
+      />
+    );
+  else if (menu === "list" && company && campaign)
     screen = (
       <>
         {screen}
-        <ReleasePanel
-          key={current.id}
-          campaign={campaign}
-          model={current}
-          models={company.models}
-          onRelease={(units, cost, re) =>
-            commit(release(campaign, current.id, (current.build as Build).price, cost, units, re))
-          }
-          onReorder={(units, cost) => commit(reorder(campaign, current.id, cost, units))}
-        />
+        <div className="fd-side">
+          <FinancePanel campaign={campaign} />
+          {current && (
+            <ReleasePanel
+              key={current.id}
+              campaign={campaign}
+              model={current}
+              models={company.models}
+              onRelease={(units, cost, re) =>
+                commit(release(campaign, current.id, (current.build as Build).price, cost, units, re))
+              }
+              onReorder={(units, cost) => commit(reorder(campaign, current.id, cost, units))}
+            />
+          )}
+        </div>
       </>
     );
 
@@ -329,7 +346,7 @@ export function App() {
         model={staged?.name ?? ""}
         view={VIEWS[menu]}
       />
-      {menu !== "list" && <div className="fd-scrim" />}
+      {(menu !== "list" || campaign?.bankrupt) && <div className="fd-scrim" />}
       <div key={menu}>{screen}</div>
     </div>
   );

@@ -1,3 +1,5 @@
+import type { SegmentId } from "../market/types";
+
 // Campaign constants. Money is in nominal US dollars.
 
 /** The earliest and latest year a campaign can start in. */
@@ -235,3 +237,110 @@ export const SELL_THROUGH_QUARTERS = 1;
 
 /** Quarters a line's last model stays on sale after its launch when no successor comes. */
 export const LAST_MODEL_QUARTERS = 4;
+
+// ------------------------------------------------------------------ sales
+// Ported from Laptop Tycoon's sales engine: each segment's buyers in a
+// quarter split among the laptops on sale by appeal, and every buyer buys.
+
+/**
+ * Tycoon's populations are a small model world: about 520,000 laptop buyers
+ * a year in 2010. The US bought about 35 to 40 million laptops a year around
+ * 2010, so every segment's buyers are scaled up by this. Reach stays in
+ * Tycoon's units, so word of mouth divides it back out.
+ */
+export const DEMAND_SCALE = 70;
+
+/**
+ * How strongly the market score drives appeal: exp(k x (score - 5.5)). At
+ * 0.35 a laptop scoring 10 is 4.8 times as appealing as an average one and
+ * a laptop scoring 1 a fifth as much.
+ */
+export const SCORE_STEEPNESS = 0.35;
+
+/**
+ * How fast appeal falls once the price passes the segment's ceiling:
+ * exp(-k x (price / ceiling - 1)). At 4, 25% over the ceiling keeps 37% of
+ * the buyers and 50% over keeps 14%. Under the ceiling the market score's
+ * price stat does the work.
+ */
+export const OVER_CEILING_STEEPNESS = 4;
+
+/**
+ * The critics' pull: exp(k x (review - REVIEW_PAR) / REVIEW_SPAN). At 1 a
+ * review of 100 lifts appeal by 65% and a review of 30 cuts it by 40%.
+ */
+export const CRITICS_STRENGTH = 1;
+
+/**
+ * Uniform noise on each laptop's appeal, plus or minus this share, seeded
+ * per quarter and laptop: a good quarter or a bad one, Tycoon's 10 to 15%.
+ */
+export const SALES_NOISE = 0.12;
+
+/**
+ * People each buyer tells: sales grow reach by WORD_OF_MOUTH x units, in
+ * Tycoon's population units (units / DEMAND_SCALE), over the segment. A
+ * niche that buys well hears of the company; a mass segment barely does.
+ */
+export const WORD_OF_MOUTH = 5;
+
+/** Sales records kept in the save, one per quarter: five years. */
+export const SALES_HISTORY = 20;
+
+/**
+ * Each rival maker's brand in each segment, on the player's brandFactor
+ * scale: reach times (1 + perception / 100), so 1 is a maker every buyer
+ * knows and thinks nothing special of. `base` covers segments not listed.
+ * Rough reads of the 2006 to 2026 US market: Dell, Lenovo and HP own
+ * corporate buyers, Apple owns creatives and the premium end but barely
+ * sells to gamers, the gaming makers own gaming and little else, and
+ * Samsung, Microsoft and Razer are known but narrow.
+ */
+export const RIVAL_BRAND: Record<string, { base: number; segments?: Partial<Record<SegmentId, number>> }> = {
+  dell: {
+    base: 0.9,
+    segments: { corporate: 1.25, businessProfessional: 1.1, fieldWorker: 1.1, gamer: 0.9, desktopReplacement: 1.0 },
+  },
+  lenovo: {
+    base: 0.85,
+    segments: { corporate: 1.25, businessProfessional: 1.2, developer: 1.1, fieldWorker: 0.95, educationK12: 0.95 },
+  },
+  hp: {
+    base: 0.9,
+    segments: { corporate: 1.15, generalConsumer: 1.05, budgetBuyer: 1.0, student: 0.95, educationK12: 0.95 },
+  },
+  apple: {
+    base: 0.8,
+    segments: {
+      creativeProfessional: 1.4,
+      videoEditor: 1.4,
+      musicProducer: 1.45,
+      developer: 1.2,
+      writer: 1.2,
+      digitalNomad: 1.2,
+      techEnthusiast: 1.0,
+      student: 1.0,
+      educationK12: 0.8,
+      corporate: 0.45,
+      fieldWorker: 0.3,
+      budgetBuyer: 0.3,
+      gamer: 0.25,
+      esportsPro: 0.15,
+      desktopReplacement: 0.3,
+    },
+  },
+  asus: { base: 0.7, segments: { gamer: 1.1, esportsPro: 1.1, streamer: 1.0, budgetBuyer: 0.9, student: 0.85 } },
+  acer: { base: 0.7, segments: { budgetBuyer: 1.0, educationK12: 1.0, student: 0.85, gamer: 0.8 } },
+  msi: {
+    base: 0.35,
+    segments: { gamer: 1.1, esportsPro: 1.1, streamer: 1.0, desktopReplacement: 1.0, threeDArtist: 0.7 },
+  },
+  samsung: { base: 0.5, segments: { techEnthusiast: 0.6 } },
+  microsoft: { base: 0.6, segments: { businessProfessional: 0.9, student: 0.8, writer: 0.85 } },
+  razer: { base: 0.3, segments: { gamer: 1.0, esportsPro: 1.2, streamer: 1.1, techEnthusiast: 0.6 } },
+  toshiba: { base: 0.7, segments: { budgetBuyer: 0.85, fieldWorker: 0.8, businessProfessional: 0.8 } },
+  sony: { base: 0.6, segments: { generalConsumer: 0.75, creativeProfessional: 0.7, student: 0.7 } },
+};
+
+/** A maker missing from RIVAL_BRAND. */
+export const RIVAL_BRAND_DEFAULT = 0.5;

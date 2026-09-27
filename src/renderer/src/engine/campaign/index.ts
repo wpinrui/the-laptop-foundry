@@ -1,10 +1,11 @@
 import type { SavedCampaign, SavedModel } from "../../../../preload/store";
-import { type Brand, brandOf, market, newBrand, updatePerception } from "./brand";
+import { type Brand, brandOf, market, newBrand, type SegmentOutcome, updatePerception } from "./brand";
 import { END_YEAR, FIRST_START, LAST_START, STARTING_CASH } from "./constants";
 import { entryOf, type LedgerEntry, NO_SPEND, type Spent, settle, spentOf } from "./finance";
 import type { Rival } from "../market/field";
 import { type Release, releaseOf } from "./release";
 import { launchRivals } from "./rivals";
+import { type SalesRecord, salesRecordOf, simulateSales, wordOfMouth } from "./sales";
 
 // Campaign mode: a company plays forward from a start year a quarter at a
 // time, to the end of 2026. The state lives in the company save; the main
@@ -15,6 +16,7 @@ export * from "./constants";
 export * from "./finance";
 export * from "./release";
 export * from "./rivals";
+export * from "./sales";
 
 export type QuarterOfYear = 1 | 2 | 3 | 4;
 
@@ -43,6 +45,10 @@ export interface CampaignState {
   brand: Brand;
   /** Ids of the rival models on sale in the quarter being played. */
   onSale: string[];
+  /** One record per resolved quarter, oldest first, the last SALES_HISTORY kept. */
+  sales: SalesRecord[];
+  /** The quarter's buyers' outcomes, from sales to marketing. Empty between quarters. */
+  outcomes: SegmentOutcome[];
 }
 
 /** What a quarter's resolution reads besides the campaign state. */
@@ -78,6 +84,8 @@ export function newCampaign(start: number): CampaignState {
     bankrupt: false,
     brand: newBrand(),
     onSale: [],
+    sales: [],
+    outcomes: [],
   };
 }
 
@@ -105,6 +113,8 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     bankrupt: s.bankrupt === true,
     brand: brandOf(s.brand),
     onSale: Array.isArray(s.onSale) ? s.onSale.filter((x): x is string => typeof x === "string") : [],
+    sales: Array.isArray(s.sales) ? s.sales.map(salesRecordOf).filter((r): r is SalesRecord => !!r) : [],
+    outcomes: [],
   };
 }
 
@@ -129,13 +139,11 @@ export function savedCampaign(state: CampaignState): SavedCampaign {
 /** Critics review the laptops launched this quarter. */
 export const publishReviews: QuarterStep = (state) => state;
 
-/** Segment demand for the quarter is split among the laptops on sale. */
-export const simulateSales: QuarterStep = (state) => state;
-
 /** Paid campaigns run, and reach and reputation move with sales and reviews. */
-export const runMarketing: QuarterStep = (state) =>
-  // No sales yet, so no buyers' outcomes: perception holds.
-  updatePerception(market(state), []);
+export const runMarketing: QuarterStep = (state) => ({
+  ...updatePerception(wordOfMouth(market(state), state.outcomes), state.outcomes),
+  outcomes: [],
+});
 
 /** Revenue, part and production costs and stock settle into cash. */
 export const settleFinances: QuarterStep = (state) => settle(state);

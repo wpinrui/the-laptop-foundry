@@ -101,13 +101,12 @@ const SRGB = "100% sRGB";
 const P3 = "100% DCI-P3";
 
 /**
- * Rows that shipped later than their bucket: the Retina MacBook Pros of 2012
- * and the 165 Hz Mini-LED of 2022 (ROG Flow X16). Their ids keep the bucket.
+ * Rows that shipped later than their bucket: the Retina MacBook Pros of 2012.
+ * Their ids keep the bucket.
  */
 const SOLD_FROM: Record<string, number> = {
   "2011-13.3-2560x1600-ips": 2012,
   "2011-15.4-2880x1800-ips": 2012,
-  "2021-16-2560x1600-mini-led": 2022,
 };
 
 const BUCKETED: PanelOption[] = [
@@ -188,7 +187,7 @@ const BUCKETED: PanelOption[] = [
     [15.6, [16, 9], [3840, 2160], "oled", [60], 400, P3],
     [16, W, [1920, 1200], "ips", [60, 165], 300, SRGB],
     [16, W, [2560, 1600], "ips", [120, 165], 400, SRGB],
-    [16, W, [2560, 1600], "mini-led", [165], 600, P3],
+    [16, W, [2560, 1600], "mini-led", [120, 165], 600, P3],
     [17.3, [16, 9], [1920, 1080], "ips", [144, 240], 300, SRGB],
     [17.3, [16, 9], [2560, 1440], "ips", [165, 240], 300, SRGB],
   ]),

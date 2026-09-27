@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { available, CONTENT, panelsFor, partsFor } from "./content";
 import { zonesOf } from "./plan";
 import { SAMPLES } from "./samples";
-import { flatFace, insideBase, insideLid } from "./shell";
+import { flatFace, insideBase, insideLid, taperDepth } from "./shell";
 import { solve } from "./solve";
 import type {
   Axis,
@@ -580,7 +580,7 @@ function check(build: Build, fit: Fit): string[] {
     for (let deg = 0; deg <= LID_MAX_DEG; deg += LID_STEP_DEG) {
       const hit = lidHitsBase(
         F,
-        style.wedge,
+        style.drop,
         lidZ0,
         fit.lidZ,
         axis.from.y,
@@ -602,14 +602,14 @@ const LID_STEP_DEG = 5;
 /**
  * Does the lid, opened by `deg` about the hinge axis (running along x at
  * (py, pz)), overlap the base? Both are compared as their bounding solids in
- * the y-z plane: the base spans y 0 to F.y and z from the wedge's lowest point
+ * the y-z plane: the base spans y 0 to F.y and z from a spine's lowest point
  * to F.z; the closed lid spans y 0 to F.y and z lidZ0 to lidZ0 + lidZ. Every
  * part and shell lies inside these, so no overlap here means none in the model.
  * Separating axis test between the rotated lid rectangle and the base rectangle.
  */
 function lidHitsBase(
   F: Size,
-  wedge: number,
+  drop: number,
   lidZ0: number,
   lidZ: number,
   py: number,
@@ -632,8 +632,8 @@ function lidHitsBase(
     rot(0, lidZ0 + lidZ),
   ];
   const base: [number, number][] = [
-    [0, -wedge],
-    [F.y, -wedge],
+    [0, -drop],
+    [F.y, -drop],
     [F.y, F.z],
     [0, F.z],
   ];
@@ -991,8 +991,9 @@ describe("fit engine", () => {
       if (!body) throw new Error(s.build.body);
       const { size } = minimumOf(s.build, body.limits);
       const f = solve(withSize(s.build, size));
-      const front = f.min.z + f.lidZ;
-      const rear = front + body.style.wedge;
+      // The player's thickness is the rear; a taper thins the front.
+      const rear = f.min.z + f.lidZ;
+      const front = rear - taperDepth(f.shell.style, f.frame.z);
       const [lo, hi] = s.thickness;
       lines.push(
         `${s.id}: ${front.toFixed(1)}${rear > front ? ` to ${rear.toFixed(1)}` : ""} vs ${lo} to ${hi}`,

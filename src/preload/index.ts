@@ -1,5 +1,24 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
 import type { SavedCompany, SavedModel, Settings } from "./store";
+
+export interface FoxNav {
+  frame: number;
+  name: string;
+  url: string;
+}
+export interface FoxTitle {
+  frame: number;
+  name: string;
+  title: string;
+}
+
+function listen<T>(channel: string, cb: (m: T) => void): () => void {
+  const h = (_e: IpcRendererEvent, m: T) => cb(m);
+  ipcRenderer.on(channel, h);
+  return () => {
+    ipcRenderer.removeListener(channel, h);
+  };
+}
 
 /** The typed surface exposed to the renderer as `window.api`. Keep it minimal. */
 const api = {
@@ -26,6 +45,13 @@ const api = {
     > => ipcRenderer.invoke("marks:import-image"),
   },
   quit: (): Promise<void> => ipcRenderer.invoke("app:quit"),
+  /** The in-game browser's frames, as the main process sees them. */
+  fox: {
+    onNav: (cb: (m: FoxNav) => void) => listen("fox:nav", cb),
+    onTitle: (cb: (m: FoxTitle) => void) => listen("fox:title", cb),
+    onOpen: (cb: (url: string) => void) => listen("fox:open", cb),
+    onEscape: (cb: () => void) => listen("fox:escape", cb),
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);

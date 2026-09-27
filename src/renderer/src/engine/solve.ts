@@ -42,6 +42,7 @@ import type {
   Opening,
   Piece,
   PlaceReport,
+  PlanAxis,
   Problem,
   Range,
   Role,
@@ -49,19 +50,10 @@ import type {
   Side,
   Size,
   Tune,
-  Turn,
   Vec3,
 } from "./types";
 import { isZone } from "./types";
-import {
-  bezelUnits,
-  emit,
-  faceAxis,
-  isUp,
-  spendOf,
-  turnSize,
-  type Unit,
-} from "./units";
+import { bezelUnits, emit, spendOf, type Unit } from "./units";
 import { panelOf } from "./screen";
 
 const AXES: Axis[] = ["x", "y", "z"];
@@ -128,11 +120,13 @@ const BESIDE = "beside-battery";
 /** A movable part's place: a zone by name (absent: where its role goes) and a quarter turn. */
 interface Choice {
   zone?: string;
-  turn: Turn;
+  turn: boolean;
+  /** Speakers: the axis their units line up along, absent the zone's own. */
+  row?: PlanAxis;
 }
-/** Turns auto placement tries: a speaker may also stand on its long edge. */
-const turnsOf = (role: Role): Turn[] =>
-  role === "spk" ? [false, true, "up", "up90"] : [false, true];
+/** Rows auto placement tries: a speaker set may line up either way. */
+const rowsOf = (role: Role): (PlanAxis | undefined)[] =>
+  role === "spk" ? [undefined, "x", "y"] : [undefined];
 type Arrangement = Record<string, Choice>;
 type Slot = {
   role: Role;
@@ -148,7 +142,7 @@ function slotOf(u: Unit): string {
 }
 
 const sameChoice = (a: Choice, b: Choice) =>
-  a.zone === b.zone && a.turn === b.turn;
+  a.zone === b.zone && a.turn === b.turn && a.row === b.row;
 
 /**
  * Solve a build into an assembly. Pure and deterministic: the same build
@@ -426,11 +420,10 @@ function solveAt(
     const pinned = player.parts?.[key];
     const pin: Partial<Choice> = {};
     if (UPRIGHT.has(u.role)) pin.turn = false;
-    else if (
-      pinned?.turn !== undefined &&
-      (u.role === "spk" || !isUp(pinned.turn))
-    )
-      pin.turn = pinned.turn;
+    // Older saves may hold a turn this no longer knows: that is auto.
+    else if (typeof pinned?.turn === "boolean") pin.turn = pinned.turn;
+    if (u.role === "spk" && (pinned?.row === "x" || pinned?.row === "y"))
+      pin.row = pinned.row;
     const stacks = STACKERS.has(u.role)
       ? HOSTS.filter((h) => floorUnits.some((f) => f.role === h)).map(
           (h) => OVER + h,
@@ -446,7 +439,11 @@ function solveAt(
   }
   const base: Arrangement = {};
   for (const [key, sl0] of slots)
-    base[key] = { zone: sl0.pin.zone, turn: sl0.pin.turn ?? false };
+    base[key] = {
+      zone: sl0.pin.zone,
+      turn: sl0.pin.turn ?? false,
+      ...(sl0.pin.row ? { row: sl0.pin.row } : {}),
+    };
   const batteryKey = [...slots].find(([, s]) => s.role === "battery")?.[0];
   const arranged = (arr: Arrangement): Unit[] =>
     floorUnits.map((u) => {
@@ -458,16 +455,19 @@ function solveAt(
           batteryZones.find((z) => z.takes.includes("battery"))?.zone;
         c = { ...c, zone: bz ? spkBeside(bz) : undefined };
       }
-      if (!c || (!c.zone && !c.turn)) return u;
+      if (!c || (!c.zone && !c.turn && !c.row)) return u;
       const over = c.zone?.startsWith(OVER)
         ? (c.zone.slice(OVER.length) as Role)
         : undefined;
       return {
         ...u,
-        size: turnSize(u.size, c.turn),
+        size: c.turn
+          ? { x: u.size.y, y: u.size.x, z: u.size.z }
+          : { ...u.size },
         ...(c.zone && !over ? { to: c.zone } : {}),
         ...(over ? { over } : {}),
-        ...(c.turn ? { turn: c.turn } : {}),
+        ...(c.turn ? { turn: true } : {}),
+        ...(c.row ? { row: c.row } : {}),
       };
     });
   const oddSide =
@@ -544,8 +544,7 @@ function solveAt(
         z: undefined as number | undefined,
         lost: d.unplaced.length,
       };
-      // A standing speaker needs its height checked where it lies.
-      if (ups.length === 0 && !tp && !all.some((u) => isUp(u.turn))) return m;
+      if (ups.length === 0 && !tp) return m;
       // Before laying anything out: a stack that cannot beat the bar, or
       // could not fit under the player's thickness even over the lowest host,
       // is out. A removable pack starts on the outer bottom.
@@ -689,7 +688,8 @@ function solveAt(
       zone: at ?? "",
       turn: arr[key]?.turn ?? false,
       turns: !UPRIGHT.has(sl0.role),
-      ups: sl0.role === "spk",
+      ...(arr[key]?.row ? { row: arr[key].row } : {}),
+      rows: sl0.role === "spk",
       zones: [
         ...sl0.zones.map((z) => ({ id: z.zone, name: z.name ?? z.zone })),
         ...sl0.stacks.map((id) => ({
@@ -978,14 +978,6 @@ function solveAt(
   const placedFloor: PlacedUnit[] = [];
   const moved = new Set<string>();
 
-  // A standing speaker faces the nearer outer wall across its thin side.
-  const faceOf = (u: PlacedUnit): Side | undefined => {
-    if (!isUp(u.turn)) return undefined;
-    const a = faceAxis(u.size, u.turn);
-    const low = u.at[a] + u.size[a] / 2 < F[a] / 2;
-    return a === "x" ? (low ? "left" : "right") : low ? "front" : "rear";
-  };
-
   // Floor.
   for (const zone of zonesOf(layout.floor)) {
     const fill = floor.fills.get(zone);
@@ -1047,7 +1039,7 @@ function solveAt(
       // pivots, not on the floor. The zone's room already clears its height.
       if (u.role === "hinge") u.at.z = Math.max(z0, z0 + room - u.size.z);
       placedFloor.push(u);
-      boxes.push(unitBox(u, "floor", zone.edge, faceOf(u)));
+      boxes.push(unitBox(u, "floor", zone.edge));
       if (u.skin)
         hatches.push({
           at: { ...u.at },
@@ -1466,12 +1458,7 @@ function solveAt(
   return fit;
 }
 
-function unitBox(
-  u: PlacedUnit,
-  piece: Piece,
-  edge?: Side,
-  face?: Side,
-): Box {
+function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
   return {
     id: `${piece}:${u.id}`,
     role: u.role as Role,
@@ -1484,8 +1471,7 @@ function unitBox(
     ...(u.skin ? { skin: true } : {}),
     ...(u.opts ? { opts: u.opts } : {}),
     ...(edge ? { edge } : {}),
-    ...(u.turn ? { turn: u.turn } : {}),
-    ...(face ? { face } : {}),
+    ...(u.turn ? { turn: true } : {}),
     ...(u.over ? { over: u.over } : {}),
   };
 }
@@ -1732,7 +1718,10 @@ function arrange(
   ) => { x: number; y: number; z?: number; lost: number },
 ): Arrangement[] {
   const free = [...slots].filter(
-    ([, s]) => s.pin.zone === undefined || s.pin.turn === undefined,
+    ([, s]) =>
+      s.pin.zone === undefined ||
+      s.pin.turn === undefined ||
+      (s.role === "spk" && s.pin.row === undefined),
   );
   if (free.length === 0) return [];
   const own = planMin(base);
@@ -1777,15 +1766,17 @@ function arrange(
                 .filter((z) => !z.takes.includes(s.role))
                 .map((z) => z.zone),
             ];
-      const turns = s.pin.turn !== undefined ? [s.pin.turn] : turnsOf(s.role);
+      const turns = s.pin.turn !== undefined ? [s.pin.turn] : [false, true];
+      const rows = s.pin.row !== undefined ? [s.pin.row] : rowsOf(s.role);
       let next: Arrangement | undefined;
       let nextRank = bestRank;
       // On a taper, a move to another zone that costs nothing may open the way
       // for the next: the speakers leaving the front row before the battery goes back.
       let level: Arrangement | undefined;
       for (const zone of zones)
-        for (const turn of turns) {
-          const c: Choice = { zone, turn };
+        for (const turn of turns)
+        for (const row of rows) {
+          const c: Choice = { zone, turn, ...(row ? { row } : {}) };
           if (sameChoice(c, best[key])) continue;
           const arr = { ...best, [key]: c };
           const m = planMin(arr);
@@ -1820,7 +1811,7 @@ function arrange(
     const start = best;
     for (const [key, s] of free) {
       if (s.pin.zone !== undefined || s.stacks.length === 0) continue;
-      const turns = s.pin.turn !== undefined ? [s.pin.turn] : turnsOf(s.role);
+      const turns = s.pin.turn !== undefined ? [s.pin.turn] : [false, true];
       let next: Arrangement | undefined;
       let step: Arrangement | undefined;
       let stepArea = bestRank.out * 1e9 + bestRank.area - 1;

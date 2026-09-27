@@ -31,7 +31,7 @@ describe("settle", () => {
     expect(e.profit).toBe(-4_310_000);
     expect(s.cash).toBe(1_000_000 - 310_000);
     expect(e.cash).toBe(s.cash);
-    expect(s.spent).toEqual({ setup: 0, production: 0 });
+    expect(s.spent).toEqual({ setup: 0, production: 0, marketing: 0 });
   });
 
   it("turns units sold into revenue less the retailers' cut", () => {

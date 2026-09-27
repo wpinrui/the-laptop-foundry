@@ -123,6 +123,7 @@ export function release(
     cash: state.cash - q.total,
     releases: { ...state.releases, [id]: r },
     spent: {
+      ...state.spent,
       setup: state.spent.setup + q.setup,
       production: state.spent.production + q.unit * units,
     },

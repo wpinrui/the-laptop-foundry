@@ -13,13 +13,13 @@ export const ROOM_WHITE: Record<Room, number> = { cafe: 360, workshop: 260 };
 export const BRIGHTNESS_RANGE: [number, number] = [0.45, 1.04];
 
 /** Share of the room's light a screen surface sends back as a haze. */
-export const REFLECTANCE = { matte: 0.02, glossy: 0.008 };
+export const REFLECTANCE = { matte: 0.015, glossy: 0.008 };
 
 /**
  * How much of the modelled black haze the player's own monitor can show: it
  * has a black level and a room of its own, so the full figure would read too grey.
  */
-export const HAZE_SHOWN = 0.7;
+export const HAZE_SHOWN = 0.55;
 
 /** Haze colour per panel family, over the page: cheap TN blacks are bluish grey. */
 export const HAZE_COLOUR: Record<string, string> = {
@@ -41,7 +41,7 @@ export const CAST_PER_DE = 0.006;
 export const CAST_COLOUR = "150, 180, 255";
 
 /** Softness: blur radius per panel pixel, in the page's CSS pixels. */
-export const BLUR_PER_PIXEL = 0.42;
+export const BLUR_PER_PIXEL = 0.5;
 /** Below this blur, none. */
 export const BLUR_MIN = 0.12;
 
@@ -53,7 +53,7 @@ export const ANGLE = {
   tn: {
     /** From below: this many degrees to the full effect. */
     below: 32,
-    belowDim: 0.6,
+    belowDim: 0.5,
     belowContrast: 0.55,
     belowInvert: 0.42,
     /** From above: washes out. */
@@ -107,6 +107,13 @@ export const IFRAME_GUESS = 0.75;
  * of screen, in the scene's mm units (irradiance falls with distance squared).
  */
 export const GLOW_PER_CANDELA = 1400;
+
+/**
+ * The rooms' lights are not in the same units: the workshop's fill is far
+ * stronger in the scene's numbers than the cafe's, so the screen's light is
+ * scaled to match each room's own.
+ */
+export const GLOW_ROOM: Record<Room, number> = { cafe: 1.5, workshop: 6 };
 
 /** The screen's light reaches no further than this, mm. */
 export const GLOW_REACH = 2500;

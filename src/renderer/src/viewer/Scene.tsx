@@ -1,6 +1,7 @@
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import { VIEW_EVENT, VIEW_STEP, type View } from "../panel/fx";
+import { GLOW_EASE, GLOW_PER_CANDELA, GLOW_REACH, HALO_SPREAD } from "../panel/tuning";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import {
   memo,
@@ -990,27 +991,72 @@ function Overflow({ fit }: { fit: Fit }) {
 
 // ------------------------------------------------------------------ scene
 
+const HALO_VERT = /* glsl */ `
+varying vec2 vPos;
+void main() {
+  vPos = position.xy;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+const HALO_FRAG = /* glsl */ `
+uniform vec3 uColor;
+uniform float uOpacity;
+uniform vec2 uHalf;
+uniform float uSpread;
+varying vec2 vPos;
+void main() {
+  float d = length(max(abs(vPos) - uHalf, 0.0));
+  gl_FragColor = vec4(uColor * uOpacity * exp(-3.0 * d / uSpread), 1.0);
+}`;
+
 /**
  * The screen's place, facing out of the lid with its top edge away from the
  * hinge. Each frame it tells the page where the camera is: the angle above or
  * below and beside the screen's normal, which the panel's viewing angle reads.
+ * It also lights the scene as the page does: a soft light out of the screen,
+ * tinted and scaled by the page's average colour, and a faint halo.
  */
 function ScreenView({
   portal,
-  heightMm,
+  mm,
   position,
   children,
 }: {
   portal?: RefObject<HTMLDivElement | null>;
-  heightMm: number;
+  mm: { x: number; y: number };
   position: [number, number, number];
   children: ReactNode;
 }) {
   const group = useRef<THREE.Group>(null);
+  const spot = useRef<THREE.SpotLight>(null);
+  const aim = useRef<THREE.Object3D>(null);
   const page = useRef<HTMLElement | null>(null);
   const last = useRef<View | null>(null);
   const eye = useMemo(() => new THREE.Vector3(), []);
-  useFrame(({ camera }) => {
+  const glow = useRef({ key: "", want: [0, 0, 0, 0], now: [0, 0, 0, 0] });
+  const halo = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: HALO_VERT,
+        fragmentShader: HALO_FRAG,
+        uniforms: {
+          uColor: { value: new THREE.Color(0, 0, 0) },
+          uOpacity: { value: 0 },
+          uHalf: { value: new THREE.Vector2(mm.x / 2, mm.y / 2) },
+          uSpread: { value: HALO_SPREAD },
+        },
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        toneMapped: false,
+      }),
+    [mm.x, mm.y],
+  );
+  useEffect(() => () => halo.dispose(), [halo]);
+  useEffect(() => {
+    if (spot.current && aim.current) spot.current.target = aim.current;
+  }, []);
+  useFrame(({ camera }, dt) => {
     const g = group.current;
     if (!g) return;
     if (!page.current?.isConnected) {
@@ -1019,6 +1065,28 @@ function ScreenView({
       last.current = null;
     }
     const el = page.current;
+
+    // The glow follows the page's last guessed colour, easing; no page, no light.
+    const gl = glow.current;
+    const key = el?.dataset.glow ?? "";
+    if (key !== gl.key) {
+      gl.key = key;
+      gl.want = key ? key.split(",").map(Number) : [0, 0, 0, 0];
+    }
+    const k = Math.min(1, dt / GLOW_EASE);
+    for (let i = 0; i < 4; i++) gl.now[i] += (gl.want[i] - gl.now[i]) * k;
+    const [r, gg, b, haloK] = gl.now;
+    const top = Math.max(r, gg, b, 1e-6);
+    const area = (mm.x * mm.y) / 1e6;
+    const s = spot.current;
+    if (s) {
+      s.color.setRGB(r / top, gg / top, b / top);
+      s.intensity = GLOW_PER_CANDELA * area * top;
+    }
+    const lum = 0.2126 * r + 0.7152 * gg + 0.0722 * b;
+    halo.uniforms.uColor.value.setRGB(r / top, gg / top, b / top);
+    halo.uniforms.uOpacity.value = (haloK * lum) / 100;
+
     if (!el) return;
     g.worldToLocal(camera.getWorldPosition(eye));
     // Behind the screen there is nothing to see.
@@ -1027,7 +1095,7 @@ function ScreenView({
     const view: View = {
       v: Math.atan2(eye.y, eye.z) * deg,
       h: Math.atan2(eye.x, eye.z) * deg,
-      half: Math.atan2(heightMm / 2, eye.length()) * deg,
+      half: Math.atan2(mm.y / 2, eye.length()) * deg,
     };
     const l = last.current;
     if (
@@ -1043,6 +1111,20 @@ function ScreenView({
   return (
     <group ref={group} position={position} rotation={[Math.PI, 0, 0]}>
       {children}
+      {/* No shadows: the shadow maps are drawn once and held. */}
+      <spotLight
+        ref={spot}
+        position={[0, 0, 4]}
+        intensity={0}
+        angle={1.5}
+        penumbra={1}
+        decay={2}
+        distance={GLOW_REACH}
+      />
+      <object3D ref={aim} position={[0, 0, 100]} />
+      <mesh position={[0, 0, 1.5]} material={halo} renderOrder={5}>
+        <planeGeometry args={[mm.x + 4 * HALO_SPREAD, mm.y + 4 * HALO_SPREAD]} />
+      </mesh>
     </group>
   );
 }
@@ -1255,18 +1337,19 @@ export const Model = memo(function Model({
                 )}
               </mesh>
             )}
-            {screen && panelBox && (
+            {panelBox && (
               // The panel faces down when the lid is shut; its top edge is the one away from the hinge.
+              // Mounted with or without a page, so its light never comes and goes (a new light recompiles every material).
               <ScreenView
-                portal={portal}
-                heightMm={screen.mm.y}
+                portal={screen ? portal : undefined}
+                mm={screen?.mm ?? { x: panelBox.size.x, y: panelBox.size.y }}
                 position={[
                   panelBox.at.x + panelBox.size.x / 2,
                   panelBox.at.y + panelBox.size.y / 2,
                   panelBox.at.z - 0.3,
                 ]}
               >
-                <Html
+                {screen && <Html
                   transform
                   // A fixed target: without it Html mounts on the canvas wrapper,
                   // remounts once events connect, and React 19 wipes the new root.
@@ -1276,7 +1359,7 @@ export const Model = memo(function Model({
                   wrapperClass="lid-screen"
                 >
                   {screen.node}
-                </Html>
+                </Html>}
               </ScreenView>
             )}
           </group>

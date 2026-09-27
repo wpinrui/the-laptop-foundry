@@ -1,6 +1,7 @@
 import { type ReactNode, useLayoutEffect, useRef } from "react";
 import { type PanelFx, VIEW_EVENT, type View, viewFx } from "./fx";
-import { CAST_COLOUR, FULL_HALF_ANGLE } from "./tuning";
+import { averageColour } from "./average";
+import { CAST_COLOUR, FULL_HALF_ANGLE, GLOW_MS } from "./tuning";
 
 // The page as the panel shows it: the filter on the page and the light the
 // panel and room lay over it. Every layer over the page lets the pointer
@@ -49,9 +50,24 @@ export function PanelPage({
       show(tint.current, f.tint);
     };
     apply(FULL);
-    const on = (e: Event) => apply((e as CustomEvent<View>).detail);
+    // Only a page on the 3D screen lights the scene: it is the one that hears the view.
+    let seen = false;
+    const on = (e: Event) => {
+      seen = true;
+      apply((e as CustomEvent<View>).detail);
+    };
     el.addEventListener(VIEW_EVENT, on);
-    return () => el.removeEventListener(VIEW_EVENT, on);
+    const sample = () => {
+      const s = scroller.current;
+      if (!seen || !s || document.hidden) return;
+      const [r, g, b] = averageColour(s);
+      el.dataset.glow = [r * fx.nits, g * fx.nits, b * fx.nits, fx.halo].map((x) => x.toFixed(3)).join(",");
+    };
+    const id = setInterval(sample, GLOW_MS);
+    return () => {
+      el.removeEventListener(VIEW_EVENT, on);
+      clearInterval(id);
+    };
   }, [fx]);
 
   return (

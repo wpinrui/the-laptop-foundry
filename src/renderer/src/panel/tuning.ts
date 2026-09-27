@@ -93,3 +93,29 @@ export const ANGLE = {
 
 /** Changes in view smaller than this (degrees) are not redrawn. */
 export const VIEW_STEP = 0.25;
+
+// ------------------------------------------------------------------ glow
+
+/** How often the page's average colour is guessed, ms. */
+export const GLOW_MS = 500;
+
+/** A cross-origin frame cannot be read: it counts as this light a grey, linear. */
+export const IFRAME_GUESS = 0.75;
+
+/**
+ * Spot light intensity per cd/m2 of average screen luminance per square metre
+ * of screen, in the scene's mm units (irradiance falls with distance squared).
+ */
+export const GLOW_PER_CANDELA = 1400;
+
+/** The screen's light reaches no further than this, mm. */
+export const GLOW_REACH = 2500;
+
+/** Seconds for the glow to follow the page. */
+export const GLOW_EASE = 0.35;
+
+/** The faint halo around the screen, per room: only a dim room shows it. Opacity per 100 cd/m2 of average luminance. */
+export const HALO: Record<Room, number> = { cafe: 0.015, workshop: 0.05 };
+
+/** The halo spreads this far past the screen's edge, mm. */
+export const HALO_SPREAD = 22;

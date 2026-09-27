@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import {
   available,
   type Axis,
@@ -15,8 +15,12 @@ import {
   RIVALS,
   rivalYear,
   rivalSubject,
+  type Signature,
+  solve,
+  taperDepth,
   YEARS,
 } from "../engine";
+import { insideLitres, Silhouette, silhouetteExtent } from "./bodyShape";
 import { BatteryFields } from "./BatteryFields";
 import { FanField } from "./FanField";
 import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
@@ -75,29 +79,23 @@ const AXIS_NAME: Record<Axis, string> = {
   y: "Depth",
   z: "Thickness",
 };
-const EDGE_NAME = {
-  square: "Square edges",
-  rounded: "Rounded edges",
-  chamfer: "Chamfered edges",
-};
-const HINGE_NAME = {
-  full: "Full width",
-  barrel: "Two barrels",
-  drop: "Drop hinge",
-  spine: "Spine",
-  inset: "Inset",
-  lift: "Lifting",
+/** What each body's signature slider moves. */
+const SIGNATURE_NAME: Record<Signature, string> = {
+  corner: "Corners",
+  profile: "Roundness",
+  drop: "Spine",
+  bumper: "Bumpers",
+  taper: "Taper",
+  undercut: "Undercut",
+  shelf: "Shelf",
+  lip: "Lift",
 };
 const AXIS_STEP: Record<Axis, number> = { x: 0.5, y: 0.5, z: 0.1 };
 const tenth = (v: number) => Math.round(v * 10) / 10;
 const snap = (v: number, lo: number, step: number) =>
   tenth(lo + Math.round((v - lo) / step) * step);
 
-/**
- * The smallest value on the slider's grid at which this axis stops being short.
- * The solver's minimum for an axis does not depend on that axis' own size, so
- * it is exact with the other two held. Null when even the largest size is short.
- */
+/** The smallest value on the slider's grid at or over `need`. Null when even the largest size is short. */
 function fitMinimum(
   need: number,
   lo: number,
@@ -110,13 +108,40 @@ function fitMinimum(
   return v <= hi ? v : null;
 }
 
-export function ChassisColumn({ build, fit, set }: StageProps) {
+/**
+ * The build with this axis at the smallest size that fits. The body's shape
+ * follows its size, so the minimum moves a little with it: sized until it holds.
+ */
+function fitAxis(b: Build, a: Axis, lo: number, hi: number): Build {
+  let out = b;
+  for (let i = 0; i < 4; i++) {
+    const v = fitMinimum(solve(out).min[a], lo, hi, AXIS_STEP[a]);
+    if (v === null || v === out.size[a]) break;
+    out = { ...out, size: { ...out.size, [a]: v } };
+  }
+  return out;
+}
+
+/** The Chassis stage's look-ahead: a body the pointer is on, or the section view while the signature slider is held. */
+export interface ChassisPreview {
+  body?: string;
+  section?: boolean;
+}
+
+export function ChassisColumn({
+  build,
+  fit,
+  set,
+  onPreview,
+}: StageProps & { onPreview?: (p: ChassisPreview) => void }) {
   const [lock, setLock] = useState(false);
   const body = CONTENT.bodies.find((b) => b.id === build.body);
   const layouts = CONTENT.layouts.filter(
     (l) => available(l, build.year) && body?.layouts.includes(l.id),
   );
   const geo = fit.problems.filter((p) => p.kind === "geometry");
+  const style = fit.shell.style;
+  const litres = useMemo(() => insideLitres(fit), [fit]);
   const setSize = (axis: Axis, v: number) =>
     set((b) => {
       if (!body) return b;
@@ -133,6 +158,9 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
       }
       return { ...b, size };
     });
+  const Z = fit.shell.outer.z;
+  const taper = taperDepth(style, Z);
+  const section = useCallback((on: boolean) => onPreview?.({ section: on }), [onPreview]);
   return (
     <>
       {body &&
@@ -142,33 +170,50 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
           const short = geo.some((p) => p.axis === a && p.code === "short");
           const fitTo = fitMinimum(fit.min[a], lo, hi, AXIS_STEP[a]);
           return (
-            <SliderField
-              key={a}
-              label={AXIS_NAME[a]}
-              value={fit.shell.outer[a]}
-              unit="mm"
-              digits={a === "z" ? 1 : 0}
-              min={lo}
-              max={hi}
-              step={AXIS_STEP[a]}
-              mark={fit.min[a]}
-              warn={!!problem}
-              note={problem ? problemText(problem) : undefined}
-              action={
-                fitTo !== null && (
-                  <FitButton
-                    warn={short}
-                    title={`Smallest ${AXIS_NAME[a].toLowerCase()} that fits, ${fitTo.toFixed(fitTo % 1 ? 1 : 0)} mm`}
-                    onClick={() =>
-                      set((b) => ({ ...b, size: { ...b.size, [a]: fitTo } }))
-                    }
-                  />
-                )
-              }
-              onChange={(v) => setSize(a, v)}
-            />
+            <Fragment key={a}>
+              <SliderField
+                label={AXIS_NAME[a]}
+                value={fit.shell.outer[a]}
+                unit="mm"
+                digits={a === "z" ? 1 : 0}
+                shown={a === "z" && taper > 0 ? `${(Z - taper).toFixed(1)}–${Z.toFixed(1)}` : undefined}
+                min={lo}
+                max={hi}
+                step={AXIS_STEP[a]}
+                mark={fit.min[a]}
+                warn={!!problem}
+                note={problem ? problemText(problem) : undefined}
+                action={
+                  fitTo !== null && (
+                    <FitButton
+                      warn={short}
+                      title={`Smallest ${AXIS_NAME[a].toLowerCase()} that fits, ${fitTo.toFixed(fitTo % 1 ? 1 : 0)} mm`}
+                      onClick={() => set((b) => fitAxis(b, a, lo, hi))}
+                    />
+                  )
+                }
+                onChange={(v) => setSize(a, v)}
+              />
+              {a === "z" && (
+                <SliderField
+                  label={SIGNATURE_NAME[style.signature]}
+                  value={Math.round(style.sig * 100)}
+                  shown={style.sigMm.toFixed(1)}
+                  unit="mm"
+                  min={0}
+                  max={100}
+                  onHover={section}
+                  onChange={(v) =>
+                    set((b) => ({ ...b, shape: { ...b.shape, [b.body]: v / 100 } }))
+                  }
+                />
+              )}
+            </Fragment>
           );
         })}
+      <Line label="Inside">
+        <Value v={litres.toFixed(2)} unit="L" />
+      </Line>
       <Chips>
         <Toggle on={lock} onClick={() => setLock(!lock)}>
           Keep proportions
@@ -225,32 +270,64 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
           }
         />
       )}
-      {body && (
-        <Line label="Hinge">
-          <Value v={HINGE_NAME[body.style.hinge]} />
-        </Line>
-      )}
     </>
   );
 }
 
-export function ChassisTray({ build, set }: StageProps) {
-  const bodies = CONTENT.bodies.filter(
-    (b) => available(b, build.year) || b.id === build.body,
+/** Card silhouettes: one scale for all, the height stretched up to twice so thin bodies read. */
+const SIL_W = 140;
+const SIL_H = 30;
+
+export function ChassisTray({
+  build,
+  set,
+  onPreview,
+}: StageProps & { onPreview?: (p: ChassisPreview) => void }) {
+  const bodies = useMemo(
+    () => CONTENT.bodies.filter((b) => available(b, build.year) || b.id === build.body),
+    [build.year, build.body],
   );
+  // Each body solved with this build: its shape at this size, and how far it would come up short.
+  const fits = useMemo(
+    () =>
+      bodies.map((b) => {
+        try {
+          return solve(toBody(build, b.id));
+        } catch {
+          return null;
+        }
+      }),
+    [build, bodies],
+  );
+  const ext = fits.map((f) => (f ? silhouetteExtent(f) : null));
+  const deep = Math.max(1, ...ext.map((e) => e?.y ?? 0));
+  const tall = Math.max(1, ...ext.map((e) => (e ? e.top - e.bottom : 0)));
+  const k = SIL_W / deep;
+  const vx = Math.min(2, SIL_H / (tall * k));
   return (
     <>
-      {bodies.map((b) => (
-        <Card
-          key={b.id}
-          width={170}
-          on={b.id === build.body}
-          off={!available(b, build.year)}
-          top={EDGE_NAME[b.style.edge]}
-          name={b.name}
-          onClick={() => set((x) => toBody(x, b.id))}
-        />
-      ))}
+      {bodies.map((b, i) => {
+        const f = fits[i];
+        const short = f
+          ? Math.max(0, ...f.problems.map((p) => (p.kind === "geometry" && p.code === "short" ? p.by : 0)))
+          : 0;
+        return (
+          <Card
+            key={b.id}
+            width={196}
+            on={b.id === build.body}
+            off={!available(b, build.year)}
+            top={f && <Silhouette fit={f} k={k} vx={vx} w={SIL_W + 4} h={SIL_H + 2} on={b.id === build.body} />}
+            name={b.name}
+            aside={short > 0.05 ? <Value v={`+${short.toFixed(1)}`} unit="mm" warn /> : undefined}
+            onHover={(on) => onPreview?.({ body: on ? b.id : undefined })}
+            onClick={() => {
+              onPreview?.({});
+              set((x) => toBody(x, b.id));
+            }}
+          />
+        );
+      })}
     </>
   );
 }

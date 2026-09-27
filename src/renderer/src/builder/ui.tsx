@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 
 // The builder's small Foundry controls: labels, values, sliders, chips, tray
 // cards and list rows. Styles live in builder.css under the bd- prefix.
@@ -100,15 +100,45 @@ export function SliderField({
   warn,
   note,
   action,
+  shown,
+  onHover,
   ...slider
-}: Parameters<typeof Slider>[0] & { unit?: string; digits?: number; note?: ReactNode; action?: ReactNode }) {
+}: Parameters<typeof Slider>[0] & {
+  unit?: string;
+  digits?: number;
+  note?: ReactNode;
+  action?: ReactNode;
+  /** Shown in place of the value, such as a range. */
+  shown?: ReactNode;
+  /** True while the pointer is on the field or dragging its slider, false after. */
+  onHover?: (on: boolean) => void;
+}) {
+  const [over, setOver] = useState(false);
+  const [held, setHeld] = useState(false);
+  const was = useRef(false);
+  useEffect(() => {
+    const now = over || held;
+    if (now !== was.current) onHover?.(now);
+    was.current = now;
+  }, [over, held, onHover]);
+  useEffect(() => {
+    if (!held) return;
+    const up = () => setHeld(false);
+    window.addEventListener("pointerup", up);
+    return () => window.removeEventListener("pointerup", up);
+  }, [held]);
   return (
-    <div className="bd-field">
+    <div
+      className="bd-field"
+      onPointerEnter={onHover && (() => setOver(true))}
+      onPointerLeave={onHover && (() => setOver(false))}
+      onPointerDown={onHover && (() => setHeld(true))}
+    >
       <div className="bd-line">
         <Label>{label}</Label>
         <span className="bd-line-end">
           {action}
-          <Value v={value.toFixed(digits)} unit={unit} warn={warn} />
+          <Value v={shown ?? value.toFixed(digits)} unit={unit} warn={warn} />
         </span>
       </div>
       <Slider label={label} value={value} warn={warn} {...slider} />
@@ -187,6 +217,7 @@ export function Card({
   onClick,
   dashed,
   title,
+  onHover,
 }: {
   on?: boolean;
   /** Unavailable: shown at 45%. */
@@ -198,6 +229,8 @@ export function Card({
   onClick?: () => void;
   dashed?: boolean;
   title?: string;
+  /** Called with true as the pointer comes onto the card, false as it leaves. */
+  onHover?: (on: boolean) => void;
 }) {
   return (
     <button
@@ -206,6 +239,8 @@ export function Card({
       className={["bd-card", on ? "on" : "", off ? "off" : "", dashed ? "dashed" : ""].join(" ")}
       style={width ? ({ "--w": width } as CSSProperties) : undefined}
       onClick={onClick}
+      onPointerEnter={onHover && (() => onHover(true))}
+      onPointerLeave={onHover && (() => onHover(false))}
     >
       {dashed ? (
         <b className="bd-card-centre">{name}</b>

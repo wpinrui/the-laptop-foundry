@@ -20,6 +20,23 @@
 }
 
 /* Scrims: left to right, and along the bottom where a tray sits. */
+/* The Chassis stage's section view: the base in section over the scene, while the signature slider is held. */
+.bd-section {
+  position: absolute;
+  inset: 0;
+  padding: calc(140 * var(--u)) calc(48 * var(--u)) calc(240 * var(--u)) calc(520 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ground);
+  pointer-events: none;
+}
+
+.bd-section-svg {
+  width: 100%;
+  max-height: 100%;
+}
+
 .bd-scrim {
   position: absolute;
   inset: 0;

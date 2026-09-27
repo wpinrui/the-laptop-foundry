@@ -1,5 +1,6 @@
 import { type BrowserWindow, session, type WebFrameMain, webFrameMain } from "electron";
 import { adblockCommit, adblockHeaders, adblockLoaded, adblockRequest, loadAdblock } from "./adblock";
+import { sponsorBlock } from "./sponsorblock";
 
 // The in-game browser: real sites load in sandboxed iframes inside the laptop
 // OS's window. The main process lets those frames load (it strips the headers
@@ -157,11 +158,17 @@ export function registerFox(win: BrowserWindow, appOrigin: (url: string) => bool
     if (main) return;
     noViewTransitions(pid, rid);
     const f = siteFrame(pid, rid);
-    if (f && web(url) && !appOrigin(url)) adblockCommit(f, url);
+    if (f && web(url) && !appOrigin(url)) {
+      adblockCommit(f, url);
+      sponsorBlock(f, url);
+    }
     report(tabFrame(win, pid, rid), url);
   });
   wc.on("did-navigate-in-page", (_e, url, main, pid, rid) => {
-    if (!main) report(tabFrame(win, pid, rid), url);
+    if (main) return;
+    const f = siteFrame(pid, rid);
+    if (f && web(url) && !appOrigin(url)) sponsorBlock(f, url);
+    report(tabFrame(win, pid, rid), url);
   });
   wc.on("did-frame-finish-load", (_e, main, pid, rid) => {
     if (main) return;

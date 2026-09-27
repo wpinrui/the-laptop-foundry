@@ -2,20 +2,20 @@ import { type ChangeEvent, useCallback, useRef, useState } from "react";
 import "./note.css";
 
 // A plain text editor, one look in every era, in the same shape as Fox: a
-// hook holding the state and a component drawing it. Documents have nowhere
-// to persist without touching the save file in the main process, so they
-// live only for this session, gone when the laptop's OS resets.
+// hook holding the state and a component drawing it. Documents save with the
+// open company, passed in and written back through onSave.
 
 export interface NoteDoc {
   name: string;
   text: string;
+  updated: number;
 }
 
-const BLANK: NoteDoc = { name: "", text: "" };
+const BLANK: NoteDoc = { name: "", text: "", updated: 0 };
 
-/** The editor's open document and the session's saved ones. */
-export function useNote() {
-  const [docs, setDocs] = useState<NoteDoc[]>([]);
+/** The editor's open document and the company's saved ones. */
+export function useNote(saved: NoteDoc[] = [], onSave?: (docs: NoteDoc[]) => void) {
+  const [docs, setDocs] = useState<NoteDoc[]>(saved);
   const [doc, setDoc] = useState<NoteDoc>(BLANK);
 
   const setText = useCallback((text: string) => setDoc((d) => ({ ...d, text })), []);
@@ -24,16 +24,15 @@ export function useNote() {
 
   const save = useCallback(() => {
     const name = doc.name.trim() || "Untitled.txt";
-    const next = { name, text: doc.text };
+    const next = { name, text: doc.text, updated: Date.now() };
     setDocs((ds) => {
       const at = ds.findIndex((x) => x.name === name);
-      if (at < 0) return [...ds, next];
-      const copy = [...ds];
-      copy[at] = next;
-      return copy;
+      const nextDocs = at < 0 ? [...ds, next] : ds.map((x, i) => (i === at ? next : x));
+      onSave?.(nextDocs);
+      return nextDocs;
     });
     setDoc(next);
-  }, [doc]);
+  }, [doc, onSave]);
 
   const open = useCallback(
     (name: string) => {

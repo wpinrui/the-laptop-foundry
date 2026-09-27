@@ -42,7 +42,7 @@ import {
   Win,
 } from "../os/Os";
 import { FoxApp, useFox } from "../os/Fox";
-import { NoteApp, useNote } from "../os/Note";
+import { type NoteDoc, NoteApp, useNote } from "../os/Note";
 import { SYS_SIZE, SYS_TITLE } from "../os/shots";
 import { sysGroups } from "../os/sys";
 import { type AppId, duration, ownerOf, type Power } from "../os/types";
@@ -194,6 +194,9 @@ export function CafeScreen(props: {
   onBack: () => void;
   sound: boolean;
   onSound: (on: boolean) => void;
+  /** The open company's saved Notepad documents. */
+  notes?: NoteDoc[];
+  onSaveNotes?: (docs: NoteDoc[]) => void;
 }) {
   return <OsCafeScreen {...props} />;
 }
@@ -204,14 +207,18 @@ function OsCafeScreen({
   onBack,
   sound,
   onSound,
+  notes,
+  onSaveNotes,
 }: {
   subject: Subject;
   library?: Subject[];
   onBack: () => void;
   sound: boolean;
   onSound: (on: boolean) => void;
+  notes?: NoteDoc[];
+  onSaveNotes?: (docs: NoteDoc[]) => void;
 }) {
-  const { build, fit, page, shoot, plugged, plug } = useLaptopOs({ subject, library, sound, onSound });
+  const { build, fit, page, shoot, plugged, plug } = useLaptopOs({ subject, library, sound, onSound, notes, onSaveNotes });
   const colour = (id: string) => colourHex(id);
   const surfaces = useMemo(() => surfacesOf(build), [build]);
   const colours = useMemo(
@@ -260,6 +267,8 @@ export function useLaptopOs({
   startPlugged = false,
   startOn = false,
   room = "cafe",
+  notes,
+  onSaveNotes,
 }: {
   subject: Subject;
   library?: Subject[];
@@ -270,6 +279,9 @@ export function useLaptopOs({
   startOn?: boolean;
   /** The room the laptop is in, for how its screen holds up against the light. */
   room?: Room;
+  /** The open company's saved Notepad documents. Session-only when absent. */
+  notes?: NoteDoc[];
+  onSaveNotes?: (docs: NoteDoc[]) => void;
 }): {
   build: Subject["build"];
   fit: ReturnType<typeof solve>;
@@ -306,7 +318,7 @@ export function useLaptopOs({
   const [kiln, setKiln] = useState({ running: false, progress: 0, elapsed: 0, result: null as number | null });
   const [web, setWeb] = useState({ list: [INDEX], at: 0, n: 0 });
   const fox = useFox(app === "fox", () => setApp(null));
-  const note = useNote();
+  const note = useNote(notes, onSaveNotes);
   const now = useNow();
 
   const tl = useMemo(

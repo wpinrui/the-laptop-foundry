@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { SavedCompany, SavedModel, Settings } from "../../preload/store";
+import type { SavedCompany, SavedModel, SavedNote, Settings } from "../../preload/store";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
@@ -82,6 +82,11 @@ export function App() {
   const save = useCallback(
     (m: SavedModel) =>
       companyId ? store().saveModel(companyId, m).then(refresh) : Promise.resolve(null),
+    [companyId, refresh],
+  );
+  const saveNotes = useCallback(
+    (notes: SavedNote[]) =>
+      companyId ? store().saveNotes(companyId, notes).then(refresh) : Promise.resolve(null),
     [companyId, refresh],
   );
 
@@ -187,6 +192,8 @@ export function App() {
         onBack={() => setUsing(null)}
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+        notes={company.notes ?? []}
+        onSaveNotes={saveNotes}
       />
     );
   if (reviewing) {

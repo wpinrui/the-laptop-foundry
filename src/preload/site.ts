@@ -83,6 +83,252 @@ if (siteFrame) {
     contextBridge.executeInMainWorld({ func: fixSite, args: [ua, location.protocol === "https:", firefox] });
   } catch {}
   adblock();
+  speaker();
+}
+
+/**
+ * The tab's sound through the laptop's speakers. At document start, before
+ * the page's scripts, the page's world gets its audio hooked (speakerHook);
+ * then the game's speaker model and where the player is arrive from the main
+ * process a few times a second and are handed in.
+ */
+function speaker(): void {
+  let start: unknown = null;
+  try {
+    start = ipcRenderer.sendSync("fox-speaker:start");
+  } catch {}
+  try {
+    contextBridge.executeInMainWorld({ func: speakerHook, args: [start] });
+  } catch {
+    return;
+  }
+  ipcRenderer.on("fox-speaker", (_e, state: unknown) => {
+    try {
+      contextBridge.executeInMainWorld({
+        func: (s: unknown) => {
+          const set = (globalThis as Record<symbol, unknown>)[Symbol.for("foundry.speaker")];
+          if (typeof set === "function") set(s);
+        },
+        args: [state],
+      });
+    } catch {}
+  });
+}
+
+/**
+ * Runs in the page's world, so it must be self-contained. Every Web Audio
+ * context's destination becomes the input of a speaker chain (bass cut,
+ * presence peak, grill treble cut, soft clip, level, width and pan) in front
+ * of the real one; media elements are routed through one when they play.
+ * A cross-origin element without CORS cannot be routed (it would go silent):
+ * it keeps its own sound and only gets the level, through its volume.
+ */
+function speakerHook(init: unknown): void {
+  type P = { hp: number; hpQ: number; peakHz: number; peakDb: number; lp: number; drive: number; level: number; stereo: boolean };
+  type S = { p: P; vol: number; dist: number; pan: number; width: number };
+  type Chain = {
+    ctx: BaseAudioContext;
+    input: GainNode;
+    hp1: BiquadFilterNode;
+    hp2: BiquadFilterNode;
+    peak: BiquadFilterNode;
+    lp: BiquadFilterNode;
+    pre: GainNode;
+    post: GainNode;
+    wide: GainNode;
+    mono: GainNode;
+    pan: StereoPannerNode;
+  };
+  let state: S =
+    init && typeof init === "object"
+      ? (init as S)
+      : { p: { hp: 20, hpQ: 0.7, peakHz: 2800, peakDb: 0, lp: 20000, drive: 1, level: 1, stereo: true }, vol: 1, dist: 1, pan: 0, width: 1 };
+  const RANGE = 4;
+  const curve = new Float32Array(2049);
+  for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh((i / 1024 - 1) * RANGE);
+  const destination = Object.getOwnPropertyDescriptor(BaseAudioContext.prototype, "destination")?.get;
+  const volume = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "volume");
+  const play = HTMLMediaElement.prototype.play;
+  if (!destination || !volume?.get || !volume.set || typeof StereoPannerNode === "undefined") return;
+  const volGet = volume.get;
+  const volSet = volume.set;
+
+  const chains = new Set<WeakRef<Chain>>();
+  const byCtx = new WeakMap<BaseAudioContext, Chain>();
+
+  const apply = (c: Chain) => {
+    const { p, vol, dist, pan, width } = state;
+    const t = c.ctx.currentTime;
+    const to = (a: AudioParam, v: number) => a.setTargetAtTime(v, t, 0.04);
+    to(c.hp1.frequency, p.hp);
+    to(c.hp2.frequency, p.hp);
+    c.hp2.Q.value = p.hpQ;
+    to(c.peak.frequency, p.peakHz);
+    to(c.peak.gain, p.peakDb);
+    to(c.lp.frequency, p.lp);
+    to(c.pre.gain, Math.max(0.001, p.drive * vol) / RANGE);
+    to(c.post.gain, vol > 0 ? (p.level * dist) / Math.max(0.001, p.drive) : 0);
+    const w = p.stereo ? width : 0;
+    to(c.wide.gain, w);
+    to(c.mono.gain, 1 - w);
+    to(c.pan.pan, pan);
+  };
+
+  const build = (ctx: BaseAudioContext): Chain => {
+    const real = destination.call(ctx) as AudioDestinationNode;
+    const gain = () => ctx.createGain();
+    const filter = (type: BiquadFilterType, q: number) => {
+      const f = ctx.createBiquadFilter();
+      f.type = type;
+      f.Q.value = q;
+      return f;
+    };
+    const c: Chain = {
+      ctx,
+      input: gain(),
+      hp1: filter("highpass", 0.707),
+      hp2: filter("highpass", 0.707),
+      peak: filter("peaking", 1),
+      lp: filter("lowpass", 0.707),
+      pre: gain(),
+      post: gain(),
+      wide: gain(),
+      mono: gain(),
+      pan: ctx.createStereoPanner(),
+    };
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = curve;
+    shaper.oversample = "2x";
+    // One channel, explicitly: the stereo mix folds to mono here.
+    c.mono.channelCount = 1;
+    c.mono.channelCountMode = "explicit";
+    c.mono.channelInterpretation = "speakers";
+    c.input.connect(c.hp1).connect(c.hp2).connect(c.peak).connect(c.lp).connect(c.pre).connect(shaper).connect(c.post);
+    c.post.connect(c.wide).connect(c.pan);
+    c.post.connect(c.mono).connect(c.pan);
+    c.pan.connect(real);
+    Object.defineProperty(c.input, "maxChannelCount", { get: () => real.maxChannelCount });
+    apply(c);
+    return c;
+  };
+
+  Object.defineProperty(BaseAudioContext.prototype, "destination", {
+    configurable: true,
+    enumerable: true,
+    get(this: BaseAudioContext) {
+      if (typeof OfflineAudioContext !== "undefined" && this instanceof OfflineAudioContext) return destination.call(this);
+      let c = byCtx.get(this);
+      if (!c) {
+        c = build(this);
+        byCtx.set(this, c);
+        chains.add(new WeakRef(c));
+      }
+      return c.input;
+    },
+  });
+
+  // Media elements: routed through a chain of their own context, or, when
+  // that would silence them, levelled through their volume.
+  let mediaCtx: AudioContext | null = null;
+  const routed = new WeakSet<HTMLMediaElement>();
+  const loose = new Set<WeakRef<HTMLMediaElement>>();
+  const isLoose = new WeakSet<HTMLMediaElement>();
+  const want = new WeakMap<HTMLMediaElement, number>();
+  const looseGain = () => Math.min(1, state.p.level * state.vol * state.dist);
+  const level = (el: HTMLMediaElement) => volSet.call(el, (want.get(el) ?? 1) * looseGain());
+
+  const routable = (el: HTMLMediaElement): boolean => {
+    if (el.srcObject) return true;
+    const src = el.currentSrc || el.src;
+    if (!src) return false;
+    if (/^(blob|data):/i.test(src)) return true;
+    try {
+      if (new URL(src, location.href).origin === location.origin) return true;
+    } catch {}
+    return el.crossOrigin !== null;
+  };
+  const route = (el: HTMLMediaElement) => {
+    if (routed.has(el)) return;
+    if (routable(el)) {
+      try {
+        if (!mediaCtx) mediaCtx = new AudioContext();
+        if (mediaCtx.state === "suspended") mediaCtx.resume().catch(() => {});
+        mediaCtx.createMediaElementSource(el).connect(mediaCtx.destination);
+        routed.add(el);
+        if (isLoose.has(el)) {
+          isLoose.delete(el);
+          volSet.call(el, want.get(el) ?? 1);
+        }
+        return;
+      } catch {}
+    }
+    if (!isLoose.has(el)) {
+      want.set(el, volGet.call(el) as number);
+      isLoose.add(el);
+      loose.add(new WeakRef(el));
+    }
+    level(el);
+  };
+
+  Object.defineProperty(HTMLMediaElement.prototype, "volume", {
+    configurable: true,
+    enumerable: true,
+    get(this: HTMLMediaElement) {
+      return isLoose.has(this) ? (want.get(this) ?? 1) : volGet.call(this);
+    },
+    set(this: HTMLMediaElement, v: number) {
+      if (!isLoose.has(this) || !(Number(v) >= 0 && Number(v) <= 1)) {
+        volSet.call(this, v);
+        return;
+      }
+      want.set(this, Number(v));
+      level(this);
+    },
+  });
+  // A page that routes an element itself sends it to a context whose
+  // destination is already a chain: that element is done.
+  const own = AudioContext.prototype.createMediaElementSource;
+  AudioContext.prototype.createMediaElementSource = function (this: AudioContext, el: HTMLMediaElement) {
+    const node = own.call(this, el);
+    routed.add(el);
+    if (isLoose.has(el)) {
+      isLoose.delete(el);
+      volSet.call(el, want.get(el) ?? 1);
+    }
+    return node;
+  };
+  HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+    try {
+      route(this);
+    } catch {}
+    return play.call(this);
+  };
+  window.addEventListener(
+    "play",
+    (e) => {
+      if (e.target instanceof HTMLMediaElement) route(e.target);
+    },
+    true,
+  );
+
+  Object.defineProperty(globalThis, Symbol.for("foundry.speaker"), {
+    configurable: false,
+    enumerable: false,
+    value: (s: S) => {
+      if (!s || typeof s !== "object" || !s.p) return;
+      state = s;
+      for (const r of chains) {
+        const c = r.deref();
+        if (!c || (c.ctx instanceof AudioContext && c.ctx.state === "closed")) chains.delete(r);
+        else apply(c);
+      }
+      for (const r of loose) {
+        const el = r.deref();
+        if (!el) loose.delete(r);
+        else if (isLoose.has(el)) level(el);
+      }
+    },
+  });
 }
 
 /**

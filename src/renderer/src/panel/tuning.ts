@@ -119,3 +119,54 @@ export const HALO: Record<Room, number> = { cafe: 0.015, workshop: 0.05 };
 
 /** The halo spreads this far past the screen's edge, mm. */
 export const HALO_SPREAD = 22;
+
+// ------------------------------------------------------------------ speakers
+
+/** Total amplifier watts per speaker part. */
+export const SPEAKER_WATTS: Record<string, number> = {
+  "spk-mono": 1,
+  "spk-stereo-2006": 2,
+  "spk-stereo-sub": 4,
+  "spk-stereo-2016": 4,
+  "spk-stereo-2016-sub": 6,
+  "spk-stereo-2026": 4,
+  "spk-quad": 8,
+  "spk-six": 12,
+};
+export const SPEAKER_WATTS_DEFAULT = 2;
+
+/** Watts that play at full scale; fewer are quieter by their power ratio. */
+export const LOUD_WATTS = 12;
+
+/** Bass cutoff, Hz: this over the square root of the drivers' total area in mm2, within the range. */
+export const BASS_K = 8500;
+export const BASS_RANGE: [number, number] = [90, 520];
+
+/** Makers' tuning from 2018: bass a little lower, and a limiter in place of hard clipping. */
+export const DSP_FROM = 2018;
+export const DSP_BASS = 0.85;
+export const DSP_DRIVE = 0.55;
+
+/** Resonance at the bass cutoff: a tiny driver peaks, a big one rolls off smoothly. */
+export const BASS_Q: [number, number] = [0.75, 1.3];
+
+/** The thin, forward upper midrange of small speakers: a peak at this frequency, dB for the smallest and the largest. */
+export const PRESENCE_HZ = 2800;
+export const PRESENCE_DB: [number, number] = [1, 5];
+
+/** Treble past the grill: open on the deck, muffled through the front wall or off the table from below. */
+export const GRILL_TREBLE: Record<"deck" | "front" | "none", number> = { deck: 16000, front: 9500, none: 5200 };
+/** Level lost firing away from the listener, dB. */
+export const GRILL_LOSS: Record<"deck" | "front" | "none", number> = { deck: 0, front: -1, none: -3 };
+
+/** Pushing into distortion: gain into the soft clip at full volume for 1 W, less for more watts. */
+export const DRIVE_1W = 1.6;
+
+/** Distance at which the laptop plays at its full level, mm; farther falls as sound does, inversely. */
+export const HEAR_AT = 650;
+
+/** Stereo is heard at full width this close, mm, narrowing farther away. */
+export const STEREO_AT = 800;
+
+/** Live speaker values go to the tabs this often, per second. */
+export const SPEAKER_HZ = 15;

@@ -44,6 +44,7 @@ import { type AppId, duration, ownerOf, type Power } from "../os/types";
 import { lookOf } from "../review/look";
 import { panelFx } from "../panel/fx";
 import { PanelPage } from "../panel/PanelPage";
+import { setSpeakerOs, speakerOf } from "../panel/speaker";
 import type { Room } from "../panel/tuning";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
 import { usePhotos } from "../viewer/Photos";
@@ -313,6 +314,9 @@ export function useLaptopOs({
   const db = off ? 0 : load ? active.db[i] : Math.max(last(tl.idle.db), heat > 0 ? tl.cpu.db[i] : 0);
   const fan = off ? 0 : load ? active.fan[i] : Math.max(last(tl.idle.fan), heat > 0 ? tl.cpu.fan[i] : 0);
   useFanAudio(db, fan, !sound, volume);
+  const speaker = useMemo(() => speakerOf(build, fit), [build, fit]);
+  useEffect(() => setSpeakerOs(speaker, sound ? volume / 100 : 0), [speaker, sound, volume]);
+  useEffect(() => () => setSpeakerOs(null, 0), []);
 
   const edition = KILNBENCH.find((e) => e.year === benchYear) ?? KILNBENCH[0];
   const eraRef = build.year < 2012 ? 600 : build.year < 2020 ? 5000 : 20000;

@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { Decor, Fit } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
+import { setSpeakerFull } from "../panel/speaker";
 import type { Surfaces } from "../viewer/Scene";
 import { type Aim, World } from "./World";
 
@@ -69,6 +70,10 @@ function useWindowSize(): [number, number] {
 export function FullPage({ page }: { page: { node: ReactNode; width: number; height: number } }) {
   const [w, h] = useWindowSize();
   const k = Math.min(w / page.width, h / page.height);
+  useEffect(() => {
+    setSpeakerFull(true);
+    return () => setSpeakerFull(false);
+  }, []);
   return (
     <div className="cafe-full">
       <div

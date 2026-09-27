@@ -1,7 +1,8 @@
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, type ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import { VIEW_EVENT, VIEW_STEP, type View } from "../panel/fx";
-import { GLOW_EASE, GLOW_PER_CANDELA, GLOW_REACH, HALO_SPREAD } from "../panel/tuning";
+import { setSpeakerSpace } from "../panel/speaker";
+import { GLOW_EASE, GLOW_PER_CANDELA, GLOW_REACH, HALO_SPREAD, HEAR_AT, STEREO_AT } from "../panel/tuning";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import {
   memo,
@@ -1033,6 +1034,7 @@ function ScreenView({
   const page = useRef<HTMLElement | null>(null);
   const last = useRef<View | null>(null);
   const eye = useMemo(() => new THREE.Vector3(), []);
+  const ear = useMemo(() => new THREE.Vector3(), []);
   const glow = useRef({ key: "", want: [0, 0, 0, 0], now: [0, 0, 0, 0] });
   const halo = useMemo(
     () =>
@@ -1088,7 +1090,12 @@ function ScreenView({
     halo.uniforms.uOpacity.value = (haloK * lum) / 100;
 
     if (!el) return;
+    // Where the laptop's sound comes from: distance, and the side of the player's head.
+    g.getWorldPosition(ear);
+    ear.applyMatrix4(camera.matrixWorldInverse);
     g.worldToLocal(camera.getWorldPosition(eye));
+    const d = Math.max(1, eye.length());
+    setSpeakerSpace(Math.min(1, HEAR_AT / d), Math.max(-1, Math.min(1, ear.x / Math.max(1, ear.length()))), Math.min(1, STEREO_AT / d));
     // Behind the screen there is nothing to see.
     if (eye.z <= 0) return;
     const deg = 180 / Math.PI;

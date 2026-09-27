@@ -6,7 +6,6 @@ import {
   alongAxis,
   deal,
   fanSideFor,
-  isFanZone,
   isOpeningZone,
   measure,
   type PlacedUnit,
@@ -230,9 +229,14 @@ function solveAt(
   const deckCut = deckLoss(style, lidZ);
   const lidCut = size.y - Math.min(size.y, hingeAxis(style, size, lidZ).y);
   // The least outer size each plan needs, from its plan minimum.
-  const needX = (f: number, d: number, l: number) => Math.max(f + 2 * off.side, d + 2 * off.side, l + 2 * sl);
+  const needX = (f: number, d: number, l: number) =>
+    Math.max(f + 2 * off.side, d + 2 * off.side, l + 2 * sl);
   const needY = (f: number, d: number, l: number) =>
-    Math.max(f + off.side + offRear, d + 2 * off.side + deckCut, l + 2 * sl + lidCut);
+    Math.max(
+      f + off.side + offRear,
+      d + 2 * off.side + deckCut,
+      l + 2 * sl + lidCut,
+    );
 
   // The keyboard and trackpad sit in wells in the top case, flush with the top
   // surface, on the deck structure. Over them the floor runs up to that layer;
@@ -450,7 +454,7 @@ function solveAt(
           );
         }
       }
-      const ground = stackGround(laid, fl, board, em.chamber);
+      const ground = stackGround(laid, board, em.chamber);
       const inner = {
         x0: off.side,
         y0: off.side,
@@ -558,7 +562,10 @@ function solveAt(
   // keyboard over the strip behind it (the hinge strip or a rear battery).
   const dm0 = m2(deck);
   const stripY = em.deck.find((u) => u.role === "hinge-strip")?.size.y ?? 0;
-  const kbBack = Math.min(Math.max(0, -(player.kb?.y ?? 0)), Math.max(0, stripY - KB_REAR_GAP));
+  const kbBack = Math.min(
+    Math.max(0, -(player.kb?.y ?? 0)),
+    Math.max(0, stripY - KB_REAR_GAP),
+  );
   const dm = { x: dm0.x, y: dm0.y - kbBack };
   const lm = m2(lid);
 
@@ -573,8 +580,11 @@ function solveAt(
     const need = e === "x" ? minX : minY;
     if (size[e] >= need - 0.01) continue;
     const rest = floorUnits.filter((u) => u.role !== role);
-    const wm = m2(measure(layout.floor, deal(layout.floor, rest).fills, floorCtx));
-    const without = e === "x" ? needX(wm.x, dm.x, lm.x) : needY(wm.y, dm.y, lm.y);
+    const wm = m2(
+      measure(layout.floor, deal(layout.floor, rest).fills, floorCtx),
+    );
+    const without =
+      e === "x" ? needX(wm.x, dm.x, lm.x) : needY(wm.y, dm.y, lm.y);
     if (without >= need - 0.01) continue;
     for (const u of floorUnits) {
       if (u.role !== role || !u.part || seenNoRoom.has(`${u.part}|${u.role}`))
@@ -654,11 +664,19 @@ function solveAt(
   // each thickness tried; the plan stays as laid out at the drawn size.
   const bandAt = (y0: number, y1: number, Z: number) =>
     spanBand(style, { x: FX, y: FY, z: Z }, off, walls.bottom, y0, y1);
-  const shapes = new Map<number, { s: ResolvedStyle; o: typeof off; lift: number; pTop: number }>();
+  const shapes = new Map<
+    number,
+    { s: ResolvedStyle; o: typeof off; lift: number; pTop: number }
+  >();
   const shapeAt = (Z: number) => {
     let r = shapes.get(Z);
     if (!r) {
-      const s = resolveStyle(body.style, { ...size, z: Z }, build.shape?.[body.id], lidZ);
+      const s = resolveStyle(
+        body.style,
+        { ...size, z: Z },
+        build.shape?.[body.id],
+        lidZ,
+      );
       const o = baseOffsets(s, walls);
       r = { s, o, lift: profileLift(s, o.bottom), pTop: profileTop(s) };
       shapes.set(Z, r);
@@ -670,7 +688,13 @@ function solveAt(
    * opening's lift aside), with `cover` mm of deck layer over it, fits over
    * this depth span.
    */
-  const zFor = (y0: number, y1: number, stack: number, cover: number, opening: boolean): number => {
+  const zFor = (
+    y0: number,
+    y1: number,
+    stack: number,
+    cover: number,
+    opening: boolean,
+  ): number => {
     const slack = (Z: number) => {
       const { s, o, lift, pTop: pt } = shapeAt(Z);
       const b = spanBand(s, { x: FX, y: FY, z: Z }, o, walls.bottom, y0, y1);
@@ -680,7 +704,13 @@ function solveAt(
     };
     let lo = 0;
     let hi = 2 * lim.z[1];
-    if (slack(hi) < 0) return off.bottom + stack + (opening ? floorCtx.lift : 0) + Math.max(cover, off.top, opening ? pTop : 0);
+    if (slack(hi) < 0)
+      return (
+        off.bottom +
+        stack +
+        (opening ? floorCtx.lift : 0) +
+        Math.max(cover, off.top, opening ? pTop : 0)
+      );
     for (let i = 0; i < 24; i++) {
       const mid = (lo + hi) / 2;
       if (slack(mid) >= 0) hi = mid;
@@ -699,13 +729,18 @@ function solveAt(
       laid.push(u);
       const c = coverOver(u.at, u.size);
       zoneCover = Math.max(zoneCover, c);
-      const stack = u.at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
+      const stack =
+        u.at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
       minZ = Math.max(minZ, zFor(u.at.y, u.at.y + u.size.y, stack, c, opening));
     }
     cover.set(f.node, zoneCover);
   }
   for (const u of deckPlaced)
-    if (!u.spacer) minZ = Math.max(minZ, zFor(u.at.y, u.at.y + u.size.y, 0, deckLayer(u), false));
+    if (!u.spacer)
+      minZ = Math.max(
+        minZ,
+        zFor(u.at.y, u.at.y + u.size.y, 0, deckLayer(u), false),
+      );
 
   // Stacked parts: each over its host, as low as what lies under it allows.
   const placedStack: PlacedUnit[] = [];
@@ -715,7 +750,7 @@ function solveAt(
     x1: off.side + innerFoot.x,
     y1: off.side + innerFoot.y,
   };
-  const under = stackGround(laid, floor, board, em.chamber);
+  const under = stackGround(laid, board, em.chamber);
   for (const u of stacked) {
     const at = stackAt(
       u,
@@ -753,8 +788,7 @@ function solveAt(
       host: undefined,
     });
     const opening = u.role === "odd";
-    const stack =
-      at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
+    const stack = at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
     minZ = Math.max(
       minZ,
       zFor(at.y, at.y + u.size.y, stack, coverOver(at, u.size), opening),
@@ -819,7 +853,10 @@ function solveAt(
     // Each part sits on the floor under its own depth span, which may lie lower than the zone's highest.
     const own = new Map<PlacedUnit, [number, number]>();
     for (const u of units) {
-      const ub = bandAt(u.at.y, u.at.y + u.size.y, F.z) ?? [z0, surface - off.top];
+      const ub = bandAt(u.at.y, u.at.y + u.size.y, F.z) ?? [
+        z0,
+        surface - off.top,
+      ];
       own.set(u, ub);
       if (zone.pack !== "z") u.at.z += Math.min(0, ub[0] - z0);
     }
@@ -1224,7 +1261,11 @@ function solveAt(
         size: { x: size.x, y: size.y - lidCut, z: lidZ },
         inner: {
           at: { x: sl, y: sl, z: lidInnerZ0 },
-          size: { x: size.x - 2 * sl, y: size.y - lidCut - 2 * sl, z: lidInnerZ },
+          size: {
+            x: size.x - 2 * sl,
+            y: size.y - lidCut - 2 * sl,
+            z: lidInnerZ,
+          },
         },
       },
       bands: { floor: [floorZ0, topWall], deck: [F.z - DB, F.z] },
@@ -1243,7 +1284,9 @@ function solveAt(
   const inside = (m: Size) => m.x <= size.x + 0.01 && m.y <= size.y + 0.01;
   // Nor may it leave out a part the layout's own has room for.
   const lost = (ps: Problem[]) =>
-    ps.filter((p) => p.kind === "compat" && p.code === "no-room").length;
+    ps
+      .filter((p) => p.kind === "compat" && p.code === "no-room")
+      .map((p) => JSON.stringify(p));
   for (const arr of choice) {
     const f = solveAt(build, content, arr);
     if (
@@ -1251,7 +1294,7 @@ function solveAt(
         (!inside(fit.min) && inside(f.min))) &&
       f.min.z <= Math.max(fit.min.z, size.z) + EPS &&
       f.problems.length <= fit.problems.length &&
-      lost(f.problems) <= lost(fit.problems)
+      lost(f.problems).every((p) => lost(fit.problems).includes(p))
     )
       return f;
   }
@@ -1309,19 +1352,16 @@ interface Ground {
 /**
  * What a stacked part could sit over: every floor part's height, the board's
  * own chips, and keep-outs over the fans, the hot chips and their heat pipes.
+ * The fans are laid out at their thinnest, so at their widest.
  */
 function stackGround(
   laid: PlacedUnit[],
-  floor: PlanSolve,
   board: Board,
   chamber: boolean,
 ): Ground[] {
   const out: Ground[] = [];
   const no = (x0: number, y0: number, x1: number, y1: number) =>
     out.push({ x0, y0, x1, y1, top: Infinity, host: undefined });
-  for (const f of floor.fills.values())
-    if (isFanZone(f.node) && f.units.length > 0 && f.at && f.size)
-      no(f.at.x, f.at.y, f.at.x + f.size.x, f.at.y + f.size.y);
   const hot: { x0: number; y0: number; x1: number; y1: number }[] = [];
   for (const u of laid) {
     if (u.spacer) continue;

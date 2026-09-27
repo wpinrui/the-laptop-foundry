@@ -167,7 +167,7 @@ const FIXED: Record<string, number> = {
   "bridge-battery": 25,
   fanless: 5,
   "one-fan": 14,
-  "two-fans": 26,
+  "two-fans": 32,
   "vapour-chamber": 45,
   combo: 30,
   "dvd-rw-dl": 45,

@@ -152,7 +152,7 @@ export function App() {
     const c = company;
     const state = campaignOf(company.campaign);
     const y = best.record.quarter.year;
-    prepareShort(shortId, c.id, best.record.quarter, () =>
+    prepareShort(shortId, c.id, best.record.quarter, state.sales.length - 1, () =>
       Promise.all([ensureMarket(y - 1), ensureMarket(y)]).then(() => {
         // The player's models at the price they were released at.
         const own = c.models.map((m): Subject => {

@@ -1,20 +1,22 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { type RefObject, useMemo, useRef } from "react";
+import { type RefObject, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Build, Fit } from "../engine";
-import { Atmosphere, Lights, PLINTH_H, PLINTH_R, StagedLaptop } from "../foundry/Stage";
-import { Reflections } from "../viewer/Scene";
-import { token } from "../viewer/theme";
+import { StagedLaptop } from "../foundry/Stage";
 import { type Card, type Line, quarterCaption, type Short, type Shot, shareCaption, unitsCaption } from "./script";
+import { type Look, SetStage } from "./sets";
 
 // The quarter's best seller as a vertical short: the narration's lines play
-// back to back, each on its own camera shot of the laptop on the menu stage's
-// plinth, with captions and the number cards drawn over it. render.tsx steps
+// back to back, each on its own camera shot of the laptop on one of the short
+// sets, with captions and the number cards drawn over it. render.tsx steps
 // this scene frame by frame and encodes it; nothing here reads a wall clock.
+// The sets are in metres, so the laptop, modelled in mm, is scaled down.
 
 export const W = 1080;
 export const H = 1920;
-export const FOV = 40;
+/** Vertical field of view: 42 degrees across the portrait frame, as the sets were dressed for. */
+export const FOV = (2 * Math.atan(Math.tan((21 * Math.PI) / 180) * (H / W)) * 180) / Math.PI;
+const MM = 0.001;
 /** Seconds before the first line, between lines, and after the last. */
 const LEAD = 0.4;
 const GAP = 0.25;
@@ -77,10 +79,14 @@ function around(target: THREE.Vector3, azimuth: number, elevation: number, dist:
   );
 }
 
-/** The camera and the turntable's yaw for a shot at `u` through it. */
-function shotView(shot: Shot, u: number, k: Dims, side: number): { pos: THREE.Vector3; target: THREE.Vector3; yaw: number } {
+/**
+ * The camera for a shot at `u` through it, round a laptop whose bottom centre
+ * is the origin. Every position stays within about 0.8 m of the laptop, inside
+ * the 1 m the sets keep clear.
+ */
+function shotView(shot: Shot, u: number, k: Dims, side: number): { pos: THREE.Vector3; target: THREE.Vector3 } {
   const e = ease(u);
-  const y0 = PLINTH_H;
+  const y0 = 0;
   // The lid stands at about 112 degrees: its screen's centre is up and behind the hinge.
   const screen = new THREE.Vector3(0, y0 + k.h + 0.46 * k.d, -0.69 * k.d);
   // A three-quarter view with the lid up spans more than the width: leave room round it.
@@ -88,57 +94,58 @@ function shotView(shot: Shot, u: number, k: Dims, side: number): { pos: THREE.Ve
   switch (shot) {
     case "title": {
       const target = new THREE.Vector3(0, y0 + k.h + 0.3 * k.d + 0.25 * k.w, -0.15 * k.d);
-      return { target, pos: around(target, lerp(-0.75, -0.45, e), 0.26, lerp(full * 1.15, full, e)), yaw: 0 };
+      return { target, pos: around(target, lerp(-0.75, -0.45, e), 0.26, lerp(full * 1.15, full, e)) };
     }
     case "orbit": {
       const target = new THREE.Vector3(0, y0 + k.h + 0.25 * k.d, -0.15 * k.d);
-      return { target, pos: around(target, lerp(-0.9, 0.9, u), 0.32, full * 0.95), yaw: 0 };
+      return { target, pos: around(target, lerp(-0.9, 0.9, u), 0.32, full * 0.95) };
     }
     case "keyboard": {
       const x = lerp(-0.18, 0.18, e) * k.w;
       const target = new THREE.Vector3(x, y0 + k.h, -0.12 * k.d);
-      return { target, pos: new THREE.Vector3(x * 1.3, target.y + 0.42 * k.w, target.z + 0.4 * k.w), yaw: 0 };
+      return { target, pos: new THREE.Vector3(x * 1.3, target.y + 0.42 * k.w, target.z + 0.4 * k.w) };
     }
     case "ports": {
       const z = lerp(0.3, -0.3, e) * k.d;
       const target = new THREE.Vector3((side * k.w) / 2, y0 + k.h * 0.5, z);
-      return { target, pos: new THREE.Vector3(target.x + side * 0.36 * k.w, target.y + 0.1 * k.w, z + 0.14 * k.w), yaw: 0 };
+      return { target, pos: new THREE.Vector3(target.x + side * 0.36 * k.w, target.y + 0.1 * k.w, z + 0.14 * k.w) };
     }
     case "screen": {
       const normal = new THREE.Vector3(lerp(0.12, -0.08, e), 0.37, 0.93).normalize();
-      return { target: screen, pos: screen.clone().addScaledVector(normal, lerp(1.35, 1.1, e) * k.w), yaw: 0 };
+      return { target: screen, pos: screen.clone().addScaledVector(normal, lerp(1.35, 1.1, e) * k.w) };
     }
     case "lid": {
       const target = screen.clone().add(new THREE.Vector3(0, 0, -0.05 * k.d));
-      return { target, pos: around(target, lerp(Math.PI - 0.7, Math.PI - 0.25, e), 0.3, full * 0.75), yaw: 0 };
+      return { target, pos: around(target, lerp(Math.PI - 0.7, Math.PI - 0.25, e), 0.3, full * 0.75) };
     }
     case "turn": {
+      // A slow orbit from the front round to the right side, rising a little. It stops short of the
+      // back: a dark lid from behind fills the frame with black.
       const target = new THREE.Vector3(0, y0 + k.h + 0.2 * k.d, -0.1 * k.d);
-      return { target, pos: around(target, -0.35, 0.16, full * 0.95), yaw: lerp(0, Math.PI * 0.9, u) };
+      return { target, pos: around(target, lerp(-0.35, Math.PI * 0.45, u), lerp(0.16, 0.3, u), full * 0.95) };
     }
   }
 }
 
-function Rig({ lines, tl, time, dims, side, turntable }: {
+function Rig({ lines, tl, time, dims, side, anchor }: {
   lines: Line[];
   tl: Timeline;
   time: RefObject<number>;
   dims: Dims;
   side: number;
-  turntable: RefObject<THREE.Group | null>;
+  anchor: THREE.Vector3;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   useFrame(() => {
     const { i, u } = at(tl, time.current);
     const v = shotView(lines[i]?.shot ?? "title", u, dims, side);
-    camera.position.copy(v.pos);
-    camera.lookAt(v.target);
-    if (turntable.current) turntable.current.rotation.y = v.yaw;
+    camera.position.copy(v.pos.add(anchor));
+    camera.lookAt(v.target.add(anchor));
   });
   return null;
 }
 
-/** Every mesh of the laptop casts a shadow on the plinth. */
+/** Every mesh of the laptop casts a shadow on the set. */
 function Shadows({ group }: { group: RefObject<THREE.Group | null> }) {
   useFrame(() => {
     group.current?.traverse((o) => {
@@ -328,36 +335,41 @@ export function drawOverlay(g: OffscreenCanvasRenderingContext2D | CanvasRenderi
   ctx.fillRect(0, 0, W * Math.min(1, t / tl.total), 8);
 }
 
-/** The short's 3D set: the laptop on the plinth, lit as on the menu stage, the camera on the shot at `time`. */
-export function ShortStage({ short, fit, tl, time, onLock }: {
+/** The short's 3D set: the laptop on the quarter's set, the camera on the shot at `time`. */
+export function ShortStage({ short, fit, look, tl, time, onLock, onSet }: {
   short: Short;
   fit: Fit;
+  look: Look;
   tl: Timeline;
   time: RefObject<number>;
   onLock: () => void;
+  onSet: () => void;
 }) {
   const build = short.facts.subject.build as Build;
-  const dims = useMemo((): Dims => ({ w: fit.shell.outer.x, d: fit.shell.outer.y, h: fit.shell.outer.z }), [fit]);
-  const floor = useMemo(() => new THREE.Color(token("ground")).multiplyScalar(3), []);
-  const turntable = useRef<THREE.Group>(null);
+  const dims = useMemo((): Dims => ({ w: fit.shell.outer.x * MM, d: fit.shell.outer.y * MM, h: fit.shell.outer.z * MM }), [fit]);
+  const laptop = useRef<THREE.Group>(null);
+  const [anchor, setAnchor] = useState<THREE.Vector3 | null>(null);
+  const ready = useCallback(
+    (a: THREE.Vector3) => {
+      setAnchor(a.clone());
+      onSet();
+    },
+    [onSet],
+  );
   return (
     <>
-      <Atmosphere />
-      <Reflections intensity={0.12} />
-      <Lights />
-      <mesh rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[20000, 20000]} />
-        <meshStandardMaterial color={floor} roughness={1} />
-      </mesh>
-      <mesh position={[0, PLINTH_H / 2, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[PLINTH_R, PLINTH_R, PLINTH_H, 96]} />
-        <meshStandardMaterial color={token("stage-plinth")} roughness={0.55} metalness={0.3} />
-      </mesh>
-      <group ref={turntable} position={[0, PLINTH_H, 0]}>
-        <StagedLaptop build={build} fit={fit} maker={short.facts.subject.company} model={short.facts.subject.name} onLock={onLock} />
-      </group>
-      <Shadows group={turntable} />
-      <Rig lines={short.lines} tl={tl} time={time} dims={dims} side={short.facts.portSide === "right" ? 1 : -1} turntable={turntable} />
+      <Suspense fallback={null}>
+        <SetStage look={look} onReady={ready} />
+      </Suspense>
+      {anchor && (
+        <>
+          <group ref={laptop} position={anchor} scale={MM}>
+            <StagedLaptop build={build} fit={fit} maker={short.facts.subject.company} model={short.facts.subject.name} onLock={onLock} />
+          </group>
+          <Shadows group={laptop} />
+          <Rig lines={short.lines} tl={tl} time={time} dims={dims} side={short.facts.portSide === "right" ? 1 : -1} anchor={anchor} />
+        </>
+      )}
     </>
   );
 }

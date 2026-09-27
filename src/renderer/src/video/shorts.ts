@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { Quarter } from "../engine/campaign";
 import { Cancelled, renderShort } from "./render";
 import { quarterCaption, type Short } from "./script";
+import { lookFor } from "./sets";
 
 // Each company's last quarter's short, made in the background as soon as the
 // quarter ends: script, voice, then an offline render. One job at a time; a
@@ -17,6 +18,9 @@ export interface ReadyShort {
 }
 
 type Entry = { state: "busy" } | ({ state: "ready" } & ReadyShort);
+
+/** Bumped when the video changes, so a short kept on disk from before is made again. */
+const VERSION = 2;
 
 /** Ready videos kept in memory; older ones fall out. */
 const KEEP = 6;
@@ -62,9 +66,10 @@ export function useShort(key: string | null): Entry | undefined {
 
 /**
  * Starts making the short for `key` unless it is ready or on its way. `make`
- * writes the script; null means there is nothing to show.
+ * writes the script; null means there is nothing to show. `index` counts the
+ * company's quarters from 0 and picks the set.
  */
-export function prepareShort(key: string, company: string, quarter: Quarter, make: () => Promise<Short | null>): void {
+export function prepareShort(key: string, company: string, quarter: Quarter, index: number, make: () => Promise<Short | null>): void {
   if (cache.has(key)) return;
   if (current && current.key !== key) {
     current.cancel();
@@ -78,7 +83,7 @@ export function prepareShort(key: string, company: string, quarter: Quarter, mak
     },
   };
   set(key, { state: "busy" });
-  const file = `${quarter.year}q${quarter.quarter}`;
+  const file = `${quarter.year}q${quarter.quarter}-v${VERSION}`;
   (async () => {
     const short = await make();
     if (!short || cancelled) return null;
@@ -87,7 +92,7 @@ export function prepareShort(key: string, company: string, quarter: Quarter, mak
     if (kept) return { blob: new Blob([kept as Uint8Array<ArrayBuffer>], { type: "video/mp4" }), name };
     const voice = await window.api.video.say(short.lines.map((l) => l.say)).catch(() => null);
     if (cancelled) return null;
-    const blob = await renderShort(short, voice, () => cancelled);
+    const blob = await renderShort(short, lookFor(index), voice, () => cancelled);
     void blob
       .arrayBuffer()
       .then((b) => window.api.video.keep(company, file, new Uint8Array(b)))

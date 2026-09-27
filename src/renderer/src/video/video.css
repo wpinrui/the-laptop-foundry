@@ -1,0 +1,36 @@
+/* The quarter video: the recorded 9:16 canvas, centred on black. The 3D view
+   renders underneath at the video's size and is copied onto it each frame. */
+.fd.vd {
+  background: #000;
+}
+
+.vd-gl {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 540px;
+  height: 960px;
+}
+
+.vd-cover {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+
+.vd-out {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 100vh;
+  aspect-ratio: 9 / 16;
+  transform: translate(-50%, -50%);
+}
+
+.vd-bar {
+  position: absolute;
+  right: calc(36 * var(--u));
+  bottom: calc(36 * var(--u));
+  display: flex;
+  gap: calc(24 * var(--u));
+}

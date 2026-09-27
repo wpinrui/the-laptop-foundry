@@ -88,3 +88,7 @@ These fonts are vendored in `src/renderer/src/assets/fonts/` (Latin subset, from
 | Space Mono | The Space Mono Project Authors | https://github.com/googlefonts/spacemono |
 | IBM Plex Sans | IBM Corp. | https://github.com/IBM/plex (via the `@fontsource/ibm-plex-sans` package) |
 | Barlow Condensed | The Barlow Project Authors | https://github.com/jpt/barlow (via the `@fontsource/barlow-condensed` package) |
+
+## Narration voice
+
+The quarter video's narration is Piper's `en_US-norman-medium` voice, fetched at build time by `scripts/fetch-voice.mjs` into `resources/voice/` (not in the repository). It was trained by Bryce Beattie from **public domain** LibriVox recordings (https://brycebeattie.com/files/tts/), packed for sherpa-onnx (Apache-2.0, https://github.com/k2-fsa/sherpa-onnx). Its phonemes come from espeak-ng (GPL-3.0, https://github.com/espeak-ng/espeak-ng), whose English data ships with the voice and whose code is linked into the `sherpa-onnx-node` addon.

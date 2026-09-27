@@ -19,6 +19,8 @@ import { setHonours } from "./review/honours";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
 import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
+import { bestSeller, type Short, shortFacts, subjectOf, writeShort } from "./video/script";
+import { VideoScreen } from "./video/VideoScreen";
 
 const store = () => window.api.store;
 
@@ -64,6 +66,8 @@ export function App() {
   const [busy, setBusy] = useState(false);
   // The marketing table is open in place of the release panel.
   const [marketing, setMarketing] = useState(false);
+  // The last quarter's best seller as a short video.
+  const [short, setShort] = useState<Short | null>(null);
 
   useEffect(() => {
     store().companies().then((all) => setCompanies(all.map(migrated)));
@@ -173,6 +177,25 @@ export function App() {
       })
       .finally(() => setBusy(false));
   };
+  // The last quarter's best seller as a short: its year's and the year before's rivals must be open to find it.
+  const watchShort = () => {
+    const best = campaign ? bestSeller(campaign) : null;
+    if (!campaign || !company || !best || busy) return;
+    const y = best.record.quarter.year;
+    setBusy(true);
+    Promise.all([ensureMarket(y - 1), ensureMarket(y)])
+      .then(() => {
+        // The player's models at the price they were released at.
+        const own = company.models.map((m) => {
+          const s = subject(m);
+          const r = campaign.releases[m.id];
+          return r ? { ...s, build: { ...s.build, price: r.price } } : s;
+        });
+        const found = subjectOf(best.id, own);
+        if (found) setShort(writeShort(shortFacts(found.subject, found.mine, campaign, best.record, best.units)));
+      })
+      .finally(() => setBusy(false));
+  };
   // The first review locks the model, so its review never changes.
   const review = (m: SavedModel) => {
     if (!m.reviewed) {
@@ -183,6 +206,7 @@ export function App() {
     withMarket(subject(m), setReviewing);
   };
 
+  if (short) return <VideoScreen key={short.facts.subject.id} short={short} onBack={() => setShort(null)} />;
   if (company && using)
     return (
       <CafeScreen
@@ -328,6 +352,7 @@ export function App() {
         company={company}
         campaign={campaign}
         onEndQuarter={endQuarter}
+        onShort={campaign && bestSeller(campaign) ? watchShort : undefined}
         selected={selected}
         onSelect={setSelected}
         onMenu={() => {

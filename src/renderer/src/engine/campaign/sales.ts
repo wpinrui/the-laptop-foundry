@@ -62,6 +62,8 @@ export interface SalesRecord {
   makers: Record<string, number>;
   /** Every unit sold in the market. */
   total: number;
+  /** The quarter's best-selling laptop, the player's or a rival's. Older saves lack it. */
+  top?: { id: string; units: number };
 }
 
 export interface SalesResult {
@@ -248,7 +250,9 @@ export const simulateSales: QuarterStep = (state, ctx) => {
       demand[x.id] = res.demand[x.id];
     } else makers[x.maker] = (makers[x.maker] ?? 0) + res.sold[x.id];
   }
-  const record: SalesRecord = { quarter: { ...state.now }, units, demand, makers, total: res.total };
+  let top: SalesRecord["top"];
+  for (const x of sellers) if (res.sold[x.id] > 0 && res.sold[x.id] > (top?.units ?? 0)) top = { id: x.id, units: res.sold[x.id] };
+  const record: SalesRecord = { quarter: { ...state.now }, units, demand, makers, total: res.total, ...(top ? { top } : {}) };
   return {
     ...state,
     releases,
@@ -292,5 +296,6 @@ export function salesRecordOf(x: unknown): SalesRecord | null {
     demand: nums(r.demand),
     makers: nums(r.makers),
     total: r.total,
+    ...(r.top && typeof r.top.id === "string" && num(r.top.units) ? { top: { id: r.top.id, units: r.top.units } } : {}),
   };
 }

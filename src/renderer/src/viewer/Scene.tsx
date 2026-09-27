@@ -1,7 +1,6 @@
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, type ThreeEvent, useThree } from "@react-three/fiber";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { Workshop, WORKSHOP_REACH } from "./Workshop";
 import {
   memo,
   type ReactNode,
@@ -61,8 +60,6 @@ interface SceneProps {
   xray?: boolean;
   /** Leaves out the units under the deck's top wall (keyboard, trackpad and the like), except selected ones. */
   hideDeck?: boolean;
-  /** A procedural workshop around the laptop: bench, pegboard wall, warm lamp. */
-  workshop?: boolean;
   /** Called with every unit that could not be drawn, as "label: reason". */
   onFailed?: (failed: string[]) => void;
   /** A still image lit on the display glass, such as a lock screen. */
@@ -1001,7 +998,6 @@ export const Model = memo(function Model({
   surfaces,
   xray = true,
   hideDeck = false,
-  workshop,
   portal,
   onFailed,
   lockScreen,
@@ -1101,7 +1097,6 @@ export const Model = memo(function Model({
           })}
         <Openings fit={fit} />
         <SpeakerGrill fit={fit} year={year} />
-        {workshop && !table && <Workshop out={out} />}
         {table && (
           <mesh position={[out.x / 2, out.y / 2, -3]} scale={[out.x * 4, out.y * 3, 6]}>
             <boxGeometry />
@@ -1295,37 +1290,18 @@ export function Scene(props: SceneProps & { shift?: number }) {
       dpr={[1, 2]}
       onPointerMissed={() => props.onHover(null)}
     >
-      <color attach="background" args={[props.workshop ? token("shop-wall") : props.table ? token("cafe-wall") : bg]} />
+      <color attach="background" args={[props.table ? token("cafe-wall") : bg]} />
       <Reflections />
-      {props.workshop ? (
-        <>
-          {/* Warm lamp over the bench, a cool fill from the window side. */}
-          <hemisphereLight args={[token("color-text"), token("shop-bench-edge"), 0.75]} />
-          <pointLight
-            position={[-150, 700, 250]}
-            color={token("shop-lamp")}
-            intensity={1.1}
-            distance={0}
-            decay={0}
-          />
-          <directionalLight position={[300, 700, 500]} intensity={0.7} />
-          <directionalLight position={[500, 400, 600]} color={token("shop-fill")} intensity={0.35} />
-          <directionalLight position={[-400, 300, -300]} intensity={0.3} />
-        </>
-      ) : (
-        <>
-          <hemisphereLight args={[token("color-text"), token("color-surface"), 1.1]} />
-          <directionalLight position={[300, 700, 500]} intensity={1.6} />
-          <directionalLight position={[-400, 300, -300]} intensity={0.5} />
-        </>
-      )}
+      <hemisphereLight args={[token("color-text"), token("color-surface"), 1.1]} />
+      <directionalLight position={[300, 700, 500]} intensity={1.6} />
+      <directionalLight position={[-400, 300, -300]} intensity={0.5} />
       <Model {...props} portal={overlay} onFailed={onFailed} />
       <ViewShift shift={props.shift ?? 0} />
       <OrbitControls
         makeDefault
         target={props.camera?.target ?? [0, 30, 0]}
         minDistance={120}
-        maxDistance={props.workshop ? WORKSHOP_REACH : 2500}
+        maxDistance={2500}
       />
     </Canvas>
       {/* The on-screen page mounts here, over the canvas. */}

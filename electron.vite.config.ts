@@ -8,6 +8,12 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        // index: the game's own bridge. site: the browser's site frames.
+        input: { index: resolve("src/preload/index.ts"), site: resolve("src/preload/site.ts") },
+      },
+    },
   },
   renderer: {
     resolve: {

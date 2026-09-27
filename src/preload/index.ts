@@ -61,7 +61,9 @@ const api = {
   },
 };
 
-contextBridge.exposeInMainWorld("api", api);
+// Preloads also run in the browser's site frames (see src/preload/site.ts);
+// the bridge is for the game's own top frame only.
+if (process.isMainFrame && window.top === window.self) contextBridge.exposeInMainWorld("api", api);
 
 export type Api = typeof api;
 export type { SavedCompany, SavedModel, Settings };

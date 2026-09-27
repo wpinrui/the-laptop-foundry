@@ -34,9 +34,11 @@ export const BATTERIES: Part[] = [
       whPerLitre: 350,
       depth: 80,
       thickness: { standard: 6 },
+      wh: 40,
+      limits: { x: [80, 320], y: [50, 110], z: [5, 12] },
     },
-    options: { wh: [40, 55], thickness: ["standard"] },
-    compact: ["x"],
+    // Sized by the player; the Compact slider packs the cells denser.
+    compact: [],
   },
   {
     // The first thin-and-light pouches: less dense than today's.
@@ -50,12 +52,13 @@ export const BATTERIES: Part[] = [
       whPerLitre: 450,
       depth: 80,
       thickness: { slim: 5, standard: 7 },
+      wh: 50,
+      limits: { x: [60, 360], y: [40, 120], z: [3.5, 10] },
     },
-    options: { wh: [50, 40, 60, 75, 90], thickness: ["slim", "standard"] },
-    compact: ["x"],
+    compact: [],
   },
   {
-    // Width follows capacity.
+    // Sized by the player; capacity follows the volume.
     id: "li-po-pouch",
     name: "Li-polymer pouch",
     category: "battery",
@@ -65,11 +68,12 @@ export const BATTERIES: Part[] = [
       kind: "pouch",
       whPerLitre: 600,
       depth: 85,
+      // Slim first: the default suits an ultrabook; standard is the thick gaming pack.
       thickness: { slim: 4.5, standard: 6.5 },
+      wh: 60,
+      limits: { x: [60, 360], y: [40, 140], z: [3, 10] },
     },
-    // Slim first: the default suits an ultrabook; standard is the thick gaming pack.
-    options: { wh: [60, 45, 75, 90, 99.9], thickness: ["slim", "standard"] },
-    compact: ["x"],
+    compact: [],
   },
 ];
 

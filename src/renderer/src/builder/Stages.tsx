@@ -16,6 +16,7 @@ import {
   rivalSubject,
   YEARS,
 } from "../engine";
+import { BatteryFields } from "./BatteryFields";
 import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
@@ -281,6 +282,7 @@ export function InsideColumn({
     <div className="bd-inside">
       <SlotList slots={slots} selected={current.key} onSelect={onSlot} warn={slotWarn(build, fit)} />
       <Options slot={current} build={build} fit={fit} set={set}>
+        {has && current.cat === "battery" && current.index === 0 && <BatteryFields build={build} fit={fit} set={set} />}
         {has && current.index === 0 && (
           <SliderField
             label="Compact"

@@ -11,6 +11,7 @@ import {
   PIECES,
   type Piece,
 } from "../types";
+import { pouchOf, pouchShape } from "../battery";
 import { opt } from "../units";
 import { CPU_PRICES, estimatedPrice } from "../content/chips/cpus";
 import { GPU_PRICES } from "../content/chips/gpus";
@@ -293,10 +294,15 @@ const LIGHT: Record<string, number> = {
   "rgb-per-key": 40,
 };
 
-function batteryWh(part: Part, bp: BuildPart): number {
+/** Capacity and cell thickness: thin cells cost more per Wh. */
+function batteryOf(part: Part, bp: BuildPart, year: number, spend: number): { wh: number; thin: number } {
   const cells = opt(part, bp, "cells");
-  if (cells !== undefined) return Number(part.info?.[`wh${cells}`] ?? 0);
-  return Number(opt(part, bp, "wh") ?? 0);
+  if (cells !== undefined) return { wh: Number(part.info?.[`wh${cells}`] ?? 0), thin: 1 };
+  const shape = pouchShape(part);
+  if (!shape) return { wh: 0, thin: 1 };
+  const p = pouchOf(part, shape, bp, year, spend);
+  // Five percent more per Wh for every millimetre under 5.5 mm.
+  return { wh: p.wh, thin: 1 + 0.05 * Math.max(0, 5.5 - p.size.z) };
 }
 
 function partCost(
@@ -305,6 +311,7 @@ function partCost(
   bp: BuildPart,
   year: number,
   packageGb?: number,
+  spend = 0,
 ): number {
   const o = (k: string) => opt(part, bp, k);
   switch (cat) {
@@ -325,8 +332,8 @@ function partCost(
     }
     case "battery": {
       const perWh = BATTERY[part.id] ?? 1;
-      const slim = o("thickness") === "slim" ? 1.1 : 1;
-      return batteryWh(part, bp) * perWh * slim + 5;
+      const b = batteryOf(part, bp, year, spend);
+      return b.wh * perWh * b.thin + 5;
     }
     case "wireless":
       return (FIXED[part.id] ?? 15) + (o("bluetooth") === "2.0" ? 8 : 0);
@@ -433,7 +440,7 @@ export function partPrice(
   if (cat === "display") return 0;
   const p = content.parts.find((x) => x.id === bp.part);
   const gb = build && cat === "memory" ? packageGb(build, content) : undefined;
-  return p ? partCost(cat, p, bp, year, gb) : 0;
+  return p ? partCost(cat, p, bp, year, gb, build?.spend[cat] ?? 0) : 0;
 }
 
 /** Memory on the build's processor package in GB, when its processor carries it. */

@@ -1,6 +1,7 @@
 export * from "./content";
 export { makeBuild, SAMPLES } from "./samples";
 export { solve } from "./solve";
+export * from "./battery";
 export * from "./screen";
 export * from "./look";
 export * from "./types";

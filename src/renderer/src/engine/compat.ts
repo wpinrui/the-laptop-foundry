@@ -11,6 +11,7 @@ import type {
 import { CATEGORIES, PIECES } from "./types";
 import { screenOf, screenProblems } from "./screen";
 import { isHexColour } from "./look";
+import { pouchOptionOk, pouchShape } from "./battery";
 
 const REQUIRED: Category[] = [
   "processor",
@@ -122,7 +123,10 @@ export function checkCompat(
           what: "part",
           ref: part.id,
         });
+      const pouch = pouchShape(part);
       for (const [key, value] of Object.entries(bp.opts ?? {})) {
+        // A pouch takes its dimensions, and older saves' capacity and thickness, as free values.
+        if (pouch && pouchOptionOk(pouch, key, value)) continue;
         const list = part.options?.[key];
         if (!list || !list.some((v) => String(v) === String(value)))
           out.push({

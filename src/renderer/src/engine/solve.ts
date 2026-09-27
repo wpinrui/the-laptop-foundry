@@ -28,6 +28,7 @@ import {
   resolveStyle,
   scaleWalls,
   spanBand,
+  taperLeft,
 } from "./shell";
 import type {
   Anchor,
@@ -171,7 +172,14 @@ function solveAt(
     z: clamp(build.size.z, lim.z[0], lim.z[1]),
   };
   // The body's shape at the drawn size and the player's signature setting.
-  const style = resolveStyle(body.style, size, build.shape?.[body.id], Infinity, build.sides?.[body.id]);
+  const style = resolveStyle(
+    body.style,
+    size,
+    build.shape?.[body.id],
+    Infinity,
+    build.sides?.[body.id],
+    !!build.curve?.[body.id],
+  );
 
   // Walls, gaps and styling allowance.
   const matSpend = spendOf(build, "material");
@@ -445,8 +453,7 @@ function solveAt(
      */
     const taperZ = (y0: number, h: number, Y: number): number => {
       if (!tp) return h;
-      const u = clamp(Math.max(y0, off.side) / (tp.run * Y), 0, 1);
-      const g = 1 - (tp.linear ? u : u * u * (3 - 2 * u));
+      const g = taperLeft(tp, Math.max(y0, off.side) / (tp.run * Y));
       const mf = tp.minFront;
       if (h <= mf) return h;
       const zb = mf / tp.front;
@@ -764,6 +771,7 @@ function solveAt(
         build.shape?.[body.id],
         lidZ,
         build.sides?.[body.id],
+        !!build.curve?.[body.id],
       );
       s.bevel = grillBevel(grill, s, { ...size, z: Z }, ventSides);
       const o = baseOffsets(s, walls);

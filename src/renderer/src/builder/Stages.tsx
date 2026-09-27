@@ -215,6 +215,22 @@ export function ChassisColumn({
                   }
                 />
               )}
+              {a === "z" && body.style.taper?.curve && (
+                <div className="bd-field">
+                  <Label>Underside</Label>
+                  <Chips>
+                    {[false, true].map((c) => (
+                      <Chip
+                        key={String(c)}
+                        on={!!build.curve?.[body.id] === c}
+                        onClick={() => set((b) => ({ ...b, curve: { ...b.curve, [b.body]: c } }))}
+                      >
+                        {c ? "Curved" : "Flat"}
+                      </Chip>
+                    ))}
+                  </Chips>
+                </div>
+              )}
             </Fragment>
           );
         })}

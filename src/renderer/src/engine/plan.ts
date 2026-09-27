@@ -109,12 +109,29 @@ export function zonesOf(root: Node): ZoneNode[] {
   return out;
 }
 
+/** A plan's zones, and the zones that take each role, found once per plan. */
+interface Dealer {
+  zones: ZoneNode[];
+  takers: Map<string, ZoneNode[]>;
+}
+const dealers = new WeakMap<Node, Dealer>();
+
+function dealerOf(root: Node): Dealer {
+  let d = dealers.get(root);
+  if (!d) {
+    d = { zones: zonesOf(root), takers: new Map() };
+    dealers.set(root, d);
+  }
+  return d;
+}
+
 /** Deal units to zones by role, round-robin in tree order, skipping full zones. */
 export function deal(
   root: Node,
   units: Unit[],
 ): { fills: Map<ZoneNode, ZoneFill>; unplaced: Unit[] } {
-  const zones = zonesOf(root);
+  const dealer = dealerOf(root);
+  const zones = dealer.zones;
   const fills = new Map<ZoneNode, ZoneFill>();
   for (const z of zones)
     fills.set(z, { node: z, units: [], min: null, koLo: 0, koHi: 0 });
@@ -146,7 +163,11 @@ export function deal(
       }
       if (moved) continue;
     }
-    const takers = zones.filter((z) => z.takes.includes(u.role));
+    let takers = dealer.takers.get(u.role);
+    if (!takers) {
+      takers = zones.filter((z) => z.takes.includes(u.role));
+      dealer.takers.set(u.role, takers);
+    }
     let start = cursor.get(u.role) ?? 0;
     let placed = false;
     for (let k = 0; k < takers.length; k++) {
@@ -255,11 +276,13 @@ export function measure(
     f.koHi = 0;
   }
   const mins = new Map<Node, { x: number; y: number } | null>();
+  // On the second walk a zone the keep-out left alone keeps its first minimum.
+  let again = false;
   const walk = (n: Node): { x: number; y: number } | null => {
     let m: { x: number; y: number } | null = null;
     if (isZone(n)) {
       const fill = fills.get(n) as ZoneFill;
-      fill.min = zoneMin(fill, ctx);
+      if (!again || fill.koLo !== 0 || fill.koHi !== 0) fill.min = zoneMin(fill, ctx);
       m = fill.min
         ? { x: fill.min.x, y: fill.min.y }
         : n.keep
@@ -288,6 +311,8 @@ export function measure(
   walk(root);
   if (ctx.ko > 0) {
     type Dist = { x: number; y: number };
+    // Without a keep-out anywhere the second walk would find what the first did.
+    let kept = false;
     const lead = (n: Node, lo: Dist, hi: Dist) => {
       if (isZone(n)) {
         const fill = fills.get(n) as ZoneFill;
@@ -295,23 +320,28 @@ export function measure(
           const a = alongAxis(n.edge);
           fill.koLo = Math.max(0, ctx.ko - lo[a]);
           fill.koHi = Math.max(0, ctx.ko - hi[a]);
+          if (fill.koLo !== 0 || fill.koHi !== 0) kept = true;
         }
         return;
       }
+      // Past the keep-out on every side, every zone below keeps none.
+      if (lo.x >= ctx.ko && lo.y >= ctx.ko && hi.x >= ctx.ko && hi.y >= ctx.ko) return;
       const a = n.split;
       const kids = n.children.filter((c) => mins.get(c));
-      kids.forEach((c, i) => {
-        const before = kids
-          .slice(0, i)
-          .reduce((s2, k2) => s2 + (mins.get(k2) as Dist)[a] + ctx.gap, 0);
-        const after = kids
-          .slice(i + 1)
-          .reduce((s2, k2) => s2 + (mins.get(k2) as Dist)[a] + ctx.gap, 0);
-        lead(c, { ...lo, [a]: lo[a] + before }, { ...hi, [a]: hi[a] + after });
-      });
+      const len = kids.map((k2) => (mins.get(k2) as Dist)[a]);
+      let before = 0;
+      for (let i = 0; i < kids.length; i++) {
+        if (i > 0) before = before + len[i - 1] + ctx.gap;
+        let after = 0;
+        for (let j = i + 1; j < kids.length; j++) after = after + len[j] + ctx.gap;
+        const l2 = a === "x" ? { x: lo.x + before, y: lo.y } : { x: lo.x, y: lo.y + before };
+        const h2 = a === "x" ? { x: hi.x + after, y: hi.y } : { x: hi.x, y: hi.y + after };
+        lead(kids[i], l2, h2);
+      }
     };
     lead(root, { x: 0, y: 0 }, { x: 0, y: 0 });
-    walk(root);
+    again = true;
+    if (kept) walk(root);
   }
   return { fills, mins, root, ctx };
 }

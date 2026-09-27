@@ -1,4 +1,5 @@
 import type { SavedCampaign, SavedModel } from "../../../../preload/store";
+import { type Award, awardsOf, presentAwards } from "./awards";
 import { type PublishedReview, publishReviews, reviewsOf } from "./critics";
 import { type Brand, brandOf, market, newBrand, type SegmentOutcome, updatePerception } from "./brand";
 import { END_YEAR, FIRST_START, LAST_START, STARTING_CASH } from "./constants";
@@ -12,6 +13,7 @@ import { type SalesRecord, salesRecordOf, simulateSales, wordOfMouth } from "./s
 // time, to the end of 2026. The state lives in the company save; the main
 // process keeps it opaque, so this module owns its shape.
 
+export * from "./awards";
 export * from "./brand";
 export * from "./constants";
 export * from "./critics";
@@ -53,6 +55,8 @@ export interface CampaignState {
   outcomes: SegmentOutcome[];
   /** Published reviews by model or rival id. A laptop with none counts as par with buyers. */
   reviews: Record<string, PublishedReview>;
+  /** Every year's awards, oldest first. */
+  awards: Award[];
 }
 
 /** What a quarter's resolution reads besides the campaign state. */
@@ -91,6 +95,7 @@ export function newCampaign(start: number): CampaignState {
     sales: [],
     outcomes: [],
     reviews: {},
+    awards: [],
   };
 }
 
@@ -121,6 +126,7 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     sales: Array.isArray(s.sales) ? s.sales.map(salesRecordOf).filter((r): r is SalesRecord => !!r) : [],
     outcomes: [],
     reviews: reviewsOf(s.reviews),
+    awards: awardsOf(s.awards),
   };
 }
 
@@ -150,9 +156,6 @@ export const runMarketing: QuarterStep = (state) => ({
 
 /** Revenue, part and production costs and stock settle into cash. */
 export const settleFinances: QuarterStep = (state) => settle(state);
-
-/** At year end, awards are given from the review scores. */
-export const presentAwards: QuarterStep = (state) => state;
 
 const STEPS: QuarterStep[] = [launchRivals, publishReviews, simulateSales, runMarketing, settleFinances, presentAwards];
 

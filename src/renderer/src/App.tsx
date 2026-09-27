@@ -6,13 +6,16 @@ import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
-import { type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign, setCampaign } from "./engine/campaign";
+import { AWARD_NAMES, type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign, setCampaign } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { Bankrupt, FinancePanel } from "./foundry/Finance";
 import { MarketingPanel } from "./foundry/Marketing";
 import { ReleasePanel } from "./foundry/Release";
 import { SalesPanel } from "./foundry/Sales";
+import { AwardsPanel } from "./foundry/Awards";
+import { MAKERS } from "./engine/market/makers";
+import { setHonours } from "./review/honours";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
 import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
@@ -114,6 +117,20 @@ export function App() {
   useEffect(() => {
     if (campaignYear) void ensureMarket(campaignYear);
   }, [companyId, campaignYear]);
+
+  // The review site prints the open campaign's awards.
+  useEffect(() => {
+    const awards = company?.campaign ? campaignOf(company.campaign).awards : [];
+    setHonours(
+      awards.map((a) => ({
+        year: a.year,
+        award: AWARD_NAMES[a.award],
+        id: a.id,
+        company: a.maker === null ? (company?.name ?? "") : (MAKERS.find((m) => m.id === a.maker)?.name ?? a.maker),
+        name: a.name,
+      })),
+    );
+  }, [company]);
 
   if (!companies) return null;
 
@@ -359,6 +376,7 @@ export function App() {
         <div className="fd-side">
           <FinancePanel campaign={campaign} />
           <SalesPanel campaign={campaign} models={company.models} />
+          <AwardsPanel campaign={campaign} models={company.models} />
           <MarketingPanel
             campaign={campaign}
             open={marketing}

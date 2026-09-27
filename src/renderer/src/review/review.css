@@ -2420,3 +2420,64 @@
   padding: 2px 4px;
 }
 
+
+/* ------------------------------------------------------------------ awards */
+
+.rs-awards {
+  margin: 1.2em 0;
+}
+
+.rs-awards h2 {
+  margin: 0 0 0.4em;
+}
+
+.rs-awards th {
+  text-align: left;
+  width: 12em;
+}
+
+.rs-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.rs-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 10px;
+  border: 2px solid var(--rs-loud, var(--rs-link));
+  color: var(--rs-text);
+  background: var(--rs-page);
+  line-height: 1.15;
+  text-align: center;
+}
+
+.rs-badge b {
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rs-badge span {
+  font-size: 0.8em;
+  color: var(--rs-muted);
+}
+
+.rs-2006 .rs-badge {
+  border-width: 1px;
+  background: var(--rs-row);
+}
+
+.rs-2016 .rs-badge {
+  border-radius: 4px;
+}
+
+.rs-2026 .rs-badge {
+  border-radius: 999px;
+  flex-direction: row;
+  gap: 6px;
+  padding: 4px 12px;
+}

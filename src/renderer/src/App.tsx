@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel, Settings } from "../../preload/store";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
@@ -41,6 +41,7 @@ function latestModel(c: SavedCompany | null | undefined): SavedModel | null {
 
 export function App() {
   const [companies, setCompanies] = useState<SavedCompany[] | null>(null);
+  const ending = useRef(false);
   const [settings, setSettings] = useState<Settings>({ sound: true });
   const [company, setCompany] = useState<SavedCompany | null>(null);
   const [menu, setMenu] = useState<Menu>("start");
@@ -252,9 +253,16 @@ export function App() {
         company={company}
         campaign={campaign}
         onEndQuarter={() => {
-          if (!campaign) return;
+          // One quarter per click: a second click before the save lands would resolve the same quarter again.
+          if (!campaign || ending.current) return;
+          ending.current = true;
           const next = resolveQuarter(campaign, { models: company.models });
-          store().saveCampaign(company.id, savedCampaign(next)).then(refresh);
+          store()
+            .saveCampaign(company.id, savedCampaign(next))
+            .then(refresh)
+            .finally(() => {
+              ending.current = false;
+            });
         }}
         selected={selected}
         onSelect={setSelected}

@@ -51,6 +51,7 @@ import type {
   Tune,
   Vec3,
 } from "./types";
+import { isZone } from "./types";
 import { bezelUnits, emit, spendOf, type Unit } from "./units";
 import { panelOf } from "./screen";
 
@@ -112,6 +113,8 @@ const STACK_GAP = 1.5;
 /** Room kept round a hot chip and its heat pipe, mm. */
 const HOT_MARGIN = 6;
 const OVER = "over:";
+/** A speaker pin that follows the battery: the speaker ends of the battery's row. */
+const BESIDE = "beside-battery";
 
 /** A movable part's place: a zone by name (absent: where its role goes) and a quarter turn. */
 interface Choice {
@@ -376,6 +379,20 @@ function solveAt(
 
   // Movable floor parts, by slot, with the zones each may sit in and the player's pins.
   const floorZones = zonesOf(layout.floor);
+  // The speaker zone at the ends of the row (a front-to-rear band of the floor) holding a zone.
+  const rows = isZone(layout.floor) ? [layout.floor] : layout.floor.children;
+  const spkBeside = (zone: string): string | undefined => {
+    const row = rows.find((r) => zonesOf(r).some((z) => z.zone === zone));
+    return row
+      ? zonesOf(row).find(
+          (z) => z.name && (z.takes.includes("spk") || z.may?.includes("spk")),
+        )?.zone
+      : undefined;
+  };
+  const batteryZones = floorZones.filter(
+    (z) => z.takes.includes("battery") || z.may?.includes("battery"),
+  );
+  const besideOk = batteryZones.some((z) => spkBeside(z.zone) !== undefined);
   const slots = new Map<string, Slot>();
   for (const u of floorUnits) {
     if (!MOVABLE.has(u.role) || !u.part) continue;
@@ -407,14 +424,24 @@ function solveAt(
     if (pz) pin.zone = pz.zone;
     else if (pinned?.zone && stacks.includes(pinned.zone))
       pin.zone = pinned.zone;
+    else if (pinned?.zone === BESIDE && u.role === "spk" && besideOk)
+      pin.zone = BESIDE;
     slots.set(key, { role: u.role, zones, stacks, pin });
   }
   const base: Arrangement = {};
   for (const [key, sl0] of slots)
     base[key] = { zone: sl0.pin.zone, turn: sl0.pin.turn ?? false };
+  const batteryKey = [...slots].find(([, s]) => s.role === "battery")?.[0];
   const arranged = (arr: Arrangement): Unit[] =>
     floorUnits.map((u) => {
-      const c = MOVABLE.has(u.role) && u.part ? arr[slotOf(u)] : undefined;
+      let c = MOVABLE.has(u.role) && u.part ? arr[slotOf(u)] : undefined;
+      // Beside the battery: wherever the battery sits in this plan.
+      if (c?.zone === BESIDE) {
+        const bz =
+          (batteryKey ? arr[batteryKey]?.zone : undefined) ??
+          batteryZones.find((z) => z.takes.includes("battery"))?.zone;
+        c = { ...c, zone: bz ? spkBeside(bz) : undefined };
+      }
       if (!c || (!c.zone && !c.turn)) return u;
       const over = c.zone?.startsWith(OVER)
         ? (c.zone.slice(OVER.length) as Role)
@@ -653,6 +680,9 @@ function solveAt(
           id,
           name: HOST_NAMES[id.slice(OVER.length)] ?? id,
         })),
+        ...(sl0.role === "spk" && besideOk
+          ? [{ id: BESIDE, name: "Beside battery" }]
+          : []),
       ],
     };
   }

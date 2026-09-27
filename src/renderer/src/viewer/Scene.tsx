@@ -23,6 +23,7 @@ import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
 import { type Cuts, flushBay, portCuts, wallPositions } from "./walls";
 import { grillGeometry } from "./grill";
+import { speakerGrillGeometry } from "./speakerGrill";
 import {
   disposeUnit,
   renderUnit,
@@ -897,6 +898,24 @@ function wellFloor(fit: Fit, w: Wells[number], year: number): number | undefined
   return keys.at.z + keyPlateThickness(keys.size.z, year) + 0.15;
 }
 
+/** The speaker grill's holes, in the opening colour, pushed onto the surface by polygon offset. */
+function SpeakerGrill({ fit, year }: { fit: Fit; year: number }) {
+  const geo = useMemo(() => speakerGrillGeometry(fit, year), [fit, year]);
+  useEffect(() => () => geo?.dispose(), [geo]);
+  if (!geo) return null;
+  return (
+    <mesh geometry={geo}>
+      <meshBasicMaterial
+        color={token("color-opening")}
+        side={THREE.DoubleSide}
+        polygonOffset
+        polygonOffsetFactor={-3}
+        polygonOffsetUnits={-3}
+      />
+    </mesh>
+  );
+}
+
 function Openings({ fit }: { fit: Fit }) {
   const colour = token("color-opening");
   const w = fit.shell.walls.side + 0.4;
@@ -1081,6 +1100,7 @@ export const Model = memo(function Model({
             );
           })}
         <Openings fit={fit} />
+        <SpeakerGrill fit={fit} year={year} />
         {workshop && !table && <Workshop out={out} />}
         {table && (
           <mesh position={[out.x / 2, out.y / 2, -3]} scale={[out.x * 4, out.y * 3, 6]}>

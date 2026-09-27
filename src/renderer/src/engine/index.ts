@@ -4,6 +4,7 @@ export { solve } from "./solve";
 export * from "./battery";
 export * from "./fan";
 export * from "./grill";
+export * from "./speakerGrill";
 export * from "./screen";
 export * from "./look";
 export * from "./types";

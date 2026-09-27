@@ -3,6 +3,7 @@ import { checkCompat } from "./compat";
 import { CONTENT, type Content, eraFor, indexContent } from "./content";
 import { fanSizeOf } from "./fan";
 import { grillBevel, grillCutouts, grillOf } from "./grill";
+import { speakerGrillFit } from "./speakerGrill";
 import {
   alongAxis,
   deal,
@@ -171,6 +172,17 @@ export function solve(
   build: Build,
   content: Content = CONTENT,
   opts: { auto?: boolean } = {},
+): Fit {
+  const fit = solveFit(build, content, opts);
+  // The speaker grill is only drawn, so it is laid out once on the settled fit.
+  const sg = speakerGrillFit(build, fit.shell.style, fit.shell.outer, fit.boxes, fit.shell.cutouts);
+  return sg ? { ...fit, shell: { ...fit.shell, speakerGrill: sg } } : fit;
+}
+
+function solveFit(
+  build: Build,
+  content: Content,
+  opts: { auto?: boolean },
 ): Fit {
   const fixed = opts.auto === false ? "base" : null;
   const fit = solveAt(build, content, fixed);

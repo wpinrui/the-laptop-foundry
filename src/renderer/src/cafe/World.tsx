@@ -21,6 +21,10 @@ const SPEED = 1500;
 const LOOK = 0.0022;
 const REACH = 2000;
 const SETTLE_MS = 600;
+/** Seated zoom: the camera's field of view, in degrees. */
+const FOV = 62;
+const FOV_MIN = 20;
+const ZOOM_STEP = 0.0025;
 /** How close the player's eye gets to a wall or collider. */
 const BODY = 280;
 /** Where the player first stands, in the aisle behind the table. */
@@ -205,6 +209,7 @@ function collide(p: THREE.Vector3) {
 
 function Player({
   seated,
+  using,
   active,
   laptop,
   anchors,
@@ -212,6 +217,7 @@ function Player({
   onClickAim,
 }: {
   seated: boolean;
+  using: boolean;
   active: boolean;
   laptop: RefObject<THREE.Group | null>;
   anchors: Anchors;
@@ -232,6 +238,9 @@ function Player({
   );
   const ray = useMemo(() => new THREE.Raycaster(), []);
   const wasSeated = useRef(seated);
+  const fov = useRef(FOV);
+  const live = useRef({ seated, using, active });
+  live.current = { seated, using, active };
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.current.add(e.code);
@@ -239,19 +248,30 @@ function Player({
     const mouse = (e: MouseEvent) => {
       if (!document.pointerLockElement) return;
       const l = look.current;
-      l.yaw -= e.movementX * LOOK;
-      l.pitch = clamp(l.pitch - e.movementY * LOOK, -1.45, 1.45);
+      // Slower look when zoomed in, so the aim stays steady.
+      const k = LOOK * (fov.current / FOV);
+      l.yaw -= e.movementX * k;
+      l.pitch = clamp(l.pitch - e.movementY * k, -1.45, 1.45);
+    };
+    // Zoom only while sitting with the pointer locked; in use the wheel
+    // belongs to the laptop's screen.
+    const wheel = (e: WheelEvent) => {
+      const s = live.current;
+      if (!document.pointerLockElement || !s.seated || s.using || !s.active) return;
+      fov.current = clamp(fov.current * Math.exp(e.deltaY * ZOOM_STEP), FOV_MIN, FOV);
     };
     const blur = () => keys.current.clear();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
     document.addEventListener("mousemove", mouse);
+    document.addEventListener("wheel", wheel);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
       document.removeEventListener("mousemove", mouse);
+      document.removeEventListener("wheel", wheel);
     };
   }, []);
 
@@ -267,6 +287,7 @@ function Player({
       const to = new THREE.Vector3(...(seated ? anchors.seat : anchors.stand));
       settle.current = { from: pos.current.clone(), to, at: m.clock };
       if (seated) look.current = lookAngles(to, new THREE.Vector3(...anchors.screenAt));
+      else fov.current = FOV;
     }
     const s = settle.current;
     if (s) {
@@ -288,7 +309,16 @@ function Player({
       }
     }
     const l = look.current;
-    if (seated) l.yaw = clamp(l.yaw, -1.3, 1.3);
+    if (seated) {
+      l.yaw = clamp(l.yaw, -1.3, 1.3);
+      l.pitch = clamp(l.pitch, -1.2, 0.9);
+    }
+    const cam = camera as THREE.PerspectiveCamera;
+    if (Math.abs(cam.fov - fov.current) > 0.01) {
+      cam.fov += (fov.current - cam.fov) * Math.min(1, dt * 12);
+      if (Math.abs(cam.fov - fov.current) <= 0.01) cam.fov = fov.current;
+      cam.updateProjectionMatrix();
+    }
     camera.position.copy(pos.current);
     camera.rotation.set(l.pitch, l.yaw, 0, "YXZ");
 
@@ -327,12 +357,14 @@ type ModelProps = Omit<Parameters<typeof Model>[0], "lidAngle" | "xray" | "label
 function Room({
   model,
   seated,
+  using,
   active,
   onAim,
   aimRef,
 }: {
   model: ModelProps;
   seated: boolean;
+  using: boolean;
   active: boolean;
   onAim: (a: Aim) => void;
   aimRef: RefObject<Aim>;
@@ -352,6 +384,7 @@ function Room({
       </group>
       <Player
         seated={seated}
+        using={using}
         active={active}
         laptop={laptop}
         anchors={anchors}
@@ -370,6 +403,7 @@ export function World({
   surfaces,
   screen,
   seated,
+  using,
   active,
   onAim,
   aimRef,
@@ -381,6 +415,8 @@ export function World({
   surfaces: Surfaces;
   screen?: { node: ReactNode; width: number; mm: { x: number; y: number } };
   seated: boolean;
+  /** Seated with the pointer free on the laptop's screen. */
+  using: boolean;
   /** Walking and looking are live: not paused and not full screen. */
   active: boolean;
   onAim: (a: Aim) => void;
@@ -393,7 +429,7 @@ export function World({
         shadows={{ enabled: true, type: THREE.PCFShadowMap, autoUpdate: false }}
         dpr={[1, 1.5]}
         gl={{ toneMapping: THREE.NeutralToneMapping }}
-        camera={{ fov: 62, near: 10, far: 80000 }}
+        camera={{ fov: FOV, near: 10, far: 80000 }}
       >
         <color attach="background" args={[token("cafe-shade")]} />
         <Reflections intensity={0.8} />
@@ -402,6 +438,7 @@ export function World({
           <Room
             model={{ fit, year, colours, decor, surfaces, screen, portal: overlay }}
             seated={seated}
+            using={using}
             active={active}
             onAim={onAim}
             aimRef={aimRef}
@@ -412,7 +449,7 @@ export function World({
           pointer only while the player is using the laptop. */}
       <div
         ref={overlay}
-        className={`cafe-overlay${seated ? " using" : ""}`}
+        className={`cafe-overlay${using ? " using" : ""}`}
         style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
       />
     </div>

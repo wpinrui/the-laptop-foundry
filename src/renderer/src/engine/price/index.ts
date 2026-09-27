@@ -502,6 +502,18 @@ export function screenPrice(panel: ResolvedPanel): number {
 }
 
 /** Cost price of one chosen part, in the year's nominal dollars. */
+const partMaps = new WeakMap<Content, Map<string, Part>>();
+/** A part by id: costing runs often enough in the rival generator that a scan per part adds up. */
+function partIn(content: Content, id: string | undefined): Part | undefined {
+  if (id === undefined) return undefined;
+  let m = partMaps.get(content);
+  if (!m || m.size !== content.parts.length) {
+    m = new Map(content.parts.map((p) => [p.id, p]));
+    partMaps.set(content, m);
+  }
+  return m.get(id);
+}
+
 export function partPrice(
   cat: Category,
   bp: BuildPart,
@@ -510,14 +522,14 @@ export function partPrice(
   build?: Build,
 ): number {
   if (cat === "display") return 0;
-  const p = content.parts.find((x) => x.id === bp.part);
+  const p = partIn(content, bp.part);
   const gb = build && cat === "memory" ? packageGb(build, content) : undefined;
   return p ? partCost(cat, p, bp, year, gb, build?.spend[cat] ?? 0, build) : 0;
 }
 
 /** Memory on the build's processor package in GB, when its processor carries it. */
 export function packageGb(build: Build, content: Content = CONTENT): number | undefined {
-  const cpu = content.parts.find((p) => p.id === build.parts.processor?.[0]?.part);
+  const cpu = partIn(content, build.parts.processor?.[0]?.part);
   const gb = cpu?.info?.onPackageGb;
   return typeof gb === "number" ? gb : undefined;
 }
@@ -554,15 +566,13 @@ export function costOf(
     add(cat, catCost);
     // Compacting a part costs more on a dear part. A standard form factor has nothing to compact.
     const s = build.spend[cat] ?? 0;
-    if (list.some((bp) => compactable(content.parts.find((p) => p.id === bp.part)))) spend += s * (15 + 0.3 * catCost);
+    if (list.some((bp) => compactable(partIn(content, bp.part)))) spend += s * (15 + 0.3 * catCost);
   }
   add(
     "port",
     build.ports.reduce((sum, p) => sum + (FIXED[p.part] ?? 3) * OEM, 0),
   );
-  const hx = content.parts.find(
-    (p) => p.id === build.parts.processor?.[0]?.part,
-  );
+  const hx = partIn(content, build.parts.processor?.[0]?.part);
   const chipset = Array.isArray(hx?.shape)
     ? hx.shape.some((s) => s.kind === "block" && s.role === "chipset")
     : false;

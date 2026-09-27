@@ -79,7 +79,7 @@ Processors and graphics are real named parts. Everything else is chosen by speci
 | Mainboard | Part of the internals |
 | Memory | Specification |
 | Storage | Hard disk or solid-state drive, at most two in total, limited by the body |
-| Display | Free specification: size, ratio, resolution, panel type, refresh rate and bezel. A combination nobody sold that year is a custom panel at a premium; only what no maker could build that year is blocked |
+| Display | Free specification: size, ratio, resolution, panel type, refresh rate, bezel, brightness and gamut. Panel type, density and refresh rate are gated per type and per year. Brightness is a slider up to the panel type's ceiling for the year, with an HDR peak on OLED and Mini-LED. Gamut is a chosen tier. A combination nobody sold that year is a custom panel at a premium; only what no maker could build that year is blocked |
 | Battery | Specification. A pouch is sized by length, depth and thickness, and its capacity follows |
 | Hot-swappable battery | Optional |
 | Cooling | No fan, one fan, two fans, or two fans on a vapour chamber. Fan size and the fan grill are the player's |
@@ -87,7 +87,7 @@ Processors and graphics are real named parts. Everything else is chosen by speci
 | Ports | Standards, laid out along a side wall in the player's list order |
 | Wireless | Standard |
 | Keyboard | Specification, plus keycap shape, colours and legends |
-| Trackpad | Specification |
+| Trackpad | Chosen by technology: buttons, clickpad from 2008, or haptic from 2015. Size is a free slider bounded by the palm rest. Surface, glass or Mylar, is a priced spec |
 | Webcam | Specification |
 | Speakers | Specification, plus grill and arrangement |
 
@@ -135,9 +135,10 @@ The operating system is always Windows. The player does not choose it and it aff
 ### Engineering spend
 
 - The player can spend more to make parts smaller or pack them tighter.
-- Each part has a Compact slider. Compact spend takes height and room off parts such as the keyboard, trackpad and speakers. The chassis has Packing and Material spend.
+- Each part has a Compact slider, shown only where it changes anything. Compact spend takes height and room off parts such as the keyboard, trackpad, display and speakers. The chassis has Packing and Material spend.
 - The player can spend more on better materials: lighter, better at heat transfer, or more durable.
-- Spending is free in version 0.1 and in sandbox mode. There is no trade-off, and maxing every slider is allowed.
+- Quality spend gives diminishing returns on the display (colour accuracy and uniformity), keyboard (key wobble, snap, actuation force and deck flex), trackpad (clickable share, friction, rattle and drivers), speakers (bass cutoff and level) and webcam (lens and sensor).
+- Spending is free in version 0.1 and in sandbox mode, and maxing every slider is allowed. Webcam quality is the one exception with a trade-off: it grows the webcam module. Every other spend has none.
 - All spending adds to the displayed cost price.
 
 ### Power
@@ -181,12 +182,14 @@ An example class is a premium thin and light mixed-use laptop.
 
 ## Rating
 
-In 0.1 every score is a dice roll. Version 0.2 replaces the dice with the review score under Version 0.2.
+The review score is the critics' score. It is separate from the market score and never compares the build to other laptops.
 
-- Each category score and the overall score are rolled at random.
-- The roll is fixed per model. Reopening a review shows the same scores. A duplicate is a new model, so it rolls again.
-- Rivals roll the same way.
-- Pros and cons still come from measurements that stand out against the rivals. There is no score nudge.
+- Each category is scored from its measurement or, for chassis, keyboard, pointing device, display, audio, camera and connectivity, from a formula over the specification. The formulas are shared with the market score's headline stats.
+- A measurement is placed on an absolute scale for the model's year, between a low and a high reference. The low reference scores 65 and the high one 92. Below the low end the score falls fast. Above the high end it keeps rising but never reaches 100, so exceptional builds still gain.
+- The scales tighten by year: great battery life or a great display in 2026 is more than it was in 2006. Keyboards are the exception, since keys got shallower rather than better.
+- The overall score is a weighted mean of the categories. The weights depend on the device class: gaming leans on games, temperature and noise, thin and light on weight and battery, office on keyboard, battery and connectivity, and premium on chassis and display.
+- The scores follow from the build, so reopening a review shows the same scores. Rivals are scored the same way.
+- Pros and cons come from the build's own best and worst categories and a few standout measurements. There is no score nudge.
 
 ### Categories
 
@@ -204,7 +207,7 @@ This is the 0.1 field. Version 0.2 replaces it with generated lines from more ma
 - Rivals carry their real company and model names until the game goes public.
 - Rivals are hand-built and hard-coded as presets per year and class. Every year from 2006 to 2026 has its own field. Every player build faces the same field.
 - Rivals build under the same constraints as the player. The Apple-based rival may use Apple M-series processors, which the player cannot use.
-- Rivals only shape the pros and cons.
+- Rivals never shape a score or the pros and cons.
 - Rivals fill the comparison tables and give the player a field to beat.
 - Every rival has its own full review.
 

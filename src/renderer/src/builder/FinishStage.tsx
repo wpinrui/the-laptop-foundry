@@ -6,19 +6,20 @@ import { materialsFor } from "./structure";
 import { type DropOption, Dropdown } from "./Dropdown";
 import { Chip, Chips, Label, Line, money, Value } from "./ui";
 
-// The Finish stage: lid, deck, bottom, bezel and trackpad, each any colour;
+// The Finish stage: lid, deck, bottom, bezel, key plate and trackpad, each any colour;
 // material and surface finish per shell piece, and what the piece adds.
 
-export type FinishPiece = Piece | "bezel" | "pad";
+export type FinishPiece = Piece | "bezel" | "keyDeck" | "pad";
 
 const PIECE_NAME: Record<FinishPiece, string> = {
   lid: "Lid",
   deck: "Deck",
   floor: "Bottom",
   bezel: "Bezel",
+  keyDeck: "Key plate",
   pad: "Trackpad",
 };
-const ORDER: FinishPiece[] = ["lid", "deck", "floor", "bezel", "pad"];
+const ORDER: FinishPiece[] = ["lid", "deck", "floor", "bezel", "keyDeck", "pad"];
 
 /** The stock pad: glass from 2015 (the pad model's own cut-over), matte plastic before. */
 const stockPadFinish = (year: number): PadFinish => (year >= 2015 ? "glass" : "matte");
@@ -27,11 +28,12 @@ const stockPadColour = (year: number) => token(year >= 2015 ? "slot-glass" : "sl
 function colourOf(b: Build, p: FinishPiece): string {
   if (p === "bezel") return (b.bezel ?? colourHex(b.finish.lid.colour)).toUpperCase();
   if (p === "pad") return (b.pad?.colour ?? stockPadColour(b.year)).toUpperCase();
+  if (p === "keyDeck") return (b.keyDeck ?? token("color-opening")).toUpperCase();
   return colourHex(b.finish[p].colour).toUpperCase();
 }
 
 function flagged(build: Build, fit: Fit, p: FinishPiece): boolean {
-  if (p === "bezel" || p === "pad") return false;
+  if (p === "bezel" || p === "pad" || p === "keyDeck") return false;
   return fit.problems.some(
     (x) =>
       (x.kind === "compat" && (x.code === "wrong-piece" || x.code === "wrong-finish") && x.piece === p) ||
@@ -47,7 +49,7 @@ export function FinishColumn({
   piece,
   onPiece,
 }: StageProps & { piece: FinishPiece; onPiece: (p: FinishPiece) => void }) {
-  const shell = piece === "bezel" || piece === "pad" ? null : piece;
+  const shell = piece === "bezel" || piece === "pad" || piece === "keyDeck" ? null : piece;
   const mat = shell ? CONTENT.materials.find((m) => m.id === build.materials[shell]) : undefined;
   const finishes = (mat?.finishes ?? []).filter((f) => {
     const fin = CONTENT.finishes.find((x) => x.id === f);
@@ -116,6 +118,16 @@ export function FinishColumn({
             )}
           </>
         )}
+        {piece === "keyDeck" && (
+          <div className="bd-line">
+            <Label>Colour</Label>
+            <Chips>
+              <Chip caps on={!build.keyDeck} onClick={() => set((b) => ({ ...b, keyDeck: undefined }))}>
+                Stock
+              </Chip>
+            </Chips>
+          </div>
+        )}
         {piece === "pad" && (
           <div className="bd-line">
             <Label>Finish</Label>
@@ -144,7 +156,9 @@ export function FinishColumn({
             set((b) =>
               piece === "bezel"
                 ? { ...b, bezel: hex }
-                : piece === "pad"
+                : piece === "keyDeck"
+                  ? { ...b, keyDeck: hex }
+                  : piece === "pad"
                   ? { ...b, pad: { colour: hex, finish: b.pad?.finish ?? stockPadFinish(b.year) } }
                   : { ...b, finish: { ...b.finish, [piece]: { ...b.finish[piece], colour: hex } } },
             )

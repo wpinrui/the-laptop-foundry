@@ -31,12 +31,13 @@ export function migrateBody(b: Build): Build {
   return { ...b, size, shape: {} };
 }
 
-/** Everything the Model draws from the build beyond the fit: bezel colour and marks. */
+/** Everything the Model draws from the build beyond the fit: bezel and keyboard deck colours, and marks. */
 export interface Decor {
   bezel?: string;
+  keyDeck?: string;
   marks?: Build["marks"];
 }
 
 export function decorOf(b: Build): Decor {
-  return { bezel: b.bezel, marks: b.marks };
+  return { bezel: b.bezel, keyDeck: b.keyDeck, marks: b.marks };
 }

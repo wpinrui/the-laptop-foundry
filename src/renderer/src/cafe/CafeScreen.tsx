@@ -23,6 +23,7 @@ import type { Preset } from "../engine/bench";
 import { balancedProfile } from "../engine/sim/profiles";
 import { BOOT_MS, paintAsh } from "../os/art";
 import { paintRally, paintTiles } from "../os/games";
+import { paceOf, setPace } from "../os/pace";
 import {
   APP_NAME,
   AshApp,
@@ -330,6 +331,9 @@ export function useLaptopOs({
   const speaker = useMemo(() => speakerOf(build, fit), [build, fit]);
   useEffect(() => setSpeakerOs(speaker, sound ? volume / 100 : 0), [speaker, sound, volume]);
   useEffect(() => () => setSpeakerOs(null, 0), []);
+  const pace = useMemo(() => paceOf(build, m), [build, m]);
+  useEffect(() => setPace(running ? pace : null), [pace, running]);
+  useEffect(() => () => setPace(null), []);
 
   const edition = KILNBENCH.find((e) => e.year === benchYear) ?? KILNBENCH[0];
   const eraRef = build.year < 2012 ? 600 : build.year < 2020 ? 5000 : 20000;

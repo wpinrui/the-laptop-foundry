@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { type BrowserWindow, session, type WebFrameMain, webFrameMain } from "electron";
 import { adblockHeaders, adblockRequest, loadAdblock, registerAdblockIpc } from "./adblock";
 import { exitFull, FAKE_FULLSCREEN, FULL_TOKEN } from "./fullscreen";
+import { paceWait, registerPaceIpc } from "./pace";
 import { registerSpeakerIpc } from "./speaker";
 import { sponsorBlock } from "./sponsorblock";
 
@@ -170,6 +171,7 @@ export function registerFox(
   };
   registerAdblockIpc(isSite);
   registerSpeakerIpc(win, isSite);
+  registerPaceIpc(win);
   // Runs at document start in site frames (see src/preload/site.ts).
   if (!session.defaultSession.getPreloadScripts().some((p) => p.id === "fox-site")) {
     session.defaultSession.registerPreloadScript({ type: "frame", id: "fox-site", filePath: sitePreload });
@@ -255,7 +257,11 @@ export function registerFox(
       cb({ cancel: true });
       return;
     }
-    cb(siteRequest(win, d, appOrigin) ? adblockRequest(d) : {});
+    const verdict = siteRequest(win, d, appOrigin) ? adblockRequest(d) : {};
+    // What goes through waits as long as the laptop in the game would take.
+    const wait = verdict.cancel || verdict.redirectURL || !fromSite(win, d, appOrigin) ? 0 : paceWait(win, d);
+    if (wait > 0) setTimeout(() => cb(verdict), wait);
+    else cb(verdict);
   });
 
   // Sites get no permissions; the game keeps what it asks for.

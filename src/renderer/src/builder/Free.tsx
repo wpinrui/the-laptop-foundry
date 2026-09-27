@@ -15,7 +15,7 @@ import {
 } from "react";
 import * as THREE from "three";
 import { type OsPage, useLaptopOs } from "../cafe/CafeScreen";
-import { blurField, type Prompt, Prompts, typing } from "../cafe/Cafe";
+import { blurField, FullPage, type Prompt, Prompts, typing } from "../cafe/Cafe";
 import { clamp, collideIn, easeOut, FOV_MIN, lookAngles, type Rect, ZOOM_STEP } from "../cafe/World";
 import type { Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
@@ -73,6 +73,8 @@ const FLIP_S = 0.9;
 const COVER_S = 0.9;
 /** How high the cover is lifted on its way to the island. */
 const COVER_LIFT = 150;
+/** In use, how much of the view the screen fills: a little of the bezel and deck stay in sight. */
+const USE_FILL = 0.84;
 
 /** A camera's pose at the start of a move between the builder and free view. */
 export interface CamFrom {
@@ -124,6 +126,8 @@ export interface FreeState {
   coverOff: boolean;
   lidOpen: boolean;
   using: boolean;
+  /** The OS page fills the game window. */
+  full: boolean;
   paused: boolean;
   /** The aim dot is on the laptop. */
   aim: boolean;
@@ -136,6 +140,7 @@ export const freeStart = (lidOpen: boolean, flipped = false): FreeState => ({
   coverOff: false,
   lidOpen,
   using: false,
+  full: false,
   paused: false,
   aim: false,
   busy: false,
@@ -224,7 +229,7 @@ function Walker({
   active: boolean;
   using: boolean;
   /** Where the player stands to use the laptop, and what they look at. */
-  useAt: () => Pose;
+  useAt: (aspect: number) => Pose;
   onAim: (on: boolean) => void;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
@@ -307,7 +312,7 @@ function Walker({
       let toLook: { yaw: number; pitch: number };
       if (using) {
         before.current = { pos: pos.current.clone(), look: { ...look.current } };
-        const p = useAt();
+        const p = useAt(camera.aspect);
         to = p.eye;
         toLook = lookAngles(p.eye, p.at);
       } else {
@@ -500,18 +505,25 @@ export function WorkshopLaptop({
     }
   }, -1);
 
-  const useAt = useCallback((): Pose => {
-    const a = lidNow.current;
-    const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
-    const r = panel ? out.y - (panel.at.y + panel.size.y / 2) : out.y / 2;
-    const p = lidPoint(fit, r, a);
-    const rad = (a * Math.PI) / 180;
-    const d = (panel?.size.x ?? out.x) * 1.05;
-    return {
-      eye: new THREE.Vector3(0, p.y - Math.cos(rad) * d, p.z + Math.sin(rad) * d),
-      at: new THREE.Vector3(0, p.y, p.z),
-    };
-  }, [fit, out]);
+  const useAt = useCallback(
+    (aspect: number): Pose => {
+      const a = lidNow.current;
+      const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
+      const r = panel ? out.y - (panel.at.y + panel.size.y / 2) : out.y / 2;
+      const p = lidPoint(fit, r, a);
+      const rad = (a * Math.PI) / 180;
+      // Leaning in: close enough that the screen, by width or height, fills most of the view.
+      const tanV = Math.tan(((FOV / 2) * Math.PI) / 180);
+      const sw = panel?.size.x ?? out.x;
+      const sh = panel?.size.y ?? out.y * 0.8;
+      const d = Math.max(sw / (2 * tanV * aspect), sh / (2 * tanV)) / USE_FILL;
+      return {
+        eye: new THREE.Vector3(0, p.y - Math.cos(rad) * d, p.z + Math.sin(rad) * d),
+        at: new THREE.Vector3(0, p.y, p.z),
+      };
+    },
+    [fit, out],
+  );
 
   const driven = isFree || returning;
   const shownLid = driven ? lid : lidAngle;
@@ -551,7 +563,7 @@ export function WorkshopLaptop({
       {free && (
         <Walker
           laptop={laptop}
-          active={!free.state.paused}
+          active={!free.state.paused && !free.state.full}
           using={free.state.using}
           useAt={useAt}
           onAim={free.onAim}
@@ -569,6 +581,7 @@ export function FreeOverlay({
   state,
   set,
   canUse,
+  page,
   onExit,
   sound,
   onSound,
@@ -577,6 +590,8 @@ export function FreeOverlay({
   set: Dispatch<SetStateAction<FreeState | null>>;
   /** The laptop runs: it can be used. */
   canUse: boolean;
+  /** The OS page, for full screen. */
+  page?: { node: ReactNode; width: number; height: number };
   onExit: () => void;
   sound: boolean;
   onSound: (on: boolean) => void;
@@ -625,8 +640,8 @@ export function FreeOverlay({
 
   const resume = useCallback(() => {
     patch({ paused: false });
-    if (!state.using) lock();
-  }, [patch, lock, state.using]);
+    if (!state.using && !state.full) lock();
+  }, [patch, lock, state.using, state.full]);
 
   const live = useRef({ state, canUse, resume });
   live.current = { state, canUse, resume };
@@ -636,10 +651,24 @@ export function FreeOverlay({
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) back();
-        } else if (s.using) pause();
+        } else if (s.using || s.full) pause();
         return;
       }
       if (e.repeat || s.paused || s.busy || typing(e)) return;
+      if (e.code === "KeyF") {
+        if (s.full) {
+          patch({ full: false });
+          if (!s.using) {
+            blurField();
+            lock();
+          }
+        } else if (runs && (s.using || (s.aim && !s.flipped && s.lidOpen))) {
+          unlock();
+          patch({ full: true });
+        }
+        return;
+      }
+      if (s.full) return;
       if (e.code === "KeyE" && s.using) {
         patch({ using: false });
         blurField();
@@ -662,12 +691,13 @@ export function FreeOverlay({
     return () => window.removeEventListener("keydown", key);
   }, [lock, unlock, pause, patch]);
 
-  const active = !state.paused;
+  const active = !state.paused && !state.full;
+  const screen = { key: "F", label: "Full screen" };
   let prompts: Prompt[] = [];
-  if (active && state.using) prompts = [{ key: "E", label: "Stop using" }];
+  if (active && state.using) prompts = [{ key: "E", label: "Stop using" }, screen];
   else if (active && state.aim && !state.busy) {
     if (!state.flipped) {
-      if (state.lidOpen && canUse) prompts.push({ key: "E", label: "Use" });
+      if (state.lidOpen && canUse) prompts.push({ key: "E", label: "Use" }, screen);
       prompts.push({ key: "L", label: state.lidOpen ? "Shut lid" : "Open lid" });
       prompts.push({ key: "R", label: "Turn over" });
     } else {
@@ -682,12 +712,17 @@ export function FreeOverlay({
       ref={root}
       className="bd-free-root"
       // In use, the pointer belongs to the laptop's screen underneath.
-      style={{ pointerEvents: state.using && !state.paused ? "none" : "auto" }}
+      style={{ pointerEvents: state.using && !state.full && !state.paused ? "none" : "auto" }}
       onMouseDown={() => {
         if (!active || state.using) return;
         if (!document.pointerLockElement) lock();
       }}
     >
+      {state.full && page && (
+        <div className={`cafe-world${state.paused ? " paused" : ""}`}>
+          <FullPage page={page} />
+        </div>
+      )}
       {active && (
         <>
           {!state.using && <i className="cafe-dot" />}
@@ -712,7 +747,7 @@ export function FreeOverlay({
         </div>
       )}
       {/* The builder's Free view button, pressed: while the pointer is free, it leaves. */}
-      {(state.paused || state.using) && (
+      {(state.paused || (state.using && !state.full)) && (
         <button type="button" className="fd-text bd-free on" onClick={onExit}>
           Free view
         </button>

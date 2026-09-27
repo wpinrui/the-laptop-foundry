@@ -65,6 +65,28 @@ function useWindowSize(): [number, number] {
   return size;
 }
 
+/** The OS page filling the game window, scaled to fit. */
+export function FullPage({ page }: { page: { node: ReactNode; width: number; height: number } }) {
+  const [w, h] = useWindowSize();
+  const k = Math.min(w / page.width, h / page.height);
+  return (
+    <div className="cafe-full">
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          width: page.width,
+          height: page.height,
+          transform: `translate(-50%, -50%) scale(${k})`,
+        }}
+      >
+        {page.node}
+      </div>
+    </div>
+  );
+}
+
 export function Cafe({
   fit,
   year,
@@ -104,7 +126,6 @@ export function Cafe({
   // Leaving pointer lock on purpose (full screen, leaving) is not a pause.
   const expectUnlock = useRef(false);
   const pausedAt = useRef(0);
-  const [w, h] = useWindowSize();
   const active = !paused && !full;
 
   const pause = useCallback(() => {
@@ -209,7 +230,6 @@ export function Cafe({
   } else if (active && aim === "laptop") prompts = [{ key: "E", label: "Sit" }, charge, screen];
   else if (active && aim === "power") prompts = [charge];
 
-  const k = page ? Math.min(w / page.width, h / page.height) : 1;
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: first-person input goes to the locked pointer
     <div
@@ -236,22 +256,7 @@ export function Cafe({
           onAim={setAim}
           aimRef={aimRef}
         />
-        {full && page && (
-          <div className="cafe-full">
-            <div
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: page.width,
-                height: page.height,
-                transform: `translate(-50%, -50%) scale(${k})`,
-              }}
-            >
-              {page.node}
-            </div>
-          </div>
-        )}
+        {full && page && <FullPage page={page} />}
       </div>
       {active && (
         <>

@@ -2373,6 +2373,25 @@
   mix-blend-mode: multiply;
 }
 
+.panel-page .pfx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+}
+
+.panel-page .pfx-glow {
+  background:
+    radial-gradient(circle at 0 0, rgb(255 236 205 / 0.9), transparent 38%),
+    radial-gradient(circle at 100% 0, rgb(255 236 205 / 0.9), transparent 38%),
+    radial-gradient(circle at 0 100%, rgb(255 236 205 / 0.9), transparent 38%),
+    radial-gradient(circle at 100% 100%, rgb(255 236 205 / 0.9), transparent 38%);
+}
+
+.panel-page .pfx-tint {
+  background: rgb(120 150 255);
+}
+
 .fullscreen-page {
   position: fixed;
   inset: 0;

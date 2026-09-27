@@ -42,6 +42,9 @@ import { SYS_SIZE, SYS_TITLE } from "../os/shots";
 import { sysGroups } from "../os/sys";
 import { type AppId, duration, ownerOf, type Power } from "../os/types";
 import { lookOf } from "../review/look";
+import { panelFx } from "../panel/fx";
+import { PanelPage } from "../panel/PanelPage";
+import type { Room } from "../panel/tuning";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
 import { usePhotos } from "../viewer/Photos";
 import { surfacesOf } from "../viewer/Scene";
@@ -242,6 +245,7 @@ export function useLaptopOs({
   onSound,
   startPlugged = false,
   startOn = false,
+  room = "cafe",
 }: {
   subject: Subject;
   library?: Subject[];
@@ -250,6 +254,8 @@ export function useLaptopOs({
   startPlugged?: boolean;
   /** Already running, as when its screen was showing the desktop before: no boot. */
   startOn?: boolean;
+  /** The room the laptop is in, for how its screen holds up against the light. */
+  room?: Room;
 }): {
   build: Subject["build"];
   fit: ReturnType<typeof solve>;
@@ -398,7 +404,12 @@ export function useLaptopOs({
           : "",
   };
 
-  const look = lookOf(panelOf(build));
+  const panel = useMemo(() => panelOf(build), [build]);
+  const look = useMemo(() => lookOf(panel), [panel]);
+  const fx = useMemo(
+    () => (panel && look ? panelFx(panel, look.width / panel.res[0], room) : null),
+    [panel, look, room],
+  );
   const era = eraOf(build.year);
   const owner = useMemo(() => ownerOf(build, subject.company), [build, subject.company]);
   const model = `${subject.company} ${subject.name}`.trim();
@@ -593,15 +604,12 @@ export function useLaptopOs({
     </Screen>
   );
 
-  const page = look ? (
-    <div className="panel-page" style={{ width: look.width, height: look.height }}>
-      <div className="scroller" style={{ filter: look.filter, overflow: "hidden" }}>
+  const page =
+    look && fx ? (
+      <PanelPage fx={fx} width={look.width} height={look.height}>
         {desktop}
-      </div>
-      {look.shift > 0 && <div className="shift" style={{ opacity: look.shift }} />}
-      {look.glare > 0 && <div className="glare" style={{ opacity: look.glare }} />}
-    </div>
-  ) : null;
+      </PanelPage>
+    ) : null;
 
   return {
     build,

@@ -195,7 +195,7 @@ export function FreeOs({
   onLook: (l: PageLook | null) => void;
 }) {
   // On the workshop's bench it runs on the charger.
-  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true });
+  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true, room: "workshop" });
   const node = os.page?.node ?? null;
   useLayoutEffect(() => slot.set(node));
   useEffect(() => () => slot.set(null), [slot]);

@@ -17,8 +17,12 @@ export interface PlanCtx {
   bottom: number;
   era: Era;
   finDepth: number;
-  /** Sustained chip heat each fan carries, W: a fan grows only as far as that needs. */
+  /** Sustained chip heat each fan is sized for, W: a fan grows only as far as that needs. */
   fanWatts?: number;
+  /** Least fan side the build needs, mm: its fan zones reserve this much floor per fan. */
+  fanSide?: number;
+  /** Room in from the fans, mm: a vapour chamber's plate reaching from the chips to them. */
+  plate?: number;
   /** Gap between neighbouring ports on a wall, mm; other units use `gap`. */
   portGap?: number;
 }
@@ -126,11 +130,13 @@ function zoneMin(fill: ZoneFill, ctx: PlanCtx): Size | null {
     const k = units.filter((u) => u.role === "fan").length;
     const e = alongAxis(node.edge);
     const fan = ctx.era.fan.min;
-    // The thinnest fan this build allows (cooling spend thins it); fans only grow into slack.
+    // The thinnest fan this build allows (cooling spend thins it).
     const fanZ = units.find((u) => u.role === "fan")?.size.z ?? fan.z;
+    // Each fan and its fin stack take the floor the chip heat needs of them.
+    const side = ctx.fanSide ?? fan.x;
     const size: Size = { x: 0, y: 0, z: fanZ + lift };
-    size[e] = k * fan.x + Math.max(0, k - 1) * ctx.gap + fill.koLo + fill.koHi;
-    size[other(e)] = fan.x + ctx.finDepth;
+    size[e] = k * side + Math.max(0, k - 1) * ctx.gap + fill.koLo + fill.koHi;
+    size[other(e)] = side + ctx.finDepth + (ctx.plate ?? 0);
     return size;
   }
   const p = node.pack;
@@ -322,6 +328,7 @@ export function placeUnits(
     const e = alongAxis(node.edge);
     const n = edgeAxis(node.edge);
     const lim = ctx.era.fan;
+    const plate = ctx.plate ?? 0;
     const alongRoom =
       (sz[e] - fill.koLo - fill.koHi - Math.max(0, k - 1) * ctx.gap) /
       Math.max(1, k);
@@ -332,7 +339,7 @@ export function placeUnits(
     const needed = ctx.fanWatts === undefined ? Infinity : fanSideFor(ctx.fanWatts, fz);
     const side = Math.min(
       lim.max.x,
-      Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth, needed)),
+      Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth - plate, needed)),
     );
     const group = k * side + Math.max(0, k - 1) * ctx.gap;
     let u0 = at[e] + fill.koLo + (sz[e] - fill.koLo - fill.koHi - group) / 2;

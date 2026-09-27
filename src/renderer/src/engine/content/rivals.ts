@@ -154,7 +154,7 @@ const R2006: Rival[] = [
       storage: ["hdd25-7200", { capacity: 100 }],
       display: "2006-15.4-1680x1050-tn-glossy",
       battery: ["li-ion-18650", { cells: 6 }],
-      cooling: "two-fans",
+      cooling: "one-fan",
       optical: "dvd-rw-dl",
       wireless: ["wifi-abg", { bluetooth: "2.0" }],
       keyboard: "kb-3.0",

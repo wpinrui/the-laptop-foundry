@@ -1,0 +1,106 @@
+/* The text editor: one plain look in every era, a Notepad in spirit. */
+
+.nt-icon {
+  display: inline-block;
+  flex: none;
+}
+
+.os-note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #1a1a1a;
+  font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+}
+
+.os-note button,
+.os-note select,
+.os-note input {
+  font: inherit;
+  color: inherit;
+}
+
+.nt-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 8px;
+  background: #f0f0f0;
+  border-bottom: 1px solid #d8d8d8;
+}
+
+.nt-btn {
+  flex: none;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 4px;
+  border: 1px solid #c8c8c8;
+  background: #fff;
+  cursor: default;
+}
+
+.nt-btn:hover {
+  background: #f2f2f2;
+}
+
+.nt-btn:active {
+  background: #e6e6e6;
+}
+
+.nt-open {
+  flex: none;
+  height: 26px;
+  border-radius: 4px;
+  border: 1px solid #c8c8c8;
+  background: #fff;
+  padding: 0 4px;
+  max-width: 140px;
+}
+
+.nt-name {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 4px;
+  border: 1px solid #c8c8c8;
+  background: #fff;
+  user-select: text;
+}
+
+.nt-name:focus {
+  outline: none;
+  border-color: #0061e0;
+  box-shadow: 0 0 0 1px rgba(0, 97, 224, 0.3);
+}
+
+.nt-area {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  padding: 10px 12px;
+  background: #fff;
+  color: #1a1a1a;
+  font: 13px/1.5 Consolas, "Courier New", monospace;
+  user-select: text;
+}
+
+.nt-status {
+  flex: none;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px;
+  background: #f0f0f0;
+  border-top: 1px solid #d8d8d8;
+  font: 12px/1 "Segoe UI", system-ui, sans-serif;
+  color: #444;
+}

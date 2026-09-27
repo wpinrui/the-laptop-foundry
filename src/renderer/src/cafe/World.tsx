@@ -23,8 +23,8 @@ const REACH = 2000;
 const SETTLE_MS = 600;
 /** Seated zoom: the camera's field of view, in degrees. */
 const FOV = 62;
-const FOV_MIN = 20;
-const ZOOM_STEP = 0.0025;
+export const FOV_MIN = 20;
+export const ZOOM_STEP = 0.0025;
 /** How close the player's eye gets to a wall or collider. */
 const BODY = 280;
 /** Where the player first stands, in the aisle behind the table. */
@@ -266,11 +266,11 @@ function Player({
       l.yaw -= e.movementX * k;
       l.pitch = clamp(l.pitch - e.movementY * k, -1.45, 1.45);
     };
-    // Zoom only while sitting with the pointer locked; in use the wheel
+    // Zoom with the pointer locked, sitting or standing; in use the wheel
     // belongs to the laptop's screen.
     const wheel = (e: WheelEvent) => {
       const s = live.current;
-      if (!document.pointerLockElement || !s.seated || s.using || !s.active) return;
+      if (!document.pointerLockElement || s.using || !s.active) return;
       fov.current = clamp(fov.current * Math.exp(e.deltaY * ZOOM_STEP), FOV_MIN, FOV);
     };
     const blur = () => keys.current.clear();
@@ -300,7 +300,6 @@ function Player({
       const to = new THREE.Vector3(...(seated ? anchors.seat : anchors.stand));
       settle.current = { from: pos.current.clone(), to, at: m.clock };
       if (seated) look.current = lookAngles(to, new THREE.Vector3(...anchors.screenAt));
-      else fov.current = FOV;
     }
     const s = settle.current;
     if (s) {

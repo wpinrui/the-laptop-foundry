@@ -15,7 +15,7 @@ import {
 import * as THREE from "three";
 import { type OsPage, useLaptopOs } from "../cafe/CafeScreen";
 import { blurField, type Prompt, Prompts, typing } from "../cafe/Cafe";
-import { clamp, collideIn, easeOut, lookAngles, type Rect } from "../cafe/World";
+import { clamp, collideIn, easeOut, FOV_MIN, lookAngles, type Rect, ZOOM_STEP } from "../cafe/World";
 import type { Decor, Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
 import { PLINTH_H } from "../foundry/Stage";
@@ -202,6 +202,9 @@ function Walker({
   const aimed = useRef(false);
   const bounds = useRef({ box: new THREE.Box3(), at: -10 });
   const ray = useMemo(() => new THREE.Raycaster(), []);
+  const fov = useRef(FOV);
+  const live = useRef({ using, active });
+  live.current = { using, active };
 
   useEffect(() => {
     camera.clearViewOffset();
@@ -212,24 +215,36 @@ function Walker({
     const mouse = (e: MouseEvent) => {
       if (!document.pointerLockElement) return;
       const l = look.current;
-      l.yaw -= e.movementX * LOOK;
-      l.pitch = clamp(l.pitch - e.movementY * LOOK, -1.45, 1.45);
+      // Slower look when zoomed in, so the aim stays steady.
+      const k = LOOK * (fov.current / FOV);
+      l.yaw -= e.movementX * k;
+      l.pitch = clamp(l.pitch - e.movementY * k, -1.45, 1.45);
+    };
+    // In use the wheel belongs to the laptop's screen.
+    const wheel = (e: WheelEvent) => {
+      const s = live.current;
+      if (!document.pointerLockElement || s.using || !s.active) return;
+      fov.current = clamp(fov.current * Math.exp(e.deltaY * ZOOM_STEP), FOV_MIN, FOV);
     };
     const blur = () => keys.current.clear();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
     document.addEventListener("mousemove", mouse);
+    document.addEventListener("wheel", wheel);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
       document.removeEventListener("mousemove", mouse);
+      document.removeEventListener("wheel", wheel);
     };
   }, [camera]);
 
   useEffect(() => {
     if (!active || using) keys.current.clear();
+    // Using the laptop frames its screen at the plain field of view.
+    if (using) fov.current = FOV;
   }, [active, using]);
 
   useFrame((_, dt) => {
@@ -271,6 +286,11 @@ function Walker({
         pos.current.z += ((-Math.cos(yaw) * f - Math.sin(yaw) * r) / len) * SPEED * dt;
         collideIn(pos.current, ROOM, RECTS, BODY);
       }
+    }
+    if (Math.abs(camera.fov - fov.current) > 0.01) {
+      camera.fov += (fov.current - camera.fov) * Math.min(1, dt * 12);
+      if (Math.abs(camera.fov - fov.current) <= 0.01) camera.fov = fov.current;
+      camera.updateProjectionMatrix();
     }
     camera.position.copy(pos.current);
     camera.rotation.set(look.current.pitch, look.current.yaw, 0, "YXZ");

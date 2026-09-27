@@ -161,7 +161,7 @@ const R: Rival[] = [
     ports: PORTS_BUDGET,
   }),
   rival(2022, "lenovo", "Legion 5 Pro 16ARH7H", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [356, 264, 21],
     price: 1999,
@@ -494,7 +494,7 @@ const R: Rival[] = [
     ports: PORTS_GAMING,
   }),
   rival(2022, "dell", "Alienware x17 R2", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [399, 299, 17],
     price: 3499,
@@ -770,7 +770,7 @@ const R: Rival[] = [
     ports: PORTS_GAMING_TB,
   }),
   rival(2022, "asus", "ROG Strix Scar 17 G733ZX", {
-    body: "blade",
+    body: "shelf",
     layout: "a",
     size: [395, 282, 21],
     price: 3299,

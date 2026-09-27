@@ -8,6 +8,7 @@ export * from "./look";
 export * from "./types";
 export { validateContent } from "./validate";
 export { type MeshData, shellSurface } from "./shellGeometry";
+export { bumperBlock, floorBand, hingeAxis, outerSection, resolveStyle, taperDepth } from "./shell";
 export {
   type Battery,
   type Cooling,

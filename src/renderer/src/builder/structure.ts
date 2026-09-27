@@ -83,6 +83,7 @@ export function emptyBuild(): Build {
       lid: { colour, texture: "" },
     },
     spend: {},
+    shape: {},
   };
   return { ...base, ...validFinish(base) };
 }

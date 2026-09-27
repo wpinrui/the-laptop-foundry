@@ -265,7 +265,7 @@ const R: Rival[] = [
     ports: PORTS,
   }),
   rival(2009, "hp", "Pavilion dv6", {
-    body: "pillow",
+    body: "workhorse",
     layout: "b",
     size: [372, 250, 34],
     price: 1049,

@@ -433,7 +433,7 @@ const R: Rival[] = [
     materials: { deck: "magnesium", lid: "aluminium" },
   }),
   rival(2011, "dell", "Alienware M15x R2", {
-    body: "pillow",
+    body: "workhorse",
     layout: "b",
     size: [380, 280, 32],
     price: 1699,

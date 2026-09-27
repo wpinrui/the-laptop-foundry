@@ -26,6 +26,27 @@ export interface RivalSpec {
   spend?: Build["spend"];
 }
 
+/**
+ * The size, grown on each axis to the build's minimum there, to the half mm.
+ * The body's shape follows the size, so the minimum moves a little as the size
+ * grows to it: grown until it holds.
+ */
+function grown(build: Build, start: Size): Size {
+  const up = (v: number) => Math.ceil(v * 2) / 2;
+  let size = start;
+  for (let i = 0; i < 4; i++) {
+    const min = solve({ ...build, size }, undefined, { auto: false }).min;
+    const next: Size = {
+      x: up(Math.max(size.x, min.x)),
+      y: up(Math.max(size.y, min.y)),
+      z: up(Math.max(size.z, min.z)),
+    };
+    if (next.x === size.x && next.y === size.y && next.z === size.z) break;
+    size = next;
+  }
+  return size;
+}
+
 export function rival(
   year: number,
   maker: string,
@@ -36,13 +57,7 @@ export function rival(
   // The listed size is the target; a rival never ships short of its own minimum,
   // taken with every part where its layout puts it, so auto placement never resizes a rival.
   const target: Size = { x: spec.size[0], y: spec.size[1], z: spec.size[2] };
-  const min = solve({ ...build, size: target }, undefined, { auto: false }).min;
-  const up = (v: number) => Math.ceil(v * 2) / 2;
-  const size: Size = {
-    x: up(Math.max(target.x, min.x)),
-    y: up(Math.max(target.y, min.y)),
-    z: up(Math.max(target.z, min.z)),
-  };
+  const size = grown(build, target);
   return {
     id: `${maker}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${year}`,
     maker,
@@ -97,13 +112,7 @@ export function trim(
     price,
     screen: change.parts?.display !== undefined ? undefined : base.build.screen,
   });
-  const min = solve(build, undefined, { auto: false }).min;
-  const up = (v: number) => Math.ceil(v * 2) / 2;
-  const size: Size = {
-    x: up(Math.max(build.size.x, min.x)),
-    y: up(Math.max(build.size.y, min.y)),
-    z: up(Math.max(build.size.z, min.z)),
-  };
+  const size = grown(build, build.size);
   return {
     id: `${maker}-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${build.year}`,
     maker,

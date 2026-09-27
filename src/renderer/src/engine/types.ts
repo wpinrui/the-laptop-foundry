@@ -73,20 +73,79 @@ export type Finish = Dated;
 
 // ---------------------------------------------------------------- bodies
 
+/**
+ * A length that follows the body's size: k times the axis ("short" is the
+ * shorter of x and y), clamped to [min, max]. A [k0, k1] pair is the range the
+ * player's signature slider moves it through, so the slider means the same on
+ * every size.
+ */
+export type Scaled = Mm | { k: number | [number, number]; of: Axis | "short"; min: Mm; max: Mm };
+
+export type HingeStyle = "full" | "barrel" | "drop" | "spine" | "inset" | "lift";
+/** The shape parameter a body's signature slider moves. */
+export type Signature = "corner" | "profile" | "drop" | "bumper" | "taper" | "undercut" | "shelf" | "lip";
+
 export interface BodyStyle {
   edge: "square" | "rounded" | "chamfer";
   /** Plan corner radius of the footprint. */
-  corner: Mm;
+  corner: Scaled;
   /** Profile size of the top and bottom perimeter edges: radius when rounded, leg when chamfered. */
-  profile: Mm;
-  /**
-   * Cosmetic wedge: the rear is this much thicker than the front. Built outward,
-   * below the base, tapering to nothing at the front edge, so it never cuts into
-   * a part. The player's thickness is the front thickness.
-   */
-  wedge: Mm;
-  hinge: "barrel" | "full" | "drop";
+  profile: Scaled;
+  hinge: HingeStyle;
   latch: boolean;
+  signature: Signature;
+  /**
+   * A true taper: the bottom rises toward the front. `front` is the front
+   * thickness as a share of Z over the slider, never under `minFront`; `run`
+   * is the share of the depth the rise spans. The player's Z is the rear.
+   */
+  taper?: { front: [number, number]; minFront: Mm; run: number };
+  /** The lower half tucks in all round under a cove. */
+  undercut?: { inset: Scaled; height: Scaled };
+  /** A cylindrical rear spine that hangs `drop` below the base and carries the hinge. */
+  spine?: { drop: Scaled };
+  /** A raised rear shelf behind the hinge, `depth` deep, rising `rise` over the deck. */
+  shelf?: { depth: Scaled; rise: Scaled };
+  /** A lifting hinge: the lid's lower edge swings down behind the rear, which is chamfered under it. */
+  lift?: { lip: Scaled };
+  /** Corner bumpers, proud of the top and bottom by a quarter of this. */
+  bumper?: Scaled;
+  /** Walls are the era's times this. */
+  wallScale?: number;
+  /** Lid dome, built outward only. */
+  crown?: Scaled;
+}
+
+/** A body's style resolved at one size and signature: every length in mm. */
+export interface ResolvedStyle {
+  edge: BodyStyle["edge"];
+  hinge: HingeStyle;
+  latch: boolean;
+  signature: Signature;
+  /** The signature slider, 0 to 1. */
+  sig: number;
+  /** The value the signature slider shows, mm. */
+  sigMm: Mm;
+  corner: Mm;
+  profile: Mm;
+  /** Front thickness share of Z, least front thickness, and run share of Y. Null without a taper. */
+  taper: { front: number; minFront: Mm; run: number } | null;
+  /** Undercut inset and height. */
+  ui: Mm;
+  uh: Mm;
+  /** Spine drop below the base, and its diameter (Z + drop). */
+  drop: Mm;
+  D: Mm;
+  /** Shelf depth, and its rise over the deck. */
+  Sd: Mm;
+  R: Mm;
+  /** Lift lip. */
+  lip: Mm;
+  /** Bumper size, and the quarter of it the shell sits inside at the top and the bottom. */
+  bumper: Mm;
+  q: Mm;
+  wallScale: number;
+  crown: Mm;
 }
 
 export interface Body extends Dated {
@@ -528,6 +587,11 @@ export interface Build {
   /** The trackpad's colour and surface. Absent means the stock pad (glass from 2015, matte plastic before). */
   pad?: { colour: string; finish: PadFinish };
   marks?: Mark[];
+  /**
+   * The signature slider per body id, 0 to 1; 0.5 when absent. Every build made
+   * since the body types carries it, so a build without it is an older save.
+   */
+  shape?: Partial<Record<string, number>>;
 }
 
 // ---------------------------------------------------------------- fit
@@ -583,7 +647,7 @@ export interface Shell {
   walls: { bottom: Mm; top: Mm; side: Mm; lid: Mm; lidFront: Mm };
   /** Inner box inset from the outer faces, after styling allowance. */
   offsets: { side: Mm; bottom: Mm; top: Mm; lidSide: Mm };
-  style: BodyStyle;
+  style: ResolvedStyle;
   /** Lid in the closed position, in base coordinates. */
   lid: { at: Vec3; size: Size; inner: { at: Vec3; size: Size } };
   /** Floor: inner bottom to the top wall. Deck: the thickest deck layer, down from the top surface. */

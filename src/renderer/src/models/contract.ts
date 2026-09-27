@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { BlockRole, OptionValue, Piece, Role, Side } from "../engine";
+import type { BlockRole, HingeStyle, OptionValue, Piece, Role, Side } from "../engine";
 
 // THE MODEL CONTRACT. One module per model key in ./roles/<key>.ts, exporting
 // `model: ModelModule`. The viewer builds it for every unit of that role.
@@ -59,7 +59,7 @@ export interface ModelContext {
   /** Set when the unit sits against an outer wall: vents, ports, bays. */
   edge?: ModelEdge;
   /** The body's hinge style: full-width cover, two barrels, or a drop hinge. */
-  hinge: "barrel" | "full" | "drop";
+  hinge: HingeStyle;
   /** A removable battery pack: its underside (-y) is the outside of the laptop. */
   removable?: boolean;
   materials: Record<MaterialSlot, THREE.Material>;

@@ -65,6 +65,7 @@ export function makeBuild(spec: Spec, content: Content = CONTENT): Build {
       lid: { colour: "black", texture: texture(mat.lid) },
     },
     spend: { ...spec.spend },
+    shape: {},
   });
 }
 
@@ -272,12 +273,12 @@ export const SAMPLES: Sample[] = [
   ),
   s(
     "thinnest-13",
-    "2026 13.3 inch thinnest, Workhorse, layout A, all spend at 1",
+    "2026 13.3 inch thinnest, Blade, layout A, all spend at 1",
     "Asus Zenbook S 13 OLED (UX5304): 296 x 216 x 10.9 to 11.8",
     [10.9, 11.8],
     {
       year: 2026,
-      body: "workhorse",
+      body: "blade",
       layout: "a",
       parts: {
         processor: "core-ultra7-258v",
@@ -312,12 +313,12 @@ export const SAMPLES: Sample[] = [
   ),
   s(
     "gaming-16",
-    "2026 16 inch gaming, Workhorse, layout A",
+    "2026 16 inch gaming, Shelf, layout A",
     "Lenovo Legion Pro 7i Gen 10: 364 x 276 x 21.8 to 26.7",
     [21.8, 26.7],
     {
       year: 2026,
-      body: "workhorse",
+      body: "shelf",
       layout: "a",
       parts: {
         processor: "core-ultra9-275hx",

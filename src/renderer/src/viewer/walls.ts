@@ -123,7 +123,7 @@ export function wallPositions(
   holes: P2[][],
   depth: number,
 ): number[] {
-  const [A, B, C, D] = wall.corners;
+  const [A, B] = wall.corners;
   const side = wall.side;
   const ax = side === "left" || side === "right" ? 1 : 0;
   const other = 1 - ax;
@@ -132,10 +132,22 @@ export function wallPositions(
   // Inward, from the outer face into the base.
   const inward = side === "left" || side === "front" ? 1 : -1;
 
-  // Wall-local 2D: t along the side from A, z up.
-  const bottom = (t: number) => A[2] + ((B[2] - A[2]) * t) / len;
-  const top = (t: number) => D[2] + ((C[2] - D[2]) * t) / len;
+  // Wall-local 2D: t along the side from A, z up. The edges follow the body's section.
   const toLocal = (pts: P2[]): P2[] => pts.map(([u, z]) => [(u - A[ax]) * dir, z]);
+  const dedupe = (pts: P2[]): P2[] =>
+    pts.filter((p, i) => i === 0 || Math.abs(p[0] - pts[i - 1][0]) > 1e-4 || Math.abs(p[1] - pts[i - 1][1]) > 1e-4);
+  const lower = dedupe(toLocal(wall.bottom));
+  const upper = dedupe(toLocal(wall.top));
+  const at = (line: P2[], t: number) => {
+    for (let i = 0; i + 1 < line.length; i++) {
+      const [t0, z0] = line[i];
+      const [t1, z1] = line[i + 1];
+      if (t <= t1 || i + 2 === line.length) return t1 - t0 > 1e-9 ? z0 + ((z1 - z0) * (t - t0)) / (t1 - t0) : z1;
+    }
+    return line[0][1];
+  };
+  const bottom = (t: number) => at(lower, t);
+  const top = (t: number) => at(upper, t);
   // Keep a hole inside the flat wall, so it never breaks the wall's outline.
   const inside = (pts: P2[]): P2[] =>
     pts.map(([t0, z]) => {
@@ -143,15 +155,7 @@ export function wallPositions(
       return [t, Math.min(top(t) - MARGIN, Math.max(bottom(t) + MARGIN, z))];
     });
 
-  const face = pathOf(
-    [
-      [0, A[2]],
-      [len, B[2]],
-      [len, C[2]],
-      [0, D[2]],
-    ],
-    THREE.Shape,
-  ) as THREE.Shape;
+  const face = pathOf([...lower, ...[...upper].reverse()], THREE.Shape) as THREE.Shape;
   const collars: THREE.Shape[] = [];
   for (const h of holes) {
     const raw = inside(toLocal(h));

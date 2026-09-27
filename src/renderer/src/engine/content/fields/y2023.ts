@@ -184,7 +184,7 @@ const R: Rival[] = [
     materials: { lid: "aluminium" },
   }),
   rival(2023, "lenovo", "Legion Pro 7i Gen 8", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [364, 278, 22],
     price: 2999,
@@ -405,7 +405,7 @@ const R: Rival[] = [
     materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2023, "dell", "Alienware m16 R1", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [365, 289, 25],
     price: 2999,

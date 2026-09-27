@@ -667,7 +667,7 @@ const R: Rival[] = [
   }),
   // ---- Asus
   rival(2010, "asus", "G73Jh", {
-    body: "pillow",
+    body: "workhorse",
     layout: "c",
     size: [415, 317, 45],
     price: 1699,
@@ -689,7 +689,7 @@ const R: Rival[] = [
     ports: PORTS_2010_GAMING,
   }),
   rival(2010, "asus", "G51J", {
-    body: "pillow",
+    body: "workhorse",
     layout: "b",
     size: [380, 280, 32],
     price: 1349,

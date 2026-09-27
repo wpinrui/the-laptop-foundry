@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { BlockRole, Box, Role } from "../engine";
+import type { BlockRole, Box, HingeStyle, Role } from "../engine";
 import {
   contained,
   inspect,
@@ -28,7 +28,7 @@ export interface UnitOpts {
   colour: string;
   year: number;
   /** The body's hinge style. */
-  hinge: "barrel" | "full" | "drop";
+  hinge: HingeStyle;
 }
 
 export interface UnitCtx {

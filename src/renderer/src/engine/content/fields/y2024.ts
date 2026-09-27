@@ -187,7 +187,7 @@ const R: Rival[] = [
     ports: PORTS_GAMING,
   }),
   rival(2024, "lenovo", "Legion Pro 7i Gen 9", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [364, 276, 22],
     price: 3199,
@@ -450,7 +450,7 @@ const R: Rival[] = [
     materials: { floor: "aluminium", lid: "aluminium" },
   }),
   rival(2024, "dell", "Alienware m16 R2", {
-    body: "workhorse",
+    body: "shelf",
     layout: "a",
     size: [358, 272, 21],
     price: 2199,

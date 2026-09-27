@@ -73,6 +73,8 @@ const BLOCK_ROLES = new Set([
 const EPS = 1e-9;
 /** Floor a vapour chamber's plate takes between the chips and the fans, mm. */
 const CHAMBER_PLATE = 10;
+/** How close the least thickness search gets, mm. */
+const Z_TOL = 1e-7;
 
 function tune(t: Tune, spend: number): number {
   return t[0] + (t[1] - t[0]) * spend;
@@ -859,25 +861,48 @@ function solveAt(
       const zs = perimZones(s.pm, sideMult(s.pm, opening));
       return Math.min(fits, Z - zs.hB - zs.hT - (port + PORT_BAND));
     };
-    let lo = 0;
+    // Only the greatest need counts: a part that fits the thickness found
+    // so far needs no search. Otherwise the room grows about as fast as the
+    // thickness, so the search steps along the line through the bracket's
+    // ends (Illinois false position), halving where that stalls. It ends on
+    // a thickness that fits.
+    let lo = minZ;
+    let fLo = slack(lo);
+    if (fLo >= 0) return lo;
     let hi = 2 * lim.z[1];
-    if (slack(hi) < 0)
+    let fHi = slack(hi);
+    if (fHi < 0)
       return (
         off.bottom +
         stack +
         liftOn(opening) +
         Math.max(cover, off.top, topOn(opening))
       );
-    for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2;
-      if (slack(mid) >= 0) hi = mid;
-      else lo = mid;
+    let side = 0;
+    for (let i = 0; i < 40 && hi - lo > Z_TOL && fHi > Z_TOL; i++) {
+      let c = hi - (fHi * (hi - lo)) / (fHi - fLo);
+      if (!(c > lo + Z_TOL / 4 && c < hi - Z_TOL / 4) || i % 6 === 5)
+        c = (lo + hi) / 2;
+      const fc = slack(c);
+      if (fc >= 0) {
+        hi = c;
+        fHi = fc;
+        if (side === 1) fLo /= 2;
+        side = 1;
+      } else {
+        lo = c;
+        fLo = fc;
+        if (side === -1) fHi /= 2;
+        side = -1;
+      }
     }
     return hi;
   };
   let minZ = off.bottom + off.top;
   const cover = new Map<unknown, number>();
   const laid: PlacedUnit[] = [];
+  // What each part needs, tallest first, so most need no search.
+  const needs: Parameters<typeof zFor>[] = [];
   for (const f of floor.fills.values()) {
     if (!f.min || !f.at || !f.size) continue;
     const opening = isOpeningZone(f) && f.node.edge;
@@ -887,28 +912,24 @@ function solveAt(
       const c = coverOver(u.at, u.size);
       zoneCover = Math.max(zoneCover, c);
       const stack = u.at.z - off.bottom - liftOn(opening) + u.size.z;
-      minZ = Math.max(
-        minZ,
-        zFor(
-          u.at.y,
-          u.at.y + u.size.y,
-          stack,
-          c,
-          opening,
-          u.at.x,
-          u.at.x + u.size.x,
-          u.role.startsWith("port:") ? u.size.z : undefined,
-        ),
-      );
+      needs.push([
+        u.at.y,
+        u.at.y + u.size.y,
+        stack,
+        c,
+        opening,
+        u.at.x,
+        u.at.x + u.size.x,
+        u.role.startsWith("port:") ? u.size.z : undefined,
+      ]);
     }
     cover.set(f.node, zoneCover);
   }
   for (const u of deckPlaced)
     if (!u.spacer)
-      minZ = Math.max(
-        minZ,
-        zFor(u.at.y, u.at.y + u.size.y, 0, deckLayer(u), false, u.at.x, u.at.x + u.size.x),
-      );
+      needs.push([u.at.y, u.at.y + u.size.y, 0, deckLayer(u), false, u.at.x, u.at.x + u.size.x]);
+  needs.sort((a, b) => b[2] + b[3] - (a[2] + a[3]));
+  for (const n of needs) minZ = Math.max(minZ, zFor(...n));
 
   // Stacked parts: each over its host, as low as what lies under it allows.
   const placedStack: PlacedUnit[] = [];

@@ -156,7 +156,7 @@ export const BODIES: Body[] = [
     // A lifting hinge: the lid's lower edge swings down behind the rear, over a chamfered rear edge.
     id: "lift",
     name: "Lift",
-    from: 2019,
+    from: 2018,
     until: 2099,
     ...base,
     size: { ...START },
@@ -351,7 +351,7 @@ export const BODIES: Body[] = [
     // Gem cut: the plan corners cut flat, a bevel under every edge.
     id: "facet",
     name: "Facet",
-    from: 2019,
+    from: 2018,
     until: 2099,
     ...base,
     size: { ...START },

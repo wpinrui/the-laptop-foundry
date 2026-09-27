@@ -19,6 +19,7 @@ import {
   qualityOf,
   solve,
   speakerGrillOpts,
+  yearOptions,
 } from "../engine";
 import { useSettled } from "../viewer/stable";
 import { formatOption, panelLabel } from "./format";
@@ -72,6 +73,12 @@ export function withPart(b: Build, cat: Category, index: number, id: string): Bu
     // New speakers keep the player's grill.
     const grill = cat === "speakers" ? speakerGrillOpts(b.parts[cat]?.[index]?.opts) : {};
     if (Object.keys(grill).length > 0) list[index] = { part: id, opts: grill };
+    // A default the year cannot have gives way to the first value it can.
+    const part = CONTENT.parts.find((p) => p.id === id);
+    if (part?.optionYears) {
+      const opts = yearOptions(part, b.year, list[index].opts);
+      if (Object.keys(opts).length > 0) list[index] = { ...list[index], opts };
+    }
   }
   const parts = { ...b.parts };
   if (list.length === 0) delete parts[cat];
@@ -92,8 +99,8 @@ export function withOption(b: Build, cat: Category, index: number, key: string, 
 
 const two = (a: (string | number | undefined)[]) => a.filter((x) => x !== undefined && x !== "").join("  ");
 
-function range(part: Part, key: string): string {
-  const vs = part.options?.[key];
+function range(part: Part, key: string, year?: number): string {
+  const vs = part.options?.[key]?.filter((v) => year === undefined || optionAvailable(part, key, v, year));
   if (!vs || vs.length === 0) return "";
   const a = formatOption(key, vs[0]);
   if (vs.length === 1) return a;
@@ -119,7 +126,7 @@ export function specLine(cat: Category, id: string, year?: number): string {
       return two([part.info?.memory as string, pw && `${pw.sustained} W`]);
     case "memory":
     case "storage":
-      return range(part, "capacity");
+      return range(part, "capacity", year);
     case "battery":
       if (part.options?.cells) return range(part, "cells");
       {
@@ -192,7 +199,8 @@ function rowsFor(slot: Slot, build: Build, reasons: Map<string, string | null>):
   const hi = Math.max(...packageSizes);
   const packageSpec = packageSizes.length === 0 ? "" : lo === hi ? `${lo} GB` : `${lo} GB to ${hi} GB`;
   const rows: Row[] = ids.map((id) => {
-    const bp: BuildPart = current?.part === id ? current : { part: id };
+    const p = CONTENT.parts.find((x) => x.id === id);
+    const bp: BuildPart = current?.part === id ? current : { part: id, opts: p ? yearOptions(p, year) : undefined };
     return {
       id,
       name: nameOfPart(slot.cat, id),

@@ -94,11 +94,11 @@ export const HOTSWAP: Part[] = [
     info: { wh: 48 },
   },
   {
-    // Small internal bridge cell; the main pack moves into a 2 mm external casing.
+    // Small internal bridge cell (ThinkPad Power Bridge from 2013); the main pack moves into a 2 mm external casing.
     id: "bridge-battery",
     name: "Bridge battery",
     category: "hotswap",
-    from: 2015,
+    from: 2013,
     until: 2030,
     shape: {
       kind: "box",

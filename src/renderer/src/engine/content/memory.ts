@@ -180,7 +180,7 @@ export const MEMORY: Part[] = [
     name: "DDR4-3200 SO-DIMM",
     category: "memory",
     from: 2020,
-    until: 2024,
+    until: 2026,
     shape: {
       kind: "block",
       role: "mem",
@@ -333,6 +333,15 @@ export const MEMORY: Part[] = [
     needs: ["mem:apple-unified"],
   },
 ];
+
+// Capacities by year, where narrower than the part's own: 2 GB DDR2 modules
+// from 2007, 4 GB DDR3 modules from 2009, 8 GB from 2012.
+const CAPACITY_YEARS: Record<string, Record<string, [number, number]>> = {
+  "ddr2-667-sodimm": { "4": [2007, 2099] },
+  "ddr3-1066-sodimm": { "8": [2009, 2099] },
+  "ddr3-1333-sodimm": { "16": [2012, 2099] },
+};
+for (const m of MEMORY) if (CAPACITY_YEARS[m.id]) m.optionYears = { capacity: CAPACITY_YEARS[m.id] };
 
 // ---------------------------------------------------------------- lab figures
 

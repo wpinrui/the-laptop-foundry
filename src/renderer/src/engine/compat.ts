@@ -23,6 +23,23 @@ export function optionAvailable(part: Part, key: string, value: OptionValue, yea
   return !span || (span[0] <= year && year <= span[1]);
 }
 
+/** A part's options for a year: where a default cannot be had that year, the first value that can. */
+export function yearOptions(
+  part: Part,
+  year: number,
+  opts: Record<string, OptionValue> = {},
+): Record<string, OptionValue> {
+  const out = { ...opts };
+  for (const key of Object.keys(part.optionYears ?? {})) {
+    const list = part.options?.[key] ?? [];
+    const now = out[key] ?? list[0];
+    if (now === undefined || optionAvailable(part, key, now, year)) continue;
+    const first = list.find((v) => optionAvailable(part, key, v, year));
+    if (first !== undefined) out[key] = first;
+  }
+  return out;
+}
+
 const REQUIRED: Category[] = [
   "processor",
   "memory",

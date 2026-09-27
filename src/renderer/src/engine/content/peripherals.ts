@@ -30,6 +30,9 @@ export const OPTICAL: Part[] = [
   odd("dvd-rw-slim-2006", "DVD±RW slim", 2005, 2010, 9.5),
   odd("bd-writer", "Blu-ray writer", 2006, 2010, 12.7),
   odd("hd-dvd", "HD DVD reader", 2006, 2008, 12.7),
+  odd("bd-combo", "Blu-ray reader, DVD±RW", 2007, 2010, 12.7),
+  odd("dvd-rw-2011", "DVD±RW dual layer", 2011, 2015, 12.7),
+  odd("bd-writer-slim-2010", "Blu-ray writer slim", 2010, 2019, 9.5),
   odd("dvd-rw-slim-2016", "DVD±RW slim", 2011, 2019, 9.5),
   odd("bd-combo-slim", "Blu-ray reader, DVD±RW slim", 2011, 2019, 9.5),
   odd("dvd-rw-slim", "DVD±RW slim", 2020, 2030, 9.5),
@@ -116,7 +119,7 @@ export const WIRELESS: Part[] = [
     name: "802.11ac + Bluetooth 4.1",
     category: "wireless",
     from: 2013,
-    until: 2020,
+    until: 2022,
     shape: {
       kind: "block",
       role: "wlan",
@@ -130,7 +133,7 @@ export const WIRELESS: Part[] = [
     name: "Wi-Fi 6 + Bluetooth 5.1",
     category: "wireless",
     from: 2019,
-    until: 2023,
+    until: 2026,
     shape: {
       kind: "block",
       role: "wlan",

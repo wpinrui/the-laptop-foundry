@@ -41,7 +41,8 @@ export const ERAS: Era[] = [
       plastic: ["floor", "deck", "lid"],
       magnesium: ["floor", "deck", "lid"],
       aluminium: ["floor", "deck", "lid"],
-      cfrp: ["deck", "lid"],
+      // Carbon fibre tops and bottoms: VAIO Z (2011), VAIO Pro (2013), X1 Carbon.
+      cfrp: ["floor", "deck", "lid"],
     },
     gap: [2.5, 1.5],
     bezel: { side: 8, top: 10, chin: 16 },

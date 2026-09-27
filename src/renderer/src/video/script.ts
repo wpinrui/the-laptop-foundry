@@ -1,6 +1,7 @@
 import { factsOf, reviewOf, rivalById, rivalSubject, type Subject } from "../engine";
 import { AWARD_NAMES, type CampaignState, type Quarter, type SalesRecord } from "../engine/campaign";
 import { rng } from "../engine/review";
+import { speak } from "./speech";
 
 // The quarter's best seller as a short video: a narration script from
 // hand-written sentence templates, each line tied to a camera shot and, for
@@ -76,7 +77,6 @@ export function shareCaption(s: number): string {
 }
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-const usdSay = (n: number) => `${Math.round(n)} dollars`;
 
 /** The best-selling laptop of the campaign's last resolved quarter, or null when there is none to show. */
 export function bestSeller(campaign: CampaignState): { record: SalesRecord; id: string; units: number } | null {
@@ -178,7 +178,7 @@ export function writeShort(facts: ShortFacts): Short {
   const qc = quarterCaption(facts.quarter);
   const qs = quarterSay(facts.quarter);
   const lines: Line[] = [];
-  const add = (shot: Shot, card: Card, [text, say]: [string, string]) => lines.push({ text, say, shot, card });
+  const add = (shot: Shot, card: Card, [text, say]: [string, string]) => lines.push({ text, say: speak(say), shot, card });
 
   // Hook.
   add(
@@ -213,18 +213,16 @@ export function writeShort(facts: ShortFacts): Short {
     ]),
   );
 
-  // The pitch. Part names lose their hyphens for the voice, which reads one between figures as "minus".
+  // The pitch. speak() reads the part names, prices and model numbers out for the voice.
   const price = facts.price;
-  const cpu = facts.cpu.replace(/-/g, " ");
-  const gpu = facts.gpu.replace(/-/g, " ");
   if (price)
     add(
       "orbit",
       null,
       pick("pitch", [
-        [`It's ${an(facts.kind)} for ${usd(price)}, running the ${facts.cpu} with ${facts.gpu}.`, `It's ${an(facts.kind)} for ${usdSay(price)}, running the ${cpu} with ${gpu}.`],
-        [`${usd(price)} gets you ${an(facts.kind)} with the ${facts.cpu} and ${facts.gpu} inside.`, `${usdSay(price)} gets you ${an(facts.kind)} with the ${cpu} and ${gpu} inside.`],
-        [`On paper: ${an(facts.kind)}, the ${facts.cpu}, ${facts.gpu}, ${usd(price)}.`, `On paper: ${an(facts.kind)}, the ${cpu}, ${gpu}, ${usdSay(price)}.`],
+        [`It's ${an(facts.kind)} for ${usd(price)}, running the ${facts.cpu} with ${facts.gpu}.`, `It's ${an(facts.kind)} for ${usd(price)}, running the ${facts.cpu} with ${facts.gpu}.`],
+        [`${usd(price)} gets you ${an(facts.kind)} with the ${facts.cpu} and ${facts.gpu} inside.`, `${usd(price)} gets you ${an(facts.kind)} with the ${facts.cpu} and ${facts.gpu} inside.`],
+        [`On paper: ${an(facts.kind)}, the ${facts.cpu}, ${facts.gpu}, ${usd(price)}.`, `On paper: ${an(facts.kind)}, the ${facts.cpu}, ${facts.gpu}, ${usd(price)}.`],
       ]),
     );
 
@@ -286,7 +284,7 @@ export function writeShort(facts: ShortFacts): Short {
       ? pick("outro-mine", ["Not bad for your own design. Now do it again next quarter.", "That's the one to beat, and it's yours. See you next quarter."])
       : pick("outro", [
           ["That's the one to beat. See you next quarter.", "That's the one to beat. See you next quarter."],
-          price ? [`Is it worth ${usd(price)}? The market says yes.`, `Is it worth ${usdSay(price)}? The market says yes.`] : ["Would you buy one?", "Would you buy one?"],
+          price ? [`Is it worth ${usd(price)}? The market says yes.`, `Is it worth ${usd(price)}? The market says yes.`] : ["Would you buy one?", "Would you buy one?"],
           ["Would you buy one? See you next quarter.", "Would you buy one? See you next quarter."],
         ]),
   );

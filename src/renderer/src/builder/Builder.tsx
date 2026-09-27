@@ -225,7 +225,7 @@ export function Builder({
   const fit = useMemo(() => solve(build), [build]);
   const valid = fit.problems.length === 0;
   const measured = useMemo(() => (valid ? simulate(build, fit) : null), [valid, build, fit]);
-  const stats = useMemo(() => (measured ? statsOf(build, fit, measured) : []), [measured, build, fit]);
+  const stats = useMemo(() => statsOf(build, fit, measured), [measured, build, fit]);
 
   // No power-on moment: the stats simply appear once the laptop is valid.
   const powering = false;
@@ -504,7 +504,7 @@ export function Builder({
       </nav>
 
       <div className="bd-corner">
-        {valid && !powering && stats.length > 0 && <StatStrip stats={stats} onOpen={() => setSheet(true)} />}
+        {!powering && stats.length > 0 && <StatStrip stats={stats} onOpen={() => setSheet(true)} />}
         {!valid && (
           <button type="button" className="bd-missing" onClick={() => setListOpen(!listOpen)}>
             {count}

@@ -1,4 +1,4 @@
-import { bumperBlock, outerSection, perimZones, sideMult } from "./shell";
+import { bumperBlock, outerSection, perimInsets, perimZones, ringCorner, sideMult } from "./shell";
 import { profileRings } from "./shellGeometry";
 import type {
   Build,
@@ -156,10 +156,14 @@ function faceAt(
   u: number,
 ): [number, number] | null {
   if (style.pm) {
-    // The side's flat band between its bottom and top edge zones.
-    const zs = perimZones(style.pm, sideMult(style.pm, side));
-    const lo = zs.hB + MARGIN;
-    const hi = outer.z - zs.hT - MARGIN;
+    // The side's flat band between its bottom and top edge zones. The front
+    // and rear run out to the side walls, so there the side zones bound it
+    // too: below them the sides taper in and the face narrows.
+    const pm = style.pm;
+    const ms = side === "front" || side === "rear" ? [sideMult(pm, side), pm.m.s] : [sideMult(pm, side)];
+    const zs = ms.map((m) => perimZones(pm, m));
+    const lo = Math.max(...zs.map((z) => z.hB)) + MARGIN;
+    const hi = outer.z - Math.max(...zs.map((z) => z.hT)) - MARGIN;
     return hi > lo ? [lo, hi] : null;
   }
   const y =
@@ -356,6 +360,26 @@ export function grillCutouts(
         while (b + 1 <= hi && holds(b + 1)) b += 1;
         lo = Math.max(lo, a);
         hi = Math.min(hi, b);
+      }
+      if (style.pm) {
+        // Where the perimeter's straight edge on this side runs at every
+        // height the grill covers: the neighbouring sides' edge zones and the
+        // corners round them pull it in.
+        const pm = style.pm;
+        const n = 8;
+        for (let i = 0; i <= n; i++) {
+          const I = perimInsets(pm, outer.z, z[0] + ((z[1] - z[0]) * i) / n);
+          const k = (a: number, b: number) => ringCorner(style.corner, a, b, outer.x, outer.y, I);
+          const [a, b] = across
+            ? side === "left"
+              ? [I.f + k(I.l, I.f), outer.y - I.b - k(I.l, I.b)]
+              : [I.f + k(I.r, I.f), outer.y - I.b - k(I.r, I.b)]
+            : side === "front"
+              ? [I.l + k(I.l, I.f), outer.x - I.r - k(I.r, I.f)]
+              : [I.l + k(I.l, I.b), outer.x - I.r - k(I.r, I.b)];
+          lo = Math.max(lo, a + END_GAP);
+          hi = Math.min(hi, b - END_GAP);
+        }
       }
       let spans: [number, number][] = hi > lo ? [[lo, hi]] : [];
       for (const o of others)

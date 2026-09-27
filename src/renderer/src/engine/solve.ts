@@ -22,11 +22,13 @@ import {
   deckLoss,
   hingeAxis,
   lidSideOffset,
+  perimZones,
   profileLift,
   profileTop,
   rearInset,
   resolveStyle,
   scaleWalls,
+  sideMult,
   spanBand,
   taperLeft,
 } from "./shell";
@@ -111,6 +113,8 @@ const HOST_NAMES: Record<string, string> = {
 const UNDER_OK = new Set<string>(["board", "battery", "drive", "spk"]);
 /** Air between a stacked part and what it sits over, mm. */
 const STACK_GAP = 1.5;
+/** A port needs its flat band of wall this much taller than itself, mm. */
+const PORT_BAND = 0.6;
 /** Room kept round a hot chip and its heat pipe, mm. */
 const HOT_MARGIN = 6;
 const OVER = "over:";
@@ -839,6 +843,7 @@ function solveAt(
     opening: Side | false | undefined,
     x0?: number,
     x1?: number,
+    port?: number,
   ): number => {
     const slack = (Z: number) => {
       const { s, o } = shapeAt(Z);
@@ -848,7 +853,11 @@ function solveAt(
       const lift = opening ? profileLift(s, o.bottom, opening) : 0;
       // On a perimeter body an opening sits in its side's flat band, however far the floor rises under the edge.
       const base = s.pm ? Math.max(b[0], o.bottom + lift) : b[0] + lift;
-      return b[1] + o.top - (base + stack + top);
+      const fits = b[1] + o.top - (base + stack + top);
+      if (port === undefined || !opening || !s.pm) return fits;
+      // A port needs its side's flat band of wall, between the edge zones, to stand in with room to spare.
+      const zs = perimZones(s.pm, sideMult(s.pm, opening));
+      return Math.min(fits, Z - zs.hB - zs.hT - (port + PORT_BAND));
     };
     let lo = 0;
     let hi = 2 * lim.z[1];
@@ -880,7 +889,16 @@ function solveAt(
       const stack = u.at.z - off.bottom - liftOn(opening) + u.size.z;
       minZ = Math.max(
         minZ,
-        zFor(u.at.y, u.at.y + u.size.y, stack, c, opening, u.at.x, u.at.x + u.size.x),
+        zFor(
+          u.at.y,
+          u.at.y + u.size.y,
+          stack,
+          c,
+          opening,
+          u.at.x,
+          u.at.x + u.size.x,
+          u.role.startsWith("port:") ? u.size.z : undefined,
+        ),
       );
     }
     cover.set(f.node, zoneCover);
@@ -1011,7 +1029,7 @@ function solveAt(
       if (zone.pack !== "z") u.at.z += Math.min(0, ub[0] - z0);
     }
     // Ports pack along their wall in list order; each sits centred up and down
-    // the outer side wall.
+    // the outer side wall, on a perimeter body on its flat band.
     for (const u of units) {
       if (!u.role.startsWith("port:") || u.src === undefined || !zone.edge)
         continue;
@@ -1022,7 +1040,8 @@ function solveAt(
       // of the C panel, kept inside the walls and under any keyboard or trackpad over it.
       const zLo = style.pm ? Math.max(ulo, off.bottom + liftOn(side)) : ulo + liftOn(side);
       const zHi = uhi + off.top - Math.max(coverOver(u.at, u.size), off.top) - u.size.z;
-      const mid = (ulo - off.bottom + uhi + off.top) / 2;
+      const zs = style.pm ? perimZones(style.pm, sideMult(style.pm, side)) : null;
+      const mid = zs ? (zs.hB + uhi + off.top - zs.hT) / 2 : (ulo - off.bottom + uhi + off.top) / 2;
       u.at.z = Math.min(Math.max(zLo, mid - u.size.z / 2), Math.max(zLo, zHi));
       if (report.ports[u.src]) continue;
       // along is to the connector's centre: from the rear on side walls, from the left otherwise.

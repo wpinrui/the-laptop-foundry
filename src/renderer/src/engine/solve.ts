@@ -49,10 +49,19 @@ import type {
   Side,
   Size,
   Tune,
+  Turn,
   Vec3,
 } from "./types";
 import { isZone } from "./types";
-import { bezelUnits, emit, spendOf, type Unit } from "./units";
+import {
+  bezelUnits,
+  emit,
+  faceAxis,
+  isUp,
+  spendOf,
+  turnSize,
+  type Unit,
+} from "./units";
 import { panelOf } from "./screen";
 
 const AXES: Axis[] = ["x", "y", "z"];
@@ -119,8 +128,11 @@ const BESIDE = "beside-battery";
 /** A movable part's place: a zone by name (absent: where its role goes) and a quarter turn. */
 interface Choice {
   zone?: string;
-  turn: boolean;
+  turn: Turn;
 }
+/** Turns auto placement tries: a speaker may also stand on its long edge. */
+const turnsOf = (role: Role): Turn[] =>
+  role === "spk" ? [false, true, "up", "up90"] : [false, true];
 type Arrangement = Record<string, Choice>;
 type Slot = {
   role: Role;
@@ -414,7 +426,11 @@ function solveAt(
     const pinned = player.parts?.[key];
     const pin: Partial<Choice> = {};
     if (UPRIGHT.has(u.role)) pin.turn = false;
-    else if (pinned?.turn !== undefined) pin.turn = pinned.turn;
+    else if (
+      pinned?.turn !== undefined &&
+      (u.role === "spk" || !isUp(pinned.turn))
+    )
+      pin.turn = pinned.turn;
     const stacks = STACKERS.has(u.role)
       ? HOSTS.filter((h) => floorUnits.some((f) => f.role === h)).map(
           (h) => OVER + h,
@@ -448,12 +464,10 @@ function solveAt(
         : undefined;
       return {
         ...u,
-        size: c.turn
-          ? { x: u.size.y, y: u.size.x, z: u.size.z }
-          : { ...u.size },
+        size: turnSize(u.size, c.turn),
         ...(c.zone && !over ? { to: c.zone } : {}),
         ...(over ? { over } : {}),
-        ...(c.turn ? { turn: true } : {}),
+        ...(c.turn ? { turn: c.turn } : {}),
       };
     });
   const oddSide =
@@ -530,7 +544,8 @@ function solveAt(
         z: undefined as number | undefined,
         lost: d.unplaced.length,
       };
-      if (ups.length === 0 && !tp) return m;
+      // A standing speaker needs its height checked where it lies.
+      if (ups.length === 0 && !tp && !all.some((u) => isUp(u.turn))) return m;
       // Before laying anything out: a stack that cannot beat the bar, or
       // could not fit under the player's thickness even over the lowest host,
       // is out. A removable pack starts on the outer bottom.
@@ -674,6 +689,7 @@ function solveAt(
       zone: at ?? "",
       turn: arr[key]?.turn ?? false,
       turns: !UPRIGHT.has(sl0.role),
+      ups: sl0.role === "spk",
       zones: [
         ...sl0.zones.map((z) => ({ id: z.zone, name: z.name ?? z.zone })),
         ...sl0.stacks.map((id) => ({
@@ -962,6 +978,14 @@ function solveAt(
   const placedFloor: PlacedUnit[] = [];
   const moved = new Set<string>();
 
+  // A standing speaker faces the nearer outer wall across its thin side.
+  const faceOf = (u: PlacedUnit): Side | undefined => {
+    if (!isUp(u.turn)) return undefined;
+    const a = faceAxis(u.size, u.turn);
+    const low = u.at[a] + u.size[a] / 2 < F[a] / 2;
+    return a === "x" ? (low ? "left" : "right") : low ? "front" : "rear";
+  };
+
   // Floor.
   for (const zone of zonesOf(layout.floor)) {
     const fill = floor.fills.get(zone);
@@ -1023,7 +1047,7 @@ function solveAt(
       // pivots, not on the floor. The zone's room already clears its height.
       if (u.role === "hinge") u.at.z = Math.max(z0, z0 + room - u.size.z);
       placedFloor.push(u);
-      boxes.push(unitBox(u, "floor", zone.edge));
+      boxes.push(unitBox(u, "floor", zone.edge, faceOf(u)));
       if (u.skin)
         hatches.push({
           at: { ...u.at },
@@ -1442,7 +1466,12 @@ function solveAt(
   return fit;
 }
 
-function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
+function unitBox(
+  u: PlacedUnit,
+  piece: Piece,
+  edge?: Side,
+  face?: Side,
+): Box {
   return {
     id: `${piece}:${u.id}`,
     role: u.role as Role,
@@ -1455,7 +1484,8 @@ function unitBox(u: PlacedUnit, piece: Piece, edge?: Side): Box {
     ...(u.skin ? { skin: true } : {}),
     ...(u.opts ? { opts: u.opts } : {}),
     ...(edge ? { edge } : {}),
-    ...(u.turn ? { turn: true } : {}),
+    ...(u.turn ? { turn: u.turn } : {}),
+    ...(face ? { face } : {}),
     ...(u.over ? { over: u.over } : {}),
   };
 }
@@ -1747,7 +1777,7 @@ function arrange(
                 .filter((z) => !z.takes.includes(s.role))
                 .map((z) => z.zone),
             ];
-      const turns = s.pin.turn !== undefined ? [s.pin.turn] : [false, true];
+      const turns = s.pin.turn !== undefined ? [s.pin.turn] : turnsOf(s.role);
       let next: Arrangement | undefined;
       let nextRank = bestRank;
       // On a taper, a move to another zone that costs nothing may open the way
@@ -1790,7 +1820,7 @@ function arrange(
     const start = best;
     for (const [key, s] of free) {
       if (s.pin.zone !== undefined || s.stacks.length === 0) continue;
-      const turns = s.pin.turn !== undefined ? [s.pin.turn] : [false, true];
+      const turns = s.pin.turn !== undefined ? [s.pin.turn] : turnsOf(s.role);
       let next: Arrangement | undefined;
       let step: Arrangement | undefined;
       let stepArea = bestRank.out * 1e9 + bestRank.area - 1;

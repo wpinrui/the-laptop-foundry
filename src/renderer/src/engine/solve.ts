@@ -78,6 +78,8 @@ function clamp(v: number, lo: number, hi: number): number {
 
 /** Floor roles auto placement may turn a quarter or move to another zone the layout allows. */
 const MOVABLE = new Set<Role>(["drive", "battery", "spk", "odd"]);
+/** The least gap between the keyboard's rear edge and the rear inner wall. */
+const KB_REAR_GAP = 4;
 /** Movable roles that never turn: an optical tray must face its side wall. */
 const UPRIGHT = new Set<Role>(["odd"]);
 
@@ -387,7 +389,12 @@ function solveAt(
   const lid = measure(lidPlan.root, lidDeal.fills, flatCtx);
   const m2 = (ps: PlanSolve) => ps.mins.get(ps.root) ?? { x: 0, y: 0 };
   const fm = m2(floor);
-  const dm = m2(deck);
+  // The deck's own minimum, less what the player won back by moving the
+  // keyboard over the strip behind it (the hinge strip or a rear battery).
+  const dm0 = m2(deck);
+  const stripY = em.deck.find((u) => u.role === "hinge-strip")?.size.y ?? 0;
+  const kbBack = Math.min(Math.max(0, -(player.kb?.y ?? 0)), Math.max(0, stripY - KB_REAR_GAP));
+  const dm = { x: dm0.x, y: dm0.y - kbBack };
   const lm = m2(lid);
 
   const lidInnerZ = lidUnits.reduce((m, u) => Math.max(m, u.size.z), 0);
@@ -463,9 +470,8 @@ function solveAt(
     const MIN_GAP = 2;
     const front = off.side + 2;
     // It may also move back over the hinge strip, up to a small gap from the rear wall.
-    const REAR_GAP = 4;
     const rear = off.side + innerFoot.y;
-    const kbMin = -Math.max(0, rear - REAR_GAP - (K.at.y + K.size.y));
+    const kbMin = -Math.max(0, rear - KB_REAR_GAP - (K.at.y + K.size.y));
     const kbMax = Math.max(0, K.at.y - front - (P ? P.size.y + MIN_GAP : 0));
     const ky = clamp(player.kb?.y ?? 0, kbMin, kbMax);
     const autoGap = P ? K.at.y - (P.at.y + P.size.y) : 0;

@@ -49,7 +49,10 @@ function useCafe(): { scene: THREE.Group; anchors: Anchors } {
     scene.updateMatrixWorld(true);
     const at = (name: string): V3 => {
       const v = new THREE.Vector3();
-      scene.getObjectByName(`anchor_${name}`)?.getWorldPosition(v);
+      // Relative to the scene itself: the loader caches the scene, so on a
+      // remount it can still hang under the old mm-scaled group.
+      const o = scene.getObjectByName(`anchor_${name}`);
+      if (o) scene.worldToLocal(o.getWorldPosition(v));
       return [v.x * M, v.y * M, v.z * M];
     };
     const street = new Set<THREE.Object3D>();

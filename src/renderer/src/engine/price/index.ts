@@ -35,6 +35,7 @@ interface EraPrice {
   body: { thinKg: number; thinMm: number; largeKg: number; largeWidth: number };
   /** Performance class cut-offs on the sustained results. */
   perf: { gamingGraphics: number; mixedGraphics: number; mixedMulti: number };
+  /** The mainboard from the design house, less the processor and memory: layers, power stages, controllers. */
   board: number;
   assembly: number;
 }
@@ -45,7 +46,7 @@ const ERA_PRICE: EraPrice[] = [
     budget: { low: 900, premium: 1600 },
     body: { thinKg: 1.9, thinMm: 32, largeKg: 3.2, largeWidth: 390 },
     perf: { gamingGraphics: 100, mixedGraphics: 50, mixedMulti: 700 },
-    board: 120,
+    board: 75,
     assembly: 30,
   },
   {
@@ -53,7 +54,7 @@ const ERA_PRICE: EraPrice[] = [
     budget: { low: 600, premium: 1200 },
     body: { thinKg: 1.6, thinMm: 21, largeKg: 2.7, largeWidth: 385 },
     perf: { gamingGraphics: 1600, mixedGraphics: 750, mixedMulti: 4000 },
-    board: 90,
+    board: 55,
     assembly: 25,
   },
   {
@@ -61,7 +62,7 @@ const ERA_PRICE: EraPrice[] = [
     budget: { low: 800, premium: 1500 },
     body: { thinKg: 1.6, thinMm: 19, largeKg: 2.8, largeWidth: 385 },
     perf: { gamingGraphics: 8000, mixedGraphics: 4500, mixedMulti: 12000 },
-    board: 80,
+    board: 50,
     assembly: 25,
   },
 ];
@@ -327,7 +328,36 @@ const PAD_RATE: Record<string, { base: number; cm2: number }> = {
 };
 const GLASS_CM2 = 0.06;
 
+// ------------------------------------------------------------------ what a maker pays
+
+/**
+ * The figures above are what a small buyer paid: chips at list, the rest at
+ * street price. A laptop maker buying by the million paid far less, so every
+ * part costs its figure times its category's share. Chip figures are list:
+ * Intel's and AMD's price per unit in 1,000-unit trays and the graphics
+ * vendors' module list. Intel's average notebook processor sold for about
+ * $100 to $130 while its mainstream mobile list sat near $250 to $400.
+ * Panels, memory, storage, cells, drives and small parts are street prices,
+ * and a tier-one maker's contract price ran about 60 percent of street.
+ */
+const CPU_CONTRACT = 0.4;
+const GPU_CONTRACT = 0.55;
+const OEM = 0.6;
+
 function partCost(
+  cat: Category,
+  part: Part,
+  bp: BuildPart,
+  year: number,
+  packageGb?: number,
+  spend = 0,
+  build?: Build,
+): number {
+  const street = streetCost(cat, part, bp, year, packageGb, spend, build);
+  return street * (cat === "processor" ? CPU_CONTRACT : cat === "graphics" ? GPU_CONTRACT : OEM);
+}
+
+function streetCost(
   cat: Category,
   part: Part,
   bp: BuildPart,
@@ -454,6 +484,12 @@ export interface CostLine {
   usd: number;
 }
 
+/**
+ * Retail price over part cost when the player has not set a price: parts ran
+ * 55 to 70 percent of a mainstream laptop's retail price.
+ */
+export const PRICE_OVER_COST = 1.6;
+
 export interface Cost {
   total: number;
   lines: CostLine[];
@@ -461,8 +497,8 @@ export interface Cost {
 
 /** Cost price of a resolved screen: the panel, the premium when it is custom, and its brightness and gamut past the panel's own. */
 export function screenPrice(panel: ResolvedPanel): number {
-  const base = panelBaseCost(panel, panel.hz);
-  return Math.max(base * 0.7, base + panel.upgrade) + panel.premium;
+  const base = panelBaseCost(panel, panel.hz, panel.year);
+  return (Math.max(base * 0.7, base + panel.upgrade) + panel.premium) * OEM;
 }
 
 /** Cost price of one chosen part, in the year's nominal dollars. */
@@ -522,7 +558,7 @@ export function costOf(
   }
   add(
     "port",
-    build.ports.reduce((sum, p) => sum + (FIXED[p.part] ?? 3), 0),
+    build.ports.reduce((sum, p) => sum + (FIXED[p.part] ?? 3) * OEM, 0),
   );
   const hx = content.parts.find(
     (p) => p.id === build.parts.processor?.[0]?.part,
@@ -530,7 +566,7 @@ export function costOf(
   const chipset = Array.isArray(hx?.shape)
     ? hx.shape.some((s) => s.kind === "block" && s.role === "chipset")
     : false;
-  add("board", era.board + (chipset && build.year > 2012 ? 40 : 0));
+  add("board", era.board + (chipset && build.year > 2012 ? 25 : 0));
 
   const { x, y } = fit.frame;
   const dm2 = (x * y) / 1e4;

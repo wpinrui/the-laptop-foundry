@@ -157,6 +157,8 @@ export interface ResolvedPanel extends PanelOption {
   bezel: number;
   /** The refresh rate the spec runs at. */
   hz: number;
+  /** The year it is bought in. */
+  year: number;
 }
 
 export function kindAvailable(kind: ScreenKind, year: number): boolean {
@@ -317,12 +319,21 @@ function nearestRow(spec: ScreenSpec, year: number, content: Content): PanelOpti
 }
 
 /** Cost of a panel of this size, density, type and refresh, before any custom premium. */
-export function panelBaseCost(p: PanelOption, hz: number): number {
+export function panelBaseCost(p: PanelOption, hz: number, year = p.from): number {
   const a = activeArea(p);
   const rate = PANEL_RATE[p.type] ?? { dm2: 10, mp: 10 };
   const mp = (p.res[0] * p.res[1]) / 1e6;
-  return ((a.x * a.y) / 1e4) * rate.dm2 + mp * rate.mp + Math.max(0, (hz - 60) / 60) * 15;
+  const fall = CCFL.includes(p.type) ? CCFL_FALL ** Math.max(0, year - 2006) : 1;
+  return (((a.x * a.y) / 1e4) * rate.dm2 + mp * rate.mp) * fall + Math.max(0, (hz - 60) / 60) * 15;
 }
+
+/**
+ * The cold-cathode panels' rates are 2006's. Their price fell about 18
+ * percent a year until LED backlights took over in 2011: a 15.4 inch WXGA
+ * panel went from about $130 to about $60.
+ */
+const CCFL = ["tn-matte", "tn-glossy", "ips-type"];
+const CCFL_FALL = 0.82;
 
 /** Dollars per square decimetre of panel and per megapixel, by panel type. */
 const PANEL_RATE: Record<string, { dm2: number; mp: number }> = {
@@ -377,7 +388,7 @@ export function resolveScreen(spec: ScreenSpec, year: number, content: Content =
       nits: Math.min(near?.nits ?? 300, tech.nits),
       gamut: near?.gamut ?? "60% sRGB",
     };
-    const base = panelBaseCost(panel, spec.hz);
+    const base = panelBaseCost(panel, spec.hz, year);
     const topHz = Math.max(60, ...(near?.refresh ?? [60]));
     const nearPpi = near ? ppiOf(near.inches, near.res) : 100;
     premium = Math.round(
@@ -410,6 +421,7 @@ export function resolveScreen(spec: ScreenSpec, year: number, content: Content =
     upgrade: Math.round(bright + colour),
     bezel: spec.bezel,
     hz: spec.hz,
+    year,
   };
 }
 

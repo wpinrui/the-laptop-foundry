@@ -43,6 +43,7 @@ export function LaptopList({
   campaign,
   onEndQuarter,
   onShort,
+  shortBusy,
 }: {
   company: SavedCompany;
   /** Null for a sandbox company. */
@@ -50,6 +51,8 @@ export function LaptopList({
   onEndQuarter: () => void;
   /** Plays the last quarter's best seller as a short video; absent before any quarter has sold. */
   onShort?: () => void;
+  /** The short is still being made. */
+  shortBusy?: boolean;
   selected: string | null;
   onSelect: (id: string) => void;
   onMenu: () => void;
@@ -118,7 +121,12 @@ export function LaptopList({
             <b>{quarterLabel(campaign.now)}</b>
             <span>{usd(campaign.cash)}</span>
             {onShort && (
-              <button type="button" className="fd-text" onClick={onShort}>
+              <button
+                type="button"
+                className={`fd-text${shortBusy ? " vd-busy" : ""}`}
+                aria-busy={shortBusy}
+                onClick={onShort}
+              >
                 Shorts
               </button>
             )}

@@ -62,7 +62,12 @@ const api = {
     /** The narration, one clip per line; null when the game has no voice installed. */
     say: (lines: string[]): Promise<{ sampleRate: number; clips: Float32Array[] } | null> =>
       ipcRenderer.invoke("video:say", lines),
-    /** Opens a save dialog for a recorded video. True once written. */
+    /** A short rendered for the company and quarter ("2016q3") before, or null. */
+    kept: (company: string, quarter: string): Promise<Uint8Array | null> => ipcRenderer.invoke("video:kept", company, quarter),
+    /** Keeps a rendered short beside the company's save, replacing older quarters'. */
+    keep: (company: string, quarter: string, bytes: Uint8Array): Promise<void> =>
+      ipcRenderer.invoke("video:keep", company, quarter, bytes),
+    /** Opens a save dialog for a rendered video. True once written. */
     save: (bytes: Uint8Array, name: string): Promise<boolean> => ipcRenderer.invoke("video:save", bytes, name),
   },
   quit: (): Promise<void> => ipcRenderer.invoke("app:quit"),

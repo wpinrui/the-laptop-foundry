@@ -94,8 +94,18 @@ function useLock(build: Build, fit: Fit, maker: string, model: string) {
   return useOsStill("lock", build, owner, `${maker} ${model}`.trim(), aspect);
 }
 
-export function StagedLaptop({ build, fit, maker, model }: { build: Build; fit: Fit; maker: string; model: string }) {
+export function StagedLaptop({ build, fit, maker, model, onLock }: {
+  build: Build;
+  fit: Fit;
+  maker: string;
+  model: string;
+  /** Called once the lock screen is drawn onto the panel. */
+  onLock?: () => void;
+}) {
   const lock = useLock(build, fit, maker, model);
+  useEffect(() => {
+    if (lock) onLock?.();
+  }, [lock, onLock]);
   const colour = (id: string) => colourHex(id);
   const colours = useMemo(
     () => ({

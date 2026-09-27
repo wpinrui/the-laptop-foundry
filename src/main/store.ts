@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { app } from "electron";
 import { handleTop } from "./ipc";
+import { shortsDir } from "./video";
 import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, Settings } from "../preload/store";
 
 // Each company is one save: one JSON file in the companies folder of the user
@@ -196,7 +197,10 @@ export function registerStore(): void {
     const c = await company(id);
     const map = await all();
     map.delete(c.id);
-    queue = queue.catch(() => {}).then(() => unlink(fileOf(c.id)).catch(() => {}));
+    queue = queue
+      .catch(() => {})
+      .then(() => unlink(fileOf(c.id)).catch(() => {}))
+      .then(() => rm(shortsDir(c.id), { recursive: true, force: true }).catch(() => {}));
     await queue;
     return list(map);
   });

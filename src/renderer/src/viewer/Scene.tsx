@@ -13,11 +13,11 @@ import {
 } from "react";
 import * as THREE from "three";
 import type { Box, Build, Decor, Fit, Side } from "../engine";
-import { bumperBlock, shellSurface } from "../engine";
+import { bumperBlock, outerSpanAt, shellSurface } from "../engine";
 import { LID_GROUP } from "../models/roles/hinge";
 import { keyPlateThickness } from "../models/roles/keys";
 import { padOutline } from "../models/roles/pad";
-import { BaseMarks, LidDecor } from "./Decor";
+import { BaseMarks, faceOf, LidDecor } from "./Decor";
 import { attachLegends } from "./legends";
 import { overflowSlabs } from "./overflow";
 import { useStable } from "./stable";
@@ -586,7 +586,11 @@ function Shell({
           roughness={look.roughness}
           metalness={look.metalness}
           polygonOffset
-          polygonOffsetFactor={mode === "deck" ? 0 : offset}
+          // The deck and the bottom cover are pushed by a constant only: a
+          // slope-scaled push sinks a big flat face at an angle behind the
+          // units a mm inside it, and the fans and battery showed through
+          // the closed cover as flat grey shapes.
+          polygonOffsetFactor={mode === "deck" || mode === "floor" ? 0 : offset}
           polygonOffsetUnits={offset}
         />
       </mesh>
@@ -1062,10 +1066,26 @@ export const Model = memo(function Model({
           profile
           surface={surfaces?.floor}
           xray={xray}
-          mode={floorless ? "walls" : "open"}
+          mode="walls"
           cuts={cuts}
           wallDepth={fit.shell.offsets.side}
         />
+        {!floorless && (
+          <>
+            <Shell
+              size={out}
+              style={fit.shell.style}
+              colour={colours.floor}
+              profile
+              surface={surfaces?.floor}
+              xray={xray}
+              // Only a removable pack lies flush with the cover, in its own hatch.
+              offset={4}
+              mode="floor"
+            />
+            {!xray && <CoverFittings fit={fit} />}
+          </>
+        )}
         <Shell
           size={out}
           style={fit.shell.style}
@@ -1204,6 +1224,96 @@ export const Model = memo(function Model({
   );
 });
 
+/** Whether a point of the underside lies on its flat part, clear of a battery hatch. */
+function onCover(fit: Fit, x: number, y: number, r: number): boolean {
+  const o = fit.shell.outer;
+  const flat = faceOf(fit, "bottom").flat;
+  if (flat) {
+    for (const [dx, dy] of [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]]) {
+      if (!flat(o.x / 2 - (x + dx), y + dy - o.y / 2)) return false;
+    }
+  }
+  return !fit.shell.hatches.some(
+    (h) => x > h.at.x - r - 1 && x < h.at.x + h.size.x + r + 1 && y > h.at.y - r - 1 && y < h.at.y + h.size.y + r + 1,
+  );
+}
+
+/**
+ * What a real bottom cover carries: a rubber foot near each corner and the
+ * screws that hold it on, round its edge. Base engine space, under the cover.
+ */
+function CoverFittings({ fit }: { fit: Fit }) {
+  const o = fit.shell.outer;
+  const style = fit.shell.style;
+  const shape = useStable({ o, style, hatches: fit.shell.hatches });
+  const parts = useMemo(() => {
+    const f0 = { shell: { ...fit.shell, outer: shape.o, style: shape.style, hatches: shape.hatches } } as Fit;
+    const O = shape.o;
+    const feet: { x: number; y: number; z: number; r: number }[] = [];
+    const screws: { x: number; y: number; z: number }[] = [];
+    const r = Math.min(7, Math.max(3.5, Math.min(O.x, O.y) * 0.022));
+    const bottomAt = (x: number, y: number) => outerSpanAt(shape.style, O, x, y)[0];
+    // A foot moves in toward the middle until it sits on the flat.
+    const inset0 = Math.max(r + 8, shape.style.corner * 0.4 + r + 4);
+    for (const [sx, sy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      for (let inset = inset0; inset < Math.min(O.x, O.y) / 3; inset += 2) {
+        const x = sx ? O.x - inset : inset;
+        const y = sy ? O.y - inset : inset;
+        if (!onCover(f0, x, y, r)) continue;
+        feet.push({ x, y, z: bottomAt(x, y), r });
+        break;
+      }
+    }
+    // Screws round the edge, and one mid-cover on each side.
+    const e = Math.max(6, inset0 * 0.55);
+    const spots: [number, number][] = [
+      [O.x * 0.3, e],
+      [O.x * 0.7, e],
+      [O.x * 0.3, O.y - e],
+      [O.x * 0.5, O.y - e],
+      [O.x * 0.7, O.y - e],
+      [e, O.y * 0.5],
+      [O.x - e, O.y * 0.5],
+    ];
+    for (const [x, y] of spots) {
+      if (!onCover(f0, x, y, 2)) continue;
+      if (feet.some((f) => Math.hypot(f.x - x, f.y - y) < f.r + 4)) continue;
+      screws.push({ x, y, z: bottomAt(x, y) });
+    }
+    return { feet, screws };
+    // biome-ignore lint/correctness/useExhaustiveDependencies: rebuilt when the shape's content changes
+  }, [shape]);
+  const rubber = token("slot-rubber");
+  const metal = token("slot-metal");
+  const slot = token("color-opening");
+  return (
+    <group>
+      {parts.feet.map((f, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed places
+        <mesh key={`f${i}`} position={[f.x, f.y, f.z - 0.6]} rotation-x={Math.PI / 2}>
+          <cylinderGeometry args={[f.r, f.r * 0.85, 1.2, 28]} />
+          <meshStandardMaterial color={rubber} roughness={0.95} metalness={0} />
+        </mesh>
+      ))}
+      {parts.screws.map((s, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed places
+        <group key={`s${i}`} position={[s.x, s.y, s.z]}>
+          <mesh position={[0, 0, -0.08]} rotation-x={Math.PI / 2}>
+            <cylinderGeometry args={[1.25, 1.25, 0.16, 20]} />
+            <meshStandardMaterial color={metal} roughness={0.4} metalness={0.8} />
+          </mesh>
+          {[0, Math.PI / 2].map((a) => (
+            <mesh key={a} position={[0, 0, -0.17]} rotation-z={a}>
+              <planeGeometry args={[1.6, 0.3]} />
+              <meshBasicMaterial color={slot} side={THREE.DoubleSide} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+    </group>
+  );
+}
+
 /** The bottom cover alone, placed as the Model places the base, inner face up. */
 export function BottomCover({
   fit,
@@ -1218,7 +1328,8 @@ export function BottomCover({
   return (
     <group rotation-x={ENGINE_ROTATION_X}>
       <group position={baseOffset(out)}>
-        <Shell size={out} style={fit.shell.style} colour={colour} profile surface={surface} xray={false} mode="floor" />
+        <Shell size={out} style={fit.shell.style} colour={colour} profile surface={surface} xray={false} offset={4} mode="floor" />
+        <CoverFittings fit={fit} />
       </group>
     </group>
   );

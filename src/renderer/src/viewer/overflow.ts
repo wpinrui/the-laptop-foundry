@@ -1,4 +1,5 @@
 import type { Box, Fit, Size, Vec3 } from "../engine";
+import { outerSection } from "../engine";
 
 export interface Slab {
   at: Vec3;
@@ -53,6 +54,16 @@ export function overflowSlabs(fit: Fit): Slab[] {
         size: { ...inner.size, z: inner.size.z + inner.at.z },
       };
     if (b.piece === "lid") container = lidInner;
+    // A raised shelf lifts the top wall over the rear: the room under it is inside.
+    if (b.piece !== "lid" && b.piece !== "deck" && fit.shell.style.R > 0) {
+      let top = Infinity;
+      for (let i = 0; i <= 4; i++) {
+        const sec = outerSection(fit.shell.style, fit.shell.outer, b.at.y + (b.size.y * i) / 4);
+        top = Math.min(top, sec ? sec[1] - fit.shell.walls.top : -Infinity);
+      }
+      const hi = container.at.z + container.size.z;
+      if (top > hi) container = { at: container.at, size: { ...container.size, z: top - container.at.z } };
+    }
     // Keyboard and trackpad sit in wells, flush with the top surface.
     if (b.piece === "deck")
       container = {

@@ -13,6 +13,7 @@ import {
   toModelSpace,
 } from "../models/contract";
 import { MODELS } from "../models/registry";
+import { releaseLegends } from "./legends";
 
 // THE SEAM. Every unit the viewer draws comes from renderUnit, keyed by role.
 // A model registered in src/renderer/src/models/roles/<key>.ts is used when
@@ -169,12 +170,8 @@ export function disposeUnit(obj: THREE.Object3D): void {
   if (!obj.userData.model) return;
   obj.traverse((o) => {
     (o as THREE.Mesh).geometry?.dispose();
-    // Canvas-drawn overlays (keycap legends) own their material and texture.
-    if (o.userData.own) {
-      const m = (o as THREE.Mesh).material as THREE.MeshBasicMaterial;
-      m.map?.dispose();
-      m.dispose();
-    }
+    // Canvas-drawn overlays (keycap legends) own their texture; their material is kept for the next keyboard.
+    if (o.userData.own) releaseLegends(o as THREE.Mesh);
     if (o instanceof THREE.LineSegments)
       (o.material as THREE.Material).dispose();
   });

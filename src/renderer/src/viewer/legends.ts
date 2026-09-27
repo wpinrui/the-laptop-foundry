@@ -19,6 +19,30 @@ const WORDS: Record<string, string> = {
   "@down": "↓",
 };
 
+/**
+ * Legend materials whose keyboard has gone, kept for the next one: disposing
+ * one freed its shader, and every step of a keyboard size drag compiled it again.
+ */
+const spare: THREE.MeshBasicMaterial[] = [];
+const SPARE = 4;
+
+/** Frees a legends mesh's texture and keeps its material for the next keyboard. */
+export function releaseLegends(mesh: THREE.Mesh): void {
+  const m = mesh.material as THREE.MeshBasicMaterial;
+  m.map?.dispose();
+  if (spare.length < SPARE && !spare.includes(m)) spare.push(m);
+  else m.dispose();
+}
+
+function legendMaterial(tex: THREE.Texture): THREE.MeshBasicMaterial {
+  const kept = spare.pop();
+  if (kept) {
+    kept.map = tex;
+    return kept;
+  }
+  return new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false });
+}
+
 function legendText(raw: string, mode: string): string {
   let t = WORDS[raw] ?? (raw.length > 1 && !/^F\d+$/.test(raw) ? raw.toLowerCase() : raw);
   if (mode === "upper") t = t.toUpperCase();
@@ -90,10 +114,7 @@ export function attachLegends(obj: THREE.Object3D, opts: Record<string, OptionVa
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   const top = Math.max(...spots.map((s) => s.y)) + 0.02;
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(W, D),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false }),
-  );
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, D), legendMaterial(tex));
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set((box.min.x + box.max.x) / 2, top, (box.min.z + box.max.z) / 2);
   mesh.name = "legends";

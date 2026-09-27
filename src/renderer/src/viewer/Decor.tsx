@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import { type Fit, type Mark, type MarkSurface, outerSection, outerSpanAt } from "../engine";
 import { planDistance } from "../engine/shell";
@@ -373,11 +373,18 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
       drawFace(face, marks, canvas, S, loaded.images, mask);
       tex.needsUpdate = true;
     };
-    loaded.current.redraw = redraw;
     redraw();
-    return { tex };
+    return { tex, redraw };
     // biome-ignore lint/correctness/useExhaustiveDependencies: redrawn when the marks' content changes
   }, [loaded, face.w, face.h, mask]);
+  // Picture loads and fonts redraw the canvas on show, hooked up once it is committed:
+  // a memo can run more than once for one render (Strict Mode runs each twice
+  // and keeps one), so one set there could point at a discarded canvas, and
+  // every picture decal stayed blank.
+  useLayoutEffect(() => {
+    loaded.current.redraw = made.redraw;
+    made.redraw();
+  }, [loaded, made]);
   useEffect(() => () => made.tex.dispose(), [made]);
   const plane = useMemo(() => {
     const g = new THREE.PlaneGeometry(face.w, face.h, face.bulge ? 24 : 1, face.bulge ? 96 : 1);

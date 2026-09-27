@@ -556,18 +556,26 @@ function PlaceChips({
             >
               Auto
             </Chip>
-            <Chip
-              on={pin.turn === false}
-              onClick={() => set((b) => withPin(b, slotKey, "turn", false))}
-            >
-              0°
-            </Chip>
-            <Chip
-              on={pin.turn === true}
-              onClick={() => set((b) => withPin(b, slotKey, "turn", true))}
-            >
-              90°
-            </Chip>
+            {(
+              [
+                [false, "0°"],
+                [true, "90°"],
+                ...(at.ups
+                  ? ([
+                      ["up", "Upright"],
+                      ["up90", "Upright 90°"],
+                    ] as const)
+                  : []),
+              ] as const
+            ).map(([t, label]) => (
+              <Chip
+                key={String(t)}
+                on={pin.turn === t}
+                onClick={() => set((b) => withPin(b, slotKey, "turn", t))}
+              >
+                {label}
+              </Chip>
+            ))}
           </Chips>
         </div>
       )}

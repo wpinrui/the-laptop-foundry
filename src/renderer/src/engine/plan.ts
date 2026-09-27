@@ -68,6 +68,8 @@ export interface ZoneFill {
   /** Plan rect after placement. */
   at?: { x: number; y: number };
   size?: { x: number; y: number };
+  /** The whole plan's rect the zone was placed in. */
+  outer?: { at: { x: number; y: number }; size: { x: number; y: number } };
 }
 
 export interface PlacedUnit extends Unit {
@@ -302,6 +304,7 @@ export function place(
       const fill = ps.fills.get(n) as ZoneFill;
       fill.at = { ...pos };
       fill.size = { ...sz };
+      fill.outer = { at: { ...at }, size: { ...size } };
       if (n.edge && isOpeningZone(fill) && ps.ctx.ko > 0) {
         const a = alongAxis(n.edge);
         fill.koLo = Math.max(0, ps.ctx.ko - (pos[a] - at[a]));
@@ -427,6 +430,11 @@ export function placeUnits(
     if (a === edgeA)
       return node.edge === "left" || node.edge === "front" ? "start" : "end";
     if (a === p) return node.align ?? "start";
+    // Speakers line up in a straight row on the side toward the nearer outer wall.
+    if (fill.outer && units.every((u) => u.role === "spk")) {
+      const o = fill.outer;
+      return at[a] + sz[a] / 2 <= o.at[a] + o.size[a] / 2 ? "start" : "end";
+    }
     return "centre";
   };
   const put = (

@@ -560,8 +560,15 @@ export interface Placement {
 /** A movable floor part's pinned zone and turn. Either left out means auto. */
 export interface PartPin {
   zone?: string;
-  turn?: boolean;
+  turn?: Turn;
 }
+
+/**
+ * How a movable part is turned: true a quarter in plan (x and y swap); "up"
+ * stood on its long edge (its height and shorter plan side swap); "up90" both.
+ * Only speakers stand up.
+ */
+export type Turn = boolean | "up" | "up90";
 
 /** Keycaps as the player styled them. Colours are hex. */
 export interface KeySpec {
@@ -686,8 +693,10 @@ export interface Box {
   opts?: Record<string, OptionValue>;
   /** The outer edge the unit's zone sits on (vents, ports, bays). */
   edge?: Side;
-  /** Turned a quarter in plan: size x and y are swapped from the part's own. */
-  turn?: boolean;
+  /** Turned a quarter in plan, or stood up: see Turn. Size is already turned. */
+  turn?: Turn;
+  /** Which way an upright unit's top (a speaker's grille) faces. */
+  face?: Side;
   /** The floor role this unit is stacked over. */
   over?: Role;
 }
@@ -818,7 +827,7 @@ export interface PlaceReport {
   cam?: { x: number; range: Range };
   panel?: { y: number; range: Range };
   /** Movable floor parts by slot: where each sits, and the zones it may sit in. */
-  parts?: Record<string, { zone: string; turn: boolean; turns: boolean; zones: { id: string; name: string }[] }>;
+  parts?: Record<string, { zone: string; turn: Turn; turns: boolean; ups: boolean; zones: { id: string; name: string }[] }>;
   /** One per build port, in build order. Null when the port was not placed. */
   ports: ({ along: number; height: number; box: string } | null)[];
 }

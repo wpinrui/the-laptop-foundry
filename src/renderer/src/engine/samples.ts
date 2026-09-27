@@ -106,7 +106,7 @@ export const SAMPLES: Sample[] = [
       year: 2006,
       body: "workhorse",
       layout: "b",
-      size: [376, 317, 23],
+      size: [376, 317, 23.5],
       parts: {
         processor: "core-duo-t2500",
         graphics: "radeon-x1400",
@@ -147,7 +147,7 @@ export const SAMPLES: Sample[] = [
       year: 2006,
       body: "workhorse",
       layout: "b",
-      size: [358, 290, 23],
+      size: [358, 290, 23.5],
       parts: {
         processor: "core-duo-t2500",
         graphics: "radeon-x1400",
@@ -184,7 +184,7 @@ export const SAMPLES: Sample[] = [
       year: 2006,
       body: "pillow",
       layout: "c",
-      size: [412.5, 300, 27],
+      size: [421.5, 310, 35],
       parts: {
         processor: "core2-duo-t7600",
         graphics: "geforce-go-7900-gtx",
@@ -330,7 +330,7 @@ export const SAMPLES: Sample[] = [
       year: 2026,
       body: "shelf",
       layout: "a",
-      size: [364, 276, 22],
+      size: [376, 276, 22],
       parts: {
         processor: "core-ultra9-275hx",
         graphics: "rtx-5070ti-laptop",

@@ -15,13 +15,15 @@ import {
   optionAvailable,
   pouchDensity,
   pouchShape,
+  type QualityKey,
+  qualityOf,
   solve,
   speakerGrillOpts,
 } from "../engine";
 import { useSettled } from "../viewer/stable";
 import { formatOption, panelLabel } from "./format";
 import { problemText } from "./problems";
-import { Chip, Chips, Label, money } from "./ui";
+import { Chip, Chips, Label, money, SliderField } from "./ui";
 
 // A slot list and the options for the selected slot, one row each: name, spec
 // line and price. Options that would add a problem are dimmed with the reason.
@@ -303,6 +305,20 @@ function PackageChips({ build, set }: { build: Build; set: SetBuild }) {
         ))}
       </Chips>
     </div>
+  );
+}
+
+/** Quality spend on an area, 0 to 100%. */
+export function QualityField({ area, build, set }: { area: QualityKey; build: Build; set: SetBuild }) {
+  return (
+    <SliderField
+      label="Quality"
+      value={Math.round(qualityOf(build, area) * 100)}
+      unit="%"
+      min={0}
+      max={100}
+      onChange={(v) => set((b) => ({ ...b, quality: { ...b.quality, [area]: v / 100 } }))}
+    />
   );
 }
 

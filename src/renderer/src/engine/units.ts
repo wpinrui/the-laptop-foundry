@@ -7,6 +7,7 @@ import {
 } from "./content/peripherals";
 import { pouchOf } from "./battery";
 import { padButtons, padMechanism, padRows, padSurface } from "./pad";
+import { qualityEffect } from "./quality";
 import { activeArea, panelThickness } from "./content/display";
 import { panelOf } from "./screen";
 import type { Index } from "./content";
@@ -249,6 +250,12 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
       }
     }
   }
+
+  // A better webcam's larger sensor and lens need a taller, deeper module.
+  const camE = qualityEffect(build, "webcam");
+  if (camE > 0)
+    for (const u of out.lid)
+      if (u.role === "webcam") u.size = { ...u.size, y: u.size.y * (1 + 0.15 * camE), z: u.size.z * (1 + 0.25 * camE) };
 
   // The player's keycaps ride on the keyboard unit's options, for its model.
   if (build.keys) {

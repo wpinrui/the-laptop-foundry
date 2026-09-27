@@ -29,6 +29,7 @@ import {
 import { panelLab } from "../engine/content/display";
 import type { StageProps } from "./Stages";
 import { Dropdown } from "./Dropdown";
+import { QualityField } from "./Parts";
 import { Card, Chip, Chips, Label, money, Slider, SliderField, Value } from "./ui";
 
 // The Screen stage: a freely specified screen. Standard ratios and
@@ -310,6 +311,7 @@ export function ScreenColumn({ build, set }: StageProps) {
           onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, display: v / 100 } }))}
         />
       )}
+      {current && <QualityField area="display" build={build} set={set} />}
     </>
   );
 }

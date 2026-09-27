@@ -1,21 +1,15 @@
-import { CONTENT, type Fit } from "../engine";
+import { CONTENT, type Fit, speakerModel } from "../engine";
 import type { Build } from "../engine/types";
 import {
-  BASS_K,
   BASS_Q,
-  BASS_RANGE,
   DRIVE_1W,
-  DSP_BASS,
   DSP_DRIVE,
-  DSP_FROM,
   GRILL_LOSS,
   GRILL_TREBLE,
   LOUD_WATTS,
   PRESENCE_DB,
   PRESENCE_HZ,
   SPEAKER_HZ,
-  SPEAKER_WATTS,
-  SPEAKER_WATTS_DEFAULT,
 } from "./tuning";
 
 // The build's speakers as a filter every sound the laptop plays goes
@@ -54,25 +48,9 @@ export interface SpeakerState {
 const SILENT: SpeakerParams = { hp: 200, hpQ: 0.7, peakHz: PRESENCE_HZ, peakDb: 0, lp: 16000, drive: 1, level: 0, stereo: false };
 
 export function speakerOf(build: Build, fit: Fit): SpeakerParams {
-  const id = build.parts.speakers?.[0]?.part;
-  const part = id ? CONTENT.parts.find((p) => p.id === id) : undefined;
-  if (!part) return SILENT;
-  const shapes = Array.isArray(part.shape) ? part.shape : [part.shape];
-  const units = shapes.flatMap((s) => (s.kind === "box" ? s.units : []));
-  let area = 0;
-  let count = 0;
-  for (const u of units) {
-    const s = [u.size.x, u.size.y, u.size.z].sort((a, b) => b - a);
-    area += s[0] * s[1] * (u.count ?? 1);
-    count += u.count ?? 1;
-  }
-  area = Math.max(area, 200);
-  const dsp = part.from >= DSP_FROM;
-  const watts = SPEAKER_WATTS[part.id] ?? SPEAKER_WATTS_DEFAULT;
-  const [lo, hi] = BASS_RANGE;
-  const hp = Math.min(hi, Math.max(lo, (BASS_K / Math.sqrt(area)) * (dsp ? DSP_BASS : 1)));
-  // 0 for the biggest set, 1 for the smallest.
-  const small = Math.min(1, Math.max(0, (hp - lo) / (hi - lo)));
+  const model = speakerModel(build, CONTENT);
+  if (!model) return SILENT;
+  const { hp, watts, dsp, small, count } = model;
   const place = fit.shell.speakerGrill?.place ?? "none";
   return {
     hp,

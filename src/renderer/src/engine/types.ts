@@ -449,6 +449,8 @@ export interface PanelOption extends Dated {
   refresh: number[];
   nits: number;
   gamut: string;
+  /** Display quality spend, 0 to 1: factory calibration and uniformity binning. Set on a build's screen. */
+  quality?: number;
   /** HDR peak on a small window, cd/m2, where the panel has one. Set on a resolved screen. */
   peak?: number;
 }

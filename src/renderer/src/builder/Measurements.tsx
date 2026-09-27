@@ -150,7 +150,7 @@ const SIDE: Record<string, string> = {
 };
 
 /** Figures that need only the chosen parts: they appear first. */
-function Early({ s, d: dur }: { s: Specs; d: M["durability"] }) {
+function Early({ s, d: dur, lab }: { s: Specs; d: M["durability"]; lab: M["lab"]["display"] }) {
   const rows: [string, string][] = [
     ["Drop test", `${dur.dropCm} cm`],
     ["Lid flex", `${one(dur.lidFlexMm)} mm`],
@@ -163,6 +163,10 @@ function Early({ s, d: dur }: { s: Specs; d: M["durability"] }) {
     if (d.peak !== null) rows.push(["HDR peak", `${int(d.peak)} nits`]);
     rows.push(["Refresh", `${d.refresh} Hz`]);
     rows.push(["Gamut", d.gamut]);
+    if (lab) {
+      rows.push(["Delta E", `${lab.deltaE.avg.toFixed(2)} avg, ${lab.deltaE.max.toFixed(2)} max`]);
+      rows.push(["Uniformity", `${lab.uniformity} %`]);
+    }
   }
   const k = s.keyboard;
   if (k) {
@@ -189,6 +193,8 @@ function Early({ s, d: dur }: { s: Specs; d: M["durability"] }) {
       "Webcam",
       [
         `${w.res[0]} x ${w.res[1]}, ${one(w.megapixels)} MP`,
+        `f/${w.aperture.toFixed(1)}`,
+        `${w.sensor.toFixed(1)} mm sensor`,
         w.ir ? "IR" : "",
         w.shutter ? "shutter" : "",
       ]
@@ -201,6 +207,7 @@ function Early({ s, d: dur }: { s: Specs; d: M["durability"] }) {
       "Speakers",
       `${sp.channels === "mono" ? "Mono" : "Stereo"}, ${sp.drivers} ${sp.drivers === 1 ? "driver" : "drivers"}${sp.bass ? ", bass" : ""}`,
     ]);
+  if (sp) rows.push(["Sound", `${sp.bassHz} Hz bass, ${one(sp.watts)} W, ${sp.loudness} dB(A)`]);
   const p = s.ports;
   if (p) {
     rows.push(["Ports", `${p.total}`]);
@@ -238,7 +245,7 @@ export function Measurements({
   return (
     <section className="measurements">
       <Price build={build} fit={fit} m={m} set={set} locked={locked} />
-      <Early s={specs(build)} d={m.durability} />
+      <Early s={specs(build)} d={m.durability} lab={m.lab.display} />
       {perf && (
       <>
       <div className="m-grid">

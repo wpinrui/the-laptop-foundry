@@ -2,6 +2,7 @@ import { type Content, CONTENT } from "../content";
 import { padMechanism, padButtons, padShapeOf, padSize, padSurface } from "../pad";
 import { between, byYear, qualityEffect, qualityOf } from "../quality";
 import { panelOf } from "../screen";
+import { speakerLoudness, speakerModel } from "../speaker";
 import type { Build, BuildPart, OptionValue, Part, Side } from "../types";
 import { durabilityOf } from "./index";
 
@@ -57,6 +58,12 @@ export interface WebcamSpec {
   megapixels: number;
   ir: boolean;
   shutter: boolean;
+  /** Quality spend, 0 to 1. */
+  quality: number;
+  /** Lens aperture, f-number. */
+  aperture: number;
+  /** Sensor diagonal, mm. */
+  sensor: number;
 }
 
 export interface SpeakerSpec {
@@ -64,6 +71,14 @@ export interface SpeakerSpec {
   channels: "mono" | "stereo";
   /** Woofers or a subwoofer. */
   bass: boolean;
+  /** Quality spend, 0 to 1. */
+  quality: number;
+  /** Bass cutoff, Hz. */
+  bassHz: number;
+  /** Amplifier power, W. */
+  watts: number;
+  /** Loudest level at 50 cm, dB(A). */
+  loudness: number;
 }
 
 export interface DisplaySpec {
@@ -180,22 +195,32 @@ export function specs(build: Build, content: Content = CONTENT): Specs {
   if (cam && camPart) {
     const key = camPart.name.replace(/ with IR$/, "");
     const res = CAMERA_RES[key] ?? [640, 480];
+    // Webcam quality buys a larger sensor and a faster lens; the best of each grew over the years.
+    const e = qualityEffect(build, "webcam");
     webcam = {
       res,
       megapixels: Math.round((res[0] * res[1]) / 100000) / 10,
       ir: camPart.name.includes("IR"),
       shutter: opt(cam, camPart, "shutter") === "yes",
+      quality: qualityOf(build, "webcam"),
+      aperture: Math.round(between(2.8, byYear(year, [[2006, 2.4], [2016, 2.2], [2026, 1.8]]), e) * 10) / 10,
+      sensor: Math.round(between(2.9, byYear(year, [[2006, 4.5], [2016, 4.5], [2026, 6]]), e) * 10) / 10,
     };
   }
 
   let speakers: SpeakerSpec | null = null;
   const spkPart = partOf(build.parts.speakers?.[0]);
-  if (spkPart) {
+  const spk = speakerModel(build, content);
+  if (spkPart && spk) {
     const drivers = unitsOf(spkPart);
     speakers = {
       drivers,
       channels: spkPart.name.startsWith("Mono") ? "mono" : "stereo",
       bass: /sub|woofer/i.test(spkPart.name),
+      quality: qualityOf(build, "speakers"),
+      bassHz: Math.round(spk.hp),
+      watts: Math.round(spk.watts * 10) / 10,
+      loudness: speakerLoudness(spk, qualityEffect(build, "speakers")),
     };
   }
 

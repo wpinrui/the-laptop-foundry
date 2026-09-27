@@ -529,7 +529,8 @@ function build(
   const kb = new THREE.Group();
   kb.name = "keys";
   const add = (mesh: THREE.Mesh | undefined) => mesh && kb.add(mesh);
-  add(plate.mesh(m.metal, "plate"));
+  const deck = options.deckColour;
+  add(plate.mesh(typeof deck === "string" && ctx.tint ? ctx.tint(deck) : m.metal, "plate"));
   add(switches.mesh(m.plastic, "switches"));
   const capMat = (hex: unknown) => (typeof hex === "string" && ctx.tint ? ctx.tint(hex) : m.body);
   add(capsBy.letters.mesh(capMat(options.capLetters), "caps"));

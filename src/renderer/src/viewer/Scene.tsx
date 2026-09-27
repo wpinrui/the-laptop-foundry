@@ -782,7 +782,7 @@ const WELL_CLEAR = 0.2;
  * and lit up the inside of the shell floor as a pale strip along the far
  * edges (worst through a glass trackpad).
  */
-function Well({ well: w, top, floor }: { well: Wells[number]; top: number; floor?: number }) {
+function Well({ well: w, top, floor, tint }: { well: Wells[number]; top: number; floor?: number; tint?: string }) {
   const x0 = w.at.x - WELL_CLEAR;
   const y0 = w.at.y - WELL_CLEAR;
   const sx = w.size.x + 2 * WELL_CLEAR;
@@ -790,7 +790,13 @@ function Well({ well: w, top, floor }: { well: Wells[number]; top: number; floor
   const z0 = floor ?? w.at.z - 0.05;
   // The walls stop just under the top case, so their top edge never meets its face.
   const h = top - WELL_CLEAR - z0;
-  const colour = token("color-opening");
+  const colour = tint ?? token("color-opening");
+  // A player's colour takes the light, so it reads as a surface; the stock dark stays flat.
+  const mat = tint ? (
+    <meshStandardMaterial color={colour} roughness={0.6} metalness={0.1} side={THREE.DoubleSide} />
+  ) : (
+    <meshBasicMaterial color={colour} side={THREE.DoubleSide} />
+  );
   const walls: { pos: [number, number, number]; rot: [number, number, number]; size: [number, number] }[] = [
     { pos: [x0 + sx / 2, y0, z0 + h / 2], rot: [Math.PI / 2, 0, 0], size: [sx, h] },
     { pos: [x0 + sx / 2, y0 + sy, z0 + h / 2], rot: [Math.PI / 2, 0, 0], size: [sx, h] },
@@ -801,12 +807,12 @@ function Well({ well: w, top, floor }: { well: Wells[number]; top: number; floor
     <group>
       <mesh position={[x0 + sx / 2, y0 + sy / 2, z0]}>
         <planeGeometry args={[sx, sy]} />
-        <meshBasicMaterial color={colour} side={THREE.DoubleSide} />
+        {mat}
       </mesh>
       {walls.map((wall, i) => (
         <mesh key={i} position={wall.pos} rotation={wall.rot}>
           <planeGeometry args={wall.size} />
-          <meshBasicMaterial color={colour} side={THREE.DoubleSide} />
+          {mat}
         </mesh>
       ))}
     </group>
@@ -995,9 +1001,18 @@ export const Model = memo(function Model({
           wells={fit.shell.wells}
         />
         {!xray &&
-          fit.shell.wells.map((w) => (
-            <Well key={`${w.at.x}-${w.at.y}`} well={w} top={out.z} floor={wellFloor(fit, w, year)} />
-          ))}
+          fit.shell.wells.map((w) => {
+            const floor = wellFloor(fit, w, year);
+            return (
+              <Well
+                key={`${w.at.x}-${w.at.y}`}
+                well={w}
+                top={out.z}
+                floor={floor}
+                tint={floor === undefined ? undefined : decor?.keyDeck}
+              />
+            );
+          })}
         <Openings fit={fit} />
         {workshop && !table && <Workshop out={out} />}
         {table && (

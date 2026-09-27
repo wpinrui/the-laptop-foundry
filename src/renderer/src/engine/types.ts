@@ -588,6 +588,8 @@ export interface Build {
   bezel?: string;
   /** The trackpad's colour and surface. Absent means the stock pad (glass from 2015, matte plastic before). */
   pad?: { colour: string; finish: PadFinish };
+  /** The keyboard deck (the well and key plate around the caps), hex. Absent means the stock near-black. */
+  keyDeck?: string;
   marks?: Mark[];
   /**
    * The signature slider per body id, 0 to 1; 0.5 when absent. Every build made

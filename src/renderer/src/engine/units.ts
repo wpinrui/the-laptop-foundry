@@ -273,6 +273,12 @@ export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
     for (const u of out.deck) if (u.role === "pad") u.opts = { ...u.opts, padColour: p.colour, padFinish: p.finish };
   }
 
+  // The player's keyboard deck colour rides on the keys unit, for its plate.
+  if (build.keyDeck) {
+    const hex = build.keyDeck;
+    for (const u of out.deck) if (u.role === "keys") u.opts = { ...u.opts, deckColour: hex };
+  }
+
   // The screen: its active area and thickness from the resolved panel.
   const panel = panelOf(build, idx.content);
   const ptype = panel && idx.panelTypes.get(panel.type);

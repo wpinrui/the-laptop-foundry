@@ -1,10 +1,10 @@
 import type { Rival } from "../market/field";
 import { marketScore } from "../market/score";
 import { NOVELTY_DECAY_BASE, NOVELTY_LAUNCH_BONUS, population, priceCeiling, quarterlyBuyers, SEGMENTS, screenFit } from "../market/segments";
-import { type HeadlineValues, headlineStats } from "../market/stats";
+import { profileOf, rivalProfile } from "../market/profile";
+import type { HeadlineValues } from "../market/stats";
 import { HEADLINE_STATS, type Segment, type SegmentId } from "../market/types";
-import { factsOf, rng } from "../review";
-import { scoresFromFacts } from "../review/score";
+import { rng } from "../review";
 import type { Build } from "../types";
 import { brandFactor, type SegmentOutcome } from "./brand";
 import {
@@ -192,28 +192,7 @@ export function splitDemand(
 
 // ------------------------------------------------------------------ sellers
 
-interface Profile {
-  stats: HeadlineValues;
-  review: number;
-  inches: number;
-}
-
-const profiles = new Map<string, Profile>();
-
-/** A laptop's headline stats, review score and screen size, measured once per build. */
-export function profileOf(id: string, build: Build): Profile {
-  const key = `${id}:${JSON.stringify(build)}`;
-  const hit = profiles.get(key);
-  if (hit) return hit;
-  const f = factsOf({ id, name: id, company: "", build });
-  const p: Profile = {
-    stats: headlineStats(build, f.fit, f.m, f.r),
-    review: scoresFromFacts(f).overall,
-    inches: f.panel?.inches ?? build.screen?.diag ?? 14,
-  };
-  profiles.set(key, p);
-  return p;
-}
+export { profileOf };
 
 /** A rival's launch as a quarter index. A stand-in for last year's model reads as launched a year earlier. */
 export function rivalLaunch(company: string, r: Rival, at: number): number {
@@ -235,7 +214,7 @@ export function sellersOf(state: CampaignState, models: { id: string; build: unk
   const on = new Set(state.onSale);
   for (const r of rivals) {
     if (!on.has(r.id)) continue;
-    const p = profileOf(r.id, r.build);
+    const p = rivalProfile(r);
     out.push({
       id: r.id,
       maker: r.maker,
@@ -254,7 +233,7 @@ export const simulateSales: QuarterStep = (state, ctx) => {
   const rivals = ctx.rivals ?? [];
   const company = ctx.company ?? "";
   const sellers = sellersOf(state, ctx.models, rivals, company);
-  const year = rivals.filter((r) => r.build.year === state.now.year).map((r) => profileOf(r.id, r.build).stats);
+  const year = rivals.filter((r) => r.build.year === state.now.year).map((r) => rivalProfile(r).stats);
   const own = sellers.filter((x) => x.maker === null).map((x) => x.stats);
   const basis = year.length > 0 ? [...year, ...own] : sellers.map((x) => x.stats);
   const res = splitDemand(sellers, basis, state, `sales:${company}:${state.now.year}:${state.now.quarter}`);

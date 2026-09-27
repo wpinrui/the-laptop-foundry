@@ -11,6 +11,7 @@ import {
   subscribeMarkets,
 } from "../engine/market/field";
 import { generateYear, hashOf } from "../engine/market/generate";
+import { withProfiles } from "../engine/market/profile";
 import MarketWorker from "./market.worker?worker&inline";
 
 // The open company's markets: loaded from the save, and generated the first
@@ -71,7 +72,7 @@ export function ensureMarket(year: number): Promise<void> {
   const run = inWorker(y, seed)
     .catch((e) => {
       console.warn("market worker failed, generating on the main thread", e);
-      return savedMarketOf(generateYear(y, seed));
+      return withProfiles(savedMarketOf(generateYear(y, seed)));
     })
     .then((m) => {
       addMarket(company, m);

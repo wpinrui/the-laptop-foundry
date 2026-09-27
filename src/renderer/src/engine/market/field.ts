@@ -1,5 +1,6 @@
 import type { Build } from "../types";
 import type { GeneratedYear } from "./generate";
+import type { Profile } from "./profile";
 
 // The open company's markets (GDD, Rivals): one generated field of rival
 // models per year, made the first time the year is opened in the company and
@@ -13,6 +14,8 @@ export interface Rival {
   line: string;
   name: string;
   build: Build;
+  /** Stats, review and screen, measured when the market was generated. Older saves lack it. */
+  profile?: Profile;
 }
 
 /** A year's market as saved with the company. */

@@ -3,6 +3,7 @@ import { CRITICS_DELAY, REVIEW_PAR } from "./constants";
 import type { CampaignState, Quarter, QuarterStep } from "./index";
 import { quarterIndex } from "./rivals";
 import { profileOf, rivalLaunch } from "./sales";
+import { rivalProfile } from "../market/profile";
 
 // Critics (GDD, Version 0.2, "Critics and awards"): a laptop's review is
 // published CRITICS_DELAY quarters after it goes on sale, and only then does
@@ -47,7 +48,7 @@ export const publishReviews: QuarterStep = (state, ctx) => {
   const on = new Set(state.onSale);
   for (const r of ctx.rivals ?? []) {
     if (state.reviews[r.id] || !on.has(r.id) || !isPublishable(rivalLaunch(company, r, at), at)) continue;
-    added[r.id] = { quarter: { ...state.now }, score: profileOf(r.id, r.build).review };
+    added[r.id] = { quarter: { ...state.now }, score: rivalProfile(r).review };
   }
   return Object.keys(added).length > 0 ? { ...state, reviews: { ...state.reviews, ...added } } : state;
 };

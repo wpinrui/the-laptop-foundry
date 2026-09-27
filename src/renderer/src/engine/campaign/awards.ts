@@ -2,6 +2,7 @@ import { factsOf, rivalSubject } from "../review";
 import { scoresFromFacts } from "../review/score";
 import type { CategoryKey } from "../review/scales";
 import type { Rival } from "../market/field";
+import { rivalProfile } from "../market/profile";
 import type { SegmentId } from "../market/types";
 import type { Build } from "../types";
 import { AWARD_APPEAL, AWARD_PERCEPTION, AWARD_SECONDARY, AWARD_SEGMENTS, PERCEPTION_MAX, PERCEPTION_MIN } from "./constants";
@@ -117,8 +118,11 @@ export function nomineesOf(
   }
   for (const r of rivals) {
     if (r.build.year !== year) continue;
-    const n = nomineeOf(r.id, r.maker, rivalSubject(r).name, r.build, state.reviews[r.id]?.score);
-    if (n) out.push(n);
+    try {
+      const p = rivalProfile(r);
+      const overall = state.reviews[r.id]?.score ?? p.review;
+      out.push({ id: r.id, maker: r.maker, name: rivalSubject(r).name, price: r.build.price ?? 0, overall, categories: p.categories });
+    } catch {}
   }
   return out;
 }

@@ -13,6 +13,12 @@ import type { Short } from "./script";
 // renders and never drops a frame.
 
 export const FPS = 30;
+/**
+ * The 3D view renders at two thirds of the file's size and is scaled up under
+ * the full-size cards and captions: about twice as fast as rendering it at
+ * full size on the GPU, with the text still sharp.
+ */
+const GL_SCALE = 2 / 3;
 const VIDEO_BITRATE = 6_000_000;
 const AUDIO_RATE = 48_000;
 const AUDIO_BITRATE = 96_000;
@@ -37,11 +43,21 @@ const AUDIO_CODECS = [
   { codec: "opus", mux: "opus" },
 ] as const;
 
-async function pickVideo(): Promise<(typeof VIDEO_CODECS)[number]> {
-  for (const c of VIDEO_CODECS) {
-    const s = await VideoEncoder.isConfigSupported({ codec: c.codec, width: W, height: H, bitrate: VIDEO_BITRATE, framerate: FPS });
-    if (s.supported) return c;
-  }
+/** H.264 for phone galleries, on the GPU's encoder where there is one; VP9 where there is no H.264. */
+async function pickVideo(): Promise<{ mux: (typeof VIDEO_CODECS)[number]["mux"]; config: VideoEncoderConfig }> {
+  for (const c of VIDEO_CODECS)
+    for (const hardwareAcceleration of ["prefer-hardware", "no-preference"] as const) {
+      const config: VideoEncoderConfig = {
+        codec: c.codec,
+        width: W,
+        height: H,
+        bitrate: VIDEO_BITRATE,
+        framerate: FPS,
+        latencyMode: "quality",
+        hardwareAcceleration,
+      };
+      if ((await VideoEncoder.isConfigSupported(config)).supported) return { mux: c.mux, config };
+    }
   throw new Error("no video encoder");
 }
 
@@ -112,6 +128,7 @@ interface Job {
 /** Steps the scene through every frame, encodes it with the narration and returns the MP4. */
 async function encode(job: Job, state: RootState, time: { current: number }): Promise<Blob> {
   const { short, tl, voice, cancelled } = job;
+  const began = performance.now();
   const vc = await pickVideo();
   const ac = voice ? await pickAudio() : null;
   const target = new ArrayBufferTarget();
@@ -130,7 +147,7 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
       failed = e;
     },
   });
-  enc.configure({ codec: vc.codec, width: W, height: H, bitrate: VIDEO_BITRATE, framerate: FPS, latencyMode: "quality" });
+  enc.configure(vc.config);
   const frame = new OffscreenCanvas(W, H);
   const g = frame.getContext("2d");
   if (!g) throw new Error("no 2d context");
@@ -150,7 +167,12 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
       const vf = new VideoFrame(frame, { timestamp: Math.round((f * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
       enc.encode(vf, { keyFrame: f % (FPS * 2) === 0 });
       vf.close();
-      while (enc.encodeQueueSize > QUEUE) await new Promise((r) => enc.addEventListener("dequeue", r, { once: true }));
+      // Polled as well: an encoder that fails sends no more dequeue events.
+      while (enc.encodeQueueSize > QUEUE && !failed)
+        await new Promise((r) => {
+          enc.addEventListener("dequeue", r, { once: true });
+          setTimeout(r, 50);
+        });
       await yieldTask();
     }
     await enc.flush();
@@ -159,6 +181,8 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
     if (enc.state !== "closed") enc.close();
   }
   muxer.finalize();
+  const secs = (performance.now() - began) / 1000;
+  console.info(`short: ${frames} frames (${tl.total.toFixed(1)} s, ${vc.mux} ${vc.config.hardwareAcceleration}${ac ? `+${ac.mux}` : ""}) in ${secs.toFixed(1)} s, ${(tl.total / secs).toFixed(2)}x real time, ${target.buffer.byteLength} bytes`);
   return new Blob([target.buffer], { type: "video/mp4" });
 }
 
@@ -166,7 +190,9 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
 function Driver({ onState }: { onState: (s: RootState) => void }) {
   const state = useThree();
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the canvas mounts
-  useEffect(() => onState(state), []);
+  useEffect(() => {
+    onState(state);
+  }, []);
   return null;
 }
 
@@ -201,7 +227,7 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Blob | Err
     <Canvas
       flat
       shadows
-      dpr={1}
+      dpr={GL_SCALE}
       frameloop="never"
       gl={{ preserveDrawingBuffer: true, antialias: true }}
       camera={{ fov: FOV, near: 10, far: 6000, position: [0, 500, 800] }}

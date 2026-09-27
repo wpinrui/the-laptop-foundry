@@ -41,6 +41,7 @@ import {
   Win,
 } from "../os/Os";
 import { FoxApp, useFox } from "../os/Fox";
+import { NoteApp, useNote } from "../os/Note";
 import { SYS_SIZE, SYS_TITLE } from "../os/shots";
 import { sysGroups } from "../os/sys";
 import { type AppId, duration, ownerOf, type Power } from "../os/types";
@@ -301,6 +302,7 @@ export function useLaptopOs({
   const [kiln, setKiln] = useState({ running: false, progress: 0, elapsed: 0, result: null as number | null });
   const [web, setWeb] = useState({ list: [INDEX], at: 0, n: 0 });
   const fox = useFox(app === "fox", () => setApp(null));
+  const note = useNote();
   const now = useNow();
 
   const tl = useMemo(
@@ -573,6 +575,12 @@ export function useLaptopOs({
     win = (
       <Win app="fox" title={fox.tab.title === "New Tab" ? "Mozilla Firefox" : fox.tab.title} w={99999} h={99999} {...winProps}>
         <FoxApp fox={fox} />
+      </Win>
+    );
+  else if (app === "note")
+    win = (
+      <Win app="note" title={`${note.doc.name || "Untitled"} - Notepad`} w={680} h={520} {...winProps}>
+        <NoteApp note={note} />
       </Win>
     );
   else if (app === "sys") {

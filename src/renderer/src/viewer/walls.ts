@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import type { Fit, MeshData, Side } from "../engine";
+import type { Box, Fit, MeshData, Side, Size } from "../engine";
 import { portOpening } from "../models/roles/port";
 
-// Side walls with the ports cut through them. The shell leaves out the flat
+// Side walls with the ports and optical bays cut through them. The shell leaves out the flat
 // wall of each side that has a port; this builds that wall as one extruded
 // solid: the outer face with a hole shaped to each connector (its own front
 // outline, from the port model, grown by a small clearance), the hole's
@@ -42,7 +42,40 @@ export function portCuts(fit: Fit): Cuts {
       cuts[side].push(pts);
     }
   }
+  // An optical bay's opening is its bezel's own rectangle; the unit is drawn
+  // out to the outer face (flushBay), so the bezel fills the hole.
+  for (const o of fit.shell.cutouts) {
+    if (o.kind !== "bay") continue;
+    if (!cuts[o.side]) cuts[o.side] = [];
+    cuts[o.side]?.push([
+      [o.u[0], o.z[0]],
+      [o.u[1], o.z[0]],
+      [o.u[1], o.z[1]],
+      [o.u[0], o.z[1]],
+    ]);
+  }
   return cuts;
+}
+
+/**
+ * A bay unit (optical drive or bay battery) as drawn: grown out through the
+ * side wall to the shell's outer face. The engine lays it out inside the
+ * walls, which on a rounded body leaves its bezel at the back of a hole many
+ * millimetres deep; a real bay's bezel sits flush with the side.
+ */
+export function flushBay(b: Box, out: Size): Box {
+  if (b.kind !== "unit" || b.role !== "odd" || !b.edge) return b;
+  const at = { ...b.at };
+  const size = { ...b.size };
+  if (b.edge === "left") {
+    size.x += at.x;
+    at.x = 0;
+  } else if (b.edge === "right") size.x = out.x - at.x;
+  else if (b.edge === "front") {
+    size.y += at.y;
+    at.y = 0;
+  } else size.y = out.y - at.y;
+  return { ...b, at, size };
 }
 
 function area(pts: P2[]): number {

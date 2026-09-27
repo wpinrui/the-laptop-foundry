@@ -839,6 +839,54 @@
   resolved "https://registry.yarnpkg.com/@fontsource/ibm-plex-sans/-/ibm-plex-sans-5.3.0.tgz#8099950b404e625f65e7bd833bcb84ffe6bcd40c"
   integrity sha512-CbE4CbbEEZJX860XyUiRpsksXIQR8Rp2XDva2VO53NJox9tVNtusrysd2x5YkUEY3ErQ66W1IiiQL8/wihhw5w==
 
+"@ghostery/adblocker-content@^2.18.2":
+  version "2.18.2"
+  resolved "https://registry.yarnpkg.com/@ghostery/adblocker-content/-/adblocker-content-2.18.2.tgz#d9139aba8b9b7858b003a41af1d821a49153c49b"
+  integrity sha512-TOe/b4KOBFEc9OjLG+wvgamGcSTIPSDBAL5YSa8lzjBsoSl8IDnfOjeJDldlLacsC/JEUMLkZIDDNknEolJVqg==
+  dependencies:
+    "@ghostery/adblocker-extended-selectors" "^2.18.2"
+
+"@ghostery/adblocker-electron-preload@^2.18.2":
+  version "2.18.2"
+  resolved "https://registry.yarnpkg.com/@ghostery/adblocker-electron-preload/-/adblocker-electron-preload-2.18.2.tgz#1b2897af11443128b2249c99d03abe39a7f5b45d"
+  integrity sha512-l941hNABXsUMx1oqVSHjRMQXWFCmlC/DF8rHBBOH+A0uxLjL6r62Fl6KsL7F4hxlg3dyWrDPEIcKzaxWqRdfOg==
+  dependencies:
+    "@ghostery/adblocker-content" "^2.18.2"
+
+"@ghostery/adblocker-electron@^2.18.2":
+  version "2.18.2"
+  resolved "https://registry.yarnpkg.com/@ghostery/adblocker-electron/-/adblocker-electron-2.18.2.tgz#1ebecb77412e6ac64f8c00800938f1fe56ef25a6"
+  integrity sha512-lpPh7EmFLDIW+OyUKaYCUUUHwVfVXpwlwfxzo6Ilc+oH6N+rCTViT08olX4jXsfxezZ6zfyCG5SL9iLBU1wrng==
+  dependencies:
+    "@ghostery/adblocker" "^2.18.2"
+    "@ghostery/adblocker-electron-preload" "^2.18.2"
+    tldts-experimental "^7.4.9"
+
+"@ghostery/adblocker-extended-selectors@^2.18.2":
+  version "2.18.2"
+  resolved "https://registry.yarnpkg.com/@ghostery/adblocker-extended-selectors/-/adblocker-extended-selectors-2.18.2.tgz#acc790fd85eb3a6c6fe192b540a6e5a69e9f1922"
+  integrity sha512-doKNShBk3+czQL08UkrysHkCPeG/kNPlXvz3DH7SXxD9Y78ovWkEAhjeR+upoan3fomJJuK3dD+IrlofnjckYw==
+
+"@ghostery/adblocker@^2.18.2":
+  version "2.18.2"
+  resolved "https://registry.yarnpkg.com/@ghostery/adblocker/-/adblocker-2.18.2.tgz#e3b65794e6e05deabf1c1cd0080db85107ae6ec2"
+  integrity sha512-x6zEkf1dHSN0t4ExLmuN6nIgH0oAi6laoKe5yGsiIB4jkEvutea1PJgxgRUIjWfNbDRmkf4GjUtuqQFZgvQG1w==
+  dependencies:
+    "@ghostery/adblocker-content" "^2.18.2"
+    "@ghostery/adblocker-extended-selectors" "^2.18.2"
+    "@ghostery/url-parser" "^1.3.1"
+    "@remusao/guess-url-type" "^2.1.0"
+    "@remusao/small" "^2.1.0"
+    "@remusao/smaz" "^2.2.0"
+    tldts-experimental "^7.4.9"
+
+"@ghostery/url-parser@^1.3.1":
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/@ghostery/url-parser/-/url-parser-1.3.1.tgz#244069aa092e52c547c9bf2c7dd3541e0f16b028"
+  integrity sha512-QKqGi+7aDQ4RcyHyCwgEk6B9vWnsBP4Q7htaN0zPJV3ATqTKEQDtSTb9c/AN586oJUDs24YXKcwFYwNweY/YjQ==
+  dependencies:
+    tldts-experimental "^7.0.8"
+
 "@isaacs/fs-minipass@^4.0.0":
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/@isaacs/fs-minipass/-/fs-minipass-4.0.1.tgz#2d59ae3ab4b38fb4270bfa23d30f8e2e86c7fe32"
@@ -1000,6 +1048,41 @@
     suspend-react "^0.1.3"
     use-sync-external-store "^1.4.0"
     zustand "^5.0.3"
+
+"@remusao/guess-url-type@^2.1.0":
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/@remusao/guess-url-type/-/guess-url-type-2.1.0.tgz#7b815ec7c8362607eef45442600c7d6d1cbe54f7"
+  integrity sha512-zI3dlTUxpjvx2GCxp9nLOSK5yEIqDCpxlAVGwb2Y49RKkS72oeNaxxo+VWS5+XQ5+Mf8Zfp9ZXIlk+G5eoEN8A==
+
+"@remusao/small@^2.1.0":
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/@remusao/small/-/small-2.1.0.tgz#781a52974cc46a00e1837a6f0c5c262faaa0b95a"
+  integrity sha512-Y1kyjZp7JU7dXdyOdxHVNfoTr1XLZJTyQP36/esZUU/WRWq9XY0PV2HsE3CsIHuaTf4pvgWv2pvzvnZ//UHIJQ==
+
+"@remusao/smaz-compress@^2.2.0":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@remusao/smaz-compress/-/smaz-compress-2.2.0.tgz#d388e6c3b3026cf97bc4af9aad29b2cd1e195808"
+  integrity sha512-TXpTPgILRUYOt2rEe0+9PC12xULPvBqeMpmipzB9A7oM4fa9Ztvy9lLYzPTd7tiQEeoNa1pmxihpKfJtsxnM/w==
+  dependencies:
+    "@remusao/trie" "^2.1.0"
+
+"@remusao/smaz-decompress@^2.2.0":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@remusao/smaz-decompress/-/smaz-decompress-2.2.0.tgz#4b64fe902303b17713a3b9015ccfa94831a8d753"
+  integrity sha512-ERAPwxPaA0/yg4hkNU7T2S+lnp9jj1sApcQMtOyROvOQyo+Zuh6Hn/oRcXr8mmjlYzyRaC7E6r3mT1nrdHR6pg==
+
+"@remusao/smaz@^2.2.0":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@remusao/smaz/-/smaz-2.2.0.tgz#dbec6150250ba2ad8bb8766aa9a06344ee04a96a"
+  integrity sha512-eSd3Qs0ELP/e7tU1SI5RWXcCn9KjDgvBY+KtWbL4i2QvvHhJOfdIt4v0AA3S5BbLWAr5dCEC7C4LUfogDm6q/Q==
+  dependencies:
+    "@remusao/smaz-compress" "^2.2.0"
+    "@remusao/smaz-decompress" "^2.2.0"
+
+"@remusao/trie@^2.1.0":
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/@remusao/trie/-/trie-2.1.0.tgz#957a38e8a8c67dad35894b3e10bb924a8b455075"
+  integrity sha512-Er3Q8q0/2OcCJPQYJOPLmCuqO0wu7cav3SPtpjlxSbjFi1x+A1pZkkLD6c9q2rGEkGW/tkrRzfrhNMt8VQjzXg==
 
 "@rolldown/pluginutils@1.0.0-rc.3":
   version "1.0.0-rc.3"
@@ -3672,6 +3755,13 @@ tldts-core@^7.4.15:
   version "7.4.15"
   resolved "https://registry.yarnpkg.com/tldts-core/-/tldts-core-7.4.15.tgz#9ba216e1256dfd86b89da8fcb6bdf8b0ffdf360b"
   integrity sha512-ERuv0p98XgSzmlSLJr8vDNxX+uATGInlN97V3R+JpYWaSqn5IG3ewWgCwczk4bkOpgth/o8Nt5FOi4B4w0n/1A==
+
+tldts-experimental@^7.0.8, tldts-experimental@^7.4.9:
+  version "7.4.15"
+  resolved "https://registry.yarnpkg.com/tldts-experimental/-/tldts-experimental-7.4.15.tgz#fe8e500f4ebbe1e3cccf9439385ee385489661c9"
+  integrity sha512-IHFsr0juxP1k2JemWCefrfnHaVX1NHgpRApdnGvgItJSEZvhcEv2yOt2DVJ3j7aPbEEoxjN7dci7+mtZmfGIJw==
+  dependencies:
+    tldts-core "^7.4.15"
 
 tldts@^7.0.5:
   version "7.4.15"

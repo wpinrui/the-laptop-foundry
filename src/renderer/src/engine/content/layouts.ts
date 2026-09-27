@@ -11,13 +11,24 @@ import type { Layout, Node, Plan } from "../types";
 // Layout A, "Battery front": battery row across the full front with the optical
 // bay at its right end, fans venting rear either side of the board, rear ports
 // between the fans, side ports in the rear block beside the hinges.
+// The battery and the speakers may also move back under the keyboard, leaving
+// the front under the palm rest thin for a taper; the speakers may also move
+// to the rear row beside the hinges. Zones sharing a name are one place: a
+// part moved there deals its units across them.
 const floorA: Node = {
   split: "y",
   children: [
     {
       split: "x",
       children: [
-        { zone: "spk-l", takes: ["spk"], pack: "y", grow: 1, align: "centre" },
+        {
+          zone: "spk-l",
+          takes: ["spk"],
+          pack: "y",
+          grow: 1,
+          align: "centre",
+          name: "Front",
+        },
         {
           zone: "drive-bay",
           takes: ["drive"],
@@ -25,7 +36,7 @@ const floorA: Node = {
           grow: 1,
           align: "centre",
           capacity: 2,
-          name: "Battery row",
+          name: "Front",
         },
         {
           zone: "battery",
@@ -33,8 +44,16 @@ const floorA: Node = {
           pack: "x",
           grow: 1,
           align: "centre",
+          name: "Front",
         },
-        { zone: "spk-r", takes: ["spk"], pack: "y", grow: 1, align: "centre" },
+        {
+          zone: "spk-r",
+          takes: ["spk"],
+          pack: "y",
+          grow: 1,
+          align: "centre",
+          name: "Front",
+        },
         // The optical drive loads from the right side: here at the front
         // corner, or in the rear row ahead of the right side ports.
         {
@@ -44,7 +63,41 @@ const floorA: Node = {
           grow: 0,
           edge: "right",
           capacity: 1,
-          name: "Battery row",
+          name: "Front",
+        },
+      ],
+    },
+    // Under the keyboard: the battery pushed back against the rear row (it
+    // takes the slack in front of it), the speakers at the sides.
+    {
+      split: "x",
+      children: [
+        {
+          zone: "spk-kb-l",
+          takes: [],
+          may: ["spk"],
+          pack: "x",
+          grow: 1,
+          align: "start",
+          name: "Under keyboard",
+        },
+        {
+          zone: "battery-kb",
+          takes: [],
+          may: ["battery"],
+          pack: "y",
+          grow: 100,
+          align: "end",
+          name: "Under keyboard",
+        },
+        {
+          zone: "spk-kb-r",
+          takes: [],
+          may: ["spk"],
+          pack: "x",
+          grow: 1,
+          align: "end",
+          name: "Under keyboard",
         },
       ],
     },
@@ -72,6 +125,16 @@ const floorA: Node = {
               align: "start",
             },
           ],
+        },
+        // Speakers moved to the rear row, beside the hinges.
+        {
+          zone: "spk-rear-l",
+          takes: [],
+          may: ["spk"],
+          pack: "y",
+          grow: 0,
+          align: "end",
+          name: "Rear",
         },
         {
           zone: "fan-l",
@@ -117,6 +180,15 @@ const floorA: Node = {
           pack: "x",
           grow: 4,
           edge: "rear",
+        },
+        {
+          zone: "spk-rear-r",
+          takes: [],
+          may: ["spk"],
+          pack: "y",
+          grow: 0,
+          align: "end",
+          name: "Rear",
         },
         {
           split: "y",

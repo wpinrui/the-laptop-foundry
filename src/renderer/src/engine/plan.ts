@@ -31,7 +31,9 @@ export interface PlanCtx {
 
 /** Gap between neighbours in this zone: the port gap in a port strip. */
 function gapOf(fill: ZoneFill, ctx: PlanCtx): number {
-  return ctx.portGap !== undefined && fill.units.length > 0 && fill.units.every((u) => u.role.startsWith("port:"))
+  return ctx.portGap !== undefined &&
+    fill.units.length > 0 &&
+    fill.units.every((u) => u.role.startsWith("port:"))
     ? ctx.portGap
     : ctx.gap;
 }
@@ -88,13 +90,29 @@ export function deal(
   const unplaced: Unit[] = [];
   for (const u of units) {
     // A unit moved to a zone goes there while it has room, else where its role goes.
+    // Zones sharing the named zone's name are one place: its units go round them in turn.
     if (u.to) {
-      const z = zones.find((z2) => z2.zone === u.to && (z2.takes.includes(u.role) || z2.may?.includes(u.role)));
-      const fill = z && (fills.get(z) as ZoneFill);
-      if (z && fill && (z.capacity === undefined || fill.units.length < z.capacity)) {
+      const fits = (z2: ZoneNode) =>
+        z2.takes.includes(u.role) || z2.may?.includes(u.role);
+      const z = zones.find((z2) => z2.zone === u.to && fits(z2));
+      const group = z?.name
+        ? zones.filter((z2) => z2.name === z.name && fits(z2))
+        : z
+          ? [z]
+          : [];
+      const key = `to:${u.to}:${u.role}`;
+      const start = cursor.get(key) ?? 0;
+      let moved = false;
+      for (let k = 0; k < group.length && !moved; k++) {
+        const z2 = group[(start + k) % group.length];
+        const fill = fills.get(z2) as ZoneFill;
+        if (z2.capacity !== undefined && fill.units.length >= z2.capacity)
+          continue;
         fill.units.push(u);
-        continue;
+        cursor.set(key, (start + k + 1) % group.length);
+        moved = true;
       }
+      if (moved) continue;
     }
     const takers = zones.filter((z) => z.takes.includes(u.role));
     let start = cursor.get(u.role) ?? 0;
@@ -347,10 +365,17 @@ export function placeUnits(
       lim.max.z,
       Math.max(fans[0]?.size.z ?? lim.min.z, bandH - lift),
     );
-    const needed = ctx.fanWatts === undefined ? Infinity : fanSideFor(ctx.fanWatts, fz);
+    const needed =
+      ctx.fanWatts === undefined ? Infinity : fanSideFor(ctx.fanWatts, fz);
     const side =
       ctx.fanFixed ??
-      Math.min(lim.max.x, Math.max(lim.min.x, Math.min(alongRoom, sz[n] - ctx.finDepth - plate, needed)));
+      Math.min(
+        lim.max.x,
+        Math.max(
+          lim.min.x,
+          Math.min(alongRoom, sz[n] - ctx.finDepth - plate, needed),
+        ),
+      );
     const group = k * side + Math.max(0, k - 1) * ctx.gap;
     let u0 = at[e] + fill.koLo + (sz[e] - fill.koLo - fill.koHi - group) / 2;
     const atEnd = node.edge === "right" || node.edge === "rear";

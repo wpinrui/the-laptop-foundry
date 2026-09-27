@@ -79,9 +79,9 @@ export function Slider({
 
 // Icon from Lucide (https://lucide.dev), ISC License, Copyright (c) Lucide Contributors.
 /** A small warning-tinted icon button that grows a dimension to its smallest fitting value. */
-export function FitButton({ title, onClick }: { title: string; onClick: () => void }) {
+export function FitButton({ title, warn, onClick }: { title: string; warn?: boolean; onClick: () => void }) {
   return (
-    <button type="button" className="bd-fit" title={title} aria-label={title} onClick={onClick}>
+    <button type="button" className={warn ? "bd-fit warn" : "bd-fit"} title={title} aria-label={title} onClick={onClick}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M17 12H3" />
         <path d="m11 18 6-6-6-6" />

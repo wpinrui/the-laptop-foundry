@@ -9,9 +9,10 @@ import {
   pouchOf,
   pouchOpts,
   pouchShape,
+  solve,
 } from "../engine";
 import type { SetBuild } from "./Parts";
-import { Line, SliderField, Value } from "./ui";
+import { FitButton, Line, SliderField, Value } from "./ui";
 
 // A pouch battery's size: length, depth and thickness sliders, and the capacity
 // they hold.
@@ -37,8 +38,40 @@ function withSize(
   return { ...b, parts: { ...b.parts, battery: list } };
 }
 
+/**
+ * The largest value of `axis`, on the slider's steps, at which the build is
+ * still valid; when it is already invalid, the largest that stays inside the
+ * chassis and adds no problem.
+ */
+function largestFit(b: Build, fit: Fit, part: Part, shape: PouchShape, axis: Axis): number {
+  const [lo, hi] = shape.limits[axis];
+  const step = STEP[axis];
+  const valid = fit.problems.length === 0;
+  const ok = (v: number) => {
+    try {
+      const f = solve(withSize(b, part, shape, { [axis]: v }));
+      const inside = f.frame.x <= fit.frame.x && f.frame.y <= fit.frame.y && f.frame.z <= fit.frame.z;
+      return inside && (valid ? f.problems.length === 0 : f.problems.length <= fit.problems.length);
+    } catch {
+      return false;
+    }
+  };
+  const at = (i: number) => Math.round((lo + i * step) * 10) / 10;
+  let good = 0;
+  let bad = Math.floor((hi - lo) / step + 1e-6);
+  if (ok(at(bad))) return at(bad);
+  if (!ok(at(good))) return at(good);
+  while (bad - good > 1) {
+    const mid = Math.floor((good + bad) / 2);
+    if (ok(at(mid))) good = mid;
+    else bad = mid;
+  }
+  return at(good);
+}
+
 export function BatteryFields({
   build,
+  fit,
   set,
 }: {
   build: Build;
@@ -68,6 +101,12 @@ export function BatteryFields({
             min={lo}
             max={hi}
             step={STEP[a]}
+            action={
+              <FitButton
+                title={`Largest ${NAME[a].toLowerCase()} that fits`}
+                onClick={() => set((b) => withSize(b, part, shape, { [a]: largestFit(b, fit, part, shape, a) }))}
+              />
+            }
             onChange={(v) => edit({ [a]: v })}
           />
         );

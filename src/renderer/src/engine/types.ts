@@ -395,11 +395,10 @@ export interface ScreenSpec {
   bezel: number;
 }
 
+/** A port on a wall. Its place follows from the list order; old saves may carry `along` and `height`, which are ignored. */
 export interface BuildPort {
   part: string;
   side: Side;
-  along?: number;
-  height?: number;
 }
 
 /** Where the player put the keyboard, trackpad and webcam, in mm. Absent parts sit where the layout puts them. */
@@ -483,7 +482,7 @@ export interface Build {
   /** Outer base size as the player set it. */
   size: Size;
   parts: Partial<Record<Category, BuildPart[]>>;
-  /** Ports. `along` (mm from the rear on a side wall, from the left on the front or rear) and `height` (mm from the bottom to the connector's lower edge) are the player's placement; absent means the automatic one. */
+  /** Ports. On each wall they sit in this order: from the rear on a side wall, from the left on the front or rear. */
   ports: BuildPort[];
   materials: Record<Piece, string>;
   finish: Record<Piece, { colour: string; texture: string }>;
@@ -626,7 +625,7 @@ export interface PlaceReport {
   cam?: { x: number; range: Range };
   panel?: { y: number; range: Range };
   /** One per build port, in build order. Null when the port was not placed. */
-  ports: ({ along: number; height: number; alongRange: Range; heightRange: Range | null; box: string } | null)[];
+  ports: ({ along: number; height: number; box: string } | null)[];
 }
 
 export function isZone(n: Node): n is ZoneNode {

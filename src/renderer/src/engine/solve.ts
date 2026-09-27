@@ -145,6 +145,8 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     era,
     finDepth: em.finDepth,
     fanWatts: em.fans > 0 && chipWatts > 0 ? chipWatts / em.fans : undefined,
+    // Ports sit a fixed finger's width apart: roomier on older machines.
+    portGap: build.year < 2012 ? 6 : build.year < 2020 ? 5 : 4,
   };
   const flatCtx: PlanCtx = {
     gap: 0,
@@ -210,6 +212,23 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
     dm.y + 2 * off.side,
     lm.y + 2 * sl,
   );
+  // Ports that need more wall than the player's size gives: without that
+  // wall's ports the floor would fit, so they are what does not.
+  for (const side of new Set(build.ports.map((p) => p.side))) {
+    const role = `port:${side}`;
+    const e = alongAxis(side);
+    const need = e === "x" ? minX : minY;
+    if (size[e] >= need - 0.01) continue;
+    const rest = floorUnits.filter((u) => u.role !== role);
+    const wm = m2(measure(layout.floor, deal(layout.floor, rest).fills, floorCtx));
+    const without = Math.max(wm[e] + 2 * off.side, dm[e] + 2 * off.side, lm[e] + 2 * sl);
+    if (without >= need - 0.01) continue;
+    for (const u of floorUnits) {
+      if (u.role !== role || !u.part || seenNoRoom.has(`${u.part}|${u.role}`)) continue;
+      seenNoRoom.add(`${u.part}|${u.role}`);
+      problems.push({ kind: "compat", code: "no-room", part: u.part, role: u.role });
+    }
+  }
   const FX = Math.max(size.x, minX);
   const FY = Math.max(size.y, minY);
   const innerFoot = { x: FX - 2 * off.side, y: FY - 2 * off.side };
@@ -333,57 +352,21 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       at: { ...fill.at, z: floorZ0 },
       size: { ...fill.size, z: room },
     });
-    // A port the player moved leaves its slot: the rest repack without it,
-    // and it sits only where the player put it (measured from its own slot).
-    const isMoved = (u: Unit) => {
-      if (!u.role.startsWith("port:") || u.src === undefined || !zone.edge) return false;
-      const bp = build.ports[u.src];
-      return bp?.along !== undefined || bp?.height !== undefined;
-    };
-    const all = placeUnits(fill, floorCtx, floorZ0, room);
-    let units = all;
-    if (fill.units.some(isMoved)) {
-      const rest = new Map(
-        placeUnits({ ...fill, units: fill.units.filter((u) => !isMoved(u)) }, floorCtx, floorZ0, room).map((u) => [u.id, u]),
-      );
-      units = all.map((u) => (isMoved(u) ? u : (rest.get(u.id) ?? u)));
-    }
-    // The player's port placement: anywhere along its wall, up and down as far as the shells allow.
-    const shifted = new Map<number, { du: number; dz: number }>();
+    // Ports pack along their wall in list order; each sits centred up and down
+    // the side wall, between the floor and the top case over this zone.
+    const units = placeUnits(fill, floorCtx, floorZ0, room);
     for (const u of units) {
       if (!u.role.startsWith("port:") || u.src === undefined || !zone.edge) continue;
-      const bp = build.ports[u.src];
       const side = zone.edge;
       const e = alongAxis(side);
-      const len = u.size[e];
-      const lo = off.side + floorCtx.ko;
-      const hi = F[e] - off.side - floorCtx.ko;
-      const fromRear = side === "left" || side === "right";
-      // along is to the connector's centre: from the rear on side walls, from the left otherwise.
-      const toAlong = (c: number) => (fromRear ? F.y - c : c);
-      const cRange: Range = [lo + len / 2, Math.max(lo + len / 2, hi - len / 2)];
-      const aRange: Range = fromRear ? [toAlong(cRange[1]), toAlong(cRange[0])] : cRange;
       const zLo = floorZ0 + floorCtx.lift;
-      const zHi = F.z - Math.max(off.top, pTop) - u.size.z;
-      const hRange: Range | null = zHi > zLo + 0.05 ? [zLo, zHi] : null;
-      const prev = shifted.get(u.src);
-      if (prev) {
-        u.at[e] += prev.du;
-        u.at.z += prev.dz;
-        if (isMoved(u)) moved.add(`floor:${u.id}`);
-        continue;
-      }
-      const c0 = u.at[e] + len / 2;
-      let c = c0;
-      if (bp?.along !== undefined) c = clamp(fromRear ? F.y - bp.along : bp.along, cRange[0], cRange[1]);
-      const z0 = u.at.z;
-      let z = z0;
-      if (bp?.height !== undefined && hRange) z = clamp(bp.height, hRange[0], hRange[1]);
-      u.at[e] = c - len / 2;
-      u.at.z = z;
-      shifted.set(u.src, { du: c - c0, dz: z - z0 });
-      report.ports[u.src] = { along: toAlong(c), height: z, alongRange: aRange, heightRange: hRange, box: `floor:${u.id}` };
-      if (bp?.along !== undefined || bp?.height !== undefined) moved.add(`floor:${u.id}`);
+      const zTop = floorZ0 + room;
+      u.at.z = Math.max(zLo, (zLo + zTop - u.size.z) / 2);
+      if (report.ports[u.src]) continue;
+      // along is to the connector's centre: from the rear on side walls, from the left otherwise.
+      const c = u.at[e] + u.size[e] / 2;
+      const fromRear = side === "left" || side === "right";
+      report.ports[u.src] = { along: fromRear ? F.y - c : c, height: u.at.z, box: `floor:${u.id}` };
     }
     for (const u of units) {
       // A hinge mount hangs under the top wall at the rear, where the lid

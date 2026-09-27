@@ -5,7 +5,6 @@ import {
   PAD_STACK,
   SHUTTER_WIDTH,
 } from "./content/peripherals";
-import { PORT_GROUP_ORDER } from "./content/ports";
 import { activeArea, panelThickness } from "./content/display";
 import { panelOf } from "./screen";
 import type { Index } from "./content";
@@ -163,7 +162,7 @@ function portSize(
 
 /**
  * Turn a build into units and board blocks, in a fixed order: categories in
- * CATEGORIES order, then ports sorted by side strip order, then the body and
+ * CATEGORIES order, then ports in the player's list order, then the body and
  * era pieces. Unknown ids are skipped here; compat reports them.
  */
 export function emit(build: Build, idx: Index, era: Era, body: Body): Emitted {
@@ -461,21 +460,12 @@ function emitPorts(
   out: Emitted,
   push: (u: Unit) => void,
 ): void {
-  const rank = (g: string) => PORT_GROUP_ORDER.indexOf(g as never);
   const list = build.ports
     .map((p, i) => ({ ...p, i, part: idx.parts.get(p.part) }))
     .filter((p) => p.part && p.part.category === "port")
     .map((p) => ({ ...p, shape: shapes(p.part as Part)[0] }))
     .filter((p) => p.shape.kind === "port");
-  list.sort((a, b) => {
-    const sa = a.shape as Extract<Shape, { kind: "port" }>;
-    const sb = b.shape as Extract<Shape, { kind: "port" }>;
-    return (
-      rank(sa.group) - rank(sb.group) ||
-      (a.part as Part).id.localeCompare((b.part as Part).id) ||
-      a.i - b.i
-    );
-  });
+  // The list order is the order along each wall.
   const controllers = new Map<string, { size: Size; n: number }>();
   let k = 0;
   for (const p of list) {

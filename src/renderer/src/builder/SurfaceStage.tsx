@@ -1,7 +1,6 @@
 import {
   type Box,
   type Build,
-  type BuildPort,
   CONTENT,
   type Category,
   type Fit,
@@ -13,7 +12,7 @@ import {
   type Side,
 } from "../engine";
 import { Html } from "@react-three/drei";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { CornerHandle, DragArrow, Dashed, Outline } from "./Arrows";
 import { OptionChips, type SetBuild, withPart } from "./Parts";
 import { problemText } from "./problems";
@@ -24,7 +23,8 @@ import { Chip, Chips, Label, Line, money, SliderField, Value } from "./ui";
 // The Surface stage: keyboard, trackpad, webcam and ports, placed on the 3D
 // laptop with drag arrows. Keyboard and trackpad stay centred left to right;
 // the webcam slides along the top bezel; the display moves up and down the
-// lid; each port moves along its wall and up and down it.
+// lid. Ports are not moved by hand: each wall's list order is their order
+// along it, and the engine spaces them and centres them up and down the wall.
 
 export type SurfaceItem = "keyboard" | "trackpad" | "webcam" | "display" | "ports";
 
@@ -47,13 +47,57 @@ function setPlace(b: Build, f: (p: NonNullable<Build["place"]>) => NonNullable<B
   return { ...b, place: f(b.place ?? {}) };
 }
 
-function setPort(b: Build, i: number, f: (p: BuildPort) => BuildPort): Build {
-  return { ...b, ports: b.ports.map((p, j) => (j === i ? f(p) : p)) };
+/**
+ * Move the port at `from` to where the port at `to` sits in its wall's order.
+ * Ports on other walls keep their places in the list. Returns the build and
+ * the moved port's new index.
+ */
+function movePort(b: Build, from: number, to: number): { build: Build; index: number } {
+  const side = b.ports[from]?.side;
+  if (side === undefined || from === to || b.ports[to]?.side !== side) return { build: b, index: from };
+  const slots = b.ports.map((p, i) => (p.side === side ? i : -1)).filter((i) => i >= 0);
+  const order = slots.filter((i) => i !== from);
+  order.splice(slots.indexOf(to), 0, from);
+  const ports = [...b.ports];
+  slots.forEach((slot, k) => {
+    ports[slot] = b.ports[order[k]];
+  });
+  return { build: { ...b, ports }, index: slots[order.indexOf(from)] };
+}
+
+function isPortProblem(p: Problem): boolean {
+  return (
+    p.kind === "compat" &&
+    (p.code === "no-charging" ||
+      p.code === "port-side" ||
+      p.code === "overlap" ||
+      (p.code === "no-room" && String(p.role).startsWith("port:")))
+  );
 }
 
 function portsWarn(fit: Fit): boolean {
-  return fit.problems.some(
-    (p) => p.kind === "compat" && (p.code === "no-charging" || p.code === "port-side" || p.code === "overlap"),
+  return fit.problems.some(isPortProblem);
+}
+
+// Icons from Lucide (https://lucide.dev), ISC License, Copyright (c) Lucide Contributors.
+const GRIP = (
+  <>
+    <circle cx="9" cy="12" r="1" />
+    <circle cx="9" cy="5" r="1" />
+    <circle cx="9" cy="19" r="1" />
+    <circle cx="15" cy="12" r="1" />
+    <circle cx="15" cy="5" r="1" />
+    <circle cx="15" cy="19" r="1" />
+  </>
+);
+const CHEVRON_UP = <path d="m18 15-6-6-6 6" />;
+const CHEVRON_DOWN = <path d="m6 9 6 6 6-6" />;
+
+function Icon({ d }: { d: ReactNode }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {d}
+    </svg>
   );
 }
 
@@ -173,7 +217,7 @@ export function SurfaceColumn({
               p.kind === "compat" &&
               (p.code === "overlap" ||
                 p.code === "bezel-fit" ||
-                (item === "ports" && (p.code === "no-charging" || p.code === "port-side"))),
+                (item === "ports" && isPortProblem(p))),
           )
           .map((p) => (
             <span key={problemText(p)} className="bd-note">
@@ -221,6 +265,16 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
     const first = build.ports.findIndex((p) => p.side === w);
     onPort(first >= 0 ? first : -1);
   };
+  const [drag, setDrag] = useState<number | null>(null);
+  const [over, setOver] = useState<number | null>(null);
+  const move = (from: number, to: number) => {
+    const r = movePort(build, from, to);
+    if (r.build === build) return;
+    set((b) => movePort(b, from, to).build);
+    onPort(r.index);
+  };
+  const warnOf = (part: string) =>
+    fit.problems.some((p) => (isPortProblem(p) && "part" in p && p.part === part) || (p.kind === "year" && p.ref === part));
   const add = (id: string) => {
     set((b) => ({ ...b, ports: [...b.ports, { part: id, side: wall }] }));
     onPort(build.ports.length);
@@ -237,18 +291,67 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
       </Chips>
       <div className="bd-port-walls">
         <div className="bd-port-wall">
-          {onWall.map(({ p, i }) => (
-            <button
-              type="button"
+          {onWall.map(({ p, i }, k) => (
+            <div
               key={`${p.part}-${i}`}
-              className={["bd-port-item", i === port ? "on" : ""].join(" ")}
-              onClick={() => onPort(i)}
+              className={["bd-port-line", i === port ? "on" : "", drag === i ? "dragging" : "", over === i && drag !== i ? "over" : ""].join(" ")}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(i));
+                setDrag(i);
+              }}
+              onDragOver={(e) => {
+                if (drag === null) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (over !== i) setOver(i);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (drag !== null) move(drag, i);
+                setDrag(null);
+                setOver(null);
+              }}
+              onDragEnd={() => {
+                setDrag(null);
+                setOver(null);
+              }}
             >
-              <b className="bd-port-icon">
-                <i className={`bd-port-shape ${portShape(p.part)}`} />
-              </b>
-              <span>{CONTENT.parts.find((x) => x.id === p.part)?.name ?? p.part}</span>
-            </button>
+              <span className="bd-port-grip" title="Drag to reorder">
+                <Icon d={GRIP} />
+              </span>
+              <button
+                type="button"
+                className={["bd-port-item", i === port ? "on" : "", warnOf(p.part) ? "warn" : ""].join(" ")}
+                onClick={() => onPort(i)}
+              >
+                <b className="bd-port-icon">
+                  <i className={`bd-port-shape ${portShape(p.part)}`} />
+                </b>
+                <span>{CONTENT.parts.find((x) => x.id === p.part)?.name ?? p.part}</span>
+              </button>
+              <button
+                type="button"
+                className="bd-port-move"
+                aria-label="Move up"
+                title={wall === "left" || wall === "right" ? "Toward the rear" : "Toward the left"}
+                disabled={k === 0}
+                onClick={() => move(i, onWall[k - 1].i)}
+              >
+                <Icon d={CHEVRON_UP} />
+              </button>
+              <button
+                type="button"
+                className="bd-port-move"
+                aria-label="Move down"
+                title={wall === "left" || wall === "right" ? "Toward the front" : "Toward the right"}
+                disabled={k === onWall.length - 1}
+                onClick={() => move(i, onWall[k + 1].i)}
+              >
+                <Icon d={CHEVRON_DOWN} />
+              </button>
+            </div>
           ))}
         </div>
       </div>
@@ -269,15 +372,7 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
                 </Line>
               )}
               <Line label="From bottom">
-                <span className="bd-value">
-                  {r1(rep.height)} mm
-                  {rep.heightRange && (
-                    <small>
-                      {" "}
-                      of {r1(rep.heightRange[0])} to {r1(rep.heightRange[1])}
-                    </small>
-                  )}
-                </span>
+                <Value v={r1(rep.height)} unit="mm" />
               </Line>
             </>
           )}
@@ -463,10 +558,7 @@ export function SurfaceMarks({
   if (!bp || !pr || !b) return null;
   const side = bp.side;
   const pad = 1.6;
-  const cz = b.at.z + b.size.z / 2;
   let corners: V3[];
-  let at: V3;
-  let alongDir: V3;
   if (side === "left" || side === "right") {
     const x = side === "left" ? -0.8 : o.x + 0.8;
     const ya = b.at.y - pad;
@@ -477,8 +569,6 @@ export function SurfaceMarks({
       [x, yb, b.at.z + b.size.z + pad],
       [x, ya, b.at.z + b.size.z + pad],
     ];
-    at = [side === "left" ? -3 : o.x + 3, b.at.y + b.size.y / 2, cz];
-    alongDir = [0, -1, 0];
   } else {
     const y = side === "front" ? -0.8 : o.y + 0.8;
     const xa = b.at.x - pad;
@@ -489,44 +579,12 @@ export function SurfaceMarks({
       [xb, y, b.at.z + b.size.z + pad],
       [xa, y, b.at.z + b.size.z + pad],
     ];
-    at = [b.at.x + b.size.x / 2, side === "front" ? -3 : o.y + 3, cz];
-    alongDir = [1, 0, 0];
   }
-  // Snap to the wall's middle and to the other ports on this wall.
-  const peers = build.ports
-    .map((p, i) => ({ p, r: rep.ports[i], i }))
-    .filter((x) => x.i !== port && x.p.side === side && x.r);
-  const alongSnaps = [(pr.alongRange[0] + pr.alongRange[1]) / 2, ...peers.map((x) => x.r?.along ?? 0)];
-  const hSnaps = pr.heightRange ? [(pr.heightRange[0] + pr.heightRange[1]) / 2, ...peers.map((x) => x.r?.height ?? 0)] : [];
   const bad = partProblem(fit, bp.part, ["overlap", "port-side", "no-room"]);
   return (
     <group>
       <Outline corners={corners} warn={!!bad} />
       <HandleNote at={corners[2]} problem={bad} />
-      <DragArrow
-        at={at}
-        dir={alongDir}
-        reach={22}
-        value={pr.along}
-        range={pr.alongRange}
-        snaps={alongSnaps}
-        disabled={locked}
-        warn={!!bad}
-        onChange={(v) => set((bd) => setPort(bd, port, (p) => ({ ...p, along: v })))}
-      />
-      {pr.heightRange && (
-        <DragArrow
-          at={at}
-          dir={[0, 0, 1]}
-          reach={15}
-          value={pr.height}
-          range={pr.heightRange}
-          snaps={hSnaps}
-          disabled={locked}
-          warn={!!bad}
-          onChange={(v) => set((bd) => setPort(bd, port, (p) => ({ ...p, height: v })))}
-        />
-      )}
     </group>
   );
 }

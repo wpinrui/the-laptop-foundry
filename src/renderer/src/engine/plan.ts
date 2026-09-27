@@ -19,6 +19,15 @@ export interface PlanCtx {
   finDepth: number;
   /** Sustained chip heat each fan carries, W: a fan grows only as far as that needs. */
   fanWatts?: number;
+  /** Gap between neighbouring ports on a wall, mm; other units use `gap`. */
+  portGap?: number;
+}
+
+/** Gap between neighbours in this zone: the port gap in a port strip. */
+function gapOf(fill: ZoneFill, ctx: PlanCtx): number {
+  return ctx.portGap !== undefined && fill.units.length > 0 && fill.units.every((u) => u.role.startsWith("port:"))
+    ? ctx.portGap
+    : ctx.gap;
 }
 
 /**
@@ -134,7 +143,7 @@ function zoneMin(fill: ZoneFill, ctx: PlanCtx): Size | null {
       size[a] = a === p ? size[a] + v : Math.max(size[a], v);
     }
   }
-  if (p !== "z") size[p] += Math.max(0, units.length - 1) * ctx.gap;
+  if (p !== "z") size[p] += Math.max(0, units.length - 1) * gapOf(fill, ctx);
   if (opening && node.edge) size[alongAxis(node.edge)] += fill.koLo + fill.koHi;
   size.z += lift;
   return size;
@@ -377,7 +386,7 @@ export function placeUnits(
   if (p !== "z")
     total =
       units.reduce((s, u) => s + u.size[p], 0) +
-      Math.max(0, units.length - 1) * ctx.gap;
+      Math.max(0, units.length - 1) * gapOf(fill, ctx);
   if (p !== "z") {
     const [lo, hi] = range(p);
     cursor = put(lo, hi, total, alignOf(p));
@@ -401,7 +410,7 @@ export function placeUnits(
       pos.z = zc;
       zc += u.skin ? Math.max(0, u.size.z - ctx.bottom) : u.size.z;
     } else {
-      cursor += u.size[p] + ctx.gap;
+      cursor += u.size[p] + gapOf(fill, ctx);
     }
     out.push({ ...u, at: pos, size: { ...u.size }, zone: node.zone });
   }

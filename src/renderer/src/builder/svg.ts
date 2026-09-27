@@ -71,6 +71,40 @@ const ATTRS = new Set([
   "font-weight",
   "text-anchor",
   "letter-spacing",
+  "clippathunits",
+  "maskunits",
+  "maskcontentunits",
+  "spreadmethod",
+  "fx",
+  "fy",
+  "fr",
+  "visibility",
+  "display",
+]);
+
+/** Style declarations kept, moved onto the element as presentation attributes. */
+const STYLE_PROPS = new Set([
+  "fill",
+  "fill-opacity",
+  "fill-rule",
+  "stroke",
+  "stroke-width",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "stroke-miterlimit",
+  "stroke-opacity",
+  "stroke-dasharray",
+  "opacity",
+  "clip-rule",
+  "stop-color",
+  "stop-opacity",
+  "font-family",
+  "font-size",
+  "font-weight",
+  "text-anchor",
+  "letter-spacing",
+  "visibility",
+  "display",
 ]);
 
 /** A value may point inside the file only: url(#id), never anything else. */
@@ -90,6 +124,14 @@ function copy(src: Element, doc: XMLDocument): Element | null {
       continue;
     }
     if (ATTRS.has(name) && safeValue(a.value)) out.setAttribute(a.name, a.value);
+  }
+  // Editors such as Inkscape put the colours in style="": keep the safe ones as attributes.
+  for (const decl of (src.getAttribute("style") ?? "").split(";")) {
+    const i = decl.indexOf(":");
+    if (i < 0) continue;
+    const prop = decl.slice(0, i).trim().toLowerCase();
+    const value = decl.slice(i + 1).trim();
+    if (STYLE_PROPS.has(prop) && value && safeValue(value)) out.setAttribute(prop, value);
   }
   for (const c of Array.from(src.childNodes)) {
     if (c.nodeType === 1) {

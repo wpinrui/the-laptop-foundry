@@ -186,11 +186,11 @@ export const BODIES: Body[] = [
       corner: s(0.03, "short", 3, 10),
       profile: 0,
       taper: { front: [0.7, 0.08], minFront: 1, run: 0.9, linear: true, curve: true },
-      hinge: "full",
+      hinge: "drop",
       latch: false,
       signature: "taper",
     },
-    hinge: { x: 30, y: 20, z: 5 },
+    hinge: { x: 30, y: 14, z: 4 },
     layouts: ["a", "b", "c"],
   },
   // Perimeter bodies: one edge profile, a top zone and a bottom zone, swept

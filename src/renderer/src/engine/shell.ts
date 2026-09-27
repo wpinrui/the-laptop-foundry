@@ -48,6 +48,7 @@ export function resolveStyle(
   sig = 0.5,
   lidZ = Infinity,
   sides?: Partial<PerimSides>,
+  curved = false,
 ): ResolvedStyle {
   const t = clamp(sig, 0, 1);
   const v = (p: Scaled | undefined) => scaled(p, size, t);
@@ -58,6 +59,7 @@ export function resolveStyle(
         minFront: style.taper.minFront,
         run: style.taper.run,
         linear: !!style.taper.linear,
+        curved: !!style.taper.curve && curved,
       }
     : null;
   let pm: ResolvedPerim | null = null;
@@ -144,12 +146,18 @@ export function taperDepth(style: ResolvedStyle, Z: number): number {
   return Z - Math.min(Z, Math.max(tp.minFront, tp.front * Z));
 }
 
+/** Share of the taper's rise still to come at a share u of its run from the front. */
+export function taperLeft(tp: NonNullable<ResolvedStyle["taper"]>, u: number): number {
+  const a = clamp(u, 0, 1);
+  if (tp.curved) return 1 - Math.sqrt(Math.max(0, 1 - (1 - a) ** 2));
+  return 1 - (tp.linear ? a : a * a * (3 - 2 * a));
+}
+
 /** Rise of the outer bottom at depth y, from the taper. */
 function taperRise(style: ResolvedStyle, outer: Size, y: number): number {
   const T = taperDepth(style, outer.z);
   if (T <= 0 || !style.taper) return 0;
-  const u = clamp(y / (style.taper.run * outer.y), 0, 1);
-  return T * (1 - (style.taper.linear ? u : u * u * (3 - 2 * u)));
+  return T * taperLeft(style.taper, y / (style.taper.run * outer.y));
 }
 
 // ------------------------------------------------------------ perimeter profile

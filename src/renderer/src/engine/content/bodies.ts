@@ -185,7 +185,7 @@ export const BODIES: Body[] = [
       edge: "square",
       corner: s(0.03, "short", 3, 10),
       profile: 0,
-      taper: { front: [0.7, 0.08], minFront: 1, run: 0.9, linear: true },
+      taper: { front: [0.7, 0.08], minFront: 1, run: 0.9, linear: true, curve: true },
       hinge: "full",
       latch: false,
       signature: "taper",

@@ -81,6 +81,9 @@ function depthCuts(style: ResolvedStyle, size: Size, profile: boolean): number[]
   const keys: number[] = [];
   if (profile) {
     if (style.taper) keys.push(style.taper.run * Y);
+    // A curved underside turns fastest at the front: cut it evenly in angle.
+    if (style.taper?.curved)
+      for (let i = 1; i < 32; i++) keys.push(style.taper.run * Y * (1 - Math.cos((Math.PI * i) / 64)));
     if (style.Sd > 0 && style.R > 0) keys.push(Y - style.Sd, Y - style.Sd + 0.8 * style.R);
     if (style.D > 0) {
       // Round the spine, closest where it turns fastest.

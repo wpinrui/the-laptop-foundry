@@ -142,7 +142,7 @@ export interface BodyStyle {
    * is the share of the depth the rise spans. The player's Z is the rear.
    * `linear` rises in a straight line instead of easing in and out.
    */
-  taper?: { front: [number, number]; minFront: Mm; run: number; linear?: boolean };
+  taper?: { front: [number, number]; minFront: Mm; run: number; linear?: boolean; curve?: boolean };
   /** A perimeter edge profile, on edge "perim". */
   perim?: Perim;
   /** The lower half tucks in all round under a cove. */
@@ -174,8 +174,12 @@ export interface ResolvedStyle {
   sigMm: Mm;
   corner: Mm;
   profile: Mm;
-  /** Front thickness share of Z, least front thickness, run share of Y, and whether it rises straight. Null without a taper. */
-  taper: { front: number; minFront: Mm; run: number; linear: boolean } | null;
+  /**
+   * Front thickness share of Z, least front thickness, run share of Y, and
+   * whether it rises straight, or `curved`: flat toward the rear and rising in
+   * a quarter round to the front. Null without a taper.
+   */
+  taper: { front: number; minFront: Mm; run: number; linear: boolean; curved: boolean } | null;
   /** The perimeter edge profile in mm, with each side's multiplier. Null on other bodies. */
   pm: ResolvedPerim | null;
   /** Undercut inset and height. */
@@ -658,6 +662,8 @@ export interface Build {
   shape?: Partial<Record<string, number>>;
   /** Per-side inset multipliers per body id, on bodies whose sides the player sets. Absent means the body's own. */
   sides?: Partial<Record<string, Partial<PerimSides>>>;
+  /** Underside curved per body id, on bodies whose taper may curve. Absent means flat. */
+  curve?: Partial<Record<string, boolean>>;
 }
 
 // ---------------------------------------------------------------- fit

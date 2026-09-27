@@ -158,6 +158,7 @@ function Early({ s, d: dur }: { s: Specs; d: M["durability"] }) {
     rows.push(["Display", `${d.inches}" ${d.res[0]} x ${d.res[1]}, ${d.ppi} ppi`]);
     rows.push(["Panel", `${PANEL_TYPE[d.type] ?? d.type}, ${d.aspect[0]}:${d.aspect[1]}`]);
     rows.push(["Brightness", `${int(d.nits)} nits`]);
+    if (d.peak !== null) rows.push(["HDR peak", `${int(d.peak)} nits`]);
     rows.push(["Refresh", `${d.refresh} Hz`]);
     rows.push(["Gamut", d.gamut]);
   }

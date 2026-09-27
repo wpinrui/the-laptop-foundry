@@ -432,9 +432,10 @@ export interface Cost {
   lines: CostLine[];
 }
 
-/** Cost price of a resolved screen: the panel, plus the premium when it is custom. */
+/** Cost price of a resolved screen: the panel, the premium when it is custom, and its brightness and gamut past the panel's own. */
 export function screenPrice(panel: ResolvedPanel): number {
-  return panelBaseCost(panel, panel.hz) + panel.premium;
+  const base = panelBaseCost(panel, panel.hz);
+  return Math.max(base * 0.7, base + panel.upgrade) + panel.premium;
 }
 
 /** Cost price of one chosen part, in the year's nominal dollars. */

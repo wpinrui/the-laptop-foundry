@@ -39,6 +39,8 @@ export interface DisplaySpec {
   nits: number;
   refresh: number;
   gamut: string;
+  /** HDR peak, cd/m2; null without HDR. */
+  peak: number | null;
 }
 
 export interface PortSpec {
@@ -131,6 +133,7 @@ export function specs(build: Build, content: Content = CONTENT): Specs {
       nits: panel.nits,
       refresh: panel.hz,
       gamut: panel.gamut,
+      peak: panel.peak ?? null,
     };
   }
 

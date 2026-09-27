@@ -443,6 +443,8 @@ export interface PanelOption extends Dated {
   refresh: number[];
   nits: number;
   gamut: string;
+  /** HDR peak on a small window, cd/m2, where the panel has one. Set on a resolved screen. */
+  peak?: number;
 }
 
 export interface PanelType extends Dated {
@@ -535,6 +537,10 @@ export interface ScreenSpec {
   surface?: "matte" | "glossy";
   /** Side bezel, active area edge to the lid's outer edge, mm. */
   bezel: number;
+  /** Full-screen white, cd/m2. Absent means the nearest sold panel's. */
+  nits?: number;
+  /** Gamut tier, one of GAMUTS. Absent means the nearest sold panel's. */
+  gamut?: string;
 }
 
 /** A port on a wall. Its place follows from the list order; old saves may carry `along` and `height`, which are ignored. */
@@ -818,7 +824,7 @@ export type Problem =
   | { kind: "compat"; code: "layout-not-on-body"; layout: string }
   | { kind: "compat"; code: "port-side"; part: string; side: Side }
   | { kind: "compat"; code: "unknown"; ref: string }
-  | { kind: "compat"; code: "screen"; what: "refresh" | "density" | "size" | "resolution" }
+  | { kind: "compat"; code: "screen"; what: "refresh" | "density" | "size" | "resolution" | "bandwidth" | "brightness" | "gamut" }
   | { kind: "compat"; code: "overlap"; part: string; with: string }
   /** A lid part that does not fit its bezel band: the top bezel above the panel, or the chin below it. */
   | { kind: "compat"; code: "bezel-fit"; part: string; role: string; band: "top" | "chin" }

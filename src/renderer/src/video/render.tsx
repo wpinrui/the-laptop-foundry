@@ -1,10 +1,12 @@
 import { Canvas, type RootState, useThree } from "@react-three/fiber";
 import { ArrayBufferTarget, Muxer } from "mp4-muxer";
 import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
 import { createRoot } from "react-dom/client";
 import { type Fit, solve } from "../engine";
 import { drawOverlay, FOV, H, ShortStage, SILENT_WPS, type Timeline, timelineOf, W } from "./scene";
 import type { Short } from "./script";
+import type { Look } from "./sets";
 
 // The short, rendered offline: the scene is stepped at a fixed frame rate in a
 // hidden canvas of its own, each frame composited with its overlay and handed
@@ -120,6 +122,7 @@ async function encodeAudio(pcm: Float32Array, codec: string, muxer: Muxer<ArrayB
 
 interface Job {
   short: Short;
+  look: Look;
   tl: Timeline;
   voice: Voice | null;
   cancelled: () => boolean;
@@ -200,22 +203,31 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Blob | Err
   const time = useRef(0);
   const ready = useMemo(() => {
     let state: (s: RootState) => void = () => {};
+    let set: () => void = () => {};
     let lock: () => void = () => {};
+    const locked = new Promise<void>((r) => {
+      lock = r;
+    });
     const both = Promise.all([
       new Promise<RootState>((r) => {
         state = r;
       }),
-      Promise.race([new Promise<void>((r) => (lock = r)), new Promise<void>((r) => setTimeout(r, LOCK_WAIT))]),
+      // The set loads first; the laptop and its lock screen go on it after.
+      new Promise<void>((r) => {
+        set = r;
+      }).then(() => Promise.race([locked, new Promise<void>((r) => setTimeout(r, LOCK_WAIT))])),
       document.fonts.ready,
     ]);
-    return { both, state: (s: RootState) => state(s), lock: () => lock() };
+    return { both, state: (s: RootState) => state(s), set: () => set(), lock: () => lock() };
   }, []);
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per mounted job
   useEffect(() => {
     ready.both
       .then(async ([state]) => {
         // A few warm-up frames: shadow maps, the environment and textures settle before frame one.
+        // The set and the laptop hold still, so the key light's shadow is drawn here and kept.
         for (let i = 0; i < 3; i++) {
+          state.gl.shadowMap.needsUpdate = true;
           state.advance(0);
           await yieldTask();
         }
@@ -225,14 +237,13 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Blob | Err
   }, []);
   return (
     <Canvas
-      flat
-      shadows
+      shadows={{ enabled: true, type: THREE.PCFShadowMap, autoUpdate: false }}
       dpr={GL_SCALE}
       frameloop="never"
       gl={{ preserveDrawingBuffer: true, antialias: true }}
-      camera={{ fov: FOV, near: 10, far: 6000, position: [0, 500, 800] }}
+      camera={{ fov: FOV, near: 0.01, far: 20, position: [0, 1.2, 1] }}
     >
-      <ShortStage short={job.short} fit={fit} tl={job.tl} time={time} onLock={ready.lock} />
+      <ShortStage short={job.short} fit={fit} look={job.look} tl={job.tl} time={time} onLock={ready.lock} onSet={ready.set} />
       <Driver onState={ready.state} />
     </Canvas>
   );
@@ -249,7 +260,7 @@ export function timelineFor(short: Short, voice: Voice | null): Timeline {
  * from whatever the player is looking at. Rejects with Cancelled once
  * `cancelled` turns true.
  */
-export function renderShort(short: Short, voice: Voice | null, cancelled: () => boolean): Promise<Blob> {
+export function renderShort(short: Short, look: Look, voice: Voice | null, cancelled: () => boolean): Promise<Blob> {
   let fit: Fit;
   try {
     fit = solve(short.facts.subject.build);
@@ -257,7 +268,7 @@ export function renderShort(short: Short, voice: Voice | null, cancelled: () => 
     return Promise.reject(e);
   }
   const v = voice && voice.clips.length === short.lines.length ? voice : null;
-  const job: Job = { short, tl: timelineFor(short, v), voice: v, cancelled };
+  const job: Job = { short, look, tl: timelineFor(short, v), voice: v, cancelled };
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
   host.style.cssText = `position:fixed;left:-${W * 4}px;top:0;width:${W}px;height:${H}px;pointer-events:none;visibility:hidden;`;

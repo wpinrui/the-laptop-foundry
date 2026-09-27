@@ -22,7 +22,7 @@ const MAX_LINES = 24;
 const MAX_CHARS = 400;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 const COMPANY = /^[0-9a-f-]{36}$/i;
-const QUARTER = /^\d{4}q[1-4]$/;
+const QUARTER = /^\d{4}q[1-4](-v\d{1,3})?$/;
 
 /** Where a company's rendered shorts are kept, beside its save. */
 export function shortsDir(company: string): string {

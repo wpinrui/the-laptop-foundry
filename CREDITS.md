@@ -64,6 +64,19 @@ Textures:
 
 Everything else in the scene was built for this project and falls under the repository's own licence.
 
+## Short video sets
+
+The four sets in `src/renderer/src/assets/video-sets/` (creator desk, colour sweep, night window, teardown bench) use these third-party assets. Every one is from [Poly Haven](https://polyhaven.com) and is licensed **CC0 1.0** (public domain). Credit isn't required, but it is given here.
+
+| Asset | Used in | Source |
+|---|---|---|
+| Potted Plant 04 | Desk (shelf and credenza), night (window sill) | https://polyhaven.com/a/potted_plant_04 |
+| Pliers | Bench pegboard | https://polyhaven.com/a/pliers |
+| White Oak Veneer (texture) | Walnut, oak and dark oak surfaces | https://polyhaven.com/a/white_oak_veneer |
+| Wool Boucle (normal map only) | Felt mat, speaker cloth, headphone pads, sandbags | https://polyhaven.com/a/wool_boucle |
+
+Everything else in the sets, including the geometry and the surround, city, rain, ESD mat, tray and pegboard textures, was built for this project and falls under the repository's own licence.
+
 ## Legend and decal fonts
 
 These fonts are vendored in `src/renderer/src/assets/fonts/` (Latin subset, from [Fontsource](https://fontsource.org)) for keyboard legends and text decals. Every one is licensed under the **SIL Open Font License 1.1**; each licence text sits beside its files as `OFL-<font>.txt`.

@@ -77,6 +77,20 @@ export function Slider({
   );
 }
 
+// Icon from Lucide (https://lucide.dev), ISC License, Copyright (c) Lucide Contributors.
+/** A small warning-tinted icon button that grows a dimension to its smallest fitting value. */
+export function FitButton({ title, onClick }: { title: string; onClick: () => void }) {
+  return (
+    <button type="button" className="bd-fit" title={title} aria-label={title} onClick={onClick}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M17 12H3" />
+        <path d="m11 18 6-6-6-6" />
+        <path d="M21 5v14" />
+      </svg>
+    </button>
+  );
+}
+
 /** A labelled slider with its value top right. */
 export function SliderField({
   label,
@@ -85,13 +99,17 @@ export function SliderField({
   digits = 0,
   warn,
   note,
+  action,
   ...slider
-}: Parameters<typeof Slider>[0] & { unit?: string; digits?: number; note?: ReactNode }) {
+}: Parameters<typeof Slider>[0] & { unit?: string; digits?: number; note?: ReactNode; action?: ReactNode }) {
   return (
     <div className="bd-field">
       <div className="bd-line">
         <Label>{label}</Label>
-        <Value v={value.toFixed(digits)} unit={unit} warn={warn} />
+        <span className="bd-line-end">
+          {action}
+          <Value v={value.toFixed(digits)} unit={unit} warn={warn} />
+        </span>
       </div>
       <Slider label={label} value={value} warn={warn} {...slider} />
       {note && <span className="bd-note">{note}</span>}

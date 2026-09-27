@@ -263,7 +263,7 @@ The review follows Notebookcheck's order:
 - Comparison tables set the build against the rivals of its year and class.
 - Each test uses the profile Notebookcheck would use for it. Performance tests run on the highest enabled profile. Battery runtime runs on a balanced one.
 - The verdict comments on value against the player-set price, for example calling a build overpriced.
-- There are no award badges in version 0.1. From version 0.2, a campaign's award winners carry a badge on their review, and the review site lists a year's awards.
+- There are no award badges in version 0.1.
 
 ### Writing
 
@@ -420,25 +420,9 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 
 #### Critics and awards
 
-- Critics publish a laptop's review the quarter after it goes on sale, the player's and the rivals' alike.
-- Until its review is published, a laptop counts as a review of 65 with buyers: neither help nor harm.
-- In a campaign the player can review an unreleased model as a private preview. It shows the score critics will give and counts for nothing.
-- Awards are given at the end of each Q4, across every laptop launched that year.
-- Awards are judged from review scores and measured categories, never the market score.
-
-| Award | Judged by |
-|---|---|
-| Best overall | Overall review score |
-| Best value | Review score per dollar, among laptops at or above the year's median score |
-| Best portable | Mean of weight, battery life and overall |
-| Best performance | Application performance |
-| Best business | Mean of keyboard, battery life, connectivity, chassis and overall |
-| Best gaming | Games performance |
-
-- Each award speaks to a set of buyer segments, primary and secondary.
-- A winner's appeal rises by 10% in its award's primary segments, and 2% in secondary ones, for the whole next year.
-- A player's win adds 5 perception at once in the primary segments, and 1 in secondary ones.
-- The review site shows a year's awards and a badge on each winner's review. The company view lists the player's awards.
+- Critics review a laptop after launch.
+- Awards are given at year end.
+- Both come from the review score.
 
 #### Rival timing
 

@@ -6,10 +6,19 @@
   background: var(--cafe-wall);
 }
 
+/* The 3D scene and the laptop screen's overlay are one layer under every HUD
+   layer: the screen's own z-index (drei's zIndexRange) stays inside it. */
 .cafe-world {
   position: absolute;
   inset: 0;
+  z-index: 0;
+  isolation: isolate;
   transition: filter 200ms ease-out;
+}
+
+.cafe-overlay {
+  z-index: 0;
+  isolation: isolate;
 }
 
 /* Pause: the scene blurs and darkens behind the menu. */

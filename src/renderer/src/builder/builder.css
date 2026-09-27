@@ -17,6 +17,9 @@
 .bd-scene {
   position: absolute;
   inset: 0;
+  /* Its own layer, under the menus and free view's HUD: the laptop screen's z-index stays inside. */
+  z-index: 0;
+  isolation: isolate;
 }
 
 /* Scrims: left to right, and along the bottom where a tray sits. */

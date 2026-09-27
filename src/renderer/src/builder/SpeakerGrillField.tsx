@@ -40,7 +40,7 @@ function Swatch({ pattern }: { pattern: SpeakerPattern }) {
 }
 
 export function SpeakerGrillField({
-  build,
+  build: _build,
   fit,
   set,
   onView,
@@ -48,34 +48,31 @@ export function SpeakerGrillField({
   build: Build;
   fit: Fit;
   set: SetBuild;
-  /** True while the pointer is on the grill's fields or dragging its slider. */
+  /** True from a click on the grill's fields until a click elsewhere. */
   onView?: (on: boolean) => void;
 }) {
   const sg = fit.shell.speakerGrill;
-  const [over, setOver] = useState(false);
-  const [held, setHeld] = useState(false);
-  const was = useRef(false);
+  // Clicking a grill field frames the grill; a click anywhere else lets the camera go.
+  const box = useRef<HTMLDivElement>(null);
+  const [viewing, setViewing] = useState(false);
   useEffect(() => {
-    const now = over || held;
-    if (now !== was.current) onView?.(now);
-    was.current = now;
-  }, [over, held, onView]);
-  useEffect(() => {
-    if (!held) return;
-    const up = () => setHeld(false);
-    window.addEventListener("pointerup", up);
-    return () => window.removeEventListener("pointerup", up);
-  }, [held]);
+    onView?.(viewing);
+    if (!viewing) return;
+    const away = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setViewing(false);
+    };
+    window.addEventListener("pointerdown", away);
+    return () => window.removeEventListener("pointerdown", away);
+  }, [viewing, onView]);
   useEffect(() => () => onView?.(false), [onView]);
   if (!sg) return null;
   const r = sg.range[sg.pattern];
   const places = SPEAKER_PLACES.filter((p) => p !== "front" || sg.frontOffered);
   return (
     <div
+      ref={box}
       className="bd-spk-grill"
-      onPointerEnter={(e) => e.buttons === 0 && setOver(true)}
-      onPointerLeave={() => setOver(false)}
-      onPointerDown={() => setHeld(true)}
+      onPointerDown={() => setViewing(true)}
     >
       <div className="bd-field">
         <Label>Grill</Label>

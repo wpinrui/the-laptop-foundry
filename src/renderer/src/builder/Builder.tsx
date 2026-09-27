@@ -44,7 +44,7 @@ import { MarkHandles, type MarkBrowse, MarksColumn, MarksTray } from "./MarksSta
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
-import { FreeOs, FreeOverlay, type FreeState, FreeWorld, freeStart, makeSlot, type PageLook, SlotView } from "./Free";
+import { FreeOs, FreeOverlay, type FreeState, freeStart, makeSlot, type PageLook, SlotView } from "./Free";
 import { SliderField } from "./ui";
 import { type ViewName, viewFor } from "./view";
 import "./builder.css";
@@ -512,7 +512,8 @@ export function Builder({
   }
 
   return (
-    <div className="fd bd">
+    // In free view the menus fade out over the same scene, and back in after.
+    <div className={`fd bd${free ? " free" : ""}`}>
       <BuilderScene
         fit={previewFit}
         year={build.year}
@@ -551,23 +552,13 @@ export function Builder({
         freeUsing={!!free?.using && !free.paused}
         free={
           free
-            ? (portal) => (
-                <FreeWorld
-                  fit={fit}
-                  year={build.year}
-                  colours={colours}
-                  surfaces={surfaces}
-                  decor={decor}
-                  lockScreen={screen}
-                  state={free}
-                  openAngle={lid > 0 ? lid : LID_OPEN}
-                  lidStart={lid}
-                  page={valid ? osScreen : undefined}
-                  portal={portal}
-                  onAim={freeAim}
-                  onSettled={freeSettled}
-                />
-              )
+            ? {
+                state: free,
+                openAngle: lid > 0 ? lid : LID_OPEN,
+                page: valid ? osScreen : undefined,
+                onAim: freeAim,
+                onSettled: freeSettled,
+              }
             : undefined
         }
         labelFor={labelFor}
@@ -588,8 +579,6 @@ export function Builder({
       {free && valid && (
         <FreeOs subject={subject} library={library} sound={sound} onSound={onSound} slot={osSlot} onLook={setOsLook} />
       )}
-      {!free && (
-        <>
       {stage === "chassis" && preview.section && (
         <div className="bd-section">
           <SectionView fit={fit} />
@@ -637,7 +626,11 @@ export function Builder({
         )}
         <div className="bd-view">
           <SliderField label="Lid" value={lidAngle} unit="deg" min={0} max={LID_MAX} onChange={setLid} disabled={flip} />
-          <button type="button" className="fd-text bd-free" onClick={() => setFree(freeStart(lid > 0))}>
+          <button type="button" className="fd-text bd-free" onClick={() => {
+              if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+              setFree(freeStart(lid > 0 && !flip, flip));
+            }}
+          >
             Free view
           </button>
         </div>
@@ -693,9 +686,7 @@ export function Builder({
           <Measurements m={measured} build={build} fit={fit} set={set} locked={locked} />
         </div>
       )}
-      {inside && <HoverLabel />}
-        </>
-      )}
+      {inside && !free && <HoverLabel />}
     </div>
   );
 }

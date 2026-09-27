@@ -71,20 +71,23 @@ function hostOf(url: string): { hostname: string; domain: string } {
   return { hostname: p.hostname || "", domain: p.domain || "" };
 }
 
-/** Hiding rules and scriptlets for a document that has just committed. */
+/**
+ * Hiding rules for a document that has just committed. No scriptlets: from
+ * here they can only run once the page's own scripts have started, and that
+ * late they break sites (YouTube renders a blank page) rather than fix them.
+ */
 export function adblockCommit(f: WebFrameMain, url: string): void {
   if (!blocker) return;
-  const { active, styles, scripts } = blocker.getCosmeticsFilters({
+  const { active, styles } = blocker.getCosmeticsFilters({
     url,
     ...hostOf(url),
     getBaseRules: true,
-    getInjectionRules: true,
+    getInjectionRules: false,
     getExtendedRules: false,
     getRulesFromHostname: true,
     getRulesFromDOM: false,
   });
   if (!active) return;
-  for (const s of scripts) f.executeJavaScript(s).catch(() => {});
   if (styles) f.executeJavaScript(addStyles(styles)).catch(() => {});
 }
 

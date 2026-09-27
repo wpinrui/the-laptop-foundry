@@ -17,6 +17,7 @@ import {
   solve,
   speakerGrillOpts,
 } from "../engine";
+import { useSettled } from "../viewer/stable";
 import { formatOption, panelLabel } from "./format";
 import { problemText } from "./problems";
 import { Chip, Chips, Label, money } from "./ui";
@@ -151,12 +152,17 @@ function nameOfPart(cat: Category, id: string): string {
   return CONTENT.parts.find((p) => p.id === id)?.name ?? id;
 }
 
-function rowsFor(slot: Slot, build: Build, fit: Fit): Row[] {
-  const year = build.year;
+function idsFor(slot: Slot, build: Build): string[] {
   const current = build.parts[slot.cat]?.[slot.index];
   const ids =
-    slot.cat === "display" ? panelsFor(year).map((p) => p.id) : offeredFor(slot.cat, year).map((p) => p.id);
+    slot.cat === "display" ? panelsFor(build.year).map((p) => p.id) : offeredFor(slot.cat, build.year).map((p) => p.id);
   if (current && !ids.includes(current.part)) ids.unshift(current.part);
+  return ids;
+}
+
+/** Why each option would add a problem, by id: a solve per option. */
+function reasonsFor(slot: Slot, build: Build, fit: Fit): Map<string, string | null> {
+  const current = build.parts[slot.cat]?.[slot.index];
   const before = new Set(fit.problems.map(problemKey));
   const reason = (id: string): string | null => {
     if (current?.part === id) return null;
@@ -169,6 +175,14 @@ function rowsFor(slot: Slot, build: Build, fit: Fit): Row[] {
       return "Cannot be built";
     }
   };
+  return new Map(idsFor(slot, build).map((id) => [id, reason(id)]));
+}
+
+function rowsFor(slot: Slot, build: Build, reasons: Map<string, string | null>): Row[] {
+  const year = build.year;
+  const current = build.parts[slot.cat]?.[slot.index];
+  const ids = idsFor(slot, build);
+  const reason = (id: string): string | null => (current?.part === id ? null : (reasons.get(id) ?? null));
   const packageSizes = packageCpus(year).map((p) => Number(p.info?.onPackageGb));
   const lo = Math.min(...packageSizes);
   const hi = Math.max(...packageSizes);
@@ -328,7 +342,13 @@ export function Options({
   set: SetBuild;
   children?: ReactNode;
 }) {
-  const rows = useMemo(() => rowsFor(slot, build, fit), [slot, build, fit]);
+  // A solve per option is too much for every step of a drag: the reasons
+  // follow once the build holds still, the rest of each row at once.
+  const settled = useSettled(useMemo(() => ({ build, fit }), [build, fit]));
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the slot is rebuilt each render; its key names it
+  const reasons = useMemo(() => reasonsFor(slot, settled.build, settled.fit), [slot.key, settled]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the slot is rebuilt each render; its key names it
+  const rows = useMemo(() => rowsFor(slot, build, reasons), [slot.key, build, reasons]);
   const current = build.parts[slot.cat]?.[slot.index];
   const onPackage = slot.cat === "memory" && current?.part === ON_PACKAGE;
   const hasOptions = onPackage || optionListsOf(current).length > 0;

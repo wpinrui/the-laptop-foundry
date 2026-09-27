@@ -32,6 +32,7 @@ import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
 import { toBody, toYear } from "./structure";
+import { useSettled } from "../viewer/stable";
 import {
   Card,
   Chip,
@@ -344,17 +345,20 @@ export function ChassisTray({
     () => CONTENT.bodies.filter((b) => available(b, build.year) || b.id === build.body),
     [build.year, build.body],
   );
-  // Each body solved with this build: its shape at this size, and how far it would come up short.
+  // Each body solved with this build: its shape at this size, and how far it
+  // would come up short. A solve per body is too much for every step of a
+  // drag, so the cards follow once the build holds still.
+  const settled = useSettled(build);
   const fits = useMemo(
     () =>
       bodies.map((b) => {
         try {
-          return solve(toBody(build, b.id));
+          return solve(toBody(settled, b.id));
         } catch {
           return null;
         }
       }),
-    [build, bodies],
+    [settled, bodies],
   );
   const ext = fits.map((f) => (f ? silhouetteExtent(f) : null));
   const deep = Math.max(1, ...ext.map((e) => e?.y ?? 0));

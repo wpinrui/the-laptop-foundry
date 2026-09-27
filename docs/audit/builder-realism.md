@@ -116,10 +116,12 @@ A hidden slider no longer costs: spend on a part with nothing to compact is igno
 
 Highest impact first, one PR each:
 
-- `fix/display-year-gating`: D1 to D9, D12.
-- `feat/keyboard-trackpad-quality`: K1, K3 to K5, T1 to T5, W2, W3, and the dated option values they need.
-- `fix/compact-sliders`: C1 to C7, D11, K2.
-- `feat/quality-sliders`: D10, S1, W1, and the shared quality field.
-- `fix/parts-year-gating`: the `fix/parts-year-gating` rows above.
+- `fix/display-year-gating`: D1 to D9, D12. Landed in #254.
+- `feat/keyboard-trackpad-quality`: K1, K3 to K5, T1 to T5, W2, W3, and the dated option values they need. Landed in #257.
+- `fix/compact-sliders`: C1 to C7, D11, K2. Landed in #258.
+- `feat/quality-sliders`: D10, S1, W1, and the shared quality field. Landed in #260.
+- `fix/parts-year-gating`: the `fix/parts-year-gating` rows above. Landed in #261.
+
+Rows marked Later are open: D13, P4, P6, P11, P14, P15, P18, P19.
 
 Every new figure is a concrete spec a review can score from: nits, ppi, Delta E, uniformity %, key wobble mm, snap ratio %, clickable share %, friction coefficient, bass cutoff Hz, aperture f-number. Saves from before these slices load with the old behaviour where a field is missing: no brightness means the nearest sold panel's, no quality means 0, and old trackpad parts migrate to the new ones with their sizes kept.

@@ -20,7 +20,7 @@ import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
 import { toBody, toYear } from "./structure";
-import { Card, Chip, Chips, Label, Line, SliderField, Slider, money, Toggle, Value } from "./ui";
+import { Card, Chip, Chips, FitButton, Label, Line, SliderField, Slider, money, Toggle, Value } from "./ui";
 
 // The left column of each builder stage, and the tray along the bottom where
 // the stage has one. Every change goes through `set`, which does nothing on a
@@ -58,6 +58,21 @@ export function YearColumn({ build, set }: StageProps) {
 const AXIS_NAME: Record<Axis, string> = { x: "Width", y: "Depth", z: "Thickness" };
 const EDGE_NAME = { square: "Square edges", rounded: "Rounded edges", chamfer: "Chamfered edges" };
 const HINGE_NAME = { full: "Full width", barrel: "Two barrels", drop: "Drop hinge" };
+const AXIS_STEP: Record<Axis, number> = { x: 0.5, y: 0.5, z: 0.1 };
+const tenth = (v: number) => Math.round(v * 10) / 10;
+const snap = (v: number, lo: number, step: number) => tenth(lo + Math.round((v - lo) / step) * step);
+
+/**
+ * The smallest value on the slider's grid at which this axis stops being short.
+ * The solver's minimum for an axis does not depend on that axis' own size, so
+ * it is exact with the other two held. Null when even the largest size is short.
+ */
+function fitMinimum(need: number, lo: number, hi: number, step: number): number | null {
+  let v = tenth(lo + Math.ceil((need - lo) / step - 1e-9) * step);
+  if (v < need) v = tenth(v + step);
+  v = Math.max(lo, v);
+  return v <= hi ? v : null;
+}
 
 export function ChassisColumn({ build, fit, set }: StageProps) {
   const [lock, setLock] = useState(false);
@@ -72,7 +87,7 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
       const size = { ...b.size };
       for (const a of ["x", "y", "z"] as Axis[]) {
         const [l, h] = body.limits[a];
-        size[a] = a === axis ? v : Math.min(h, Math.max(l, Math.round((b.size[a] * k) / 0.5) * 0.5));
+        size[a] = a === axis ? v : Math.min(h, Math.max(l, snap(b.size[a] * k, l, AXIS_STEP[a])));
       }
       return { ...b, size };
     });
@@ -82,6 +97,8 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
         (["x", "y", "z"] as Axis[]).map((a) => {
           const [lo, hi] = body.limits[a];
           const problem = geo.find((p) => p.axis === a);
+          const short = geo.some((p) => p.axis === a && p.code === "short");
+          const fitTo = short ? fitMinimum(fit.min[a], lo, hi, AXIS_STEP[a]) : null;
           return (
             <SliderField
               key={a}
@@ -91,10 +108,18 @@ export function ChassisColumn({ build, fit, set }: StageProps) {
               digits={a === "z" ? 1 : 0}
               min={lo}
               max={hi}
-              step={0.5}
+              step={AXIS_STEP[a]}
               mark={fit.min[a]}
               warn={!!problem}
               note={problem ? problemText(problem) : undefined}
+              action={
+                fitTo !== null && (
+                  <FitButton
+                    title={`Grow to the smallest ${AXIS_NAME[a].toLowerCase()} that fits, ${fitTo.toFixed(fitTo % 1 ? 1 : 0)} mm`}
+                    onClick={() => set((b) => ({ ...b, size: { ...b.size, [a]: fitTo } }))}
+                  />
+                )
+              }
               onChange={(v) => setSize(a, v)}
             />
           );

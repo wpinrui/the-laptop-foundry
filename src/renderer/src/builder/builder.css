@@ -298,6 +298,44 @@
   gap: calc(16 * var(--u));
 }
 
+.bd-line-end {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(10 * var(--u));
+}
+
+.bd-fit {
+  align-self: center;
+  display: inline-grid;
+  place-items: center;
+  width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent);
+  border-radius: calc(6 * var(--u));
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--warning);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+.bd-fit svg {
+  width: calc(15 * var(--u));
+  height: calc(15 * var(--u));
+}
+
+.bd-fit:hover {
+  background: color-mix(in srgb, var(--warning) 22%, transparent);
+  border-color: var(--warning);
+}
+
+.bd-fit:focus-visible {
+  outline: 2px solid var(--warning);
+  outline-offset: 2px;
+}
+
 .bd-field {
   display: flex;
   flex-direction: column;

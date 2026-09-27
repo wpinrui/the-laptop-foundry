@@ -1,4 +1,4 @@
-import { type Port, pick, type Rival, rival, trim } from "./kit";
+import { type Port, pick, type Rival, rival, swapPorts, trim } from "./kit";
 
 // ------------------------------------------------------------------ 2017
 
@@ -376,7 +376,7 @@ const R: Rival[] = [
     size: [349, 241, 9],
     price: 2399,
     parts: {
-      processor: "core-i7-7700hq",
+      processor: "core-i7-7820hq",
       graphics: "radeon-rx-460-laptop",
       memory: ["lpddr3-soldered", { capacity: 16 }],
       storage: ["m2-2280-g3", { capacity: 256 }],
@@ -540,7 +540,7 @@ const R: Rival[] = [
       ["usb-a-5g", "left"],
       ["hdmi-1.4", "left"],
       ["usb-c-5g", "left"],
-      ["usb-a-2.0", "right"],
+      ["usb-a-5g", "right"],
       ["sd-reader", "right"],
       ["audio-combo", "right"],
     ],
@@ -562,7 +562,7 @@ const R: Rival[] = [
       keyboard: ["kb-1.0", { light: "white" }],
       trackpad: "pad-100x56",
       webcam: "cam-720p",
-      speakers: "spk-quad",
+      speakers: "spk-stereo-2016",
     },
     ports: [
       ["usb-c-5g", "left"],
@@ -683,6 +683,7 @@ const T: Rival[] = [
   }),
   // Medium office.
   trim(b("ThinkPad T470"), "ThinkPad E475", 599, {
+    ports: swapPorts(b("ThinkPad T470"), "thunderbolt", "usb-c-5g"),
     parts: {
       processor: "a9-9420",
       memory: ["ddr4-2133-sodimm", { capacity: 4, slots: 1 }],

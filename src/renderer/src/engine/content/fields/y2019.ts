@@ -1,4 +1,4 @@
-import { type Port, pick, type Rival, rival, trim } from "./kit";
+import { type Port, pick, type Rival, rival, swapPorts, trim } from "./kit";
 
 // ------------------------------------------------------------------ 2019
 
@@ -135,7 +135,7 @@ const R: Rival[] = [
   }),
   rival(2019, "lenovo", "ThinkPad P53", {
     body: "workhorse",
-    layout: "b",
+    layout: "a",
     size: [377, 252, 20],
     price: 1899,
     parts: {
@@ -321,7 +321,7 @@ const R: Rival[] = [
       ["microsd-reader", "right"],
       ["audio-combo", "right"],
     ],
-    materials: { floor: "cfrp", deck: "cfrp", lid: "aluminium" },
+    materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2019, "dell", "XPS 15 7590", {
     body: "workhorse",
@@ -554,7 +554,7 @@ const R: Rival[] = [
       battery: ["li-po-pouch", { wh: 60, thickness: "standard" }],
       cooling: "two-fans",
       wireless: "wifi-ac",
-      keyboard: ["kb-2.0", { cols: 19, light: "rgb-per-key" }],
+      keyboard: ["kb-2.0", { cols: 19, light: "rgb-zones" }],
       trackpad: "pad-105x70",
       webcam: "cam-720p",
       speakers: "spk-stereo-2016",
@@ -810,6 +810,7 @@ const T: Rival[] = [
   }),
   // Medium office.
   trim(b("ThinkPad T490"), "ThinkPad E595", 659, {
+    ports: swapPorts(b("ThinkPad T490"), "thunderbolt", "usb-c-5g"),
     parts: {
       processor: "ryzen5-3500u",
       memory: ["ddr4-2400-sodimm", { capacity: 4, slots: 1 }],

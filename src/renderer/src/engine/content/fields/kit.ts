@@ -76,6 +76,7 @@ export function trim(
     parts?: Partial<Record<Category, PartSpec | PartSpec[] | null>>;
     materials?: Partial<Record<Piece, string>>;
     spend?: Build["spend"];
+    ports?: Port[];
   } = {},
 ): Rival {
   const maker = change.maker ?? base.maker;
@@ -109,6 +110,7 @@ export function trim(
     materials,
     finish,
     spend: { ...base.build.spend, ...change.spend },
+    ports: change.ports ? change.ports.map(([part, side]) => ({ part, side })) : base.build.ports,
     price,
     screen: change.parts?.display !== undefined ? undefined : base.build.screen,
   });
@@ -129,3 +131,7 @@ export const pick = (list: Rival[], name: string): Rival => {
 };
 
 export type Port = [string, Side];
+
+/** A rival's ports with every port whose id starts with `from` swapped for `to`. */
+export const swapPorts = (base: Rival, from: string, to: string): Port[] =>
+  base.build.ports.map((p) => [p.part.startsWith(from) ? to : p.part, p.side]);

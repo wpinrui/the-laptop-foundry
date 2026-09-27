@@ -230,7 +230,7 @@ export const MEMORY: Part[] = [
     name: "Soldered LPDDR5",
     category: "memory",
     from: 2022,
-    until: 2024,
+    until: 2030,
     shape: {
       kind: "block",
       role: "mem",

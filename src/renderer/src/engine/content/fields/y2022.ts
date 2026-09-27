@@ -1,4 +1,4 @@
-import { type Port, pick, type Rival, rival, trim } from "./kit";
+import { type Port, pick, type Rival, rival, swapPorts, trim } from "./kit";
 
 // ------------------------------------------------------------------ 2022
 
@@ -512,7 +512,7 @@ const R: Rival[] = [
       webcam: "cam-1080p",
       speakers: "spk-quad",
     },
-    ports: [...PORTS_GAMING_TB, ["mini-dp", "rear"], ["microsd-reader", "right"]],
+    ports: [...PORTS_GAMING_TB, ["microsd-reader", "right"]],
     materials: { floor: "magnesium", deck: "magnesium", lid: "aluminium" },
   }),
   rival(2022, "dell", "Latitude 7430", {
@@ -534,7 +534,7 @@ const R: Rival[] = [
       speakers: "spk-stereo-2026",
     },
     ports: PORTS_BIZ,
-    materials: { floor: "cfrp", deck: "cfrp", lid: "cfrp" },
+    materials: { floor: "aluminium", deck: "cfrp", lid: "cfrp" },
   }),
   rival(2022, "dell", "Inspiron 16 5625", {
     body: "workhorse",
@@ -899,7 +899,7 @@ const R: Rival[] = [
       webcam: "cam-720p",
       speakers: "spk-stereo-2026",
     },
-    ports: [...PORTS_GAMING_TB, ["mini-dp", "rear"]],
+    ports: [...PORTS_GAMING_TB],
     materials: { deck: "aluminium" },
   }),
   rival(2022, "acer", "Swift 3 SF314-512", {
@@ -1005,6 +1005,7 @@ const T: Rival[] = [
     parts: { processor: "core-i7-12700h", graphics: "rtx-3060-laptop", display: ["2021-16-2560x1600-ips", { refresh: 165 }] },
   }),
   trim(b("Alienware x17 R2"), "Alienware m17 R5", 2799, {
+    ports: swapPorts(b("Alienware x17 R2"), "thunderbolt", "usb-c-10g"),
     parts: { processor: "ryzen9-6900hx", graphics: ["radeon-rx-6850m-xt", { switchable: "no" }] },
     materials: { floor: "plastic", deck: "magnesium" },
   }),
@@ -1029,6 +1030,7 @@ const T: Rival[] = [
     parts: { display: ["2021-14-2560x1600-ips", { refresh: 120 }], memory: ["lpddr5-soldered", { capacity: 16 }] },
   }),
   trim(b("ZenBook 14 OLED UX3402ZA"), "ZenBook 14 OLED UM3402YA", 949, {
+    ports: swapPorts(b("ZenBook 14 OLED UX3402ZA"), "thunderbolt", "usb-c-10g"),
     parts: { processor: "ryzen5-5625u", memory: ["lpddr4x-soldered", { capacity: 8 }] },
   }),
 ];

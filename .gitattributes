@@ -3,3 +3,4 @@
 *.hdr binary
 *.bin binary
 *.jpg binary
+*.glb binary

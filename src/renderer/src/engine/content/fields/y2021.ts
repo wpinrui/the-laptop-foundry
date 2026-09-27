@@ -1,4 +1,4 @@
-import { type Port, pick, type Rival, rival, trim } from "./kit";
+import { type Port, pick, type Rival, rival, swapPorts, trim } from "./kit";
 
 // ------------------------------------------------------------------ 2021
 
@@ -152,7 +152,7 @@ const R: Rival[] = [
       display: "2021-15.6-1920x1080-ips",
       battery: ["li-po-pouch", { wh: 45, thickness: "standard" }],
       cooling: "one-fan",
-      wireless: "wifi-ac",
+      wireless: "wifi-6",
       keyboard: ["kb-1.5", { cols: 19 }],
       trackpad: "pad-110x70",
       webcam: ["cam-720p", { shutter: "yes" }],
@@ -215,7 +215,7 @@ const R: Rival[] = [
       display: "2021-15.6-1920x1080-ips",
       battery: ["li-po-pouch", { wh: 45, thickness: "standard" }],
       cooling: "one-fan",
-      wireless: "wifi-ac",
+      wireless: "wifi-6",
       keyboard: ["kb-1.5", { cols: 19 }],
       trackpad: "pad-110x70",
       webcam: "cam-720p",
@@ -235,7 +235,7 @@ const R: Rival[] = [
       display: "2021-17.3-1920x1080-ips",
       battery: ["li-po-pouch", { wh: 45, thickness: "standard" }],
       cooling: "one-fan",
-      wireless: "wifi-ac",
+      wireless: "wifi-6",
       keyboard: ["kb-1.5", { cols: 19 }],
       trackpad: "pad-110x70",
       webcam: "cam-720p",
@@ -414,7 +414,7 @@ const R: Rival[] = [
       ["microsd-reader", "right"],
       ["audio-combo", "right"],
     ],
-    materials: { floor: "cfrp", deck: "cfrp", lid: "aluminium" },
+    materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2021, "dell", "XPS 15 9510", {
     body: "workhorse",
@@ -484,7 +484,7 @@ const R: Rival[] = [
       webcam: "cam-1080p",
       speakers: "spk-quad",
     },
-    ports: [...PORTS_GAMING_TB, ["mini-dp", "rear"], ["microsd-reader", "right"]],
+    ports: [...PORTS_GAMING_TB, ["microsd-reader", "right"]],
     materials: { floor: "magnesium", deck: "magnesium", lid: "aluminium" },
   }),
   rival(2021, "dell", "Latitude 7420", {
@@ -506,7 +506,7 @@ const R: Rival[] = [
       speakers: "spk-stereo-2026",
     },
     ports: PORTS_BIZ,
-    materials: { floor: "cfrp", deck: "cfrp", lid: "cfrp" },
+    materials: { floor: "aluminium", deck: "cfrp", lid: "cfrp" },
   }),
   rival(2021, "dell", "Inspiron 15 3511", {
     body: "workhorse",
@@ -520,7 +520,7 @@ const R: Rival[] = [
       display: "2021-15.6-1920x1080-ips",
       battery: ["li-po-pouch", { wh: 45, thickness: "standard" }],
       cooling: "one-fan",
-      wireless: "wifi-ac",
+      wireless: "wifi-6",
       keyboard: ["kb-1.5", { cols: 19 }],
       trackpad: "pad-110x70",
       webcam: "cam-720p",
@@ -798,7 +798,7 @@ const R: Rival[] = [
       webcam: "cam-720p",
       speakers: "spk-stereo-2026",
     },
-    ports: [...PORTS_GAMING_TB, ["mini-dp", "rear"]],
+    ports: [...PORTS_GAMING_TB],
     materials: { deck: "aluminium" },
   }),
   rival(2021, "acer", "Swift 3 SF314-43", {
@@ -883,6 +883,7 @@ const T: Rival[] = [
     parts: { processor: "core-i7-1195g7", display: ["2021-14-2880x1800-oled", { refresh: 60 }] },
   }),
   trim(b("ZenBook 13 OLED UX325EA"), "ZenBook 13 OLED UM325UA", 849, {
+    ports: swapPorts(b("ZenBook 13 OLED UX325EA"), "thunderbolt", "usb-c-10g"),
     parts: { processor: "ryzen7-5700u" },
   }),
   trim(b("MacBook Air (M1, 2020)"), "MacBook Pro 13 (M1, 2020)", 1299, {

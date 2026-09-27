@@ -69,7 +69,7 @@ const PORTS_BIG: Port[] = [
 const PORTS_MAC: Port[] = [
   ["dc-jack", "left"],
   ["ethernet-1g", "left"],
-  ["displayport", "left"],
+  ["dvi-d", "left"],
   ["usb-a-2.0", "left"],
   ["usb-a-2.0", "left"],
   ["headphone-mic", "left"],
@@ -78,7 +78,7 @@ const PORTS_MAC_PRO: Port[] = [
   ["dc-jack", "left"],
   ["ethernet-1g", "left"],
   ["firewire-400", "left"],
-  ["displayport", "left"],
+  ["dvi-d", "left"],
   ["usb-a-2.0", "left"],
   ["usb-a-2.0", "left"],
   ["headphone-mic", "left"],
@@ -807,8 +807,8 @@ const T: Rival[] = [
   trim(b("U6V"), "U6Vc (T9600, 9600M GT)", 1799, {
     parts: { graphics: "geforce-9600m-gt", processor: "core2-duo-t9600" },
   }),
-  trim(b("Latitude E4300"), "Latitude E4300 (SP9600)", 1649, {
-    parts: { processor: "core2-duo-sp9600" },
+  trim(b("Latitude E4300"), "Latitude E4300 (SP9300)", 1399, {
+    parts: { processor: "core2-duo-sp9300" },
   }),
   trim(b("U6V"), "U6Vc (8800M GTS)", 1999, {
     parts: { graphics: "geforce-8800m-gts", processor: "core2-duo-t9400", storage: "hdd18" },

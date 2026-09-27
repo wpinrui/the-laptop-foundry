@@ -319,7 +319,7 @@ const R: Rival[] = [
     parts: {
       processor: "core2-duo-sl9400",
       graphics: "radeon-hd-4330",
-      memory: ["ddr3-1066-sodimm", { capacity: 3, slots: 2 }],
+      memory: ["ddr3-1066-sodimm", { capacity: 4, slots: 2 }],
       storage: ["hdd18", { capacity: 60 }],
       display: "2006-13.3-1280x800-tn-glossy",
       battery: ["slim-li-po-2006", { wh: 40 }],
@@ -342,7 +342,7 @@ const R: Rival[] = [
     parts: {
       processor: "core-i7-720qm",
       graphics: "radeon-hd-4830",
-      memory: ["ddr3-1066-sodimm", { capacity: 6, slots: 2 }],
+      memory: ["ddr3-1066-sodimm", { capacity: 4, slots: 2 }],
       storage: ["hdd25-7200-2010", { capacity: 500 }],
       display: "2006-15.4-1920x1200-tn-matte",
       battery: ["li-ion-18650", { cells: 6 }],

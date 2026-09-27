@@ -58,7 +58,6 @@ const PORTS_2011_ULTRA: Port[] = [
 const PORTS_2011_APPLE: Port[] = [
   ["dc-jack", "left"],
   ["ethernet-1g", "left"],
-  ["firewire-400", "left"],
   ["thunderbolt-1", "left"],
   ["usb-a-2.0", "left"],
   ["usb-a-2.0", "left"],
@@ -212,7 +211,6 @@ const R: Rival[] = [
     },
     ports: [
       ...PORTS_2011_BIZ,
-      ["firewire-400", "right"],
       ["usb-a-5g", "right"],
     ],
     materials: { lid: "magnesium" },

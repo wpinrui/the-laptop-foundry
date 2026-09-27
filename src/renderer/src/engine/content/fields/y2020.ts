@@ -38,7 +38,7 @@ const PORTS_GAMING: Port[] = [
 ];
 const PORTS_BUDGET: Port[] = [
   ["dc-jack", "left"],
-  ["hdmi-1.4", "left"],
+  ["hdmi-2.0", "left"],
   ["ethernet-1g", "left"],
   ["usb-a-5g", "left"],
   ["usb-c-5g", "left"],
@@ -76,7 +76,7 @@ const R: Rival[] = [
     price: 1599,
     parts: {
       processor: "core-i7-10610u",
-      memory: ["lpddr3-soldered", { capacity: 16 }],
+      memory: ["lpddr4x-soldered", { capacity: 16 }],
       storage: ["m2-2280-g4", { capacity: 512 }],
       display: "2016-14-1920x1080-ips",
       battery: ["li-po-pouch", { wh: 45, thickness: "slim" }],
@@ -260,7 +260,7 @@ const R: Rival[] = [
       ["microsd-reader", "right"],
       ["audio-combo", "right"],
     ],
-    materials: { floor: "cfrp", deck: "cfrp", lid: "aluminium" },
+    materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2020, "dell", "XPS 15 9500", {
     body: "workhorse",
@@ -288,7 +288,7 @@ const R: Rival[] = [
       ["sd-reader", "right"],
       ["audio-combo", "right"],
     ],
-    materials: { floor: "cfrp", deck: "cfrp", lid: "aluminium" },
+    materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2020, "dell", "G5 15 SE 5505", {
     body: "workhorse",
@@ -330,7 +330,7 @@ const R: Rival[] = [
       webcam: "cam-720p",
       speakers: "spk-stereo-2026",
     },
-    ports: [...PORTS_GAMING, ["thunderbolt-3", "rear"], ["mini-dp", "rear"]],
+    ports: [...PORTS_GAMING, ["thunderbolt-3", "rear"], ["displayport", "rear"]],
     materials: { floor: "magnesium", deck: "magnesium", lid: "aluminium" },
   }),
   rival(2020, "asus", "ZenBook 15 UX534FTC", {
@@ -341,7 +341,7 @@ const R: Rival[] = [
     parts: {
       processor: "core-i7-10510u",
       graphics: "geforce-gtx-1650-laptop",
-      memory: ["lpddr3-soldered", { capacity: 16 }],
+      memory: ["lpddr4x-soldered", { capacity: 16 }],
       storage: ["m2-2280-g4", { capacity: 1024 }],
       display: "2016-15.6-1920x1080-ips",
       battery: ["li-po-pouch", { wh: 60, thickness: "slim" }],
@@ -622,7 +622,7 @@ const R: Rival[] = [
       webcam: "cam-720p",
       speakers: "spk-stereo-2026",
     },
-    ports: [...PORTS_GAMING, ["mini-dp", "rear"]],
+    ports: [...PORTS_GAMING, ["displayport", "rear"]],
     materials: { deck: "aluminium" },
   }),
   rival(2020, "acer", "Swift 3 SF314-42", {
@@ -738,7 +738,7 @@ const T: Rival[] = [
     parts: { processor: "core-i5-1030ng7", storage: ["m2-2280-g4", { capacity: 512 }] },
   }),
   trim(b("ThinkPad X1 Carbon Gen 8"), "ThinkPad X1 Carbon Gen 8 (i5-10310U)", 1399, {
-    parts: { processor: "core-i5-10310u", memory: ["lpddr3-soldered", { capacity: 8 }] },
+    parts: { processor: "core-i5-10310u", memory: ["lpddr4x-soldered", { capacity: 8 }] },
   }),
   trim(b("XPS 13 9300"), "XPS 13 9310", 1449, {
     parts: { processor: "core-i7-1165g7" },

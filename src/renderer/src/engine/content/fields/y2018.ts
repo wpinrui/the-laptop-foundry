@@ -1,4 +1,4 @@
-import { type Port, pick, type Rival, rival, trim } from "./kit";
+import { type Port, pick, type Rival, rival, swapPorts, trim } from "./kit";
 
 // ------------------------------------------------------------------ 2018
 
@@ -265,7 +265,7 @@ const R: Rival[] = [
       ["microsd-reader", "right"],
       ["audio-combo", "right"],
     ],
-    materials: { floor: "cfrp", deck: "cfrp", lid: "aluminium" },
+    materials: { floor: "aluminium", deck: "cfrp", lid: "aluminium" },
   }),
   rival(2018, "dell", "XPS 15 9570", {
     body: "workhorse",
@@ -540,7 +540,7 @@ const R: Rival[] = [
       ["hdmi-1.4", "left"],
       ["usb-a-5g", "left"],
       ["usb-c-5g", "left"],
-      ["usb-a-2.0", "right"],
+      ["usb-a-5g", "right"],
       ["microsd-reader", "right"],
     ],
     materials: { floor: "aluminium", deck: "aluminium", lid: "aluminium" },
@@ -752,6 +752,7 @@ const T: Rival[] = [
   }),
   // Medium office.
   trim(b("ThinkPad T480"), "ThinkPad E585", 639, {
+    ports: swapPorts(b("ThinkPad T480"), "thunderbolt", "usb-c-5g"),
     parts: {
       processor: "ryzen3-2200u",
       memory: ["ddr4-2400-sodimm", { capacity: 4, slots: 1 }],

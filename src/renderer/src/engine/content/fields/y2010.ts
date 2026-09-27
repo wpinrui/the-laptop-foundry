@@ -238,7 +238,7 @@ const R: Rival[] = [
     ports: [...PORTS_2010, ["esata-usb", "left"]],
   }),
   rival(2010, "hp", "Envy 15-1050", {
-    body: "blade",
+    body: "workhorse",
     layout: "b",
     size: [375, 247, 18],
     price: 1799,
@@ -292,7 +292,7 @@ const R: Rival[] = [
     materials: { deck: "aluminium", lid: "aluminium" },
   }),
   rival(2010, "hp", "Envy 13", {
-    body: "blade",
+    body: "workhorse",
     layout: "b",
     size: [330, 230, 14],
     price: 1299,
@@ -474,7 +474,7 @@ const R: Rival[] = [
     spend: { material: 0.5 },
   }),
   rival(2010, "dell", "Adamo XPS", {
-    body: "blade",
+    body: "workhorse",
     layout: "a",
     size: [345, 272, 8],
     price: 1799,
@@ -511,7 +511,7 @@ const R: Rival[] = [
   }),
   // ---- Apple
   rival(2010, "apple", "MacBook Pro 15 (Mid 2010)", {
-    body: "blade",
+    body: "workhorse",
     layout: "b",
     size: [364, 249, 17],
     price: 1799,
@@ -535,7 +535,7 @@ const R: Rival[] = [
     spend: { material: 1 },
   }),
   rival(2010, "apple", "MacBook Pro 13 (Mid 2010)", {
-    body: "blade",
+    body: "workhorse",
     layout: "b",
     size: [325, 227, 17],
     price: 1199,
@@ -586,7 +586,7 @@ const R: Rival[] = [
     ],
   }),
   rival(2010, "apple", "MacBook Air 13 (Late 2010)", {
-    body: "blade",
+    body: "workhorse",
     layout: "b",
     size: [325, 227, 11],
     price: 1599,
@@ -616,7 +616,7 @@ const R: Rival[] = [
     },
   }),
   rival(2010, "apple", "MacBook Air 11 (Late 2010, 128 GB)", {
-    body: "blade",
+    body: "workhorse",
     layout: "b",
     size: [300, 192, 11],
     price: 1199,
@@ -638,7 +638,7 @@ const R: Rival[] = [
     spend: { material: 1, packing: 1, battery: 1 },
   }),
   rival(2010, "apple", "MacBook Pro 17 (Mid 2010)", {
-    body: "blade",
+    body: "workhorse",
     layout: "c",
     size: [393, 267, 19],
     price: 2299,

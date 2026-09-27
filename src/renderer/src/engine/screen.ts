@@ -14,7 +14,7 @@ export const SCREEN_KINDS: ScreenKind[] = ["ips", "oled", "mini-led", "tn"];
 
 /** Years each panel technology can be had. */
 export const KIND_YEARS: Record<ScreenKind, [number, number]> = {
-  tn: [1995, 2016],
+  tn: [1995, 2020],
   ips: [2004, 2099],
   oled: [2019, 2099],
   "mini-led": [2021, 2099],

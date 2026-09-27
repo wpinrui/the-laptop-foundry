@@ -46,7 +46,6 @@ const PORTS_2012_ULTRA: Port[] = [
 const PORTS_2012_APPLE: Port[] = [
   ["dc-jack", "left"],
   ["ethernet-1g", "left"],
-  ["firewire-400", "left"],
   ["thunderbolt-1", "left"],
   ["usb-a-5g", "left"],
   ["audio-combo", "left"],
@@ -91,7 +90,7 @@ const R: Rival[] = [
       optical: "dvd-rw-slim-2016",
       wireless: "wifi-n-bt4",
       keyboard: ["kb-2.0", { light: "white" }],
-      trackpad: ["pad-65x40", { stick: "yes" }],
+      trackpad: ["pad-75x45", { stick: "yes" }],
       webcam: "cam-720p",
       speakers: "spk-stereo-2016",
     },
@@ -112,7 +111,7 @@ const R: Rival[] = [
       cooling: "one-fan",
       wireless: "wifi-n-bt4",
       keyboard: ["kb-2.0", { light: "white" }],
-      trackpad: ["pad-65x40", { stick: "yes" }],
+      trackpad: ["pad-75x45", { stick: "yes" }],
       webcam: "cam-720p",
       speakers: "spk-stereo-2016",
     },
@@ -196,7 +195,7 @@ const R: Rival[] = [
       webcam: "cam-720p",
       speakers: "spk-stereo-2016",
     },
-    ports: [...PORTS_2012_BIZ, ["firewire-400", "right"]],
+    ports: PORTS_2012_BIZ,
     materials: { lid: "magnesium" },
   }),
   rival(2012, "lenovo", "ThinkPad Edge E535", {
@@ -539,7 +538,7 @@ const R: Rival[] = [
       ["usb-a-2.0", "right"],
       ["mini-dp", "right"],
     ],
-    materials: { floor: "cfrp", deck: "magnesium", lid: "aluminium" },
+    materials: { floor: "aluminium", deck: "magnesium", lid: "aluminium" },
     spend: { material: 1, packing: 1 },
   }),
   rival(2012, "dell", "XPS 14 L421X", {

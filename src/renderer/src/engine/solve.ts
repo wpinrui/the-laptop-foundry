@@ -353,15 +353,17 @@ export function solve(build: Build, content: Content = CONTENT): Fit {
       size: { ...fill.size, z: room },
     });
     // Ports pack along their wall in list order; each sits centred up and down
-    // the side wall, between the floor and the top case over this zone.
+    // the outer side wall.
     const units = placeUnits(fill, floorCtx, floorZ0, room);
     for (const u of units) {
       if (!u.role.startsWith("port:") || u.src === undefined || !zone.edge) continue;
       const side = zone.edge;
       const e = alongAxis(side);
+      // Centred on the outer side wall, from the bottom of the D panel to the top
+      // of the C panel, kept inside the walls.
       const zLo = floorZ0 + floorCtx.lift;
-      const zTop = floorZ0 + room;
-      u.at.z = Math.max(zLo, (zLo + zTop - u.size.z) / 2);
+      const zHi = F.z - off.top - u.size.z;
+      u.at.z = Math.min(Math.max(zLo, (F.z - u.size.z) / 2), Math.max(zLo, zHi));
       if (report.ports[u.src]) continue;
       // along is to the connector's centre: from the rear on side walls, from the left otherwise.
       const c = u.at[e] + u.size[e] / 2;

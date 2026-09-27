@@ -6,20 +6,18 @@ import type { ModelBox, ModelContext, ModelModule } from "../contract";
 // The pivot runs along x at the rear (-z) of the box. Everything forward of it
 // stays low so the lid, turning about the pivot, clears the base at any angle.
 // The look follows ctx.hinge:
-//   full:   a section of a full-width hinge cover. A "D" profile cover, round at
-//           the rear top, cut square at both x ends (it continues into the next
-//           section), with the steel pivot shaft showing through the cut faces;
-//           a screwed bracket runs forward underneath.
+//   full:   the base end of a full-width barrel: a steel block at the rear and
+//           a screwed bracket forward of it. The barrel runs the whole rear
+//           edge on the lid's axis, so the viewer draws it, not this mount.
 //   barrel: a round barrel of two knuckles with a split between them (base half
 //           and lid half), on a neck and a screwed leaf plate.
 //   drop:   a low bracket: a base plate with two gusseted cheeks rising at the
 //           rear to a small pin, pivot well below the top edge.
-// 2006: chunky: barrel and cover radius at half the height, 1.2 mm plates,
-//       all metal apart from the full cover, which is body colour.
+// 2006: chunky: barrel radius at half the height, 1.2 mm plates, all metal.
 // 2026: slim: smaller radii, 0.6 mm plates, body-colour barrel.
 //
-// The lid side of each hinge (the barrel's lid knuckle and leaf, the full
-// cover, the drop hinge's arm and boss) is drawn in the closed pose and sits in
+// The lid side of each hinge (the barrel's lid knuckle and leaf, the drop
+// hinge's arm and boss) is drawn in the closed pose and sits in
 // a group named LID_GROUP whose origin is the pivot, so the viewer turns it
 // with the lid: rotation.x = -lid angle.
 //
@@ -105,36 +103,24 @@ function build(
   const style = ctx.hinge ?? "full";
 
   if (style === "full") {
-    // Cover section: round at the rear top, flat top, squared off at the front.
-    const r = old ? H / 2 : 0.42 * H;
-    const zp = zB + r;
-    const yp = yTop - r;
-    const zc = zB + clamp((old ? 0.55 : 0.45) * D, 2 * r + 1, D - 3);
+    // The base end of a full-width barrel. The barrel itself runs the whole
+    // rear edge on the lid's axis, outside any one mount's box, so the viewer
+    // draws it (HingeBarrel in Scene.tsx). Here: the steel block that carries
+    // the barrel's end knuckle, at the rear under the top wall, and the
+    // bracket forward from it with two screws. Nothing here turns with the lid.
+    const bw = 0.8 * W;
+    const zc = zB + clamp((old ? 0.45 : 0.35) * D, 2, D - 3);
     const ch = Math.min(0.6, 0.15 * H);
-    const yLo = old ? yBot : yp - r; // 2026: a slimmer section, off the bottom
     const s = new THREE.Shape();
-    s.moveTo(-zB, yLo);
-    s.lineTo(-zB, yp);
-    // Arc from the rear (z = zB) over the top to straight up. Shape x is -z.
-    s.absarc(-zp, yp, r, 0, Math.PI / 2, false);
+    s.moveTo(-zB, yBot + t);
+    s.lineTo(-zB, yTop);
     s.lineTo(-(zc - ch), yTop);
     s.lineTo(-zc, yTop - ch);
-    s.lineTo(-zc, yLo);
+    s.lineTo(-zc, yBot + t);
     s.closePath();
-    const rs = 0.42 * r;
-    const hole = new THREE.Path();
-    hole.absarc(-zp, yp, rs, 0, Math.PI * 2, true);
-    s.holes.push(hole);
-    // The cover is fixed to the lid's bottom edge and swings with it.
-    addLid(profile(s, -x1, x1, old ? 10 : 8), m.body, "cover", yp, zp);
-    add(rod(rs, -x1 + 0.02, x1 - 0.02, yp, zp, 16), m.metal, "shaft");
-    // Bracket forward, under the cover's front edge, with two screws.
-    const bz0 = zc;
-    const bw = 0.8 * W;
-    const plateTop = old ? yBot + t : yLo + t;
-    const plateBot = old ? yBot : yLo;
-    add(block(-bw / 2, bw / 2, plateBot, plateTop, bz0, zF - 0.5), m.metal, "bracket");
-    screws([-0.25 * W, 0.25 * W], plateTop, (zc + zF) / 2);
+    add(profile(s, -bw / 2, bw / 2, 1), m.metal, "block");
+    add(block(-bw / 2, bw / 2, yBot, yBot + t, zB, zF - 0.5), m.metal, "bracket");
+    screws([-0.25 * W, 0.25 * W], yBot + t, (zc + zF) / 2);
   } else if (style === "barrel") {
     const r = old ? H / 2 : 0.4 * H;
     const zp = zB + r;

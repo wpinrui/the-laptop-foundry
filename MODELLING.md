@@ -154,7 +154,7 @@ Size ranges are width by height by depth in model space, in mm. They come from t
 - **What**: one of the two hinge mounts at the rear corners of the base.
 - **Size**: 2006: 25 to 30 wide, 5 to 6 high, 20 deep. 2026: 30 to 35 wide, 4 to 5 high, 15 to 20 deep.
 - **Options**: none. The look follows `ctx.hinge`:
-  - `full`: part of a full-width hinge cover.
+  - `full`: the base end of a full-width barrel: a block and a screwed bracket. The viewer draws the barrel itself along the whole rear edge, on the lid axis.
   - `barrel`: a round barrel.
   - `drop`: a low drop-hinge bracket.
 - **Years**: 2006 is chunky and metal; 2026 is slim.

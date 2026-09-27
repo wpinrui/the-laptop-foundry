@@ -1220,6 +1220,66 @@
   background: var(--accent-wash) !important;
 }
 
+.bd-port-item.warn,
+.bd-port-item.warn:hover {
+  color: var(--warning) !important;
+}
+
+/* A port row: grip to drag, the port, then up and down. */
+.bd-port-line {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--u));
+  border-top: 2px solid transparent;
+}
+
+.bd-port-line .bd-port-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.bd-port-line.dragging {
+  opacity: 0.45;
+}
+
+.bd-port-line.over {
+  border-top-color: var(--accent);
+}
+
+.bd-port-grip {
+  flex: none;
+  display: flex;
+  width: calc(18 * var(--u));
+  color: var(--muted);
+  cursor: grab;
+}
+
+.bd-port-grip svg,
+.bd-port-move svg {
+  width: 100%;
+  height: auto;
+}
+
+.bd-port-move {
+  flex: none;
+  display: flex;
+  width: calc(28 * var(--u));
+  padding: calc(4 * var(--u)) !important;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.bd-port-move:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.bd-port-move:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .bd-port-head b {
   font-family: var(--font-display);
   font-weight: 600;

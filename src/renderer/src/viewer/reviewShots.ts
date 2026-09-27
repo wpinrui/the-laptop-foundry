@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { type Build, type Fit, panelOf, RIVALS, simulate, solve } from "../engine";
+import { type Build, type Fit, panelOf, rivalsFor, simulate, solve } from "../engine";
 import { AMBIENT } from "../engine/sim";
 import { setAssetResolver } from "./reviewScenes";
 
@@ -216,7 +216,9 @@ export interface Outline {
 
 const outerCache = new Map<string, Outline | null>();
 
-function outlineOf(id: string, build: Build): Outline | null {
+function outlineOf(rivalId: string, build: Build): Outline | null {
+  // Rival ids repeat across companies; the size tells their chassis apart.
+  const id = `${rivalId}:${build.body}:${build.size.x}x${build.size.y}x${build.size.z}`;
   if (!outerCache.has(id)) {
     try {
       const o = solve(build).shell.outer;
@@ -230,12 +232,8 @@ function outlineOf(id: string, build: Build): Outline | null {
 
 /** The smallest and largest rival footprints of the build's year, for the size photo. */
 export function rivalOutlines(id: string, build: Build, own: Outline): Outline[] {
-  const years = [...new Set(RIVALS.map((r) => r.build.year))];
-  if (years.length === 0) return [];
-  const year = years.reduce((a, b) =>
-    Math.abs(b - build.year) < Math.abs(a - build.year) || (Math.abs(b - build.year) === Math.abs(a - build.year) && b < a) ? b : a,
-  );
-  const all = RIVALS.filter((r) => r.build.year === year && r.id !== id)
+  const all = rivalsFor(build.year)
+    .filter((r) => r.id !== id)
     .map((r) => outlineOf(r.id, r.build))
     .filter((o): o is Outline => !!o && (Math.abs(o.w - own.w) > 3 || Math.abs(o.d - own.d) > 3))
     .sort((a, b) => a.w - b.w || a.d - b.d);

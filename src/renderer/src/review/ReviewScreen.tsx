@@ -1,9 +1,9 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import {
   panelOf,
-  RIVALS,
   type Review,
   reviewOf,
+  rivalById,
   rivalSubject,
   type Subject,
   solve,
@@ -136,7 +136,7 @@ export function ReviewScreen({
 
   const shown = useMemo(() => {
     if (current === subject.id) return subject;
-    const r = RIVALS.find((x) => x.id === current);
+    const r = rivalById(current);
     return r ? rivalSubject(r) : subject;
   }, [current, subject]);
   const review = useMemo(() => reviewOf(shown), [shown]);

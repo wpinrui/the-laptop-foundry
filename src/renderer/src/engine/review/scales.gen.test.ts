@@ -1,11 +1,11 @@
 import { writeFileSync } from "node:fs";
 import { describe, it } from "vitest";
-import { RIVALS } from "../content/rivals";
+import { generateYear } from "../market/generate";
 import { factsOf, rivalSubject } from "./index";
 import { CATEGORY_KEYS, categoryValues } from "./score";
 import { type CategoryKey, SCALES } from "./scales";
 
-// Dev script, not a test: drafts the review scales from the year's rivals.
+// Dev script, not a test: drafts the review scales from each year's generated market.
 // GEN_SCALES=1 yarn vitest run scales.gen
 // Per year, the low reference is the 10th percentile of the rivals as built,
 // with no quality spend; the high one the 90th percentile of the same rivals
@@ -40,7 +40,9 @@ describe.skipIf(!process.env.GEN_SCALES)("review scales draft", () => {
     const high = new Map<number, Record<CategoryKey, number>[]>();
     const push = (m: Map<number, Record<CategoryKey, number>[]>, y: number, v: Record<CategoryKey, number>) =>
       m.set(y, [...(m.get(y) ?? []), v]);
-    for (const r of RIVALS) {
+    // The generated markets of every year, one fixed seed.
+    const rivals = Array.from({ length: 21 }, (_, i) => generateYear(2006 + i, 1).models).flat();
+    for (const r of rivals) {
       const f = factsOf(rivalSubject(r));
       if (!f.m.cooling) continue;
       push(low, r.build.year, categoryValues(f));

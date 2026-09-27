@@ -571,8 +571,10 @@ export function floorBand(
     const cz = Z - Rc;
     if (y > cy) {
       const h = Math.sqrt(Math.max(0, ri * ri - (y - cy) ** 2));
+      // The round's upper half is the top wall, as thick as the top wall.
+      const rt = Rc - (off.top - style.q);
       lo = cz - h;
-      hi = Math.min(hi, cz + h);
+      hi = Math.min(hi, cz + Math.sqrt(Math.max(0, rt * rt - (y - cy) ** 2)));
     } else if (cy - y < ri) lo = Math.min(lo, cz - Math.sqrt(ri * ri - (cy - y) ** 2));
   }
   return hi > lo ? [lo, hi] : null;
@@ -670,6 +672,26 @@ export function lidSideOffset(style: ResolvedStyle, wall: number): number {
 /** Openings keep clear of the rounded plan corners, and the bumpers, by this much at each end of a strip. */
 export function cornerKeepOut(style: ResolvedStyle, side: number): number {
   return Math.max(0, Math.max(style.corner, bumperBlock(style)) - side);
+}
+
+/**
+ * Lowest an opening may start on an outer face, over its run y0 to y1 on a
+ * side face: above the face's own bottom (a taper, lift chamfer or bevel
+ * raises it at the face, more than over the inner plan) and its bottom edge
+ * profile. A spine's rear is its round, which takes openings anywhere on it;
+ * a perimeter body's face is flat above its bottom zone.
+ */
+export function faceFloor(style: ResolvedStyle, outer: Size, side: Side, y0: number, y1: number): number {
+  if (style.pm) return perimZones(style.pm, sideMult(style.pm, side)).hB;
+  if (side === "rear" && style.D > 0) return -Infinity;
+  const n = side === "left" || side === "right" ? 8 : 0;
+  let lo = -Infinity;
+  for (let i = 0; i <= n; i++) {
+    const y = side === "rear" ? outer.y : side === "front" ? 0 : clamp(y0 + ((y1 - y0) * i) / Math.max(1, n), 0, outer.y);
+    const sec = outerSection(style, outer, y);
+    if (sec) lo = Math.max(lo, sec[0]);
+  }
+  return lo + Math.max(style.profile, style.uh);
 }
 
 /**

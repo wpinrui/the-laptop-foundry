@@ -17,6 +17,8 @@ interface Spec {
   layout: string;
   /** Outer size x, y and base z in mm; the body's default size when absent. */
   size?: [number, number, number];
+  /** The body's signature setting, 0 to 1; the body's middle when absent. */
+  shape?: number;
   parts: Partial<Record<Category, PartSpec | PartSpec[]>>;
   ports: [string, Side][];
   materials?: Partial<Record<Piece, string>>;
@@ -71,7 +73,7 @@ export function makeBuild(spec: Spec, content: Content = CONTENT): Build {
       lid: { colour: "black", texture: texture(mat.lid) },
     },
     spend: { ...spec.spend },
-    shape: {},
+    shape: spec.shape === undefined ? {} : { [spec.body]: spec.shape },
   });
 }
 
@@ -185,6 +187,8 @@ export const SAMPLES: Sample[] = [
       body: "pillow",
       layout: "c",
       size: [421.5, 310, 35],
+      // The M1710's edges round over less deeply than Pillow's middle setting.
+      shape: 0.25,
       parts: {
         processor: "core2-duo-t7600",
         graphics: "geforce-go-7900-gtx",
@@ -290,6 +294,8 @@ export const SAMPLES: Sample[] = [
       year: 2026,
       body: "blade",
       layout: "a",
+      // The Zenbook tapers only gently, 10.9 mm at the front to 11.8 at the rear.
+      shape: 0,
       parts: {
         processor: "core-ultra7-258v",
         memory: "lpddr5x-on-package",

@@ -8,7 +8,18 @@ import { pouchShape } from "./battery";
 import { available, CONTENT, panelsFor, partsFor } from "./content";
 import { zonesOf } from "./plan";
 import { SAMPLES } from "./samples";
-import { flatFace, insideBase, insideLid, taperDepth } from "./shell";
+import {
+  flatFace,
+  hingeAxis,
+  insideBase,
+  insideLid,
+  deckLoss,
+  lidDepth,
+  outerSection,
+  rearInset,
+  spanBand,
+  taperDepth,
+} from "./shell";
 import { solve } from "./solve";
 import type {
   Axis,
@@ -18,6 +29,7 @@ import type {
   Category,
   Fit,
   Piece,
+  ResolvedStyle,
   Side,
   Size,
   ZoneNode,
@@ -33,13 +45,27 @@ const EPS = 1e-6;
  */
 const KNOWN_THIN: Record<string, string> = {
   "dtr-2006":
-    "the M1710 is about 5 mm thicker than the minimum for its parts; the optical drive under the keyboard sets the engine's minimum",
+    "the M1710 is about 3.5 mm thicker than the minimum for its parts",
 };
 const AXES: Axis[] = ["x", "y", "z"];
 const YEARS = [2006, 2026];
 /** Per-solve budget: a quarter of a 60 Hz frame, so a slider tick never drops a frame. */
 const BUDGET_MS = 4;
 const RANDOM_BUILDS = 20000;
+/**
+ * Wall time allowed for a sweep of thousands of solves: sixteen bodies (#166,
+ * #181 to #193) over three layouts make each sweep several times longer.
+ */
+const SWEEP_MS = 600_000;
+/** Thickness a part's slide along a taper may cost when the plan around it changes, mm. */
+const TAPER_SLIDE = 0.01;
+/**
+ * How far the minimum may move as the size moves 1 mm: the body's shape
+ * follows the size (#166) and the fans the thickness (#177). The steepest
+ * rules scale by about a third of the axis (Slant's edge zones, half the
+ * thickness, over its fans).
+ */
+const SHAPE_DRIFT = 0.35;
 
 // ------------------------------------------------------------------ helpers
 
@@ -153,6 +179,18 @@ function baseBuild(year: number, body: string, layout: string): Build {
     },
     spend: {},
   };
+}
+
+/** The layouts a body takes (#166): a body lists them, and the builder offers no other. */
+function layoutsOf(body: { layouts: string[] }) {
+  return CONTENT.layouts.filter((l) => body.layouts.includes(l.id));
+}
+
+/** Where auto placement put each movable part. */
+function planOf(f: Fit): string {
+  return JSON.stringify(
+    Object.entries(f.place.parts ?? {}).map(([k, v]) => [k, v.zone, v.turn]),
+  );
 }
 
 function withSize(b: Build, size: Size): Build {
@@ -277,6 +315,15 @@ function check(build: Build, fit: Fit): string[] {
       .map((b) => [`${b.piece}:${b.zone}`, b]),
   );
   const topWall = F.z - shell.offsets.top;
+  /** Underside of the top wall over a depth span: its lowest there. */
+  const topAt = (y0: number, y1: number) => {
+    let hi = Infinity;
+    for (let i = 0; i <= 16; i++) {
+      const sec = outerSection(style, F, y0 + ((y1 - y0) * i) / 16);
+      if (sec) hi = Math.min(hi, sec[1] + style.q - shell.offsets.top);
+    }
+    return hi;
+  };
   if (
     Math.abs(shell.bands.floor[1] - topWall) > EPS ||
     Math.abs(shell.bands.deck[1] - F.z) > EPS
@@ -302,13 +349,23 @@ function check(build: Build, fit: Fit): string[] {
         Math.abs(w.size.y - u.size.y) < EPS,
     );
     if (!well) fail(`${u.id} has no well in the top wall`);
-    if (Math.abs(u.at.z + u.size.z - F.z) > EPS)
+    // The top surface: corner bumpers stand proud of it by q.
+    if (Math.abs(u.at.z + u.size.z - (F.z - style.q)) > EPS)
       fail(`${u.id} is not flush with the top surface`);
   }
   // Removable packs forming the underside: on the outer bottom, each with its hatch in the bottom wall.
   for (const u of units.filter((b) => b.skin)) {
     if (u.role !== "battery") fail(`${u.id} is a skin but not a battery`);
-    if (Math.abs(u.at.z) > EPS) fail(`${u.id} skin is not on the outer bottom`);
+    // The outer bottom under it (#166): raised by a taper, a spine, a lift
+    // chamfer or bumpers. The pack is flat, so it meets the highest of it and
+    // stays within the bottom wall's thickness of it everywhere else.
+    let floorLo = -Infinity;
+    for (let i = 0; i <= 16; i++) {
+      const sec = outerSection(style, F, u.at.y + (u.size.y * i) / 16);
+      if (sec) floorLo = Math.max(floorLo, sec[0]);
+    }
+    if (u.at.z < floorLo - EPS || u.at.z > floorLo + shell.walls.bottom + EPS)
+      fail(`${u.id} skin is not on the outer bottom`);
     const hatch = shell.hatches.some(
       (h) =>
         Math.abs(h.at.x - u.at.x) < EPS &&
@@ -367,9 +424,11 @@ function check(build: Build, fit: Fit): string[] {
       for (const d of deckColumns)
         if (overlaps(u, d))
           fail(`${u.id} (${u.role}) reaches into the deck layer under ${d.id}`);
-      if (u.at.z + u.size.z > topWall + EPS)
+      // The top wall follows the body's shape (#166): a shelf raises it at the rear, a spine rounds it.
+      if (u.at.z + u.size.z > topAt(u.at.y, u.at.y + u.size.y) + EPS)
         fail(`${u.id} (${u.role}) reaches the top wall`);
-      if (!u.skin && u.at.z < shell.offsets.bottom - EPS)
+      const band = spanBand(style, F, shell.offsets, shell.walls.bottom, u.at.y, u.at.y + u.size.y);
+      if (!u.skin && u.at.z < (band ? band[0] : shell.offsets.bottom) - EPS)
         fail(`${u.id} below the inner floor`);
     }
     if (
@@ -417,6 +476,15 @@ function check(build: Build, fit: Fit): string[] {
       fail(`${b.id} leaves the board`);
   }
 
+  // Where each piece's plan ends at the rear (#166): a spine rounds the floor
+  // off, and the deck stops short of a spine or an inset hinge's shelf.
+  const floorRear = F.y - rearInset(style, shell.offsets, shell.walls.bottom);
+  const rearOf = (piece: Piece) =>
+    piece === "floor"
+      ? floorRear
+      : piece === "deck"
+        ? F.y - shell.offsets.side - deckLoss(style, fit.lidZ)
+        : F.y - shell.offsets.lidSide;
   // Every zone that declares an edge touches it. Floor and deck share the base's inner box; the lid has its own.
   for (const zb of fit.boxes.filter((b) => b.kind === "zone")) {
     const node = zones[zb.piece].get(zb.zone);
@@ -430,7 +498,7 @@ function check(build: Build, fit: Fit): string[] {
       left: Math.abs(zb.at.x - s) < EPS,
       right: Math.abs(zb.at.x + zb.size.x - (F.x - s)) < EPS,
       front: Math.abs(zb.at.y - s) < EPS,
-      rear: Math.abs(zb.at.y + zb.size.y - (F.y - s)) < EPS,
+      rear: Math.abs(zb.at.y + zb.size.y - rearOf(zb.piece)) < EPS,
     };
     // The lid is drawn closed, so its y edges are mirrored.
     const side =
@@ -465,11 +533,38 @@ function check(build: Build, fit: Fit): string[] {
             ? Math.abs(u.at.x + u.size.x - (F.x - s)) < EPS
             : node.edge === "front"
               ? Math.abs(u.at.y - s) < EPS
-              : Math.abs(u.at.y + u.size.y - (F.y - s)) < EPS;
+              : Math.abs(u.at.y + u.size.y - rearOf(u.piece)) < EPS;
       if (!on)
         fail(`${u.id} (${u.role}) is not flush with its ${node.edge} wall`);
     }
   }
+
+  // The flat of an outer face over an opening's run (#166): the body's section
+  // there, less the edge profile, so a shelf's raised rear face counts; a
+  // spine's rear face is its round, the depth of the spine.
+  const flatAt = (side: Side, u: number[]) => {
+    const flat = flatFace(side, F, style);
+    // A perimeter body's faces are flat between their edge zones.
+    if (style.pm) return flat;
+    if (side === "rear" && style.D > 0)
+      return { u: flat.u, z: [F.z - style.D, F.z] };
+    const ys =
+      side === "left" || side === "right"
+        ? Array.from({ length: 17 }, (_, i) => u[0] + ((u[1] - u[0]) * i) / 16)
+        : [side === "rear" ? F.y - EPS : EPS];
+    let lo = -Infinity;
+    let hi = Infinity;
+    for (const y of ys) {
+      const sec = outerSection(style, F, y);
+      if (!sec) continue;
+      lo = Math.max(lo, sec[0]);
+      hi = Math.min(hi, sec[1]);
+    }
+    return {
+      u: flat.u,
+      z: [lo + Math.max(style.profile, style.uh), hi - style.profile],
+    };
+  };
 
   // Anchors on outer faces.
   const bySide = new Map<Side, [number, number, number, number][]>();
@@ -485,7 +580,7 @@ function check(build: Build, fit: Fit): string[] {
               ? a.at.y === 0
               : Math.abs(a.at.y - F.y) < EPS;
       if (!plane) fail(`${o.id} is not on the ${o.side} face`);
-      const flat = flatFace(o.side, F, style);
+      const flat = flatAt(o.side, o.u);
       if (
         o.u[0] < flat.u[0] - EPS ||
         o.u[1] > flat.u[1] + EPS ||
@@ -507,9 +602,11 @@ function check(build: Build, fit: Fit): string[] {
       rects.push([o.u[0], o.u[1], o.z[0], o.z[1]]);
       bySide.set(o.side, rects);
     } else if (a.kind === "hinge") {
+      // Each body puts its axis where its hinge goes: the rear top edge, dropped, lifted, inset or in the spine.
+      const want = hingeAxis(style, F, fit.lidZ);
       for (const pt of [a.from, a.to]) {
-        if (Math.abs(pt.z - F.z) > EPS || Math.abs(pt.y - F.y) > EPS)
-          fail("hinge axis is not on the base's rear top edge");
+        if (Math.abs(pt.z - want.z) > EPS || Math.abs(pt.y - want.y) > EPS)
+          fail("hinge axis is not where the body puts it");
         if (pt.x < 0 || pt.x > F.x) fail("hinge axis runs outside the base");
       }
     } else if (a.kind === "heat-source") {
@@ -550,8 +647,7 @@ function check(build: Build, fit: Fit): string[] {
       right: (b: Box) =>
         Math.abs(b.at.x + b.size.x - (F.x - shell.offsets.side)) < EPS,
       front: (b: Box) => Math.abs(b.at.y - shell.offsets.side) < EPS,
-      rear: (b: Box) =>
-        Math.abs(b.at.y + b.size.y - (F.y - shell.offsets.side)) < EPS,
+      rear: (b: Box) => Math.abs(b.at.y + b.size.y - rearOf(b.piece)) < EPS,
     }[side];
     for (const b of list)
       if (!face(b)) fail(`${b.id} is not on the ${side} face`);
@@ -579,7 +675,7 @@ function check(build: Build, fit: Fit): string[] {
     fail(`expected two hinge mounts, found ${hinges.length}`);
   else {
     const [l, r] = [...hinges].sort((a, b) => a.at.x - b.at.x);
-    const rear = (h: Box) => Math.abs(h.at.y + h.size.y - (F.y - s)) < EPS;
+    const rear = (h: Box) => Math.abs(h.at.y + h.size.y - floorRear) < EPS;
     if (!rear(l) || Math.abs(l.at.x - s) > EPS)
       fail(
         `left hinge mount is not at the rear left corner (x ${l.at.x.toFixed(1)})`,
@@ -597,9 +693,10 @@ function check(build: Build, fit: Fit): string[] {
     for (let deg = 0; deg <= LID_MAX_DEG; deg += LID_STEP_DEG) {
       const hit = lidHitsBase(
         F,
-        style.drop,
+        style,
         lidZ0,
         fit.lidZ,
+        lidDepth(style, F, fit.lidZ),
         axis.from.y,
         axis.from.z,
         deg,
@@ -618,17 +715,20 @@ const LID_STEP_DEG = 5;
 
 /**
  * Does the lid, opened by `deg` about the hinge axis (running along x at
- * (py, pz)), overlap the base? Both are compared as their bounding solids in
- * the y-z plane: the base spans y 0 to F.y and z from a spine's lowest point
- * to F.z; the closed lid spans y 0 to F.y and z lidZ0 to lidZ0 + lidZ. Every
- * part and shell lies inside these, so no overlap here means none in the model.
- * Separating axis test between the rotated lid rectangle and the base rectangle.
+ * (py, pz)), overlap the base? Both are compared in the y-z plane on the centre
+ * line: the base as its outer section at each depth (taper, spine, shelf, lift
+ * chamfer and bevel included; the edge profile only takes away), the lid as the
+ * closed slab from the front to where the body ends it (lidY), z lidZ0 to
+ * lidZ0 + lidZ. Every part and shell lies inside these, so no overlap here means
+ * none in the model. Sampled: points of the opened lid inside the base, and
+ * points of the base outline inside the opened lid, clear of a touch.
  */
 function lidHitsBase(
   F: Size,
-  drop: number,
+  style: ResolvedStyle,
   lidZ0: number,
   lidZ: number,
+  lidY: number,
   py: number,
   pz: number,
   deg: number,
@@ -636,43 +736,43 @@ function lidHitsBase(
   const t = (deg * Math.PI) / 180;
   const c = Math.cos(t);
   const sn = Math.sin(t);
+  const tol = 1e-3;
   // Same rotation as the viewer: front edge rises as the lid opens.
   const rot = (y: number, z: number): [number, number] => {
     const dy = y - py;
     const dz = z - pz;
     return [py + dy * c + dz * sn, pz - dy * sn + dz * c];
   };
-  const lid = [
-    rot(0, lidZ0),
-    rot(F.y, lidZ0),
-    rot(F.y, lidZ0 + lidZ),
-    rot(0, lidZ0 + lidZ),
-  ];
-  const base: [number, number][] = [
-    [0, -drop],
-    [F.y, -drop],
-    [F.y, F.z],
-    [0, F.z],
-  ];
-  const axes: [number, number][] = [
-    [1, 0],
-    [0, 1],
-    [c, -sn],
-    [sn, c],
-  ];
-  const tol = 1e-6;
-  for (const [ay, az] of axes) {
-    const proj = (pts: [number, number][]) =>
-      pts.map(([y, z]) => y * ay + z * az);
-    const a = proj(lid);
-    const b = proj(base);
-    if (
-      Math.max(...a) <= Math.min(...b) + tol ||
-      Math.max(...b) <= Math.min(...a) + tol
-    )
-      return false;
+  const unrot = (y: number, z: number): [number, number] => {
+    const dy = y - py;
+    const dz = z - pz;
+    return [py + dy * c - dz * sn, pz + dy * sn + dz * c];
+  };
+  const inBase = (y: number, z: number) => {
+    if (y <= tol || y >= F.y - tol) return false;
+    const sec = outerSection(style, F, y);
+    return !!sec && z > sec[0] + tol && z < sec[1] - tol;
+  };
+  const inLid = (y: number, z: number) => {
+    const [ly, lz] = unrot(y, z);
+    return ly > tol && ly < lidY - tol && lz > lidZ0 + tol && lz < lidZ0 + lidZ - tol;
+  };
+  const step = 1;
+  for (let y = 0; y <= lidY + 1e-9; y += step)
+    for (const k of [0, 0.5, 1]) {
+      const [ry, rz] = rot(Math.min(y, lidY), lidZ0 + k * lidZ);
+      if (inBase(ry, rz)) return true;
+    }
+  for (let y = 0; y <= F.y + 1e-9; y += step) {
+    const sec = outerSection(style, F, Math.min(y, F.y));
+    if (sec && (inLid(y, sec[0]) || inLid(y, sec[1]))) return true;
   }
-  return true;
+  // The rear face.
+  const rear = outerSection(style, F, F.y - 0.01);
+  if (rear)
+    for (let z = rear[0]; z <= rear[1] + 1e-9; z += step)
+      if (inLid(F.y - 0.01, Math.min(z, rear[1]))) return true;
+  return false;
 }
 
 // ------------------------------------------------------------------ runner
@@ -773,7 +873,7 @@ describe("fit engine", () => {
     stats.failures.length = 0;
     for (const year of YEARS)
       for (const body of CONTENT.bodies)
-        for (const layout of CONTENT.layouts)
+        for (const layout of layoutsOf(body))
           for (const spend of [0, 1]) {
             const b = withSpend(baseBuild(year, body.id, layout.id), spend);
             const label = `${year} ${body.id} ${layout.id} spend ${spend}`;
@@ -791,14 +891,23 @@ describe("fit engine", () => {
                 (p) =>
                   p.kind === "geometry" && p.code === "short" && p.axis === a,
               );
+              // The body's shape follows the size (#166), and the fans the
+              // thickness (#177), so the minimum moves a little as the size
+              // shrinks: short by 1 mm, less that move. Auto placement may
+              // take another plan at the smaller size (#170, #173), which has
+              // its own minimum.
+              const by = (shortBy as { by: number } | undefined)?.by;
+              const replanned = planOf(f) !== planOf(fm);
               if (
                 min[a] - 1 >= lim[a][0] &&
                 min[a] <= lim[a][1] &&
-                (!shortBy ||
-                  Math.abs((shortBy as { by: number }).by - 1) > 1e-6)
+                !replanned &&
+                (by === undefined ||
+                  Math.abs(by - 1) > SHAPE_DRIFT ||
+                  Math.abs(by - (f.min[a] - below[a])) > 1e-6)
               )
                 stats.failures.push(
-                  `${label}: 1 mm below on ${a} is not reported as short by 1 mm`,
+                  `${label}: 1 mm below on ${a} is not reported as short by 1 mm (by ${by}, min there ${f.min[a] - min[a]} from its own)`,
                 );
             }
             const fx = run(
@@ -836,7 +945,7 @@ describe("fit engine", () => {
               stats.failures.push(`${label}: an empty build is too big`);
           }
     expect(stats.failures).toEqual([]);
-  });
+  }, SWEEP_MS);
 
   it("every option of every category builds compatibly and fits some body and layout", () => {
     stats.failures.length = 0;
@@ -985,7 +1094,7 @@ describe("fit engine", () => {
     console.log(`option coverage: ${covered.length} part and option values`);
     expect(covered.length).toBeGreaterThan(200);
     expect(stats.failures).toEqual([]);
-  });
+  }, SWEEP_MS);
 
   it("reference builds solve cleanly apart from the one meant not to fit", () => {
     stats.failures.length = 0;
@@ -1038,7 +1147,7 @@ describe("fit engine", () => {
   it("at max spend, fans never make a thin 2026 ultrabook taller than its battery and keyboard do", () => {
     const bad: string[] = [];
     for (const body of CONTENT.bodies.filter((b) => available(b, 2026)))
-      for (const layout of CONTENT.layouts)
+      for (const layout of layoutsOf(body))
         for (const cooling of ["one-fan", "two-fans"]) {
           const b = withSpend(baseBuild(2026, body.id, layout.id), 1);
           b.parts = {
@@ -1056,7 +1165,10 @@ describe("fit engine", () => {
               size,
             ),
           ).min.z;
-          if (withFans > noFans + 1e-6)
+          // On a taper (#166, #187) the fans change how the plan's spare depth
+          // splits, which slides the battery a few hundredths of a mm along the
+          // slope: that much is where the battery sits, not the fans' height.
+          if (withFans > noFans + TAPER_SLIDE)
             bad.push(
               `${body.id} ${layout.id} ${cooling}: ${withFans.toFixed(2)} with fans vs ${noFans.toFixed(2)} without`,
             );
@@ -1080,7 +1192,7 @@ describe("fit engine", () => {
         rnd() < 0.9
           ? pick(CONTENT.bodies.filter((b) => available(b, year)))
           : pick(CONTENT.bodies);
-      const layout = pick(CONTENT.layouts);
+      const layout = pick(layoutsOf(body));
       const parts: Build["parts"] = {};
       for (const c of CATEGORIES) {
         const optional = [
@@ -1157,7 +1269,7 @@ describe("fit engine", () => {
       if (i % 10 === 0) deterministic(`random ${i}`, b);
     }
     expect(stats.failures).toEqual([]);
-  }, 60_000);
+  }, SWEEP_MS);
 
   it("hinges and lid hold at every size: the full shared body range for every year, body and layout", () => {
     stats.failures.length = 0;
@@ -1170,7 +1282,7 @@ describe("fit engine", () => {
     ];
     for (const year of YEARS)
       for (const body of CONTENT.bodies)
-        for (const layout of CONTENT.layouts) {
+        for (const layout of layoutsOf(body)) {
           const full = baseBuild(year, body.id, layout.id);
           const empty: Build = { ...full, parts: {}, ports: [], spend: {} };
           const lim = body.limits;
@@ -1187,7 +1299,7 @@ describe("fit engine", () => {
                   );
         }
     expect(stats.failures).toEqual([]);
-  }, 60_000);
+  }, SWEEP_MS);
 
   it(`every solve finishes inside ${BUDGET_MS} ms`, () => {
     stats.failures.length = 0;

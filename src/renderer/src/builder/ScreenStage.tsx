@@ -299,6 +299,17 @@ export function ScreenColumn({ build, set }: StageProps) {
           </Chips>
         </div>
       )}
+
+      {current && (
+        <SliderField
+          label="Compact"
+          value={Math.round((build.spend.display ?? 0) * 100)}
+          unit="%"
+          min={0}
+          max={100}
+          onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, display: v / 100 } }))}
+        />
+      )}
     </>
   );
 }

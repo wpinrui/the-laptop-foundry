@@ -14,6 +14,7 @@ import {
   type QualityKey,
 } from "../types";
 import { pouchOf, pouchShape } from "../battery";
+import { compactable } from "../compact";
 import { padShapeOf, padSize, padSurface } from "../pad";
 import { qualityCost } from "../quality";
 import { opt } from "../units";
@@ -511,9 +512,9 @@ export function costOf(
     // Quality spend on the area, on top of the part.
     if (list.length > 0 && (QUALITY_KEYS as string[]).includes(cat)) catCost += qualityCost(build, cat as QualityKey);
     add(cat, catCost);
-    // Compacting a part costs more on a dear part.
+    // Compacting a part costs more on a dear part. A standard form factor has nothing to compact.
     const s = build.spend[cat] ?? 0;
-    if (list.length > 0) spend += s * (15 + 0.3 * catCost);
+    if (list.some((bp) => compactable(content.parts.find((p) => p.id === bp.part)))) spend += s * (15 + 0.3 * catCost);
   }
   add(
     "port",

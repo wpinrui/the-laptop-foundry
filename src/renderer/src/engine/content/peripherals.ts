@@ -188,7 +188,8 @@ export const WIFI_LAB: Record<string, { send: number; receive: number }> = {
 };
 
 // Footprint = (cols - 0.5) x pitch + 4 by rows x pitch + 4. Stack is the height at that travel,
-// at keyboard spend 0 and 1: full Compact halves it.
+// at keyboard spend 0 and 1. Full Compact thins caps, scissors and plate, but
+// never below the travel plus about 1.2 mm of cap, membrane and backplate.
 // Zoned RGB from the Alienware M17x (2009), per-key RGB from the Razer Blade's Chroma (2016).
 const LIGHT_YEARS: Record<string, [number, number]> = {
   "rgb-zones": [2009, 2099],
@@ -202,7 +203,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 1995,
     until: 2012,
-    shape: { kind: "keys", rows: 6, stack: [6.0, 3.0] },
+    shape: { kind: "keys", rows: 6, stack: [6.0, 3.7] },
     options: {
       cols: [15, 19],
       pitch: [19, 17],
@@ -216,7 +217,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 1995,
     until: 2010,
-    shape: { kind: "keys", rows: 6, stack: [6.5, 3.25] },
+    shape: { kind: "keys", rows: 6, stack: [6.5, 4.2] },
     options: {
       cols: [15, 19],
       pitch: [19, 17],
@@ -231,7 +232,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2006,
     until: 2019,
-    shape: { kind: "keys", rows: 6, stack: [4.2, 2.1] },
+    shape: { kind: "keys", rows: 6, stack: [4.2, 3.2] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -245,7 +246,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2015,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: [2.6, 1.3] },
+    shape: { kind: "keys", rows: 6, stack: [2.6, 2.2] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -259,7 +260,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2012,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: [3.3, 1.8] },
+    shape: { kind: "keys", rows: 6, stack: [3.3, 2.7] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],
@@ -288,7 +289,7 @@ export const KEYBOARDS: Part[] = [
     category: "keyboard",
     from: 2019,
     until: 2030,
-    shape: { kind: "keys", rows: 6, stack: [5.0, 2.5] },
+    shape: { kind: "keys", rows: 6, stack: [5.0, 3.8] },
     options: {
       cols: [15, 19],
       pitch: [19, 18],

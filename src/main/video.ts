@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
 import { handleTop } from "./ipc";
@@ -21,6 +21,20 @@ interface Tts {
 const MAX_LINES = 24;
 const MAX_CHARS = 400;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
+const COMPANY = /^[0-9a-f-]{36}$/i;
+const QUARTER = /^\d{4}q[1-4]$/;
+
+/** Where a company's rendered shorts are kept, beside its save. */
+export function shortsDir(company: string): string {
+  return join(app.getPath("userData"), "companies", `${company}.shorts`);
+}
+
+function shortFile(company: unknown, quarter: unknown): { dir: string; file: string } {
+  if (typeof company !== "string" || !COMPANY.test(company) || typeof quarter !== "string" || !QUARTER.test(quarter))
+    throw new Error("video: bad short");
+  const dir = shortsDir(company);
+  return { dir, file: join(dir, `${quarter}.mp4`) };
+}
 
 function voiceDir(): string {
   return app.isPackaged ? join(process.resourcesPath, "voice") : join(app.getAppPath(), "resources", "voice");
@@ -72,14 +86,32 @@ export function registerVideo(): void {
     return { sampleRate: tts.sampleRate, clips };
   });
 
-  /** Saves a recorded video where the player picks. True once written. */
+  /** A short rendered before, or null. */
+  handleTop("video:kept", async (_e, company: unknown, quarter: unknown) => {
+    const { file } = shortFile(company, quarter);
+    return readFile(file).then(
+      (b) => new Uint8Array(b.buffer, b.byteOffset, b.byteLength),
+      () => null,
+    );
+  });
+
+  /** Keeps a rendered short for the company, in place of any older quarter's. */
+  handleTop("video:keep", async (_e, company: unknown, quarter: unknown, bytes: unknown) => {
+    if (!(bytes instanceof Uint8Array) || bytes.byteLength > MAX_VIDEO_BYTES) throw new Error("video:keep: bad video");
+    const { dir, file } = shortFile(company, quarter);
+    await mkdir(dir, { recursive: true });
+    for (const f of await readdir(dir)) if (join(dir, f) !== file) await rm(join(dir, f), { force: true });
+    await writeFile(file, bytes);
+  });
+
+  /** Saves a rendered video where the player picks. True once written. */
   handleTop("video:save", async (e, bytes: unknown, name: unknown) => {
     if (!(bytes instanceof Uint8Array) || bytes.byteLength > MAX_VIDEO_BYTES) throw new Error("video:save: bad video");
     const safe = typeof name === "string" ? name.replace(/[^\w\- ]+/g, "").trim().slice(0, 80) : "";
     const win = BrowserWindow.fromWebContents(e.sender);
     const opts = {
-      defaultPath: join(app.getPath("videos"), `${safe || "laptop"}.webm`),
-      filters: [{ name: "WebM video", extensions: ["webm"] }],
+      defaultPath: join(app.getPath("videos"), `${safe || "laptop"}.mp4`),
+      filters: [{ name: "MP4 video", extensions: ["mp4"] }],
     };
     const r = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
     if (r.canceled || !r.filePath) return false;

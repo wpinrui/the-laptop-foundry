@@ -1,20 +1,5 @@
-/* The quarter video: the recorded 9:16 canvas, centred on black. The 3D view
-   renders underneath at the video's size and is copied onto it each frame. */
+/* The quarter video: the rendered 9:16 file, centred on black. */
 .fd.vd {
-  background: #000;
-}
-
-.vd-gl {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 540px;
-  height: 960px;
-}
-
-.vd-cover {
-  position: absolute;
-  inset: 0;
   background: #000;
 }
 
@@ -33,4 +18,16 @@
   bottom: calc(36 * var(--u));
   display: flex;
   gap: calc(24 * var(--u));
+}
+
+/* The Shorts button while its video is still being made. */
+.fd-text.vd-busy {
+  animation: vd-busy 1.4s ease-in-out infinite;
+  cursor: progress;
+}
+
+@keyframes vd-busy {
+  50% {
+    opacity: 0.4;
+  }
 }

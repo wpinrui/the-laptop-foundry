@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
 import { rollScores } from "../engine";
+import { type CampaignState, quarterLabel } from "../engine/campaign";
 import "./foundry.css";
+
+const usd = (n: number) => `${n < 0 ? "-" : ""}$${Math.round(Math.abs(n)).toLocaleString("en-US")}`;
 
 // The laptop list: the rail of models on the left, the selected one on the
 // plinth, its name large at the lower right with the actions under it.
@@ -28,8 +31,13 @@ export function LaptopList({
   onOpen,
   onDuplicate,
   onDelete,
+  campaign,
+  onEndQuarter,
 }: {
   company: SavedCompany;
+  /** Null for a sandbox company. */
+  campaign: CampaignState | null;
+  onEndQuarter: () => void;
   selected: string | null;
   onSelect: (id: string) => void;
   onMenu: () => void;
@@ -45,6 +53,8 @@ export function LaptopList({
     [company],
   );
   const [armed, setArmed] = useState<string | null>(null);
+  // A finished campaign keeps its models but makes no new ones.
+  const over = !!campaign?.over;
   const rows = useRef<HTMLDivElement>(null);
   const current = models.find((x) => x.m.id === selected) ?? null;
   const i = models.findIndex((x) => x.m.id === selected);
@@ -85,10 +95,23 @@ export function LaptopList({
       <aside className="fd-rail fd-in">
         <header className="fd-rail-head">
           <h1>{company.name}</h1>
-          <button type="button" className="fd-secondary" onClick={onNew}>
-            New model
-          </button>
+          {!over && (
+            <button type="button" className="fd-secondary" onClick={onNew}>
+              New model
+            </button>
+          )}
         </header>
+        {campaign && (
+          <div className={`fd-clock${over ? " over" : ""}`}>
+            <b>{quarterLabel(campaign.now)}</b>
+            <span>{usd(campaign.cash)}</span>
+            {!over && (
+              <button type="button" className="fd-text" onClick={onEndQuarter}>
+                End quarter
+              </button>
+            )}
+          </div>
+        )}
         <div ref={rows} className="fd-rows">
           {models.map(({ m, block }) => (
             <button
@@ -143,9 +166,11 @@ export function LaptopList({
             <button type="button" className="fd-secondary" onClick={() => onOpen(current.m.id)}>
               Open
             </button>
-            <button type="button" className="fd-secondary" onClick={() => onDuplicate(current.m.id)}>
-              Duplicate
-            </button>
+            {!over && (
+              <button type="button" className="fd-secondary" onClick={() => onDuplicate(current.m.id)}>
+                Duplicate
+              </button>
+            )}
             <button
               type="button"
               className="fd-secondary muted"

@@ -30,7 +30,8 @@ function isStart(y: unknown): y is number {
 function readCampaign(raw: unknown): SavedCampaign | undefined {
   const x = raw as Partial<SavedCampaign> | null | undefined;
   if (!x || !isStart(x.start)) return undefined;
-  return { start: x.start };
+  const state = x.state;
+  return state && typeof state === "object" ? { start: x.start, state } : { start: x.start };
 }
 
 let companies: Map<string, SavedCompany> | null = null;
@@ -195,7 +196,14 @@ export function registerStore(): void {
       : [...c.models, model];
     return put({ ...c, models, played: Date.now() });
   });
-  handleTop("store:delete-model", async (_e, id: unknown, modelId: unknown) => {
+  handleTop("store:save-campaign", async (_e, id: unknown, campaign: unknown) => {
+    const c = await company(id);
+    const next = readCampaign(campaign);
+    // A sandbox never becomes a campaign, and a campaign keeps its start year.
+    if (!c.campaign || !next || next.start !== c.campaign.start) throw new Error("bad campaign");
+    return put({ ...c, campaign: next, played: Date.now() });
+  });
+  handleTop("store:delete-model",async (_e, id: unknown, modelId: unknown) => {
     if (typeof modelId !== "string") throw new Error("model id must be text");
     const c = await company(id);
     return put({ ...c, models: c.models.filter((m) => m.id !== modelId), played: Date.now() });

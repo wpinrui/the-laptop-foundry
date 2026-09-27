@@ -154,7 +154,10 @@ export function Builder({
   library = [],
   sound = true,
   onSound = () => {},
+  yearLocked = false,
 }: {
+  /** A campaign model keeps the year it was made in. */
+  yearLocked?: boolean;
   /** The player's reviewed models, for the review site on the laptop's own screen. */
   library?: Subject[];
   sound?: boolean;
@@ -439,7 +442,7 @@ export function Builder({
   let tray: ReactNode = null;
   switch (stage) {
     case "year":
-      column = <YearColumn {...props} />;
+      column = <YearColumn {...props} only={yearLocked ? build.year : undefined} />;
       break;
     case "chassis":
       column = <ChassisColumn {...props} onPreview={setPreview} />;

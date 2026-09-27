@@ -39,6 +39,9 @@ const SCREEN_LIMIT = {
   density: "Resolution too dense for the year",
   size: "Screen size out of range",
   resolution: "Resolution too low",
+  bandwidth: "Resolution too high at this refresh for the year",
+  brightness: "Brightness out of range for the panel",
+  gamut: "Gamut out of range for the panel",
 } as const;
 
 const ROLE_WORD: Record<string, string> = {

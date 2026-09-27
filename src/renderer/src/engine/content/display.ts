@@ -100,7 +100,17 @@ const IPSTYPE = "60% sRGB";
 const SRGB = "100% sRGB";
 const P3 = "100% DCI-P3";
 
-export const PANELS: PanelOption[] = [
+/**
+ * Rows that shipped later than their bucket: the Retina MacBook Pros of 2012
+ * and the 165 Hz Mini-LED of 2022 (ROG Flow X16). Their ids keep the bucket.
+ */
+const SOLD_FROM: Record<string, number> = {
+  "2011-13.3-2560x1600-ips": 2012,
+  "2011-15.4-2880x1800-ips": 2012,
+  "2021-16-2560x1600-mini-led": 2022,
+};
+
+const BUCKETED: PanelOption[] = [
   ...rows(2006, 2010, [
     [12.1, W, [1280, 800], "tn-matte", [60], 180, TN],
     [12.1, W, [1280, 800], "tn-glossy", [60], 200, TN],
@@ -201,6 +211,8 @@ export const PANELS: PanelOption[] = [
   ]),
 ];
 
+export const PANELS: PanelOption[] = BUCKETED.map((p) => (SOLD_FROM[p.id] ? { ...p, from: SOLD_FROM[p.id] } : p));
+
 /** Active area in mm, from the diagonal and aspect. */
 export function activeArea(p: PanelOption): { x: number; y: number } {
   const [a, b] = p.aspect;
@@ -242,6 +254,8 @@ export interface PanelLab {
   pwm: { hz: number; below: number } | null;
   /** Local dimming zones on Mini-LED; null otherwise. */
   dimmingZones: number | null;
+  /** HDR peak on a 10% window, cd/m2; null without HDR. */
+  peak: number | null;
 }
 
 type Range = [number, number];
@@ -314,7 +328,8 @@ function coverageOf(gamut: string): { srgb: number; p3: number } {
 export function panelLab(p: PanelOption): PanelLab {
   const type = p.type;
   const era = eraOf(p.from);
-  const prof = LAB[`${era}:${type}`] ?? LAB["2026:ips"];
+  // OLED and Mini-LED before 2021 keep their own behaviour, not an IPS one.
+  const prof = LAB[`${era}:${type}`] ?? LAB[`2026:${type}`] ?? LAB["2026:ips"];
   const rnd = seeded(`lab:${p.id}`);
   const pick = ([lo, hi]: Range) => lo + (hi - lo) * rnd();
   const coverage = coverageOf(p.gamut);
@@ -374,5 +389,6 @@ export function panelLab(p: PanelOption): PanelLab {
     response: { blackWhite: r1(blackWhite), greyGrey: r1(greyGrey) },
     pwm,
     dimmingZones,
+    peak: p.peak !== undefined ? Math.round(p.peak * (centre / p.nits)) : null,
   };
 }

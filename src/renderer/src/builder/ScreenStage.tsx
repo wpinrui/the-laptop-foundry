@@ -5,12 +5,17 @@ import {
   commonHz,
   DIAG,
   defaultScreen,
+  gamutsFor,
   KIND_NAME,
   KIND_YEARS,
   kindAvailable,
   madeRow,
   maxHz,
+  maxNits,
+  maxPixelRate,
   maxPpi,
+  MIN_NITS,
+  pixelRate,
   ppiOf,
   RATIOS,
   resolveScreen,
@@ -24,7 +29,7 @@ import {
 import { panelLab } from "../engine/content/display";
 import type { StageProps } from "./Stages";
 import { Dropdown } from "./Dropdown";
-import { Card, Chip, Chips, Label, money, Slider, Value } from "./ui";
+import { Card, Chip, Chips, Label, money, Slider, SliderField, Value } from "./ui";
 
 // The Screen stage: a freely specified screen. Standard ratios and
 // resolutions come first; anything the year could make but nobody sold
@@ -37,8 +42,8 @@ function sameRatio(a: [number, number], b: [number, number]): boolean {
 }
 
 /** The standard resolution nearest in pixel count, for a new ratio. */
-function resFor(ratio: [number, number], diag: number, year: number, near: [number, number]): [number, number] {
-  const list = standardResolutions(ratio, diag, year);
+function resFor(ratio: [number, number], diag: number, year: number, near: [number, number], kind: ScreenKind): [number, number] {
+  const list = standardResolutions(ratio, diag, year, kind);
   const px = near[0] * near[1];
   if (list.length > 0)
     return list.reduce((a, b) => (Math.abs(a[0] * a[1] - px) <= Math.abs(b[0] * b[1] - px) ? a : b));
@@ -95,12 +100,17 @@ export function ScreenColumn({ build, set }: StageProps) {
 
   const ratioStandard = RATIOS.some((r) => sameRatio(r, spec.ratio));
   // Every standard resolution the year could make at this size, low to high.
-  const all = standardResolutions(spec.ratio, spec.diag, year);
+  const all = standardResolutions(spec.ratio, spec.diag, year, spec.panel);
   const list = [...all].sort((a, b) => a[0] - b[0]);
   const resStandard = all.some((r) => r[0] === spec.res[0] && r[1] === spec.res[1]);
   const panel = resolveScreen(spec, year);
-  const cap = maxHz(year);
-  const ppiCap = maxPpi(year);
+  const cap = maxHz(year, spec.panel);
+  const ppiCap = maxPpi(year, spec.panel);
+  const rateCap = maxPixelRate(year);
+  const nitsCap = maxNits(year, spec.panel);
+  // The year's gamut tiers for the kind, with the panel's own where it is none of them.
+  const tiers = gamutsFor(year, spec.panel);
+  const gamuts = tiers.includes(panel.gamut) || spec.gamut !== undefined ? tiers : [...tiers, panel.gamut];
   const common = commonHz(year);
   const hzList = [...new Set([...HZ, ...common])].sort((a, b) => a - b);
   // Which choice made it custom: the refresh when the size and resolution were sold at another rate.
@@ -142,7 +152,7 @@ export function ScreenColumn({ build, set }: StageProps) {
               on={!!current && !customRatio && sameRatio(r, spec.ratio)}
               onClick={() => {
                 setCustomRatio(false);
-                put((s) => ({ ...s, ratio: r, res: resFor(r, s.diag, year, s.res) }));
+                put((s) => ({ ...s, ratio: r, res: resFor(r, s.diag, year, s.res, s.panel) }));
               }}
             >
               {r[0]}:{r[1]}
@@ -154,14 +164,14 @@ export function ScreenColumn({ build, set }: StageProps) {
                 width={34}
                 label="ratio width"
                 value={spec.ratio[0]}
-                onCommit={(v) => put((s) => ({ ...s, ratio: [v, s.ratio[1]], res: resFor([v, s.ratio[1]], s.diag, year, s.res) }))}
+                onCommit={(v) => put((s) => ({ ...s, ratio: [v, s.ratio[1]], res: resFor([v, s.ratio[1]], s.diag, year, s.res, s.panel) }))}
               />
               :
               <NumberBox
                 width={34}
                 label="ratio height"
                 value={spec.ratio[1]}
-                onCommit={(v) => put((s) => ({ ...s, ratio: [s.ratio[0], v], res: resFor([s.ratio[0], v], s.diag, year, s.res) }))}
+                onCommit={(v) => put((s) => ({ ...s, ratio: [s.ratio[0], v], res: resFor([s.ratio[0], v], s.diag, year, s.res, s.panel) }))}
               />
             </span>
           ) : (
@@ -222,7 +232,10 @@ export function ScreenColumn({ build, set }: StageProps) {
           value={current ? (customHz || !hzList.includes(spec.hz) ? "custom" : String(spec.hz)) : null}
           warn={hzWarn}
           options={[
-            ...hzList.map((h) => ({ key: String(h), label: `${h} Hz`, aside: h > cap ? "not yet made" : undefined, disabled: h > cap })),
+            ...hzList.map((h) => {
+              const off = h > cap || pixelRate(spec.res, h) > rateCap;
+              return { key: String(h), label: `${h} Hz`, aside: off ? "not yet made" : undefined, disabled: off };
+            }),
             { key: "custom", label: "Custom", aside: "any rate" },
           ]}
           onChange={(key) => {
@@ -246,7 +259,7 @@ export function ScreenColumn({ build, set }: StageProps) {
             {spec.hz} Hz at {spec.res[0]} × {spec.res[1]}: custom panel{"  "}+{money(panel.premium)}
           </span>
         )}
-        {current && spec.panel === "tn" && year < 2010 && (
+        {current && spec.panel === "tn" && year < 2011 && (
           <Chips>
             {(["matte", "glossy"] as const).map((f) => (
               <Chip caps key={f} on={(spec.surface ?? "matte") === f} onClick={() => put((s) => ({ ...s, surface: f }))}>
@@ -256,6 +269,36 @@ export function ScreenColumn({ build, set }: StageProps) {
           </Chips>
         )}
       </div>
+
+      {current && (
+        <SliderField
+          label="Brightness"
+          value={panel.nits}
+          unit="nits"
+          min={MIN_NITS}
+          max={Math.max(nitsCap, panel.nits)}
+          step={10}
+          warn={panel.nits > nitsCap}
+          onChange={(v) => put((s) => ({ ...s, nits: v }))}
+        />
+      )}
+
+      {current && (
+        <div className="bd-field">
+          <Label>Gamut</Label>
+          <Chips>
+            {gamuts.map((g) => (
+              <Chip
+                key={g}
+                on={panel.gamut === g}
+                onClick={() => put((s) => (tiers.includes(g) ? { ...s, gamut: g } : { ...s, gamut: undefined }))}
+              >
+                {g}
+              </Chip>
+            ))}
+          </Chips>
+        </div>
+      )}
     </>
   );
 }
@@ -297,7 +340,11 @@ export function ScreenTray({ build, set }: StageProps) {
                     set((b: Build) => {
                       const parts = { ...b.parts };
                       delete parts.display;
-                      return { ...b, parts, screen: { ...(screenOf(b) ?? defaultScreen(b.year)), panel: k } };
+                      const was = screenOf(b) ?? defaultScreen(b.year);
+                      const next: ScreenSpec = { ...was, panel: k };
+                      if (next.nits !== undefined) next.nits = Math.min(next.nits, maxNits(b.year, k));
+                      if (next.gamut !== undefined && !gamutsFor(b.year, k).includes(next.gamut)) delete next.gamut;
+                      return { ...b, parts, screen: next };
                     })
                 : undefined
             }

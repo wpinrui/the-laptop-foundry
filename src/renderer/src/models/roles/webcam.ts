@@ -33,6 +33,7 @@ const CAT_H: Record<string, number> = {
   "cam-0.3mp": 6,
   "cam-1.3mp": 7,
   "cam-720p": 4,
+  "cam-720p-ir": 4,
   "cam-1080p": 4.5,
   "cam-1080p-ir": 4.5,
   "cam-5mp-ir": 5,

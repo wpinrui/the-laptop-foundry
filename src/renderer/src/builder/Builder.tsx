@@ -13,6 +13,7 @@ import {
   type Subject,
   migrateBody,
   migrateColours,
+  migratePad,
   migrateScreen,
   simulate,
   solve,
@@ -168,7 +169,11 @@ export function Builder({
   reroll: (b: Build) => string;
 }) {
   // Older saves picked a panel row; the builder edits a screen spec.
-  const [build, setBuild] = useState<Build>(() => migrateBody(migrateColours(migrateScreen(model.build as Build))));
+  // Older trackpad size parts become their technology at that size; a reviewed model keeps its parts.
+  const [build, setBuild] = useState<Build>(() => {
+    const b = migrateBody(migrateColours(migrateScreen(model.build as Build)));
+    return model.reviewed ? b : migratePad(b);
+  });
   const [name, setName] = useState(model.name);
   // A reviewed model is locked for good so its review never changes.
   const locked = !!model.reviewed;

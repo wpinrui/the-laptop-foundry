@@ -266,7 +266,9 @@ function build(
   const hex = options.padColour;
   const own =
     typeof hex === "string" && ctx.tint ? ctx.tint(hex, options.padFinish === "matte" ? "matte" : "gloss") : undefined;
-  add(surface.mesh(own ?? (modern ? m.glass : m.plastic), "surface"));
+  // A chosen surface sets the material; older pads follow the year.
+  const glassy = options.surface ? options.surface === "glass" : modern;
+  add(surface.mesh(own ?? (glassy ? m.glass : m.plastic), "surface"));
   add(buttons.mesh(own ?? (modern ? m.body : m.plastic), "buttons"));
   return pad;
 }

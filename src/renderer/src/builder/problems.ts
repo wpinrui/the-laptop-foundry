@@ -1,5 +1,5 @@
 import { type Build, CONTENT, type Category, KIND_NAME, type Problem, solve } from "../engine";
-import { panelLabel } from "./format";
+import { formatOption, panelLabel } from "./format";
 
 // Fit problems in words, and the builder stage each one belongs to.
 
@@ -111,6 +111,7 @@ export function stageOf(p: Problem): Stage {
   if (p.kind === "geometry") return "chassis";
   if (p.kind === "year") {
     if (p.what === "part" || p.what === "panel") return partStage(p.ref);
+    if (p.what === "option") return partStage(p.ref.split(":")[0]);
     if (p.what === "body" || p.what === "layout") return "chassis";
     return "finish";
   }
@@ -145,6 +146,10 @@ export function problemText(p: Problem): string {
       : `${cap(AXIS_NAME[p.axis])} ${p.by.toFixed(1)} mm over the body limit`;
   if (p.kind === "year") {
     if (p.what === "panel" && p.ref in KIND_NAME) return `${KIND_NAME[p.ref as keyof typeof KIND_NAME]} panels not made this year`;
+    if (p.what === "option") {
+      const [id, key, value] = p.ref.split(":");
+      return `${formatOption(key, value)} not available this year on ${partName(id)}`;
+    }
     return `${p.what === "part" || p.what === "panel" ? partName(p.ref) : cap(p.what)} not available this year`;
   }
   switch (p.code) {

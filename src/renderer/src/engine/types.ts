@@ -384,7 +384,11 @@ export type Shape =
     }
   /** Stack height at keyboard spend 0 and 1. */
   | { kind: "keys"; rows: number; stack: Tune }
-  | { kind: "pad"; x: Mm; y: Mm }
+  /**
+   * A trackpad at its default size. `buttons` adds a row of separate buttons;
+   * `mechanism` is how it clicks. Older parts carry both as options instead.
+   */
+  | { kind: "pad"; x: Mm; y: Mm; buttons?: boolean; mechanism?: "mechanical" | "haptic" }
   /** Fans fill their zone within the era's fan limits. */
   | { kind: "fan"; count: number; chamber?: boolean }
   | {
@@ -407,6 +411,8 @@ export interface Part extends Dated {
   shape: Shape | Shape[];
   /** First value of each list is the default. */
   options?: Record<string, OptionValue[]>;
+  /** Years an option value can be had, where narrower than the part's own: option, value, [from, until]. */
+  optionYears?: Record<string, Record<string, [number, number]>>;
   /** Axes that compactness spend may shrink. Empty for standard form factors. */
   compact: Axis[];
   /** How much of its height full Compact spend takes off, when more than the usual 15 percent. */
@@ -638,6 +644,10 @@ export interface BuildPart {
 
 export type SpendKey = Category | "packing" | "material";
 
+/** Areas the player can spend on for quality, past what the parts give. */
+export type QualityKey = "display" | "keyboard" | "trackpad" | "speakers" | "webcam";
+export const QUALITY_KEYS: QualityKey[] = ["display", "keyboard", "trackpad", "speakers", "webcam"];
+
 export type PadFinish = "glass" | "matte";
 
 export interface Build {
@@ -654,6 +664,8 @@ export interface Build {
   materials: Record<Piece, string>;
   finish: Record<Piece, { colour: string; texture: string }>;
   spend: Partial<Record<SpendKey, number>>;
+  /** Quality spend per area, 0 to 1. Absent means 0. */
+  quality?: Partial<Record<QualityKey, number>>;
   /** Power profiles as the player set them. Absent means the part defaults. */
   power?: Record<ProfileId, Profile>;
   /** Retail price in the year's nominal US dollars, as the player set it. */
@@ -838,7 +850,8 @@ export type Problem =
         | "material"
         | "colour"
         | "finish"
-        | "panel";
+        | "panel"
+        | "option";
       ref: string;
     };
 

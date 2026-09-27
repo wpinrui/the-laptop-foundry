@@ -20,8 +20,10 @@ import {
   baseOffsets,
   cornerKeepOut,
   deckLoss,
+  faceFloor,
   hingeAxis,
   lidSideOffset,
+  outerSection,
   profileLift,
   profileTop,
   rearInset,
@@ -80,6 +82,16 @@ function wallFor(era: Era, material: string, spend: number): number {
   return Math.max(...Object.values(era.wall).map((w) => w[0]));
 }
 
+/**
+ * A minimum within rounding noise over the size is the size: the shape follows
+ * the size, so a size set to its own minimum solves back to it only to the last
+ * few bits.
+ */
+const SNAP = 1e-7;
+function snap(min: number, size: number): number {
+  return min > size && min - size < SNAP ? size : min;
+}
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
@@ -131,6 +143,10 @@ function slotOf(u: Unit): string {
   return `${cat}:${n}`;
 }
 
+/** Parts that open through their zone's outer face. */
+const onFace = (role: Role) =>
+  role === "fin" || role === "odd" || role.startsWith("port:");
+
 const sameChoice = (a: Choice, b: Choice) =>
   a.zone === b.zone && a.turn === b.turn;
 
@@ -145,8 +161,38 @@ export function solve(
   content: Content = CONTENT,
   opts: { auto?: boolean } = {},
 ): Fit {
-  return solveAt(build, content, opts.auto === false ? "base" : null);
+  const fixed = opts.auto === false ? "base" : null;
+  const fit = solveAt(build, content, fixed);
+  const size = fit.shell.outer;
+  const short = AXES.filter((a) => fit.frame[a] > size[a]);
+  if (short.length === 0) return fit;
+  // Short axes lay out at their minimum. The body's shape follows the size, so
+  // the parts are laid out again in the frame, in the same places, with the
+  // shape resolved there: at the drawn size a spine or a lift chamfer is sized
+  // for a smaller base than the parts are laid out in.
+  const again = solveAt(
+    { ...build, size: { ...fit.frame } },
+    content,
+    arrangementOf.get(fit) ?? fixed ?? "base",
+  );
+  // The minimum is where the frame settled; what is short or too big is
+  // measured against the player's size, and the rest stands as solved there.
+  const min: Size = { ...again.min };
+  for (const a of short) min[a] = again.frame[a];
+  const frame = again.frame;
+  const lim = content.bodies.find((b) => b.id === build.body)?.limits;
+  const problems: Problem[] = fit.problems.filter((p) => p.kind !== "geometry");
+  for (const a of AXES)
+    if (lim && min[a] > lim[a][1])
+      problems.push({ kind: "geometry", code: "too-big", axis: a, by: min[a] - lim[a][1] });
+  for (const a of AXES)
+    if (size[a] < min[a])
+      problems.push({ kind: "geometry", code: "short", axis: a, by: min[a] - size[a] });
+  return { ...again, min, frame, problems, shell: { ...again.shell, outer: size } };
 }
+
+/** The arrangement each solved fit was laid out with. */
+const arrangementOf = new WeakMap<Fit, Arrangement>();
 
 function solveAt(
   build: Build,
@@ -246,7 +292,9 @@ function solveAt(
   // The keyboard and trackpad sit in wells in the top case, flush with the top
   // surface, on the deck structure. Over them the floor runs up to that layer;
   // elsewhere it runs up to the top wall. The top wall does not add over a well.
-  const deckLayer = (u: Unit) => (u.spacer ? 0 : u.size.z + era.deckExtra);
+  // Corner bumpers stand proud of the top surface by q: the surface is that far down.
+  const deckLayer = (u: Unit) =>
+    u.spacer ? 0 : u.size.z + era.deckExtra + style.q;
   const DB = em.deck.reduce((m, u) => Math.max(m, deckLayer(u)), 0);
   const pTop = profileTop(style);
 
@@ -291,7 +339,9 @@ function solveAt(
     gap,
     ko: cornerKeepOut(style, off.side),
     lift,
-    bottom: off.bottom,
+    // A removable pack forms the underside in place of the bottom wall, flush
+    // with the outer bottom, which bumpers stand proud of.
+    bottom: walls.bottom,
     era,
     finDepth: em.finDepth,
     fanWatts,
@@ -496,7 +546,11 @@ function solveAt(
           : Math.min(
               ...floorUnits
                 .filter((f) => f.role === h)
-                .map((f) => (f.skin ? 0 : off.bottom) + f.size.z),
+                .map(
+                  (f) =>
+                    (f.skin ? off.bottom - walls.bottom : off.bottom) +
+                    f.size.z,
+                ),
             );
       if (
         bar !== undefined &&
@@ -571,6 +625,7 @@ function solveAt(
           inner,
           u.role === "odd" ? oddSide : undefined,
           off.bottom,
+          floorCtx.ko,
         );
         if (!at) {
           m.lost++;
@@ -678,8 +733,8 @@ function solveAt(
   const lm = m2(lid);
 
   // x and y first: placement in plan does not depend on z.
-  const minX = needX(fm.x, dm.x, lm.x);
-  const minY = needY(fm.y, dm.y, lm.y);
+  const minX = snap(needX(fm.x, dm.x, lm.x), size.x);
+  const minY = snap(needY(fm.y, dm.y, lm.y), size.y);
   // Ports that need more wall than the player's size gives: without that
   // wall's ports the floor would fit, so they are what does not.
   for (const side of new Set(build.ports.map((p) => p.side))) {
@@ -775,13 +830,17 @@ function solveAt(
     stack: number,
     cover: number,
     opening: boolean,
+    face?: Side,
   ): number => {
     const slack = (Z: number) => {
       const { s, o, lift, pTop: pt } = shapeAt(Z);
-      const b = spanBand(s, { x: FX, y: FY, z: Z }, o, walls.bottom, y0, y1);
+      const outer = { x: FX, y: FY, z: Z };
+      const b = spanBand(s, outer, o, walls.bottom, y0, y1);
       if (!b) return -1;
       const top = Math.max(cover, o.top, opening ? pt : 0);
-      return b[1] + o.top - (b[0] + stack + (opening ? lift : 0) + top);
+      let floor = b[0] + (opening ? lift : 0);
+      if (face) floor = Math.max(floor, faceFloor(s, outer, face, y0, y1));
+      return b[1] + o.top - (floor + stack + top);
     };
     let lo = 0;
     let hi = 2 * lim.z[1];
@@ -812,7 +871,17 @@ function solveAt(
       zoneCover = Math.max(zoneCover, c);
       const stack =
         u.at.z - off.bottom - (opening ? floorCtx.lift : 0) + u.size.z;
-      minZ = Math.max(minZ, zFor(u.at.y, u.at.y + u.size.y, stack, c, opening));
+      minZ = Math.max(
+        minZ,
+        zFor(
+          u.at.y,
+          u.at.y + u.size.y,
+          stack,
+          c,
+          opening,
+          opening && onFace(u.role) ? f.node.edge : undefined,
+        ),
+      );
     }
     cover.set(f.node, zoneCover);
   }
@@ -839,6 +908,7 @@ function solveAt(
       inner,
       u.role === "odd" ? oddSide : undefined,
       off.bottom,
+      floorCtx.ko,
     );
     if (!at) {
       if (u.part && !seenNoRoom.has(`${u.part}|${u.role}`)) {
@@ -874,9 +944,15 @@ function solveAt(
       minZ,
       zFor(at.y, at.y + u.size.y, stack, coverOver(at, u.size), opening),
     );
+    // A bay opens on its wall's flat, which may lie higher than the host.
+    if (opening)
+      minZ = Math.max(
+        minZ,
+        zFor(at.y, at.y + u.size.y, u.size.z, coverOver(at, u.size), true, oddSide),
+      );
   }
 
-  const min: Size = { x: minX, y: minY, z: minZ };
+  const min: Size = { x: minX, y: minY, z: snap(minZ, size.z) };
   for (const a of AXES) {
     if (min[a] > lim[a][1])
       problems.push({
@@ -940,6 +1016,27 @@ function solveAt(
       ];
       own.set(u, ub);
       if (zone.pack !== "z") u.at.z += Math.min(0, ub[0] - z0);
+      // A removable pack is the underside: it meets the outer bottom, at its highest over the pack.
+      if (u.skin) {
+        let lo = -Infinity;
+        for (let i = 0; i <= 16; i++) {
+          const sec = outerSection(style, F, u.at.y + (u.size.y * i) / 16);
+          if (sec) lo = Math.max(lo, sec[0]);
+        }
+        if (lo > -Infinity) u.at.z = lo;
+      }
+      // An opening stays on its face's flat, which the body's shape may raise.
+      if (opening && zone.edge && onFace(u.role)) {
+        u.at.z = Math.max(
+          u.at.z,
+          faceFloor(style, F, zone.edge, u.at.y, u.at.y + u.size.y),
+        );
+        // A fin stack filled to the fans' height gives back what that took off its top.
+        const top =
+          ub[1] + off.top - Math.max(coverOver(u.at, u.size), off.top, pTop);
+        if (u.role === "fin" && u.at.z + u.size.z > top)
+          u.size = { ...u.size, z: Math.max(0, top - u.at.z) };
+      }
     }
     // Ports pack along their wall in list order; each sits centred up and down
     // the outer side wall.
@@ -951,7 +1048,10 @@ function solveAt(
       const [ulo, uhi] = own.get(u) ?? [z0, surface - off.top];
       // Centred on the outer side wall, from the bottom of the D panel to the top
       // of the C panel, kept inside the walls and under any keyboard or trackpad over it.
-      const zLo = ulo + floorCtx.lift;
+      const zLo = Math.max(
+        ulo + floorCtx.lift,
+        faceFloor(style, F, side, u.at.y, u.at.y + u.size.y),
+      );
       const zHi = uhi + off.top - Math.max(coverOver(u.at, u.size), off.top) - u.size.z;
       const mid = (ulo - off.bottom + uhi + off.top) / 2;
       u.at.z = Math.min(Math.max(zLo, mid - u.size.z / 2), Math.max(zLo, zHi));
@@ -968,13 +1068,18 @@ function solveAt(
     for (const u of units) {
       // A hinge mount hangs under the top wall at the rear, where the lid
       // pivots, not on the floor. The zone's room already clears its height.
-      if (u.role === "hinge") u.at.z = Math.max(z0, z0 + room - u.size.z);
+      // Its own depth span sets the floor and top wall it hangs between.
+      if (u.role === "hinge") {
+        const [ulo, uhi] = own.get(u) ?? [z0, surface - off.top];
+        const top = uhi + off.top - Math.max(coverOver(u.at, u.size), off.top);
+        u.at.z = Math.max(ulo, top - u.size.z);
+      }
       placedFloor.push(u);
       boxes.push(unitBox(u, "floor", zone.edge));
       if (u.skin)
         hatches.push({
           at: { ...u.at },
-          size: { x: u.size.x, y: u.size.y, z: off.bottom },
+          size: { x: u.size.x, y: u.size.y, z: walls.bottom },
         });
       if (u.role === "board") {
         for (const b of board.blocks) {
@@ -1037,6 +1142,11 @@ function solveAt(
       )
         base = Math.max(base, b.at.z + b.size.z);
     u.at.z = base + STACK_GAP;
+    if (edge)
+      u.at.z = Math.max(
+        u.at.z,
+        faceFloor(style, F, edge, u.at.y, u.at.y + u.size.y),
+      );
     placedFloor.push(u);
     boxes.push(unitBox(u, "floor", edge));
     if (!edge) continue;
@@ -1075,7 +1185,9 @@ function solveAt(
       size: { ...fill.size, z: layer },
     });
     for (const u of units) {
-      boxes.push(unitBox({ ...u, at: { ...u.at, z: F.z - u.size.z } }, "deck"));
+      boxes.push(
+        unitBox({ ...u, at: { ...u.at, z: F.z - style.q - u.size.z } }, "deck"),
+      );
       wells.push({
         at: { x: u.at.x, y: u.at.y, z: topWall },
         size: { x: u.size.x, y: u.size.y, z: off.top },
@@ -1309,7 +1421,7 @@ function solveAt(
         b.at.x < a.at.x + a.size.x &&
         a.at.y < b.at.y + b.size.y &&
         b.at.y < a.at.y + a.size.y &&
-        a.at.z + a.size.z > F.z - b.size.z - era.deckExtra,
+        a.at.z + a.size.z > b.at.z - era.deckExtra,
     );
     if (hit) hitAt(a.part ?? a.id, String(hit.role));
   }
@@ -1361,6 +1473,7 @@ function solveAt(
     routes,
     problems,
   };
+  arrangementOf.set(fit, arr);
   // A better plan must need no more room across the base and bring no more
   // problems than the layout's own; it may need more thickness, up to the player's.
   // One that fits the chassis beats one that does not, as auto placement ranks them.
@@ -1513,6 +1626,7 @@ function stackAt(
   inner: { x0: number; y0: number; x1: number; y1: number },
   side: Side | undefined,
   floorZ0: number,
+  ko = 0,
 ): Vec3 | null {
   const w = u.size.x;
   const d = u.size.y;
@@ -1547,16 +1661,17 @@ function stackAt(
     "x0",
     "x1",
     w,
-    inner.x0,
-    inner.x1,
+    inner.x0 + (side === "front" || side === "rear" ? ko : 0),
+    inner.x1 - (side === "front" || side === "rear" ? ko : 0),
     side === "right" ? inner.x1 - w : side === "left" ? inner.x0 : undefined,
   );
   const ys = cands(
     "y0",
     "y1",
     d,
-    inner.y0,
-    inner.y1,
+    // An opening on a side wall keeps clear of the rounded corners.
+    inner.y0 + (side === "left" || side === "right" ? ko : 0),
+    inner.y1 - (side === "left" || side === "right" ? ko : 0),
     side === "rear" ? inner.y1 - d : side === "front" ? inner.y0 : undefined,
   );
   // Keep-outs first, so most places fail on the first few.
@@ -1576,7 +1691,7 @@ function stackAt(
       for (const g of order) {
         const ox = Math.min(x + w, g.x1) - Math.max(x, g.x0);
         const oy = Math.min(y + d, g.y1) - Math.max(y, g.y0);
-        if (ox <= 0.05 || oy <= 0.05) continue;
+        if (ox <= 1e-6 || oy <= 1e-6) continue;
         if (g.top === Infinity) {
           ok = false;
           break;

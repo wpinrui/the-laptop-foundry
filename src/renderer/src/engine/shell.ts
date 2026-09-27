@@ -220,8 +220,10 @@ export function floorBand(
     const cz = Z - Rc;
     if (y > cy) {
       const h = Math.sqrt(Math.max(0, ri * ri - (y - cy) ** 2));
+      // The round's upper half is the top wall, as thick as the top wall.
+      const rt = Rc - (off.top - style.q);
       lo = cz - h;
-      hi = Math.min(hi, cz + h);
+      hi = Math.min(hi, cz + Math.sqrt(Math.max(0, rt * rt - (y - cy) ** 2)));
     } else if (cy - y < ri) lo = Math.min(lo, cz - Math.sqrt(ri * ri - (cy - y) ** 2));
   }
   return hi > lo ? [lo, hi] : null;
@@ -305,6 +307,23 @@ export function cornerKeepOut(style: ResolvedStyle, side: number): number {
 /** Openings sit above the bottom edge profile and any undercut. */
 export function profileLift(style: ResolvedStyle, bottom: number): number {
   return Math.max(0, style.q + Math.max(style.profile, style.uh) - bottom);
+}
+
+/**
+ * Lowest an opening may start on an outer face, over its run y0 to y1 on a
+ * side face: above the face's own bottom (a taper, lift chamfer or bevel
+ * raises it) and its bottom edge profile. A spine's rear is its round, which
+ * takes openings anywhere on it.
+ */
+export function faceFloor(style: ResolvedStyle, outer: Size, side: "left" | "right" | "front" | "rear", y0: number, y1: number): number {
+  if (side === "rear" && style.D > 0) return -Infinity;
+  const ys = side === "rear" ? [outer.y] : side === "front" ? [0] : Array.from({ length: 9 }, (_, i) => y0 + ((y1 - y0) * i) / 8);
+  let lo = -Infinity;
+  for (const y of ys) {
+    const sec = outerSection(style, outer, clamp(y, 0, outer.y));
+    if (sec) lo = Math.max(lo, sec[0]);
+  }
+  return lo + Math.max(style.profile, style.uh);
 }
 
 /** Top of any opening stays this far below the top of the base, clear of the top edge profile. */

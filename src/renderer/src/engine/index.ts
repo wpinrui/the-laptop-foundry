@@ -8,6 +8,7 @@ export * from "./speakerGrill";
 export * from "./screen";
 export * from "./look";
 export * from "./pad";
+export { compactable } from "./compact";
 export * from "./quality";
 export { optionAvailable } from "./compat";
 export * from "./types";

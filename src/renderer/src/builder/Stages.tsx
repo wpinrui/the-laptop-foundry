@@ -5,6 +5,7 @@ import {
   type Build,
   CONTENT,
   type Category,
+  compactable,
   costOf,
   eraFor,
   factsOf,
@@ -621,6 +622,8 @@ export function InsideColumn({
   const current = slots.find((s) => s.key === slot) ?? slots[0];
   const spend = build.spend[current.cat] ?? 0;
   const has = !!build.parts[current.cat]?.[current.index];
+  // Standard form factors have nothing to compact.
+  const squeezable = compactable(CONTENT.parts.find((p) => p.id === build.parts[current.cat]?.[0]?.part));
   return (
     <div className="bd-inside">
       <SlotList
@@ -642,7 +645,7 @@ export function InsideColumn({
         {has && current.cat === "speakers" && current.index === 0 && (
           <SpeakerGrillField build={build} fit={fit} set={set} onView={onGrillView} />
         )}
-        {has && current.index === 0 && (
+        {has && current.index === 0 && squeezable && (
           <SliderField
             label="Compact"
             value={Math.round(spend * 100)}

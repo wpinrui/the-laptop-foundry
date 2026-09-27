@@ -59,9 +59,9 @@ const api = {
     > => ipcRenderer.invoke("marks:import-image"),
   },
   video: {
-    /** The narration, one clip per line; null when the game has no voice installed. */
-    say: (lines: string[]): Promise<{ sampleRate: number; clips: Float32Array[] } | null> =>
-      ipcRenderer.invoke("video:say", lines),
+    /** The narration in a narrator's voice ("michael" or "heart"), one clip per line; null when the game has no voice installed. */
+    say: (lines: string[], narrator: string): Promise<{ sampleRate: number; clips: Float32Array[] } | null> =>
+      ipcRenderer.invoke("video:say", lines, narrator),
     /** A short rendered for the company and quarter ("2016q3") before, or null. */
     kept: (company: string, quarter: string): Promise<Uint8Array | null> => ipcRenderer.invoke("video:kept", company, quarter),
     /** Keeps a rendered short beside the company's save, replacing older quarters'. */

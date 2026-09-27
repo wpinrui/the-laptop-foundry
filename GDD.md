@@ -67,7 +67,7 @@ Processors and graphics are real named parts. Everything else is chosen by speci
 | Hot-swappable battery | Optional |
 | Cooling | No fan, one fan, two fans, or two fans on a vapour chamber |
 | Optical drive | Specification |
-| Ports | Standards, placed by the player along a side wall and up it |
+| Ports | Standards, laid out along a side wall in the player's list order |
 | Wireless | Standard |
 | Keyboard | Specification, plus keycap shape, colours and legends |
 | Trackpad | Specification |

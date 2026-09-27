@@ -9,6 +9,7 @@ export * from "./screen";
 export * from "./look";
 export * from "./pad";
 export { compactable } from "./compact";
+export * from "./speaker";
 export * from "./quality";
 export { optionAvailable } from "./compat";
 export * from "./types";

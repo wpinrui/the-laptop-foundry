@@ -1,6 +1,7 @@
 import { type Content, CONTENT } from "./content";
 import { activeArea } from "./content/display";
 import { eraFor } from "./content/eras";
+import { qualityOf } from "./quality";
 import type { Build, PanelOption, Problem, ScreenKind, ScreenSpec } from "./types";
 
 // The free-form screen. The player sets diagonal, ratio, resolution, refresh,
@@ -436,10 +437,13 @@ export function screenOf(build: Build, content: Content = CONTENT): ScreenSpec |
   return specOfPanel(p, hz, build.year);
 }
 
-/** The build's resolved panel, or undefined with no screen chosen. */
+/** The build's resolved panel, with its display quality, or undefined with no screen chosen. */
 export function panelOf(build: Build, content: Content = CONTENT): ResolvedPanel | undefined {
   const s = screenOf(build, content);
-  return s ? resolveScreen(s, build.year, content) : undefined;
+  if (!s) return undefined;
+  const p = resolveScreen(s, build.year, content);
+  const q = qualityOf(build, "display");
+  return q > 0 ? { ...p, quality: q } : p;
 }
 
 /** Older saves picked a panel row; they now carry the spec. */

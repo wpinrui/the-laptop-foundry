@@ -1,3 +1,4 @@
+import { between, byYear, eased } from "../quality";
 import type { PanelOption, PanelType } from "../types";
 
 // Every allowed combination of size, resolution and type is its own row, with
@@ -243,7 +244,7 @@ export interface PanelLab {
   contrast: number;
   /** Black level at maximum brightness, cd/m2. 0 on OLED. */
   black: number;
-  /** ColorChecker DeltaE 2000, uncalibrated. */
+  /** ColorChecker DeltaE 2000, as shipped: factory calibration from display quality lowers it. */
   deltaE: { avg: number; max: number };
   /** Gamut coverage, %. */
   coverage: { srgb: number; p3: number };
@@ -336,8 +337,13 @@ export function panelLab(p: PanelOption): PanelLab {
   const wide = era === 2016 && coverage.srgb >= 95;
   const topHz = Math.max(...p.refresh);
 
+  // Display quality buys factory calibration and binning for uniform panels,
+  // toward the best a maker's line could do that year.
+  const q = eased(Math.min(1, Math.max(0, p.quality ?? 0)));
+  const bestYear = p.from;
   const centre = Math.round(p.nits * pick(prof.centre));
-  const uniformity = Math.round(pick(prof.uniformity));
+  const rawU = pick(prof.uniformity);
+  const uniformity = Math.round(between(rawU, Math.max(rawU, byYear(bestYear, [[2006, 88], [2016, 92], [2026, 96]])), q));
   // The centre is brightest; one edge or corner zone is dimmest.
   const lowZone = [0, 1, 2, 3, 5, 6, 7, 8][Math.floor(rnd() * 8)];
   const u = uniformity / 100;
@@ -353,8 +359,11 @@ export function panelLab(p: PanelOption): PanelLab {
     : Infinity;
   const black = prof.contrast ? r2(centre / contrast) : 0;
 
-  const avg = r2(pick(prof.deltaE) * (wide ? 0.75 : 1));
-  const deltaE = { avg, max: r2(avg * pick(prof.spread)) };
+  const rawAvg = pick(prof.deltaE) * (wide ? 0.75 : 1);
+  // Calibration cannot reach colours outside the gamut: a narrow panel keeps an error floor.
+  const floorDE = Math.max(byYear(bestYear, [[2006, 2.5], [2016, 1.0], [2026, 0.6]]), (100 - coverage.srgb) * 0.1);
+  const avg = r2(between(rawAvg, Math.min(rawAvg, floorDE), q));
+  const deltaE = { avg, max: r2(avg * between(pick(prof.spread), 1.6, q)) };
 
   let blackWhite = pick(prof.blackWhite);
   let greyGrey = pick(prof.greyGrey);

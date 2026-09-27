@@ -500,7 +500,8 @@ export function costOf(
       const panel = panelOf(build, content);
       if (!panel) continue;
       const c = screenPrice(panel);
-      add(cat, c);
+      // Calibration and binning cost more on a dear panel.
+      add(cat, c + qualityCost(build, "display", 0.3 * c));
       spend += (build.spend.display ?? 0) * (15 + 0.3 * c);
       continue;
     }

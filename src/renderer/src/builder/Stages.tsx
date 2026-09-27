@@ -29,7 +29,7 @@ import { insideLitres, Silhouette, silhouetteExtent } from "./bodyShape";
 import { BatteryFields } from "./BatteryFields";
 import { FanField, GrillField } from "./FanField";
 import { SpeakerGrillField } from "./SpeakerGrillField";
-import { type SetBuild, type Slot, Options, SlotList } from "./Parts";
+import { QualityField, type SetBuild, type Slot, Options, SlotList } from "./Parts";
 import { Power } from "./Power";
 import { problemText } from "./problems";
 import { toBody, toYear } from "./structure";
@@ -645,6 +645,7 @@ export function InsideColumn({
         {has && current.cat === "speakers" && current.index === 0 && (
           <SpeakerGrillField build={build} fit={fit} set={set} onView={onGrillView} />
         )}
+        {has && current.cat === "speakers" && current.index === 0 && <QualityField area="speakers" build={build} set={set} />}
         {has && current.index === 0 && squeezable && (
           <SliderField
             label="Compact"

@@ -9,14 +9,12 @@ import {
   type PortGroup,
   partsFor,
   type Problem,
-  type QualityKey,
-  qualityOf,
   type Side,
 } from "../engine";
 import { Html } from "@react-three/drei";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { CornerHandle, DragArrow, Dashed, Outline } from "./Arrows";
-import { OptionChips, type SetBuild, withPart } from "./Parts";
+import { OptionChips, QualityField, type SetBuild, withPart } from "./Parts";
 import { problemText } from "./problems";
 import type { StageProps } from "./Stages";
 import { type DropOption, Dropdown } from "./Dropdown";
@@ -224,6 +222,7 @@ export function SurfaceColumn({
             )}
             <PartChips cat="webcam" build={build} set={set} />
             <OptionChips cat="webcam" build={build} set={set} />
+            {build.parts.webcam?.[0] && <QualityField area="webcam" build={build} set={set} />}
           </>
         )}
         {item === "display" && rep.panel && (
@@ -492,20 +491,6 @@ function PartChips({ cat, build, set }: { cat: Category; build: Build; set: SetB
 function shortName(cat: Category, p: Part): string {
   if (cat === "keyboard") return p.name.replace(/ travel$/, "").replace("Low-profile mechanical, ", "Mech ").replace("Mechanical, ", "Mech ");
   return p.name;
-}
-
-/** Quality spend on an area, 0 to 100%. */
-export function QualityField({ area, build, set }: { area: QualityKey; build: Build; set: SetBuild }) {
-  return (
-    <SliderField
-      label="Quality"
-      value={Math.round(qualityOf(build, area) * 100)}
-      unit="%"
-      min={0}
-      max={100}
-      onChange={(v) => set((b) => ({ ...b, quality: { ...b.quality, [area]: v / 100 } }))}
-    />
-  );
 }
 
 // ------------------------------------------------------------------ 3D

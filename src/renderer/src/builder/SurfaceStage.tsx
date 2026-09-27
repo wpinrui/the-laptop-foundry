@@ -189,6 +189,16 @@ export function SurfaceColumn({
           </>
             )}
             <OptionChips cat="trackpad" build={build} set={set} />
+            {build.parts.trackpad?.[0] && (
+              <SliderField
+                label="Compact"
+                value={Math.round((build.spend.trackpad ?? 0) * 100)}
+                unit="%"
+                min={0}
+                max={100}
+                onChange={(v) => set((b) => ({ ...b, spend: { ...b.spend, trackpad: v / 100 } }))}
+              />
+            )}
           </>
         )}
         {item === "webcam" && (

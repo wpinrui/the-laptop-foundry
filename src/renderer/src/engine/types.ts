@@ -430,15 +430,19 @@ export interface KeySpec {
 
 export type MarkSurface = "lid" | "palm" | "bottom" | "bezel";
 
-/** A mark on the case: text, or an SVG the player imported. Sizes in mm. */
+/** A mark on the case: text, an SVG, or a raster image the player imported. Sizes in mm. */
 export interface Mark {
   id: string;
   surface: MarkSurface;
-  kind: "text" | "svg";
-  /** The text, or the SVG's name. */
+  kind: "text" | "svg" | "image";
+  /** The text, or the SVG's or image's name. */
   text: string;
   /** Sanitised SVG markup. */
   svg?: string;
+  /** A raster mark's picture as a PNG, JPEG or WebP data URL, at most 1024 px on its longest side. */
+  image?: string;
+  /** A raster mark's width over its height. */
+  aspect?: number;
   /** The preset decal an SVG mark came from, for its badge and glyph. */
   preset?: string;
   /** Solid, or the shape's outline drawn as a line. Absent means fill. */

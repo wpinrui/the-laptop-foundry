@@ -20,7 +20,7 @@ export interface Decal {
 }
 
 export const DECAL_SETS: [string, string][] = [
-  ["company", "Company marks"],
+  ["company", "Company logos"],
   ["line", "Line badges"],
   ["cert", "Certification"],
   ["regulatory", "Regulatory"],

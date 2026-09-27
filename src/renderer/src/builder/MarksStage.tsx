@@ -8,11 +8,11 @@ import { type Decal, DECAL_SETS, DECALS, DecalGlyph, decalById } from "./decals"
 import { EMOJI, EMOJI_GROUPS, type Emoji, SKIN_TONES, emojiByChar, emojiRaw, emojiUrl, tonedCode } from "./emoji";
 import type { SetBuild } from "./Parts";
 import type { StageProps } from "./Stages";
-import { sanitiseSvg } from "./svg";
+import { downscaleImage, sanitiseSvg } from "./svg";
 import { Dropdown } from "./Dropdown";
 import { Card, Chip, Chips, Label, Slider, TraySep } from "./ui";
 
-// The Marks stage: text, imported SVG, preset decal and emoji marks on the lid, palm rest, bottom
+// The Marks stage (Decals to the player): text, imported SVG or raster image, preset and emoji marks on the lid, palm rest, bottom
 // and bezel, each with its font, size, tracking, weight, colour, fill or
 // outline, process and position. Marks are open in every year.
 
@@ -349,7 +349,7 @@ export function MarksColumn({
     <div className="bd-field">
       <Label>Size</Label>
       <span className="bd-value">{m.size.toFixed(1)} mm</span>
-      <Slider label="mark size" value={m.size} min={1.5} max={m.kind === "svg" ? 200 : 60} step={0.5} onChange={(v) => edit((x) => ({ ...x, size: v }))} />
+      <Slider label="decal size" value={m.size} min={1.5} max={m.kind === "text" ? 60 : 200} step={0.5} onChange={(v) => edit((x) => ({ ...x, size: v }))} />
     </div>
   );
   const colour = m && (
@@ -440,7 +440,7 @@ export function MarksColumn({
           {m.kind === "text" ? (
             <input
               className="bd-mark-text"
-              aria-label="mark text"
+              aria-label="decal text"
               value={m.text}
               readOnly={locked}
               style={{
@@ -459,7 +459,7 @@ export function MarksColumn({
               {m.text}
             </span>
           )}
-          {m.kind === "svg" && (
+          {m.kind !== "text" && (
             <div className="bd-line">
               <Label>Ink</Label>
               <Chips>
@@ -467,7 +467,7 @@ export function MarksColumn({
                   Own colours
                 </Chip>
                 <Chip caps on={!m.original} onClick={() => edit((x) => ({ ...x, original: false }))}>
-                  Mark colour
+                  Decal colour
                 </Chip>
               </Chips>
             </div>
@@ -476,7 +476,7 @@ export function MarksColumn({
             <div className="bd-line">
               <Label>Font</Label>
               <Dropdown
-                label="Mark font"
+                label="Decal font"
                 value={m.font}
                 options={MARK_FONTS.map(([font, name]) => ({ key: font, label: name, style: { fontFamily: `"${font}"` } }))}
                 onChange={(font) => edit((x) => ({ ...x, font }))}
@@ -584,7 +584,7 @@ export function MarksTray({
             top={
               decal ? (
                 <span className="bd-card-row">
-                  <i className={on ? "bd-badge solid on" : "bd-badge solid"}>Decal</i>
+                  <i className={on ? "bd-badge solid on" : "bd-badge solid"}>Preset</i>
                   <DecalGlyph decal={decal} className={on ? "bd-card-glyph on" : "bd-card-glyph"} />
                 </span>
               ) : emoji ? (
@@ -593,7 +593,7 @@ export function MarksTray({
                   <EmojiImg className="bd-card-glyph" code={emoji.code} alt="" />
                 </span>
               ) : (
-                <i className={on ? "bd-badge on" : "bd-badge"}>{m.kind === "svg" ? "SVG" : "T"}</i>
+                <i className={on ? "bd-badge on" : "bd-badge"}>{m.kind === "svg" ? "SVG" : m.kind === "image" ? "IMG" : "T"}</i>
               )
             }
             name={m.text || " "}
@@ -608,14 +608,24 @@ export function MarksTray({
       <Card
         dashed
         width={140}
-        name="Import SVG"
+        name="Import image"
         onClick={async () => {
           if (locked) return;
           onNote(null);
-          const got = await window.api.marks.importSvg();
+          const got = await window.api.marks.importImage();
           if (!got) return;
           if ("error" in got) {
-            onNote(got.error === "too-big" ? "That SVG is over 512 KB" : "That file is not an SVG");
+            onNote(got.error === "too-big" ? `That file is over ${got.limit}` : "That file is not an SVG, PNG, JPEG or WebP image");
+            return;
+          }
+          if ("image" in got) {
+            const raster = await downscaleImage(got.image);
+            if (!raster) {
+              onNote("That image could not be read");
+              return;
+            }
+            const s = base();
+            add({ ...s, kind: "image", text: got.name, ...raster, original: true, size: surface === "lid" ? 20 : s.size * 1.6 });
             return;
           }
           const svg = sanitiseSvg(got.svg);

@@ -20,9 +20,10 @@ const api = {
     setSettings: (s: Settings): Promise<Settings> => ipcRenderer.invoke("store:set-settings", s),
   },
   marks: {
-    /** Opens a file dialog for an SVG mark. Null when cancelled. */
-    importSvg: (): Promise<{ name: string; svg: string } | { error: "too-big" | "not-svg" } | null> =>
-      ipcRenderer.invoke("marks:import-svg"),
+    /** Opens a file dialog for an SVG, PNG, JPEG or WebP mark. Null when cancelled. */
+    importImage: (): Promise<
+      { name: string; svg: string } | { name: string; image: string } | { error: "too-big"; limit: string } | { error: "not-image" } | null
+    > => ipcRenderer.invoke("marks:import-image"),
   },
   quit: (): Promise<void> => ipcRenderer.invoke("app:quit"),
 };

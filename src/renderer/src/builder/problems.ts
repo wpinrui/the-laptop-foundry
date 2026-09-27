@@ -13,7 +13,7 @@ export const STAGE_NAME: Record<Stage, string> = {
   surface: "Surface",
   keys: "Keys",
   finish: "Finish",
-  marks: "Marks",
+  marks: "Decals",
   price: "Price",
 };
 

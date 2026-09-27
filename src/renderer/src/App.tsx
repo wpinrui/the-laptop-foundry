@@ -5,7 +5,7 @@ import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
-import { type Build, migrateBody, screenOf, type Subject } from "./engine";
+import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
 import { type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign, setCampaign } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
@@ -14,7 +14,7 @@ import { MarketingPanel } from "./foundry/Marketing";
 import { ReleasePanel } from "./foundry/Release";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
-import { ensureMarket, openMarkets } from "./market/markets";
+import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
 
 const store = () => window.api.store;
 
@@ -136,6 +136,18 @@ export function App() {
     setBusy(true);
     ensureMarket(s.build.year)
       .then(() => then(s))
+      .finally(() => setBusy(false));
+  };
+  // Ends the quarter once the year's market and the year before's are open: rivals from both are on sale.
+  const endQuarter = () => {
+    if (!campaign || !company || busy) return;
+    const y = campaign.now.year;
+    setBusy(true);
+    Promise.all([ensureMarket(y - 1), ensureMarket(y)])
+      .then(() => {
+        const rivals = y - 1 >= FIRST_MARKET_YEAR ? [...rivalsFor(y - 1), ...rivalsFor(y)] : rivalsFor(y);
+        commit(resolveQuarter(campaign, { models: company.models, company: company.id, rivals }));
+      })
       .finally(() => setBusy(false));
   };
   // The first review locks the model, so its review never changes.
@@ -290,7 +302,7 @@ export function App() {
       <LaptopList
         company={company}
         campaign={campaign}
-        onEndQuarter={() => campaign && commit(resolveQuarter(campaign, { models: company.models }))}
+        onEndQuarter={endQuarter}
         selected={selected}
         onSelect={setSelected}
         onMenu={() => {

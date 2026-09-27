@@ -195,3 +195,43 @@ export const MARKET_SPAN = 9;
 /** A review score of 65 out of 100 is par; 30 and 100 are gaps of -0.5 and 0.5. */
 export const REVIEW_PAR = 65;
 export const REVIEW_SPAN = 70;
+
+// ------------------------------------------------------------------ rival timing
+
+/**
+ * Quarters a line's yearly model can launch in, by the kind of line. One is
+ * picked per company, line and year, so a repeated quarter is likelier.
+ * Business lines refresh early in the year with the corporate budgets and
+ * Intel's January platform launches; consumer lines land for back to school
+ * in Q3, a few in spring or for the holidays; gaming lines chase the fall
+ * game releases and the holidays.
+ */
+export const LAUNCH_WINDOWS = {
+  business: [1, 1, 2],
+  consumer: [2, 3, 3, 3, 4],
+  gaming: [3, 4, 4],
+} as const;
+
+/** Lines sold to companies, which launch in the business window. */
+export const BUSINESS_LINES = ["lenovo-thinkpad", "dell-latitude", "hp-elitebook", "toshiba-portege"];
+
+/**
+ * Lines whose launches follow their own calendar: Apple at its June
+ * developer conference and its autumn events, Microsoft at its spring and
+ * autumn hardware events.
+ */
+export const LAUNCH_OVERRIDES: Record<string, readonly number[]> = {
+  "apple-macbook": [2, 4],
+  "apple-macbook-air": [1, 2, 4],
+  "apple-macbook-pro": [2, 4],
+  "microsoft-surface-laptop": [2, 4],
+};
+
+/**
+ * Quarters a model stays on sale after its successor launches, clearing the
+ * channel's stock: 1 means both sell in the successor's launch quarter.
+ */
+export const SELL_THROUGH_QUARTERS = 1;
+
+/** Quarters a line's last model stays on sale after its launch when no successor comes. */
+export const LAST_MODEL_QUARTERS = 4;

@@ -20,9 +20,11 @@ import {
   baseOffsets,
   cornerKeepOut,
   deckLoss,
+  faceFloor,
   hingeAxis,
   lidSideOffset,
   perimZones,
+  outerSection,
   profileLift,
   profileTop,
   rearInset,
@@ -75,6 +77,11 @@ const EPS = 1e-9;
 const CHAMBER_PLATE = 10;
 /** How close the least thickness search gets, mm. */
 const Z_TOL = 1e-7;
+/**
+ * A size within this of its minimum fits: the shape follows the size, so a
+ * size set to its own minimum solves back to it only to the last few bits.
+ */
+const FIT_TOL = 1e-6;
 
 function tune(t: Tune, spend: number): number {
   return t[0] + (t[1] - t[0]) * spend;
@@ -147,6 +154,10 @@ function slotOf(u: Unit): string {
   return `${cat}:${n}`;
 }
 
+/** Parts that open through their zone's outer face. */
+const onFace = (role: Role) =>
+  role === "fin" || role === "odd" || role.startsWith("port:");
+
 const sameChoice = (a: Choice, b: Choice) =>
   a.zone === b.zone && a.turn === b.turn && a.row === b.row;
 
@@ -161,8 +172,37 @@ export function solve(
   content: Content = CONTENT,
   opts: { auto?: boolean } = {},
 ): Fit {
-  return solveAt(build, content, opts.auto === false ? "base" : null);
+  const fixed = opts.auto === false ? "base" : null;
+  const fit = solveAt(build, content, fixed);
+  const size = fit.shell.outer;
+  const short = AXES.filter((a) => fit.frame[a] > size[a] + FIT_TOL);
+  if (short.length === 0) return fit;
+  // Short axes lay out at their minimum. The body's shape follows the size, so
+  // the parts are laid out again in the frame, in the same places, with the
+  // shape resolved there: at the drawn size a spine or a lift chamfer is sized
+  // for a smaller base than the parts are laid out in.
+  const again = solveAt(
+    { ...build, size: { ...fit.frame } },
+    content,
+    arrangementOf.get(fit) ?? fixed ?? "base",
+  );
+  // The minimum is where the frame settled; what is short or too big is
+  // measured against the player's size, and the rest stands as solved there.
+  const min: Size = { ...again.min };
+  for (const a of short) min[a] = again.frame[a];
+  const lim = content.bodies.find((b) => b.id === build.body)?.limits;
+  const problems: Problem[] = fit.problems.filter((p) => p.kind !== "geometry");
+  for (const a of AXES)
+    if (lim && min[a] > lim[a][1] + FIT_TOL)
+      problems.push({ kind: "geometry", code: "too-big", axis: a, by: min[a] - lim[a][1] });
+  for (const a of AXES)
+    if (size[a] < min[a] - FIT_TOL)
+      problems.push({ kind: "geometry", code: "short", axis: a, by: min[a] - size[a] });
+  return { ...again, min, problems, shell: { ...again.shell, outer: size } };
 }
+
+/** The arrangement each solved fit was laid out with. */
+const arrangementOf = new WeakMap<Fit, Arrangement>();
 
 function solveAt(
   build: Build,
@@ -272,7 +312,9 @@ function solveAt(
   // The keyboard and trackpad sit in wells in the top case, flush with the top
   // surface, on the deck structure. Over them the floor runs up to that layer;
   // elsewhere it runs up to the top wall. The top wall does not add over a well.
-  const deckLayer = (u: Unit) => (u.spacer ? 0 : u.size.z + era.deckExtra);
+  // Corner bumpers stand proud of the top surface by q: the surface is that far down.
+  const deckLayer = (u: Unit) =>
+    u.spacer ? 0 : u.size.z + era.deckExtra + style.q;
   const DB = em.deck.reduce((m, u) => Math.max(m, deckLayer(u)), 0);
   const pTop = profileTop(style);
 
@@ -324,7 +366,9 @@ function solveAt(
     lift,
     liftBy,
     liftAbs: !!style.pm,
-    bottom: off.bottom,
+    // A removable pack forms the underside in place of the bottom wall, flush
+    // with the outer bottom, which bumpers stand proud of.
+    bottom: walls.bottom,
     era,
     finDepth: em.finDepth,
     fanWatts,
@@ -560,7 +604,11 @@ function solveAt(
           : Math.min(
               ...floorUnits
                 .filter((f) => f.role === h)
-                .map((f) => (f.skin ? 0 : off.bottom) + f.size.z),
+                .map(
+                  (f) =>
+                    (f.skin ? off.bottom - walls.bottom : off.bottom) +
+                    f.size.z,
+                ),
             );
       if (
         bar !== undefined &&
@@ -635,6 +683,7 @@ function solveAt(
           inner,
           u.role === "odd" ? oddSide : undefined,
           off.bottom,
+          floorCtx.ko,
         );
         if (!at) {
           m.lost++;
@@ -833,51 +882,20 @@ function solveAt(
     return r;
   };
   /**
-   * Least thickness at which a part `stack` mm tall over the floor (an
-   * opening's lift aside), with `cover` mm of deck layer over it, fits over
-   * this footprint. `opening` is the side the part opens out of, if any.
+   * Least thickness at which `slack` (room to spare at a thickness) is not
+   * negative, or `fallback` where no thickness gives room. Only the greatest
+   * need counts: a part that fits the thickness found so far needs no search.
+   * Otherwise the room grows about as fast as the thickness, so the search
+   * steps along the line through the bracket's ends (Illinois false
+   * position), halving where that stalls. It ends on a thickness that fits.
    */
-  const zFor = (
-    y0: number,
-    y1: number,
-    stack: number,
-    cover: number,
-    opening: Side | false | undefined,
-    x0?: number,
-    x1?: number,
-    port?: number,
-  ): number => {
-    const slack = (Z: number) => {
-      const { s, o } = shapeAt(Z);
-      const b = spanBand(s, { x: FX, y: FY, z: Z }, o, walls.bottom, y0, y1, x0, x1);
-      if (!b) return -1;
-      const top = Math.max(cover, o.top, opening ? profileTop(s, opening) : 0);
-      const lift = opening ? profileLift(s, o.bottom, opening) : 0;
-      // On a perimeter body an opening sits in its side's flat band, however far the floor rises under the edge.
-      const base = s.pm ? Math.max(b[0], o.bottom + lift) : b[0] + lift;
-      const fits = b[1] + o.top - (base + stack + top);
-      if (port === undefined || !opening || !s.pm) return fits;
-      // A port needs its side's flat band of wall, between the edge zones, to stand in with room to spare.
-      const zs = perimZones(s.pm, sideMult(s.pm, opening));
-      return Math.min(fits, Z - zs.hB - zs.hT - (port + PORT_BAND));
-    };
-    // Only the greatest need counts: a part that fits the thickness found
-    // so far needs no search. Otherwise the room grows about as fast as the
-    // thickness, so the search steps along the line through the bracket's
-    // ends (Illinois false position), halving where that stalls. It ends on
-    // a thickness that fits.
+  const leastZ = (slack: (Z: number) => number, fallback: () => number): number => {
     let lo = minZ;
     let fLo = slack(lo);
     if (fLo >= 0) return lo;
     let hi = 2 * lim.z[1];
     let fHi = slack(hi);
-    if (fHi < 0)
-      return (
-        off.bottom +
-        stack +
-        liftOn(opening) +
-        Math.max(cover, off.top, topOn(opening))
-      );
+    if (fHi < 0) return fallback();
     let side = 0;
     for (let i = 0; i < 40 && hi - lo > Z_TOL && fHi > Z_TOL; i++) {
       let c = hi - (fHi * (hi - lo)) / (fHi - fLo);
@@ -897,6 +915,79 @@ function solveAt(
       }
     }
     return hi;
+  };
+  /**
+   * Least thickness at which a part `stack` mm tall over the floor (an
+   * opening's lift aside), with `cover` mm of deck layer over it, fits over
+   * this footprint. `opening` is the side the part opens out of, if any;
+   * `face` when the part opens through that side's face.
+   */
+  const zFor = (
+    y0: number,
+    y1: number,
+    stack: number,
+    cover: number,
+    opening: Side | false | undefined,
+    x0?: number,
+    x1?: number,
+    face?: boolean,
+    port?: number,
+  ): number =>
+    leastZ(
+      (Z) => {
+        const { s, o } = shapeAt(Z);
+        const outer = { x: FX, y: FY, z: Z };
+        const b = spanBand(s, outer, o, walls.bottom, y0, y1, x0, x1);
+        if (!b) return -1;
+        const top = Math.max(cover, o.top, opening ? profileTop(s, opening) : 0);
+        const lift = opening ? profileLift(s, o.bottom, opening) : 0;
+        // On a perimeter body an opening sits in its side's flat band, however far the floor rises under the edge.
+        let base = s.pm ? Math.max(b[0], o.bottom + lift) : b[0] + lift;
+        // A part that opens through its face also stays on that face's flat.
+        if (face && opening) base = Math.max(base, faceFloor(s, outer, opening, y0, y1));
+        const fits = b[1] + o.top - (base + stack + top);
+        if (port === undefined || !opening || !s.pm) return fits;
+        // A port needs its side's flat band of wall, between the edge zones, to stand in with room to spare.
+        const zs = perimZones(s.pm, sideMult(s.pm, opening));
+        return Math.min(fits, Z - zs.hB - zs.hT - (port + PORT_BAND));
+      },
+      () => off.bottom + stack + liftOn(opening) + Math.max(cover, off.top, topOn(opening)),
+    );
+  /**
+   * Least thickness for a part stacked at `at` over the parts laid out under
+   * it, as the final layout seats it: on the tallest of them, each on the
+   * floor under its own span as the body's shape leaves it.
+   */
+  const zForStack = (
+    at: Vec3,
+    u: Unit,
+    under: PlacedUnit[],
+    cover: number,
+    opening: Side | false | undefined,
+  ): number => {
+    const x0 = at.x;
+    const x1 = at.x + u.size.x;
+    const y0 = at.y;
+    const y1 = at.y + u.size.y;
+    return leastZ(
+      (Z) => {
+        const { s, o } = shapeAt(Z);
+        const outer = { x: FX, y: FY, z: Z };
+        const b = spanBand(s, outer, o, walls.bottom, y0, y1, x0, x1);
+        if (!b) return -1;
+        let base = b[0];
+        for (const g of under) {
+          const gb = spanBand(s, outer, o, walls.bottom, g.at.y, g.at.y + g.size.y, g.at.x, g.at.x + g.size.x);
+          if (!gb) return -1;
+          base = Math.max(base, gb[0] + g.at.z - off.bottom + g.size.z);
+        }
+        base += STACK_GAP;
+        if (opening) base = Math.max(base, faceFloor(s, outer, opening, y0, y1));
+        const top = Math.max(cover, o.top, opening ? profileTop(s, opening) : 0);
+        return b[1] + o.top - (base + u.size.z + top);
+      },
+      () => at.z + u.size.z + liftOn(opening) + Math.max(cover, off.top, topOn(opening)),
+    );
   };
   let minZ = off.bottom + off.top;
   const cover = new Map<unknown, number>();
@@ -920,6 +1011,7 @@ function solveAt(
         opening,
         u.at.x,
         u.at.x + u.size.x,
+        onFace(u.role),
         u.role.startsWith("port:") ? u.size.z : undefined,
       ]);
     }
@@ -947,6 +1039,7 @@ function solveAt(
       inner,
       u.role === "odd" ? oddSide : undefined,
       off.bottom,
+      floorCtx.ko,
     );
     if (!at) {
       if (u.part && !seenNoRoom.has(`${u.part}|${u.role}`)) {
@@ -977,16 +1070,24 @@ function solveAt(
       host: undefined,
     });
     const opening = u.role === "odd" && oddSide;
-    const stack = at.z - off.bottom - liftOn(opening) + u.size.z;
+    // What it sits over, as the final layout finds it.
+    const below = [...laid, ...placedStack.slice(0, -1)].filter(
+      (g) =>
+        !g.spacer &&
+        g.at.x < at.x + u.size.x - EPS &&
+        at.x < g.at.x + g.size.x - EPS &&
+        g.at.y < at.y + u.size.y - EPS &&
+        at.y < g.at.y + g.size.y - EPS,
+    );
     minZ = Math.max(
       minZ,
-      zFor(at.y, at.y + u.size.y, stack, coverOver(at, u.size), opening, at.x, at.x + u.size.x),
+      zForStack(at, u, below, coverOver(at, u.size), opening),
     );
   }
 
   const min: Size = { x: minX, y: minY, z: minZ };
   for (const a of AXES) {
-    if (min[a] > lim[a][1])
+    if (min[a] > lim[a][1] + FIT_TOL)
       problems.push({
         kind: "geometry",
         code: "too-big",
@@ -995,7 +1096,7 @@ function solveAt(
       });
   }
   for (const a of AXES) {
-    if (size[a] < min[a])
+    if (size[a] < min[a] - FIT_TOL)
       problems.push({
         kind: "geometry",
         code: "short",
@@ -1048,6 +1149,28 @@ function solveAt(
       ];
       own.set(u, ub);
       if (zone.pack !== "z") u.at.z += Math.min(0, ub[0] - z0);
+      // A removable pack is the underside: flat, it meets the outer bottom
+      // where that is highest over the pack, and clears it everywhere else.
+      if (u.skin) {
+        let lo = -Infinity;
+        for (let i = 0; i <= 16; i++) {
+          const sec = outerSection(style, F, u.at.y + (u.size.y * i) / 16);
+          if (sec) lo = Math.max(lo, sec[0]);
+        }
+        if (lo > -Infinity) u.at.z = lo;
+      }
+      // An opening stays on its face's flat, which the body's shape may raise at the face.
+      if (opening && zone.edge && onFace(u.role)) {
+        u.at.z = Math.max(
+          u.at.z,
+          faceFloor(style, F, zone.edge, u.at.y, u.at.y + u.size.y),
+        );
+        // A fin stack filled to the fans' height gives back what that took off its top.
+        const top =
+          ub[1] + off.top - Math.max(coverOver(u.at, u.size), off.top, topOn(zone.edge));
+        if (u.role === "fin" && u.at.z + u.size.z > top)
+          u.size = { ...u.size, z: Math.max(0, top - u.at.z) };
+      }
     }
     // Ports pack along their wall in list order; each sits centred up and down
     // the outer side wall, on a perimeter body on its flat band.
@@ -1059,7 +1182,12 @@ function solveAt(
       const [ulo, uhi] = own.get(u) ?? [z0, surface - off.top];
       // Centred on the outer side wall, from the bottom of the D panel to the top
       // of the C panel, kept inside the walls and under any keyboard or trackpad over it.
-      const zLo = style.pm ? Math.max(ulo, off.bottom + liftOn(side)) : ulo + liftOn(side);
+      const zLo = style.pm
+        ? Math.max(ulo, off.bottom + liftOn(side))
+        : Math.max(
+            ulo + liftOn(side),
+            faceFloor(style, F, side, u.at.y, u.at.y + u.size.y),
+          );
       const zHi = uhi + off.top - Math.max(coverOver(u.at, u.size), off.top) - u.size.z;
       const zs = style.pm ? perimZones(style.pm, sideMult(style.pm, side)) : null;
       const mid = zs ? (zs.hB + uhi + off.top - zs.hT) / 2 : (ulo - off.bottom + uhi + off.top) / 2;
@@ -1076,14 +1204,19 @@ function solveAt(
     }
     for (const u of units) {
       // A hinge mount hangs under the top wall at the rear, where the lid
-      // pivots, not on the floor. The zone's room already clears its height.
-      if (u.role === "hinge") u.at.z = Math.max(z0, z0 + room - u.size.z);
+      // pivots, not on the floor. Its own span sets the floor and the top wall
+      // it hangs between: a spine rounds both off behind the zone's front.
+      if (u.role === "hinge") {
+        const [ulo, uhi] = own.get(u) ?? [z0, surface - off.top];
+        const top = uhi + off.top - Math.max(coverOver(u.at, u.size), off.top);
+        u.at.z = Math.max(ulo, top - u.size.z);
+      }
       placedFloor.push(u);
       boxes.push(unitBox(u, "floor", zone.edge));
       if (u.skin)
         hatches.push({
           at: { ...u.at },
-          size: { x: u.size.x, y: u.size.y, z: off.bottom },
+          size: { x: u.size.x, y: u.size.y, z: walls.bottom },
         });
       if (u.role === "board") {
         for (const b of board.blocks) {
@@ -1139,13 +1272,18 @@ function solveAt(
     for (const b of placedFloor)
       if (
         !b.spacer &&
-        b.at.x < u.at.x + u.size.x - 0.05 &&
-        u.at.x < b.at.x + b.size.x - 0.05 &&
-        b.at.y < u.at.y + u.size.y - 0.05 &&
-        u.at.y < b.at.y + b.size.y - 0.05
+        b.at.x < u.at.x + u.size.x - EPS &&
+        u.at.x < b.at.x + b.size.x - EPS &&
+        b.at.y < u.at.y + u.size.y - EPS &&
+        u.at.y < b.at.y + b.size.y - EPS
       )
         base = Math.max(base, b.at.z + b.size.z);
     u.at.z = base + STACK_GAP;
+    if (edge)
+      u.at.z = Math.max(
+        u.at.z,
+        faceFloor(style, F, edge, u.at.y, u.at.y + u.size.y),
+      );
     placedFloor.push(u);
     boxes.push(unitBox(u, "floor", edge));
     if (!edge) continue;
@@ -1184,7 +1322,9 @@ function solveAt(
       size: { ...fill.size, z: layer },
     });
     for (const u of units) {
-      boxes.push(unitBox({ ...u, at: { ...u.at, z: F.z - u.size.z } }, "deck"));
+      boxes.push(
+        unitBox({ ...u, at: { ...u.at, z: F.z - style.q - u.size.z } }, "deck"),
+      );
       wells.push({
         at: { x: u.at.x, y: u.at.y, z: topWall },
         size: { x: u.size.x, y: u.size.y, z: off.top },
@@ -1418,7 +1558,7 @@ function solveAt(
         b.at.x < a.at.x + a.size.x &&
         a.at.y < b.at.y + b.size.y &&
         b.at.y < a.at.y + a.size.y &&
-        a.at.z + a.size.z > F.z - b.size.z - era.deckExtra,
+        a.at.z + a.size.z > b.at.z - era.deckExtra,
     );
     if (hit) hitAt(a.part ?? a.id, String(hit.role));
   }
@@ -1470,6 +1610,7 @@ function solveAt(
     routes,
     problems,
   };
+  arrangementOf.set(fit, arr);
   // A better plan must need no more room across the base and bring no more
   // problems than the layout's own; it may need more thickness, up to the player's.
   // One that fits the chassis beats one that does not, as auto placement ranks them.
@@ -1622,6 +1763,7 @@ function stackAt(
   inner: { x0: number; y0: number; x1: number; y1: number },
   side: Side | undefined,
   floorZ0: number,
+  ko = 0,
 ): Vec3 | null {
   const w = u.size.x;
   const d = u.size.y;
@@ -1656,16 +1798,18 @@ function stackAt(
     "x0",
     "x1",
     w,
-    inner.x0,
-    inner.x1,
+    // An opening on the front or rear wall keeps clear of the rounded corners.
+    inner.x0 + (side === "front" || side === "rear" ? ko : 0),
+    inner.x1 - (side === "front" || side === "rear" ? ko : 0),
     side === "right" ? inner.x1 - w : side === "left" ? inner.x0 : undefined,
   );
   const ys = cands(
     "y0",
     "y1",
     d,
-    inner.y0,
-    inner.y1,
+    // An opening on a side wall keeps clear of the rounded corners.
+    inner.y0 + (side === "left" || side === "right" ? ko : 0),
+    inner.y1 - (side === "left" || side === "right" ? ko : 0),
     side === "rear" ? inner.y1 - d : side === "front" ? inner.y0 : undefined,
   );
   // Keep-outs first, so most places fail on the first few.
@@ -1685,7 +1829,7 @@ function stackAt(
       for (const g of order) {
         const ox = Math.min(x + w, g.x1) - Math.max(x, g.x0);
         const oy = Math.min(y + d, g.y1) - Math.max(y, g.y0);
-        if (ox <= 0.05 || oy <= 0.05) continue;
+        if (ox <= EPS || oy <= EPS) continue;
         if (g.top === Infinity) {
           ok = false;
           break;

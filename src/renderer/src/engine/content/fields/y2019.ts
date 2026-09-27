@@ -135,7 +135,7 @@ const R: Rival[] = [
   }),
   rival(2019, "lenovo", "ThinkPad P53", {
     body: "workhorse",
-    layout: "b",
+    layout: "a",
     size: [377, 252, 20],
     price: 1899,
     parts: {

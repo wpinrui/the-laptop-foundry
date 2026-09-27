@@ -3,6 +3,7 @@ import { token } from "../viewer/theme";
 import { ColourPicker } from "./ColourPicker";
 import type { StageProps } from "./Stages";
 import { Dropdown } from "./Dropdown";
+import { fontOptions, snapWeight, WEIGHT_NAME, weightsOf } from "./fonts";
 import { Chip, Chips, Label, SliderField, Toggle } from "./ui";
 
 // The Keys stage: keycap shape, three colour groups (letters, modifiers, and
@@ -18,31 +19,6 @@ const GROUPS: [KeyGroup, string][] = [
   ["accent", "Accent"],
   ["legend", "Legend"],
 ];
-
-export const LEGEND_FONTS: [string, string][] = [
-  ["IBM Plex Sans", "Plex"],
-  ["Space Mono", "Space"],
-  ["Rubik", "Rubik"],
-  ["Barlow Condensed", "Barlow"],
-];
-
-/** The weights each legend font actually ships in this app. */
-const FONT_WEIGHTS: Record<string, number[]> = {
-  "IBM Plex Sans": [300, 400, 500, 600, 700],
-  "Space Mono": [400, 700],
-  Rubik: [400, 500, 700],
-  "Barlow Condensed": [500, 600, 700],
-};
-const WEIGHT_NAME: Record<number, string> = { 300: "Light", 400: "Regular", 500: "Medium", 600: "Semibold", 700: "Bold" };
-
-function weightsOf(font: string): number[] {
-  return FONT_WEIGHTS[font] ?? [400];
-}
-
-/** The font's shipped weight nearest to the one asked for. */
-function snapWeight(font: string, w: number): number {
-  return weightsOf(font).reduce((a, b) => (Math.abs(b - w) < Math.abs(a - w) ? b : a));
-}
 
 /** The Keys stage starts from the stock caps. */
 export function stockKeys(): KeySpec {
@@ -125,11 +101,7 @@ export function KeysColumn({
             <Dropdown
               label="Legend font"
               value={k.legend.font}
-              options={LEGEND_FONTS.map(([font, name]) => ({
-                key: font,
-                label: name,
-                style: { fontFamily: `"${font}"`, fontWeight: font === "Rubik" ? 500 : 400 },
-              }))}
+              options={fontOptions()}
               onChange={(font) =>
                 set((b) => withKeys(b, (x) => ({ ...x, legend: { ...x.legend, font, weight: snapWeight(font, x.legend.weight) } })))
               }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONTENT } from "../content";
+import { costOf } from "../price";
 import { solve } from "../solve";
 import { generateModel, generateYear, rngOf } from "./generate";
 import { LINES, linesIn, priceFor } from "./makers";
@@ -71,14 +72,17 @@ describe("rival generator", () => {
       }
   });
 
-  it("prices each model inside its line's band", () => {
+  it("prices each model inside its line's band, or at the lowest price that covers its parts", () => {
     for (const g of years.values())
       for (const m of g.models) {
         const line = LINES.find((l) => l.id === m.line);
         if (!line) throw new Error(m.line);
         const [lo, hi] = priceFor(line, g.year);
-        expect(m.build.price ?? 0, m.name).toBeGreaterThanOrEqual(Math.min(lo - 50, 199));
-        expect(m.build.price ?? 0, m.name).toBeLessThanOrEqual(hi + 50);
+        const price = m.build.price ?? 0;
+        const cost = costOf(m.build, solve(m.build)).total;
+        expect(price, m.name).toBeGreaterThanOrEqual(Math.min(lo - 50, 199));
+        expect(cost / price, m.name).toBeLessThanOrEqual(0.7);
+        if (price > hi + 50) expect(cost / (price - 50), m.name).toBeGreaterThan(0.7);
       }
   });
 

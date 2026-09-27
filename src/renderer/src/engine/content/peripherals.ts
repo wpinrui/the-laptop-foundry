@@ -403,6 +403,8 @@ function spk(
       })),
     },
     compact: ["x", "y", "z"],
+    // Thin speaker boxes cost more, so Compact can take off more than half the height.
+    compactZ: 0.55,
   };
 }
 

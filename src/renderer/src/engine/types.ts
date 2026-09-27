@@ -409,6 +409,8 @@ export interface Part extends Dated {
   options?: Record<string, OptionValue[]>;
   /** Axes that compactness spend may shrink. Empty for standard form factors. */
   compact: Axis[];
+  /** How much of its height full Compact spend takes off, when more than the usual 15 percent. */
+  compactZ?: number;
   provides?: string[];
   /** Each must be provided by some chosen part. */
   needs?: string[];

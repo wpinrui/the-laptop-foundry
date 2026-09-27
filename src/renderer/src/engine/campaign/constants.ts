@@ -83,3 +83,115 @@ export const OVERHEAD_PER_LINE = 40_000;
  * end of the usual 15 to 30%, since laptops are small and dense.
  */
 export const HOLDING_RATE = 0.04;
+
+// ------------------------------------------------------------------ brand
+// Ported from Laptop Tycoon's brand progression and marketing channels. Reach
+// is a share of a segment's buyers who know the company, 0 to 1 (Tycoon keeps
+// it in percent). Perception is the segment's opinion of the company.
+
+/**
+ * Reach a new company starts with in every segment. Tycoon starts at zero; a
+ * real newcomer has a trade press mention and a few shop shelves, and zero
+ * reach would sell nothing at all until the first campaign lands.
+ */
+export const STARTING_REACH = 0.02;
+
+/** Reach never decays below this: the shelves and search results a maker keeps while it trades. */
+export const REACH_FLOOR = 0.01;
+
+/**
+ * Cost per quarter of each campaign tier in 2000 dollars, Tycoon's numbers.
+ * Index 0 is no campaign; 1 to 5 are grassroots, targeted digital,
+ * professional, mass market and cultural omnipresence. Tier 5 at $3M a
+ * quarter is a national TV push; tier 1 is a founder posting in forums.
+ */
+export const TIER_COST = [0, 2_000, 50_000, 200_000, 750_000, 3_000_000];
+
+/** The top campaign tier. */
+export const TOP_TIER = 5;
+
+/** Marketing costs rise 3% a year from 2000, as in Tycoon, so a 2006 tier costs 1.19 times its base. */
+export const MARKETING_INFLATION = 1.03;
+export const MARKETING_BASE_YEAR = 2000;
+
+/**
+ * Buyers a tier wins over per quarter, Tycoon's numbers. Reach grows by these
+ * over the segment's population that year, so a tier moves a small niche
+ * fast and a mass segment slowly.
+ */
+export const TIER_ACQUISITIONS = [0, 100, 500, 2_000, 7_500, 25_000];
+
+/**
+ * Reach ceiling of each tier before the segment's permeability rescales it.
+ * A campaign grows reach up to its ceiling and no further.
+ */
+export const TIER_CEILING = [0, 0.15, 0.3, 0.5, 0.75, 0.95];
+
+/** No campaign takes a segment past this reach. */
+export const MAX_REACH = 0.95;
+
+/**
+ * The top tier a segment can take, by its permeability, Tycoon's cut-offs,
+ * checked in order. A permeable segment (gamers, tech fans) is reached
+ * through a few channels, so tier 2 already hits the ceiling; a closed one
+ * (corporate, consumers) needs tier 5. Ceilings are rescaled so a segment's
+ * top tier reaches MAX_REACH.
+ */
+export const TIER_CUTOFFS: [minPermeability: number, maxTier: number][] = [
+  [0.65, 2],
+  [0.35, 3],
+  [0.2, 4],
+  [0, 5],
+];
+
+/**
+ * Share of a campaign's buyers that spill to each neighbouring segment,
+ * times the adjacency weight. Gamers at tier 2 win 500 gamers and
+ * 500 * 0.8 * 0.15 = 60 esports players.
+ */
+export const SPILLOVER = 0.15;
+
+/**
+ * Reach lost per quarter with no campaign, times 1 + permeability. A closed
+ * segment keeps 95% a quarter, about 81% after a year; a permeable one
+ * forgets faster, about 91% a quarter. Above a campaign's ceiling reach sinks
+ * back toward it at the same rate.
+ */
+export const REACH_DECAY = 0.05;
+
+/** Perception a new company starts with: neutral. */
+export const STARTING_PERCEPTION = 0;
+
+/**
+ * Perception bounds, Tycoon's. The brand factor multiplies by
+ * 1 + perception / 100, so a brand shifts sales by half at most either way.
+ */
+export const PERCEPTION_MIN = -50;
+export const PERCEPTION_MAX = 50;
+
+/** Weight of the newest quarter in perception's exponential smoothing, Tycoon's alpha. */
+export const PERCEPTION_ALPHA = 0.25;
+
+/**
+ * Turns a buyer's experience gap into a perception target, Tycoon's scale: a
+ * laptop 30% better than the market maps to 15.
+ */
+export const PERCEPTION_SCALE = 50;
+
+/** A bad experience weighs this much more than a good one, Tycoon's negativity bias. */
+export const NEGATIVITY = 1.5;
+
+/**
+ * How a buyer's experience is built, from gaps to par that each run about
+ * -0.5 to 0.5. Value for money leads, as in Tycoon, whose experience is its
+ * value gap alone; the market score and the critics add the rest.
+ */
+export const EXPERIENCE_WEIGHTS = { value: 0.5, market: 0.3, review: 0.2 };
+
+/** A market score of 5.5 is par, a laptop at the market average; 1 to 10 maps to gaps of -0.5 to 0.5. */
+export const MARKET_PAR = 5.5;
+export const MARKET_SPAN = 9;
+
+/** A review score of 65 out of 100 is par; 30 and 100 are gaps of -0.5 and 0.5. */
+export const REVIEW_PAR = 65;
+export const REVIEW_SPAN = 70;

@@ -9,14 +9,17 @@ import { type Specs, specs as specsOf } from "../sim/specs";
 import { solve } from "../solve";
 import type { Build, Fit, PanelOption, Part, Side } from "../types";
 import { type Chart, chartsFor } from "./charts";
+import { CATEGORY_KEYS, CATEGORY_NAMES, prosAndCons, type Scores, scoresFromFacts } from "./score";
 
 export type * from "./charts";
+export type { CategoryScore, ProCon, Scores } from "./score";
 
-// The review: dice-roll scores, pros and cons against the rivals of the same
-// year and class, and text assembled from hand-written templates. Pure data;
-// the review site renders it. No language model writes any of it.
+// The review: the critics' scores on absolute scales (score.ts), pros and
+// cons from the build's own scores, comparison tables against the rivals of
+// the same year and class, and text assembled from hand-written templates.
+// Pure data; the review site renders it. No language model writes any of it.
 
-// ------------------------------------------------------------------ dice
+// ------------------------------------------------------------------ seeded choices
 
 function hash(s: string): number {
   let h = 2166136261;
@@ -39,34 +42,8 @@ export function rng(seed: string): () => number {
   };
 }
 
-export const CATEGORIES = [
-  "Chassis",
-  "Keyboard",
-  "Pointing device",
-  "Connectivity",
-  "Weight",
-  "Battery life",
-  "Display",
-  "Games performance",
-  "Application performance",
-  "Temperature",
-  "Noise",
-  "Audio",
-  "Camera",
-] as const;
-
-export interface Scores {
-  overall: number;
-  categories: { name: string; score: number }[];
-}
-
-/** Version 0.1 scoring: every score is a roll, fixed by the model id. */
-export function rollScores(id: string): Scores {
-  const r = rng(`scores:${id}`);
-  const roll = () => Math.round((55 + r() * 41) * 10) / 10;
-  const categories = CATEGORIES.map((name) => ({ name, score: roll() }));
-  return { overall: roll(), categories };
-}
+/** Category names, in the order the review lists them. */
+export const CATEGORIES = CATEGORY_KEYS.map((k) => CATEGORY_NAMES[k]);
 
 // ------------------------------------------------------------------ measured facts
 
@@ -172,88 +149,9 @@ export function peersOf(f: Facts): Facts[] {
   return [];
 }
 
-// ------------------------------------------------------------------ metrics
-
-interface Metric {
-  key: string;
-  higher: boolean;
-  value: (f: Facts) => number | null;
-  pro: string;
-  con: string;
-}
-
-const balancedWeb = (f: Facts) => {
-  const b = f.m.battery;
-  return b ? (b.runtime[b.balanced]?.web ?? null) : null;
-};
-
-const METRICS: Metric[] = [
-  { key: "weight", higher: false, value: (f) => f.kg, pro: "Light for its class", con: "Heavy for its class" },
-  { key: "thin", higher: false, value: (f) => f.thickness, pro: "Slim chassis", con: "Thick chassis" },
-  { key: "battery", higher: true, value: balancedWeb, pro: "Long battery life", con: "Short battery life" },
-  { key: "multi", higher: true, value: (f) => f.m.cooling?.sustained ?? null, pro: "Strong multi-core performance", con: "Weak multi-core performance" },
-  { key: "single", higher: true, value: (f) => f.m.performance?.single ?? null, pro: "Quick single-core performance", con: "Slow single-core performance" },
-  { key: "graphics", higher: true, value: (f) => f.m.cooling?.graphics.sustained ?? null, pro: "Fast graphics", con: "Weak graphics" },
-  { key: "throttle", higher: true, value: (f) => (f.m.cooling ? f.m.cooling.sustained / f.m.cooling.firstRun : null), pro: "Holds its performance under sustained load", con: "Throttles under sustained load" },
-  { key: "noise", higher: false, value: (f) => f.m.cooling?.noise.sustained ?? null, pro: "Quiet under load", con: "Loud under load" },
-  { key: "skin", higher: false, value: (f) => f.m.cooling?.peakSkin ?? null, pro: "Stays cool to the touch", con: "Gets hot to the touch" },
-  { key: "nits", higher: true, value: (f) => f.panel?.nits ?? null, pro: "Bright display", con: "Dim display" },
-  { key: "pixels", higher: true, value: (f) => (f.panel ? f.panel.res[0] * f.panel.res[1] : null), pro: "Sharp high-resolution display", con: "Low display resolution" },
-  { key: "ports", higher: true, value: (f) => f.subject.build.ports.length, pro: "Plenty of ports", con: "Few ports" },
-  { key: "durable", higher: true, value: (f) => f.m.durability.index, pro: "Sturdy, durable case", con: "Case feels flimsy" },
-  { key: "charge", higher: true, value: (f) => Math.min(2, f.chargeSides.length), pro: "Charges from either side", con: "Charges from one side only" },
-  { key: "spread", higher: true, value: (f) => Math.min(3, f.portSides.length), pro: "Ports spread around the case", con: "Ports crowded onto few sides" },
-  { key: "travel", higher: true, value: (f) => f.specs.keyboard?.travel ?? null, pro: "Deep key travel", con: "Shallow keyboard" },
-  { key: "speakers", higher: true, value: (f) => (f.specs.speakers ? f.specs.speakers.drivers + (f.specs.speakers.bass ? 1 : 0) : 0), pro: "Full-sounding speakers", con: "Thin-sounding speakers" },
-  { key: "webcam", higher: true, value: (f) => (f.specs.webcam ? f.specs.webcam.res[0] * f.specs.webcam.res[1] * (f.specs.webcam.ir ? 1.2 : 1) : 0), pro: "Sharp webcam", con: "Poor or missing webcam" },
-];
-
-export interface ProCon {
-  pros: string[];
-  cons: string[];
-}
-
-/** Standouts against the peers: best or worst of the field by a clear margin. */
-export function prosAndCons(f: Facts, peers: Facts[]): ProCon {
-  type Hit = { text: string; margin: number };
-  const pros: Hit[] = [];
-  const cons: Hit[] = [];
-  const nearPros: Hit[] = [];
-  const nearCons: Hit[] = [];
-  for (const mt of METRICS) {
-    const mine = mt.value(f);
-    if (mine === null) continue;
-    const others = peers
-      .map((p) => mt.value(p))
-      .filter((v): v is number => v !== null);
-    if (others.length === 0) continue;
-    const better = (a: number, b: number) => (mt.higher ? a > b : a < b);
-    const best = others.reduce((a, b) => (better(a, b) ? a : b));
-    const worst = others.reduce((a, b) => (better(a, b) ? b : a));
-    // Capped so a yes-or-no metric against a zero does not drown out the rest.
-    const rel = (a: number, b: number) =>
-      Math.min(1, Math.abs(a - b) / Math.max(1e-9, Math.abs(b)));
-    if (better(mine, best) && rel(mine, best) >= 0.02)
-      pros.push({ text: mt.pro, margin: rel(mine, best) });
-    else if (better(worst, mine) && rel(mine, worst) >= 0.02)
-      cons.push({ text: mt.con, margin: rel(mine, worst) });
-    else {
-      // Near the top or bottom of the field still counts when nothing stands out further.
-      const sorted = [...others].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)];
-      const lead = rel(mine, median) * (better(mine, median) ? 1 : -1);
-      if (lead > 0.02) nearPros.push({ text: mt.pro, margin: lead });
-      if (lead < -0.02) nearCons.push({ text: mt.con, margin: -lead });
-    }
-  }
-  if (pros.length === 0) pros.push(...nearPros.sort((a, b) => b.margin - a.margin).slice(0, 2));
-  if (cons.length === 0) cons.push(...nearCons.sort((a, b) => b.margin - a.margin).slice(0, 2));
-  const top = (xs: Hit[]) =>
-    xs
-      .sort((a, b) => b.margin - a.margin)
-      .slice(0, 4)
-      .map((x) => x.text);
-  return { pros: top(pros), cons: top(cons) };
+/** The review scores of a model or rival. Cached with its facts. */
+export function scoresOf(s: Subject, content: Content = CONTENT): Scores {
+  return scoresFromFacts(factsOf(s, content), content);
 }
 
 // ------------------------------------------------------------------ text
@@ -505,7 +403,8 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
   const cpuPart = partOf(content, b, "processor");
   const gpu = gpuPart?.name ?? String(cpuPart?.info?.igpu ?? "integrated graphics");
   const kind = laptopKind(f);
-  const pc = prosAndCons(f, peers);
+  const scores = scoresFromFacts(f, content);
+  const pc = prosAndCons(f, scores);
   const value = valueWord(f, peers);
   const c = f.m.cooling;
   const perf = f.m.performance;
@@ -529,19 +428,19 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     verdict.push(
       say("pros", [
         `Where it stands out: ${lower(pc.pros)}.`,
-        `Against its rivals it earns praise on these points: ${lower(pc.pros)}.`,
+        `It earns praise on these points: ${lower(pc.pros)}.`,
         `Its strengths are clear: ${lower(pc.pros)}.`,
-        `Next to the competition, a few things impress: ${lower(pc.pros)}.`,
+        `A few things impress: ${lower(pc.pros)}.`,
         `There is plenty to like here: ${lower(pc.pros)}.`,
       ]),
     );
   if (pc.cons.length)
     verdict.push(
       say("cons", [
-        `On the other hand, the field does better on ${pc.cons.length === 1 ? "one front" : "several fronts"}: ${lower(pc.cons)}.`,
+        `On the other hand, it falls short on ${pc.cons.length === 1 ? "one front" : "several fronts"}: ${lower(pc.cons)}.`,
         `Buyers should weigh the weak spots: ${lower(pc.cons)}.`,
         `It is not flawless. Our list of complaints: ${lower(pc.cons)}.`,
-        `Rivals have the edge in places: ${lower(pc.cons)}.`,
+        `It stumbles in places: ${lower(pc.cons)}.`,
         `A few things hold it back: ${lower(pc.cons)}.`,
       ]),
     );
@@ -1068,7 +967,7 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     `Tested: the ${full}, ${an(kind)}`,
   ]);
 
-  const overall = rollScores(s.id).overall;
+  const overall = scores.overall;
   const panelLine = panel
     ? `${cap(an(`${f.refresh > 60 ? `${f.refresh} Hz ` : ""}${panel.res[0]} x ${panel.res[1]} ${PANEL_TYPE[panel.type] ?? panel.type}`))} panel`
     : "";
@@ -1111,7 +1010,7 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
     cons: pc.cons,
     specs,
     sections,
-    scores: rollScores(s.id),
+    scores,
     price,
     date: publishedOn(s.id, b.year),
     kind,
@@ -1128,7 +1027,7 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
       name: `${p.subject.company} ${p.subject.name}`,
       price: p.subject.build.price ?? null,
       kg: p.kg,
-      score: rollScores(p.subject.id).overall,
+      score: scoresFromFacts(p, content).overall,
     })),
     field: [s.id, ...peers.map((p) => p.subject.id)],
   };

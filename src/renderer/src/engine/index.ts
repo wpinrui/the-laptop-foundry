@@ -91,7 +91,7 @@ export {
   type Review,
   reviewOf,
   rivalSubject,
-  rollScores,
+  scoresOf,
   type Scores,
   type Subject,
   type Table,

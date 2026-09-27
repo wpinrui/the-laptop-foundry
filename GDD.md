@@ -182,12 +182,14 @@ An example class is a premium thin and light mixed-use laptop.
 
 ## Rating
 
-In 0.1 every score is a dice roll. Version 0.2 replaces the dice with the review score under Version 0.2.
+The review score is the critics' score. It is separate from the market score and never compares the build to other laptops.
 
-- Each category score and the overall score are rolled at random.
-- The roll is fixed per model. Reopening a review shows the same scores. A duplicate is a new model, so it rolls again.
-- Rivals roll the same way.
-- Pros and cons still come from measurements that stand out against the rivals. There is no score nudge.
+- Each category is scored from its measurement or, for chassis, keyboard, pointing device, display, audio, camera and connectivity, from a formula over the specification. The formulas are shared with the market score's headline stats.
+- A measurement is placed on an absolute scale for the model's year, between a low and a high reference. The low reference scores 65 and the high one 92. Below the low end the score falls fast. Above the high end it keeps rising but never reaches 100, so exceptional builds still gain.
+- The scales tighten by year: great battery life or a great display in 2026 is more than it was in 2006. Keyboards are the exception, since keys got shallower rather than better.
+- The overall score is a weighted mean of the categories. The weights depend on the device class: gaming leans on games, temperature and noise, thin and light on weight and battery, office on keyboard, battery and connectivity, and premium on chassis and display.
+- The scores follow from the build, so reopening a review shows the same scores. Rivals are scored the same way.
+- Pros and cons come from the build's own best and worst categories and a few standout measurements. There is no score nudge.
 
 ### Categories
 
@@ -205,7 +207,7 @@ This is the 0.1 field. Version 0.2 replaces it with generated lines from more ma
 - Rivals carry their real company and model names until the game goes public.
 - Rivals are hand-built and hard-coded as presets per year and class. Every year from 2006 to 2026 has its own field. Every player build faces the same field.
 - Rivals build under the same constraints as the player. The Apple-based rival may use Apple M-series processors, which the player cannot use.
-- Rivals only shape the pros and cons.
+- Rivals never shape a score or the pros and cons.
 - Rivals fill the comparison tables and give the player a field to beat.
 - Every rival has its own full review.
 

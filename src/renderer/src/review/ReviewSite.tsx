@@ -1,5 +1,5 @@
 import { type ReactNode, useMemo, useRef, useState } from "react";
-import { factsOf, laptopKind, type Review, rollScores, type Subject } from "../engine";
+import { factsOf, laptopKind, type Review, scoresOf, type Subject } from "../engine";
 import { type Era, num } from "./Charts";
 import {
   band,
@@ -152,7 +152,7 @@ export function ReviewIndex({
     () =>
       entries.map((e) => {
         const f = factsOf(e.subject);
-        return { ...e, cls: f.cls, kind: laptopKind(f), score: rollScores(e.subject.id).overall };
+        return { ...e, cls: f.cls, kind: laptopKind(f), score: scoresOf(e.subject).overall };
       }),
     [entries],
   );

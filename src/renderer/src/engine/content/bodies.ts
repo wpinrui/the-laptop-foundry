@@ -173,24 +173,25 @@ export const BODIES: Body[] = [
     layouts: ["a", "b", "c"],
   },
   {
-    // A straight wedge: one flat underside plane from a thick rear to a thin front, square edges.
+    // A straight wedge: one flat underside plane from a thick rear to a thin front,
+    // square edges. Thin enough for modern wedge ultrabooks: 16 mm tapering to 4 mm.
     id: "wedge",
     name: "Wedge",
     from: 2003,
-    until: 2016,
+    until: 2099,
     ...base,
     size: { ...START },
     style: {
       edge: "square",
-      corner: s(0.008, "short", 2, 4),
+      corner: s(0.03, "short", 3, 10),
       profile: 0,
-      taper: { front: [0.7, 0.4], minFront: 6, run: 0.85, linear: true },
+      taper: { front: [0.7, 0.25], minFront: 4, run: 0.9, linear: true },
       hinge: "full",
       latch: false,
       signature: "taper",
     },
     hinge: { x: 30, y: 20, z: 5 },
-    layouts: ["b", "c"],
+    layouts: ["a", "b", "c"],
   },
   // Perimeter bodies: one edge profile, a top zone and a bottom zone, swept
   // round the plan. Each side scales it by its multiplier (build.sides on the

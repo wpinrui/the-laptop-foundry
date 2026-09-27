@@ -12,14 +12,13 @@ import {
   solve,
 } from "../engine";
 import type { SetBuild } from "./Parts";
-import { Chip, Chips, FitButton, Label, Line, SliderField, Value } from "./ui";
+import { FitButton, Line, SliderField, Value } from "./ui";
 
 // A pouch battery's size: length, depth and thickness sliders, the capacity
 // they hold, and chips that size the length for a chosen capacity.
 
 const NAME: Record<Axis, string> = { x: "Length", y: "Depth", z: "Thickness" };
 const STEP: Record<Axis, number> = { x: 1, y: 1, z: 0.1 };
-const TARGETS = [45, 60, 75, 90, FLIGHT_WH];
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -112,27 +111,6 @@ export function BatteryFields({ build, fit, set }: { build: Build; fit: Fit; set
         <Value v={pack.wh.toFixed(1)} unit="Wh" warn={capped} />
       </Line>
       {capped && <span className="bd-note">Capped at {FLIGHT_WH} Wh, the airline limit</span>}
-      <div className="bd-field">
-        <Label>Size length for</Label>
-        <Chips>
-          {TARGETS.map((wh) => {
-            const len = (wh * 1e6) / (pack.density * pack.size.y * pack.size.z);
-            const [lo, hi] = shape.limits.x;
-            const fits = len >= lo && len <= hi;
-            return (
-              <Chip
-                key={wh}
-                on={Math.abs(pack.wh - wh) < 0.6}
-                disabled={!fits}
-                title={fits ? `${Math.round(len)} mm long` : "Out of the length range at this depth and thickness"}
-                onClick={() => edit({ x: wh === FLIGHT_WH ? Math.floor(len) : Math.round(len) })}
-              >
-                {wh} Wh
-              </Chip>
-            );
-          })}
-        </Chips>
-      </div>
     </>
   );
 }

@@ -1,16 +1,17 @@
 import type { ReactNode } from "react";
 import "./campaign.css";
 
-export type RailTab = "model" | "books" | "brand" | "awards";
+export type RailTab = "model" | "market" | "books" | "brand" | "awards";
 
 const TABS: [RailTab, string][] = [
   ["model", "Model"],
+  ["market", "Market"],
   ["books", "Books"],
   ["brand", "Brand"],
   ["awards", "Awards"],
 ];
 
-// The campaign's right rail: Menu, then the Model, Books, Brand and Awards
+// The campaign's right rail: Menu, then the Model, Market, Books, Brand and Awards
 // tabs over the active tab's content.
 export function CampaignRail({
   tab,

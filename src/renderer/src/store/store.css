@@ -1,0 +1,454 @@
+/* The in-game retailer's site. Shared structure first, then each era's look. */
+
+.st {
+  min-height: 100%;
+  background: var(--st-bg);
+  color: var(--st-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.st button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.st-frame {
+  margin: 0 auto;
+  max-width: 1200px;
+}
+
+.st-mast {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.st-mast nav {
+  display: flex;
+  gap: 18px;
+}
+
+.st-mast nav span {
+  color: var(--st-muted);
+}
+
+.st-mast nav .st-on {
+  color: var(--st-accent);
+  font-weight: 700;
+}
+
+.st-when {
+  margin-left: auto;
+  color: var(--st-muted);
+}
+
+.st-shop {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  padding: 16px;
+}
+
+.st-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.st-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.st-filter span {
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--st-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.st-filter select {
+  font: inherit;
+  color: var(--st-text);
+  background: var(--st-page);
+  border: 1px solid var(--st-rule);
+  padding: 3px 4px;
+}
+
+.st-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.st-sort {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.st-card {
+  position: relative;
+  display: flex !important;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px !important;
+  background: var(--st-page) !important;
+  border: 1px solid var(--st-rule) !important;
+}
+
+.st-card:hover {
+  border-color: var(--st-accent) !important;
+}
+
+.st-own {
+  box-shadow: inset 0 0 0 2px var(--st-accent);
+}
+
+.st-maker {
+  font-size: 0.8em;
+  color: var(--st-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.st-name {
+  font-size: 1.1em;
+}
+
+.st-meta {
+  font-size: 0.85em;
+  color: var(--st-muted);
+}
+
+.st-price {
+  font-weight: 700;
+  font-size: 1.25em;
+  color: var(--st-price);
+}
+
+.st-stats {
+  display: flex;
+  gap: 16px;
+  font-weight: 700;
+}
+
+.st-stats small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.75em;
+  color: var(--st-muted);
+  text-transform: uppercase;
+}
+
+.st-new {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.75em;
+  padding: 1px 6px;
+  color: var(--st-on-accent);
+  background: var(--st-accent);
+}
+
+.st-buy .st-new {
+  position: static;
+}
+
+.st-product {
+  padding: 16px 24px 24px;
+}
+
+.st-crumb {
+  color: var(--st-accent) !important;
+  font-size: 0.85em;
+}
+
+.st-product-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid var(--st-rule);
+}
+
+.st-product-head h1 {
+  margin: 2px 0 4px;
+  font-size: 2em;
+  line-height: 1.1;
+}
+
+.st-buy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.st-buy .st-price {
+  font-size: 2em;
+}
+
+.st-facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.st-facts dt {
+  font-size: 0.8em;
+  color: var(--st-muted);
+  text-transform: uppercase;
+}
+
+.st-facts dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.st-specs {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.st-specs th,
+.st-specs td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--st-rule);
+  vertical-align: top;
+}
+
+.st-specs th {
+  width: 28%;
+  color: var(--st-muted);
+  font-weight: 400;
+}
+
+.st-foot {
+  padding: 12px 16px;
+  font-size: 0.8em;
+  color: var(--st-muted);
+  border-top: 1px solid var(--st-rule);
+}
+
+/* ------------------------------------------------------------ 2006: a portal */
+
+.st-2006 {
+  --st-bg: #dfe6ee;
+  --st-page: #ffffff;
+  --st-text: #1d1d1d;
+  --st-muted: #5a5a5a;
+  --st-rule: #9fb3c8;
+  --st-accent: #c8102e;
+  --st-on-accent: #ffffff;
+  --st-price: #c8102e;
+  font-family: Verdana, Tahoma, sans-serif;
+  font-size: 12px;
+  padding: 8px 0 16px;
+}
+
+.st-2006 .st-frame {
+  width: 980px;
+  max-width: calc(100% - 16px);
+  background: var(--st-page);
+  border: 1px solid var(--st-rule);
+}
+
+.st-2006 .st-mast {
+  padding: 10px 14px;
+  background: linear-gradient(#1f4e8c, #173a69);
+  color: #ffffff;
+}
+
+.st-2006 .st-logo {
+  font-family: Georgia, serif;
+  font-size: 28px;
+  font-weight: 700;
+  font-style: italic;
+  color: #ffd200 !important;
+}
+
+.st-2006 .st-mast nav span,
+.st-2006 .st-when {
+  color: #d6e2f2;
+}
+
+.st-2006 .st-mast nav .st-on {
+  color: #ffd200;
+}
+
+.st-2006 .st-side {
+  padding: 8px;
+  background: #eef2f7;
+  border: 1px solid var(--st-rule);
+}
+
+.st-2006 .st-card {
+  border-color: var(--st-rule) !important;
+}
+
+.st-2006 .st-name {
+  color: #1f4e8c;
+  text-decoration: underline;
+}
+
+.st-2006 .st-new {
+  background: #ff9900;
+}
+
+/* ------------------------------------------------------------ 2016: flat */
+
+.st-2016 {
+  --st-bg: #f2f2f2;
+  --st-page: #ffffff;
+  --st-text: #222222;
+  --st-muted: #6b6b6b;
+  --st-rule: #e0e0e0;
+  --st-accent: #d6001c;
+  --st-on-accent: #ffffff;
+  --st-price: #222222;
+  font-family: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  font-size: 15px;
+}
+
+.st-2016 .st-mast {
+  padding: 16px 24px;
+  background: #d6001c;
+  color: #ffffff;
+}
+
+.st-2016 .st-logo {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.st-2016 .st-mast nav span,
+.st-2016 .st-when {
+  color: #ffd6db;
+}
+
+.st-2016 .st-mast nav .st-on {
+  color: #ffffff;
+}
+
+.st-2016 .st-shop {
+  padding: 24px;
+}
+
+.st-2016 .st-card {
+  border: none !important;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+}
+
+.st-2016 .st-own {
+  box-shadow: inset 0 0 0 2px var(--st-accent);
+}
+
+/* ------------------------------------------------------------ 2026: editorial */
+
+.st-2026 {
+  --st-bg: #f7f5f0;
+  --st-page: #fffdf8;
+  --st-text: #171512;
+  --st-muted: #75706a;
+  --st-rule: #e4dfd5;
+  --st-accent: #b3261e;
+  --st-on-accent: #ffffff;
+  --st-price: #171512;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 16px;
+}
+
+.st-2026 .st-mast {
+  height: 68px;
+  padding: 0 40px;
+  border-bottom: 1px solid var(--st-rule);
+}
+
+.st-2026 .st-logo {
+  font-family: "Newsreader", Georgia, serif;
+  font-size: 30px;
+  font-weight: 500;
+}
+
+.st-2026 .st-shop {
+  grid-template-columns: 220px 1fr;
+  gap: 40px;
+  padding: 32px 40px;
+}
+
+.st-2026 .st-filter select {
+  border: none;
+  border-bottom: 1px solid var(--st-rule);
+  background: transparent;
+  padding: 6px 0;
+}
+
+.st-2026 .st-card {
+  gap: 6px;
+  padding: 18px !important;
+  border: none !important;
+  border-top: 1px solid var(--st-text) !important;
+  background: transparent !important;
+}
+
+.st-2026 .st-name {
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 500;
+  font-size: 1.35em;
+}
+
+.st-2026 .st-product h1 {
+  font-family: "Newsreader", Georgia, serif;
+  font-weight: 500;
+  font-size: 2.6em;
+}
+
+/* The store's desktop icon on the in-game laptop. */
+.osi-shop {
+  position: relative;
+  display: inline-block;
+}
+
+.osi-shop .bag {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 34%;
+  bottom: 6%;
+  border-radius: 8%;
+  background: linear-gradient(#e0453a, #b3261e);
+}
+
+.osi-shop .handle {
+  position: absolute;
+  left: 32%;
+  right: 32%;
+  top: 8%;
+  height: 34%;
+  border: calc(var(--s, 44px) * 0.07) solid #b3261e;
+  border-bottom: none;
+  border-radius: 50% 50% 0 0;
+  box-sizing: border-box;
+}

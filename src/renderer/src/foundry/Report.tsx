@@ -1,6 +1,17 @@
 import { useEffect, useRef } from "react";
 import type { SavedModel } from "../../../preload/store";
-import { AWARD_NAMES, type CampaignState, type LedgerEntry, type Quarter, quarterLabel } from "../engine/campaign";
+import {
+  AWARD_NAMES,
+  type CampaignState,
+  type LedgerEntry,
+  type Quarter,
+  quarterLabel,
+  quarterSummary,
+  type WorldMarket,
+  type WorldSeller,
+} from "../engine/campaign";
+import { laptopName, points } from "../world/data";
+import { pct } from "./Finance";
 import { count, usd, usdShort } from "./Release";
 import "./campaign.css";
 
@@ -11,12 +22,16 @@ export interface QuarterReport {
   sales: { name: string; sold: number; demand: number }[];
   reviews: { name: string; score: number }[];
   awards: string[];
+  /** The market's best seller, the player's share and its change in points. */
+  best: WorldSeller | null;
+  share: number;
+  change: number | null;
 }
 
 const same = (a: Quarter, b: Quarter) => a.year === b.year && a.quarter === b.quarter;
 
 /** The report on the quarter a resolved state has just settled, or null before any quarter has. */
-export function reportOf(state: CampaignState, models: SavedModel[]): QuarterReport | null {
+export function reportOf(state: CampaignState, models: SavedModel[], market: WorldMarket): QuarterReport | null {
   const entry = state.ledger[state.ledger.length - 1];
   if (!entry) return null;
   const q = entry.quarter;
@@ -32,7 +47,17 @@ export function reportOf(state: CampaignState, models: SavedModel[]): QuarterRep
     q.quarter === 4
       ? state.awards.filter((a) => a.year === q.year && a.maker === null).map((a) => AWARD_NAMES[a.award])
       : [];
-  return { quarter: q, entry, sales, reviews, awards };
+  const summary = quarterSummary(state, market, q, 1);
+  return {
+    quarter: q,
+    entry,
+    sales,
+    reviews,
+    awards,
+    best: summary.best[0] ?? null,
+    share: summary.player.share,
+    change: summary.player.change,
+  };
 }
 
 const LINES: [string, (e: LedgerEntry) => number][] = [
@@ -47,7 +72,17 @@ const LINES: [string, (e: LedgerEntry) => number][] = [
 
 // The quarter report: the quarter, its profit and cash, where the money went,
 // sales against demand, reviews published and awards won, then Continue.
-export function ReportModal({ report, onClose }: { report: QuarterReport; onClose: () => void }) {
+export function ReportModal({
+  report,
+  company,
+  onClose,
+  onMarket,
+}: {
+  report: QuarterReport;
+  company: string;
+  onClose: () => void;
+  onMarket?: () => void;
+}) {
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -82,6 +117,20 @@ export function ReportModal({ report, onClose }: { report: QuarterReport; onClos
         <b className="up award">{a}</b>
       </div>
     )),
+    <div key="share">
+      <span>Share</span>
+      <b>{pct(report.share)}</b>
+      {report.change !== null && <em className={report.change < 0 ? "short" : "up"}>{points(report.change)}</em>}
+    </div>,
+    ...(report.best
+      ? [
+          <div key="best">
+            <span>Best seller</span>
+            <b className={`award${report.best.own ? " up" : ""}`}>{laptopName(report.best, company)}</b>
+            <em>{count(report.best.units)}</em>
+          </div>,
+        ]
+      : []),
   ];
   return (
     <div className="qr-back">
@@ -109,6 +158,11 @@ export function ReportModal({ report, onClose }: { report: QuarterReport; onClos
         </div>
         {cells.length > 0 && <div className="qr-cells">{cells}</div>}
         <footer>
+          {onMarket && (
+            <button type="button" className="fd-text qr-market" onClick={onMarket}>
+              Market
+            </button>
+          )}
           <button type="button" className="fd-primary" onClick={onClose}>
             Continue
           </button>

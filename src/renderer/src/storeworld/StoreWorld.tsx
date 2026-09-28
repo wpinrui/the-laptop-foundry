@@ -15,6 +15,7 @@ import { useLaptopOs } from "../cafe/CafeScreen";
 import { panelOf, simulate, solve } from "../engine";
 import type { CampaignState } from "../engine/campaign";
 import { Column, Entry } from "../foundry/Menus";
+import { SystemEntries } from "../foundry/SystemMenu";
 import { lookOf as screenLook } from "../review/look";
 import { countShort } from "../world/data";
 import { flagOf } from "./displays";
@@ -355,6 +356,7 @@ export function StoreWorld({
                 </Entry>
               )}
               <Entry onClick={leave}>Map</Entry>
+              <SystemEntries />
             </div>
           </Column>
         </div>

@@ -32,7 +32,7 @@ export interface Pose {
 }
 export type Side = "left" | "right";
 export type Award = "cup" | "obelisk" | "plaque";
-export type Pick = { kind: "station"; id: StationId } | { kind: "clock" } | { kind: "laptop"; id: string };
+export type Pick = { kind: "station"; id: StationId } | { kind: "laptop"; id: string };
 
 export interface OfficeData {
   scene: THREE.Group;
@@ -168,11 +168,9 @@ function useOffice(): OfficeData {
       mesh.receiveShadow = true;
       mesh.castShadow = !clear && !glowing && !quiet.has(mesh);
     });
-    const grow = (b: THREE.Box3, mm: number) => b.expandByScalar(mm);
     const desk = collider("desk");
     desk.max.y = 1300;
     const boxes: OfficeData["boxes"] = [
-      { pick: { kind: "clock" }, box: grow(boxOf("desk_clock", "desk_calendar_face"), 30) },
       { pick: { kind: "station", id: "desk" }, box: desk.union(boxOf("desk_monitor_screen", "desk_chair")) },
       { pick: { kind: "station", id: "finance" }, box: collider("finance").union(boxOf("finance_screen", "ledger")) },
       {
@@ -336,12 +334,15 @@ export interface Walk {
 export function Rig({
   data,
   target,
+  lean,
   arrive,
   walk,
   active,
 }: {
   data: OfficeData;
   target: Pose | null;
+  /** In free roam: leaning in to use a laptop, the camera held here. */
+  lean: Pose | null;
   /** Mount at the door and glide to the target. */
   arrive: boolean;
   /** Free roam's position and heading, shared with the picker. */
@@ -355,8 +356,10 @@ export function Rig({
   const tween = useRef<{ from: Pose; to: Pose; at: number; dur: number } | null>(null);
   const rise = useRef<{ from: number; at: number } | null>(null);
   const keys = useRef(new Set<string>());
-  const live = useRef({ active, free: target === null });
-  live.current = { active, free: target === null };
+  const goal = target ?? lean;
+  const live = useRef({ active, free: goal === null });
+  live.current = { active, free: goal === null };
+  const leaning = useRef(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: placed once, on mount
   useLayoutEffect(() => {
@@ -370,14 +373,24 @@ export function Rig({
   const poseNow = (): Pose => ({ pos: camera.position.clone(), quat: camera.quaternion.clone() });
 
   const first = useRef(true);
+  // A layout effect: a frame drawn before it would walk from the stale free roam pose.
   // biome-ignore lint/correctness/useExhaustiveDependencies: moves when the target does
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
-    if (target) {
-      tween.current = { from: poseNow(), to: target, at: clock.current, dur: MOVE_S };
+    if (goal) {
+      tween.current = { from: poseNow(), to: goal, at: clock.current, dur: MOVE_S };
+      leaning.current = !target;
+      return;
+    }
+    if (leaning.current) {
+      // Back from a laptop to where the player stood.
+      leaning.current = false;
+      const w = walk.current;
+      const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(w.pitch, w.yaw, 0, "YXZ"));
+      tween.current = { from: poseNow(), to: { pos: w.pos.clone(), quat }, at: clock.current, dur: MOVE_S };
       return;
     }
     // Into free roam from wherever the camera is: onto the floor at eye height, facing the same way.
@@ -389,7 +402,7 @@ export function Rig({
     w.yaw = e.y;
     w.pitch = e.x;
     rise.current = { from: camera.position.y, at: clock.current };
-  }, [target]);
+  }, [goal]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.current.add(e.code);
@@ -432,9 +445,9 @@ export function Rig({
       if (k >= 1) tween.current = null;
       return;
     }
-    if (target) {
-      camera.position.copy(target.pos);
-      camera.quaternion.copy(target.quat);
+    if (goal) {
+      camera.position.copy(goal.pos);
+      camera.quaternion.copy(goal.quat);
       return;
     }
     const w = walk.current;
@@ -461,43 +474,65 @@ export function Rig({
 }
 
 /**
- * Picks what the pointer is on, by boxes rather than the room's meshes:
- * the laptops on the wall first, then the clock and calendar, then the
- * nearest station. In free roam with the pointer locked, the aim is the
- * middle of the view.
+ * What the middle of the view is on in free roam, by boxes rather than the
+ * room's meshes: the laptops on the wall first, then the nearest station.
+ * A click in free roam takes the pointer again.
  */
 export function Picker({
   data,
   laptops,
   bays,
   free,
-  onPick,
+  onLock,
   onAim,
 }: {
   data: OfficeData;
   laptops: RefObject<{ id: string; box: THREE.Box3 }[]>;
   bays: number;
   free: boolean;
-  onPick: (p: Pick | null) => void;
+  onLock: () => void;
   /** In free roam: what the middle of the view is on, as it changes. */
   onAim: (p: Pick | null) => void;
 }) {
   const gl = useThree((s) => s.gl);
   const camera = useThree((s) => s.camera);
-  const pick = useRef(onPick);
-  pick.current = onPick;
+  const lock = useRef(onLock);
+  lock.current = onLock;
   const aim = useRef(onAim);
   aim.current = onAim;
   const live = useRef({ bays, free });
   live.current = { bays, free };
-  const test = useRef<(ndc: THREE.Vector2) => Pick | null>(() => null);
   const aimed = useRef<string>("");
   const since = useRef(0);
+  const ray = useMemo(() => new THREE.Raycaster(), []);
+  const within = (): Pick | null => {
+    const hit = new THREE.Vector3();
+    ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+    const reach = 3500;
+    for (const l of laptops.current ?? [])
+      if (ray.ray.intersectBox(l.box, hit) && hit.distanceTo(ray.ray.origin) < reach) return { kind: "laptop", id: l.id };
+    let best: Pick | null = null;
+    let near = reach;
+    const n = live.current.bays;
+    const wall = new THREE.Box3(
+      new THREE.Vector3(data.room.x0, 0, data.bay.z0 - n * data.bay.pitch),
+      new THREE.Vector3(data.room.x0 + 400, 2100, data.bay.z0),
+    );
+    for (const b of [...data.boxes, { pick: { kind: "station", id: "products" } as Pick, box: wall }]) {
+      if (!ray.ray.intersectBox(b.box, hit)) continue;
+      const d = hit.distanceTo(ray.ray.origin);
+      if (d < near) {
+        near = d;
+        best = b.pick;
+      }
+    }
+    return best;
+  };
   useFrame((_, dt) => {
     since.current += dt;
     if (since.current < 0.1) return;
     since.current = 0;
-    const p = live.current.free ? test.current(new THREE.Vector2(0, 0)) : null;
+    const p = live.current.free ? within() : null;
     const key = p ? JSON.stringify(p) : "";
     if (key === aimed.current) return;
     aimed.current = key;
@@ -505,39 +540,6 @@ export function Picker({
   });
   useEffect(() => {
     const el = gl.domElement;
-    const ray = new THREE.Raycaster();
-    const hit = new THREE.Vector3();
-    const within = (ndc: THREE.Vector2): Pick | null => {
-      ray.setFromCamera(ndc, camera);
-      // In free roam only what is within reach.
-      const reach = live.current.free ? 3500 : Number.POSITIVE_INFINITY;
-      for (const l of laptops.current ?? [])
-        if (ray.ray.intersectBox(l.box, hit) && hit.distanceTo(ray.ray.origin) < reach) return { kind: "laptop", id: l.id };
-      let best: Pick | null = null;
-      let near = reach;
-      const { bays: n } = live.current;
-      const wall = new THREE.Box3(
-        new THREE.Vector3(data.room.x0, 0, data.bay.z0 - n * data.bay.pitch),
-        new THREE.Vector3(data.room.x0 + 400, 2100, data.bay.z0),
-      );
-      for (const b of [...data.boxes, { pick: { kind: "station", id: "products" } as Pick, box: wall }]) {
-        if (!ray.ray.intersectBox(b.box, hit)) continue;
-        const d = hit.distanceTo(ray.ray.origin);
-        // The clock sits on the desk: it wins wherever the ray meets it.
-        if (b.pick.kind === "clock" && d < reach) return b.pick;
-        if (d < near) {
-          near = d;
-          best = b.pick;
-        }
-      }
-      return best;
-    };
-    test.current = within;
-    const at = (e: MouseEvent): Pick | null => {
-      const r = el.getBoundingClientRect();
-      if (document.pointerLockElement) return within(new THREE.Vector2(0, 0));
-      return within(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1));
-    };
     let down = { x: 0, y: 0 };
     const press = (e: PointerEvent) => {
       down = { x: e.clientX, y: e.clientY };
@@ -545,20 +547,14 @@ export function Picker({
     const click = (e: MouseEvent) => {
       // A drag to look round is not a click.
       if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
-      pick.current(at(e));
-    };
-    const move = (e: MouseEvent) => {
-      if (document.pointerLockElement) return;
-      el.style.cursor = at(e) ? "pointer" : "";
+      if (live.current.free) lock.current();
     };
     el.addEventListener("pointerdown", press);
     el.addEventListener("click", click);
-    el.addEventListener("mousemove", move);
     return () => {
       el.removeEventListener("pointerdown", press);
       el.removeEventListener("click", click);
-      el.removeEventListener("mousemove", move);
     };
-  }, [gl, camera, data, laptops]);
+  }, [gl]);
   return null;
 }

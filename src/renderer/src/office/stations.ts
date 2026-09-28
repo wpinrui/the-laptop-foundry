@@ -1,5 +1,5 @@
 // The office's stations, clockwise from the desk: the order the arrow keys
-// step round the room. Finance, Market intel and Marketing run a campaign's
+// step round the room. Each station's panel is open while the view is on it. Finance, Market intel and Marketing run a campaign's
 // business, so a sandbox company's ring leaves them out.
 
 export type StationId = "desk" | "finance" | "market" | "marketing" | "door" | "tv" | "products" | "trophies";
@@ -31,13 +31,10 @@ export function stepFrom(ring: StationId[], at: StationId, step: number): Statio
 /** Where the office stands when it opens or comes back into view. */
 export interface OfficeAt {
   station: StationId;
-  /** The station's panel is open. */
-  panel: boolean;
-  /** On the product wall: the laptop picked, and whether its Model panel is open. */
+  /** The laptop picked at the Desk and on the product wall; the newest when null. */
   model: string | null;
-  detail: boolean;
   /** Just in from the map: start at the door and walk to the desk. */
   arrive: boolean;
 }
 
-export const OFFICE_START: OfficeAt = { station: "desk", panel: false, model: null, detail: false, arrive: true };
+export const OFFICE_START: OfficeAt = { station: "desk", model: null, arrive: true };

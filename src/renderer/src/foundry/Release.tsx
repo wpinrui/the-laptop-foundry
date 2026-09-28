@@ -176,6 +176,7 @@ export function ModelTab({
   onRelease,
   onReorder,
   onMarket,
+  onDraftPrice,
 }: {
   campaign: CampaignState;
   model: SavedModel;
@@ -183,6 +184,8 @@ export function ModelTab({
   units: number;
   onUnits: (units: number) => void;
   onPrice: (price: number) => void;
+  /** Sets the price of a model not yet released; without it the price is set in the builder. */
+  onDraftPrice?: (price: number) => void;
   onRelease: (units: number, cost: number, refresh: boolean) => void;
   onReorder: (units: number, cost: number) => void;
   /** Opens the Market screen on the model's rivals or buyers. */
@@ -267,7 +270,7 @@ export function ModelTab({
             : quarterLabel(publicationQuarter(released ? released.quarter : campaign.now))}
         </b>
       </div>
-      {released && !campaign.over && (
+      {(released || onDraftPrice) && !campaign.over && (
         <div className="cr-line cr-price">
           <span>Price</span>
           <Stepper
@@ -275,8 +278,8 @@ export function ModelTab({
             label="Price"
             value={price}
             show={usd}
-            onStep={(d) => onPrice(stepPrice(price, d))}
-            onSet={onPrice}
+            onStep={(d) => (released ? onPrice : (onDraftPrice ?? onPrice))(stepPrice(price, d))}
+            onSet={released ? onPrice : (onDraftPrice ?? onPrice)}
           />
         </div>
       )}

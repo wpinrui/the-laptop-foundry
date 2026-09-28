@@ -1,34 +1,37 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { Entry } from "./Menus";
 import "./foundry.css";
 
-// The system menu, over any place while a company is open: M opens it and M
-// again (or Escape, or Resume) closes it, leaving the place exactly as it was.
-// It holds what the start menu offers: the companies, settings and Quit.
+// The system menu: in the Office, Escape opens it and Escape again (or
+// Resume) closes it, leaving the office exactly as it was. It holds what the
+// start menu offers: the companies, settings and Quit. The other places keep
+// their own Escape pause menus, which end with the same company entries.
 
-const typing = (e: KeyboardEvent) =>
-  !!(e.target as HTMLElement | null)?.closest?.("input, textarea, [contenteditable='true']");
-
-/** Opens and closes the menu with M, anywhere but in a text field. */
+/** Opens and closes the menu; it closes when no company is open. */
 export function useSystemMenu(enabled: boolean): [boolean, (open: boolean) => void] {
   const [open, setOpen] = useState(false);
-  const live = useRef({ enabled, open });
-  live.current = { enabled, open };
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      const s = live.current;
-      if (!s.enabled || e.code !== "KeyM" || e.repeat || typing(e)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      if (!s.open && document.pointerLockElement) document.exitPointerLock();
-      setOpen(!s.open);
-    };
-    window.addEventListener("keydown", key, true);
-    return () => window.removeEventListener("keydown", key, true);
-  }, []);
   useEffect(() => {
     if (!enabled) setOpen(false);
   }, [enabled]);
   return [open, setOpen];
+}
+
+/** Leaving the open company, for the places' pause menus. */
+export const SystemActions = createContext<{ onNew: () => void; onLoad: () => void } | null>(null);
+
+/** New company, Load company and Quit, at the end of a place's pause menu. */
+export function SystemEntries() {
+  const sys = useContext(SystemActions);
+  if (!sys) return null;
+  return (
+    <>
+      <Entry onClick={sys.onNew}>New company</Entry>
+      <Entry onClick={sys.onLoad}>Load company</Entry>
+      <Entry secondary onClick={() => window.api.quit()}>
+        Quit
+      </Entry>
+    </>
+  );
 }
 
 export function SystemMenu({
@@ -60,7 +63,6 @@ export function SystemMenu({
   useEffect(() => {
     // The place under the menu gets no keys while it is open.
     const key = (e: KeyboardEvent) => {
-      if (e.code === "KeyM") return;
       e.stopImmediatePropagation();
       const s = live.current;
       const n = s.entries.length;
@@ -78,9 +80,7 @@ export function SystemMenu({
         s.entries[s.at].run();
       }
     };
-    const up = (e: KeyboardEvent) => {
-      if (e.code !== "KeyM") e.stopImmediatePropagation();
-    };
+    const up = (e: KeyboardEvent) => e.stopImmediatePropagation();
     window.addEventListener("keydown", key, true);
     window.addEventListener("keyup", up, true);
     return () => {

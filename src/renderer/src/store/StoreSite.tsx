@@ -20,12 +20,11 @@ import "./store.css";
 /** Where the listing comes from: a campaign's kept quarter, or a sandbox laptop's own generated year. */
 export type StoreSource = { kind: "quarter"; state: CampaignState; market: WorldMarket; quarter: Quarter } | { kind: "year"; rivals: Rival[]; year: number };
 
-type Sort = "units" | "price" | "review";
+type Sort = "units" | "price";
 
 const SORTS: [Sort, string][] = [
   ["units", "Best selling"],
   ["price", "Price"],
-  ["review", "Rating"],
 ];
 
 const BUDGETS: Budget[] = ["low", "midrange", "premium"];
@@ -56,7 +55,7 @@ interface Product extends StoreItem {
   specs: Spec;
 }
 
-interface Spec {
+export interface Spec {
   cpu: string;
   gpu: string;
   memory: string;
@@ -69,7 +68,7 @@ interface Spec {
 
 const specCache = new Map<string, Spec>();
 
-function specOf(item: StoreItem, company: string): Spec {
+export function specOf(item: StoreItem, company: string): Spec {
   const key = `${item.id}:${item.price}`;
   const hit = specCache.get(key);
   if (hit) return hit;
@@ -111,20 +110,8 @@ function specOf(item: StoreItem, company: string): Spec {
   }
 }
 
-/** Stars from the review score: 1 + (score - 40) / 13, capped at 5. Null before a review. */
-export function starsOf(score: number | null): number | null {
-  if (score === null) return null;
-  return Math.max(1, Math.min(5, 1 + (score - 40) / 13));
-}
-
-/** Customer reviews, scaled from units sold. */
-export function reviewCount(units: number): number {
-  return units > 0 ? Math.max(1, Math.round(units / 50)) : 0;
-}
-
 const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-const compact = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, "")}k` : String(n));
 const slug = (s: string) =>
   s
     .toLowerCase()
@@ -147,17 +134,6 @@ function Render({ p, era, company }: { p: Product; era: Era; company: string }) 
       {hero ? <img src={hero} alt={`${p.brand} ${p.name}`} draggable={false} /> : <LaptopArt item={p} era={era} />}
       {shoot}
     </div>
-  );
-}
-
-function Stars({ stars }: { stars: number }) {
-  return (
-    <span className="ct-stars" role="img" aria-label={`${stars.toFixed(1)} stars`}>
-      <span>★★★★★</span>
-      <span className="on" style={{ width: `${(stars / 5) * 100}%` }}>
-        ★★★★★
-      </span>
-    </span>
   );
 }
 
@@ -242,9 +218,8 @@ function filtered(items: Product[], f: Filters, sort: Sort): Product[] {
       inGroup(f.brand, x.brand),
   );
   const by: Record<Sort, (a: Product, b: Product) => number> = {
-    units: (a, b) => b.units - a.units || (b.review ?? -1) - (a.review ?? -1),
+    units: (a, b) => b.units - a.units,
     price: (a, b) => a.price - b.price,
-    review: (a, b) => (b.review ?? -1) - (a.review ?? -1) || b.units - a.units,
   };
   return shown.sort((a, b) => by[sort](a, b) || a.id.localeCompare(b.id));
 }
@@ -325,19 +300,6 @@ function Badge({ p, era }: { p: Product; era: Era }) {
   return era === 2006 ? null : <i className="ct-badge none" />;
 }
 
-function Rating({ p, era }: { p: Product; era: Era }) {
-  const s = starsOf(p.review);
-  if (s === null) return <span className="ct-rating" />;
-  const n = reviewCount(p.units);
-  return (
-    <span className="ct-rating">
-      {era === 2026 && <b>{s.toFixed(1)}</b>}
-      <Stars stars={s} />
-      {n > 0 && <u>{era === 2026 ? `(${n.toLocaleString("en-US")})` : n.toLocaleString("en-US")}</u>}
-    </span>
-  );
-}
-
 /** Specs as a product page lists them. */
 function bullets(p: Product): string[] {
   const s = p.specs;
@@ -356,7 +318,6 @@ function details(p: Product): [string, string][] {
   return [
     ...p.specs.table,
     ...(p.kg !== null ? ([["Weight", `${p.kg.toFixed(2)} kg`]] as [string, string][]) : []),
-    ...(p.review !== null ? ([["Notebookcheck", `${Math.round(p.review)}%`]] as [string, string][]) : []),
     ...(p.rank !== null ? ([["Sales Rank", `#${p.rank} in Laptops`]] as [string, string][]) : []),
   ];
 }
@@ -410,7 +371,6 @@ function Page06(v: ViewProps & { product?: Product }) {
           <div className="ct-about">
             <h1>{`${p.brand} ${p.name}`}</h1>
             <u className="ct-by">{p.brand}</u>
-            <Rating p={p} era={v.era} />
             <div className="ct-price-line">
               <span>Price</span>
               <b className="ct-price">{money(p.price)}</b>
@@ -453,7 +413,6 @@ function Page06(v: ViewProps & { product?: Product }) {
                   <button type="button" className="ct-title" onClick={() => go(pageOf(x))}>
                     {`${x.brand} ${x.name}`}
                   </button>
-                  <Rating p={x} era={v.era} />
                   <span>{x.specs.cpu}</span>
                   <span>{x.specs.display}</span>
                   <span>{[x.specs.memory, x.specs.storage].filter(Boolean).join("   ")}</span>
@@ -543,7 +502,6 @@ function Also({ p, v, title }: { p: Product; v: ViewProps; title: string }) {
             <button type="button" className="ct-title" onClick={() => v.go(pageOf(x))}>
               {`${x.brand} ${x.name}`}
             </button>
-            <Rating p={x} era={v.era} />
             <b className="ct-price">{v.era === 2006 ? money(x.price) : dollars(x.price)}</b>
           </div>
         ))}
@@ -627,7 +585,6 @@ function Page16(v: ViewProps & { product?: Product }) {
           <div className="ct-about">
             <h1>{`${p.brand} ${p.name}`}</h1>
             <u className="ct-by">{p.brand}</u>
-            <Rating p={p} era={v.era} />
             {p.rank !== null && p.rank <= 3 && <i className="ct-rank">{`#${p.rank} Best Seller in Laptops`}</i>}
             <div className="ct-price-line">
               <span>Price</span>
@@ -683,7 +640,6 @@ function Page16(v: ViewProps & { product?: Product }) {
                     <LaptopArt item={x} era={v.era} />
                   </span>
                   <span className="ct-title">{`${x.brand} ${x.name}`}</span>
-                  <Rating p={x} era={v.era} />
                   <Price16 price={x.price} />
                   <span className={`ct-stock ${st.tone}`}>{st.tone === "in" ? "FREE Shipping" : st.text}</span>
                 </button>
@@ -729,8 +685,6 @@ function Page26(v: ViewProps & { product?: Product }) {
   const { product: p, go } = v;
   if (p) {
     const st = stockLine(p);
-    const s = starsOf(p.review);
-    const n = reviewCount(p.units);
     const cards: [string, string][] = [
       ["Processor", p.specs.cpu],
       ["Graphics", p.specs.gpu],
@@ -749,16 +703,6 @@ function Page26(v: ViewProps & { product?: Product }) {
           <div className="ct-about">
             <u className="ct-by">{p.brand}</u>
             <h1>{p.name}</h1>
-            <span className="ct-rating">
-              {s !== null && (
-                <>
-                  <b>{s.toFixed(1)}</b>
-                  <Stars stars={s} />
-                  {n > 0 && <u>{`(${n.toLocaleString("en-US")})`}</u>}
-                </>
-              )}
-              {p.review !== null && <i className="ct-chip">{`Notebookcheck ${Math.round(p.review)}%`}</i>}
-            </span>
             {p.rank !== null && p.rank <= 3 && <i className="ct-rank">{`#${p.rank} Best Seller in Laptops`}</i>}
             <div className="ct-cards">
               {cards
@@ -804,8 +748,6 @@ function Page26(v: ViewProps & { product?: Product }) {
                 {(
                   [
                     ["Price", (x: Product) => dollars(x.price)],
-                    ["Rating", (x: Product) => (x.review === null ? "" : `${(starsOf(x.review) ?? 0).toFixed(1)}`)],
-                    ["Notebookcheck", (x: Product) => (x.review === null ? "" : `${Math.round(x.review)}%`)],
                     ["Processor", (x: Product) => x.specs.cpu],
                     ["Display", (x: Product) => x.specs.display],
                     ["Memory", (x: Product) => x.specs.memory],
@@ -850,8 +792,6 @@ function Page26(v: ViewProps & { product?: Product }) {
         <section className="ct-grid">
           {v.shown.map((x) => {
             const st = stockLine(x);
-            const s = starsOf(x.review);
-            const n = reviewCount(x.units);
             return (
               <button key={x.id} type="button" className="ct-card" onClick={() => go(pageOf(x))}>
                 <span className="ct-shot">
@@ -860,15 +800,6 @@ function Page26(v: ViewProps & { product?: Product }) {
                 </span>
                 <small>{x.brand}</small>
                 <span className="ct-title">{x.name}</span>
-                <span className="ct-rating">
-                  {s !== null && (
-                    <>
-                      <b>{s.toFixed(1)}</b>
-                      <Stars stars={s} />
-                      {n > 0 && <u>{`(${compact(n)})`}</u>}
-                    </>
-                  )}
-                </span>
                 <b className="ct-price">{dollars(x.price)}</b>
                 <span className={`ct-stock ${st.tone}`}>{st.tone === "in" ? "Free delivery tomorrow" : st.text}</span>
               </button>

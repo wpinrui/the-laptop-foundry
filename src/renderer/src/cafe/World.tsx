@@ -12,7 +12,7 @@ import COLLIDERS from "./colliders.json";
 // under a group scaled to mm) with the player's laptop on the middle table.
 // Units are mm, floor at y = 0, the laptop's table at the origin.
 
-export type Aim = "laptop" | "power" | null;
+export type Aim = "laptop" | "power" | "door" | null;
 
 /** The laptop on the table, as the room draws it. */
 export interface LaptopLook {
@@ -42,6 +42,8 @@ const START: [number, number, number] = [1500, EYE, 1900];
 const DOOR_START: [number, number, number] = [-2000, EYE, -2500];
 /** The entrance in the glass street front: walking into it leaves the cafe. */
 const DOOR = { x0: -2900, x1: -1100 };
+/** The entrance as the aim dot catches it. */
+const DOOR_BOX = new THREE.Box3(new THREE.Vector3(DOOR.x0, 0, ROOM.z0 - 100), new THREE.Vector3(DOOR.x1, 2400, ROOM.z0 + 100));
 /** The socket sits flush in the table top; this is how much the aim dot catches. */
 const SOCKET = new THREE.Vector3(70, 50, 70);
 /** The shadow maps are redrawn for this many frames after the room loads, then held. */
@@ -258,7 +260,6 @@ function Player({
   const pos = useRef(new THREE.Vector3(...(atDoor ? DOOR_START : START)));
   const door = useRef(onDoor);
   door.current = onDoor;
-  const out = useRef(false);
   const look = useRef(lookAngles(pos.current, new THREE.Vector3(...anchors.laptop)));
   const keys = useRef(new Set<string>());
   const move = useRef({ clock: 0 });
@@ -338,11 +339,6 @@ function Player({
         pos.current.x += dx * SPEED * dt;
         pos.current.z += dz * SPEED * dt;
         collide(pos.current);
-        const p = pos.current;
-        if (door.current && !out.current && p.z <= ROOM.z0 + BODY + 1 && p.x > DOOR.x0 && p.x < DOOR.x1) {
-          out.current = true;
-          door.current();
-        }
       }
     }
     const l = look.current;
@@ -379,6 +375,8 @@ function Player({
     }
     // With no laptop on the table the socket has nothing to charge.
     if (lap && ray.ray.intersectBox(socket, hit) && hit.distanceTo(origin) < best) next = "power";
+    // Standing, the street entrance: E leaves through it.
+    if (door.current && !seated && ray.ray.intersectBox(DOOR_BOX, hit) && hit.distanceTo(origin) < best) next = "door";
     if (next !== aimed.current) {
       aimed.current = next;
       onClickAim.current = next;

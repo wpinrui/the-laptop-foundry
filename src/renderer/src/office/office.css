@@ -1,0 +1,627 @@
+/* The Office: the 3D room, the strip along the top, and each station's panel
+   on the calm third of its view. Design px times --u, as in the menus. */
+
+.of {
+  background: var(--office-shade);
+}
+
+.of-scene {
+  position: absolute;
+  inset: 0;
+}
+
+/* The top 7% of the view: the room keeps it clear of anything important. */
+.of-hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 7vh;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(24 * var(--u));
+  padding: 0 calc(28 * var(--u));
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ground-deep) 82%, transparent),
+    color-mix(in srgb, var(--ground-deep) 45%, transparent)
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  pointer-events: auto;
+}
+
+.of-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: calc(24 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.of-clock {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(22 * var(--u));
+}
+
+.of-clock > b {
+  font-weight: 700;
+  font-size: calc(24 * var(--u));
+  line-height: 1;
+}
+
+.of-clock > b:first-child {
+  color: var(--accent);
+}
+
+.of-clock > small {
+  font-weight: 600;
+  font-size: calc(19 * var(--u));
+  color: var(--muted);
+}
+
+.of-clock > small.short {
+  color: var(--warning);
+}
+
+.of-clock > small.up {
+  color: var(--accent);
+}
+
+.of .of-end {
+  padding: calc(9 * var(--u)) calc(22 * var(--u)) !important;
+  font-size: calc(20 * var(--u)) !important;
+}
+
+.of-resolving {
+  position: relative;
+  min-width: calc(200 * var(--u));
+  height: calc(38 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 calc(16 * var(--u));
+  background: var(--accent-wash);
+  font-weight: 700;
+  font-size: calc(18 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.of-resolving i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: calc(3 * var(--u));
+  background: var(--accent);
+  transition: width 140ms linear;
+}
+
+/* A station's panel: the calm third of the view, under the strip. */
+.of .of-panel {
+  position: absolute;
+  top: calc(7vh + 16 * var(--u));
+  bottom: calc(76 * var(--u));
+  width: calc(33.333vw - 40 * var(--u));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--ground-deep) 84%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.of .of-panel.left {
+  left: calc(20 * var(--u));
+}
+
+.of .of-panel.right {
+  right: calc(20 * var(--u));
+}
+
+/* Short panels end with their content. */
+.of .of-panel:not(.wide) {
+  bottom: auto;
+  max-height: calc(93vh - 92 * var(--u));
+}
+
+/* Market intel's views need the width: the whole view under the strip. */
+.of .of-panel.wide.left,
+.of .of-panel.wide.right {
+  left: calc(20 * var(--u));
+  right: calc(20 * var(--u));
+  width: auto;
+}
+
+.of-up {
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+}
+
+.of-up i {
+  font-style: normal;
+  font-size: calc(34 * var(--u));
+  line-height: 1;
+  color: var(--accent);
+}
+
+.of-up:hover h2,
+.of-up:focus-visible h2 {
+  color: var(--accent);
+}
+
+.of-panel-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: calc(16 * var(--u)) calc(32 * var(--u)) calc(24 * var(--u));
+  border-top: 1px solid var(--line);
+}
+
+.of-panel-foot .fd-primary {
+  width: 100%;
+}
+
+/* The station's name on its calm side: a click opens the panel. */
+.of .of-station {
+  position: absolute;
+  bottom: calc(96 * var(--u));
+  z-index: 10;
+  padding: calc(14 * var(--u)) calc(22 * var(--u));
+  border-left: calc(3 * var(--u)) solid var(--accent);
+  background: color-mix(in srgb, var(--ground-deep) 70%, transparent);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(34 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.of .of-station:not(:disabled):hover,
+.of .of-station:focus-visible {
+  color: var(--accent);
+}
+
+.of .of-station:disabled {
+  opacity: 1;
+  border-left-color: var(--muted);
+}
+
+.of .of-station.left {
+  left: calc(40 * var(--u));
+}
+
+.of .of-station.right {
+  right: calc(40 * var(--u));
+}
+
+/* The neighbours either way round the room, along the bottom. */
+.of-ring {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(64 * var(--u));
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 calc(28 * var(--u));
+  background: linear-gradient(to top, color-mix(in srgb, var(--ground-deep) 70%, transparent), transparent);
+  pointer-events: none;
+}
+
+.of-ring button {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  font-size: calc(20 * var(--u)) !important;
+  color: var(--text) !important;
+  text-shadow: 0 1px 6px color-mix(in srgb, var(--ground) 80%, transparent);
+}
+
+.of-ring button i {
+  font-style: normal;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+  color: var(--accent);
+}
+
+.of.free .of-scene canvas {
+  cursor: none;
+}
+
+.of .of-panel.left {
+  right: auto;
+}
+
+.of .of-panel.right {
+  left: auto;
+}
+
+.of-panel-head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: calc(16 * var(--u));
+  padding: calc(26 * var(--u)) calc(32 * var(--u)) calc(16 * var(--u));
+  border-bottom: 1px solid var(--line);
+}
+
+.of-panel-head h2 {
+  margin: 0;
+  font-weight: 700;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.of-panel-head .fd-text {
+  font-size: calc(17 * var(--u)) !important;
+}
+
+/* Desk: the clock, the profit trend, what needs attention and End quarter. */
+.of-desk-clock {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+}
+
+.of-desk-clock > b {
+  font-weight: 700;
+  font-size: calc(26 * var(--u));
+  color: var(--accent);
+}
+
+.of-desk-clock > span {
+  display: flex;
+  align-items: baseline;
+  gap: calc(16 * var(--u));
+}
+
+.of-desk-clock > span b {
+  font-weight: 700;
+  font-size: calc(44 * var(--u));
+  line-height: 1;
+}
+
+.of-desk-clock small {
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+  color: var(--accent);
+}
+
+.of-desk-clock .short {
+  color: var(--warning);
+}
+
+.of-trend {
+  position: relative;
+  flex: none;
+  height: calc(120 * var(--u));
+  display: flex;
+  gap: calc(6 * var(--u));
+  margin: calc(-10 * var(--u)) 0 calc(20 * var(--u));
+}
+
+.of-trend::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid var(--line);
+}
+
+.of-trend > div {
+  position: relative;
+  flex: 0 0 calc(12.5% - 6 * var(--u));
+}
+
+.of-trend i {
+  position: absolute;
+  left: 15%;
+  right: 15%;
+}
+
+.of-trend i.up {
+  bottom: 50%;
+  background: var(--accent);
+}
+
+.of-trend i.down {
+  top: 50%;
+  background: var(--warning);
+}
+
+.of-trend small {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(-20 * var(--u));
+  text-align: center;
+  font-size: calc(13 * var(--u));
+  color: var(--muted);
+}
+
+.of-alerts {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.of-alerts button {
+  display: flex;
+  align-items: baseline;
+  gap: calc(14 * var(--u));
+  padding: calc(12 * var(--u)) 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  text-align: left;
+}
+
+.of-alerts button span {
+  flex: none;
+  width: calc(110 * var(--u));
+  font-weight: 600;
+  font-size: calc(14 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.of-alerts button.warn span {
+  color: var(--warning);
+}
+
+.of-alerts button b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: calc(22 * var(--u));
+}
+
+.of-alerts button:hover b,
+.of-alerts button:focus-visible b {
+  color: var(--accent);
+}
+
+.of-desk-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.of-desk-foot .fd-primary {
+  width: 100%;
+}
+
+.of-resolving.big {
+  height: calc(56 * var(--u));
+  font-size: calc(24 * var(--u));
+}
+
+/* Product wall: the models, then a picked one's Model panel. */
+.of .of-new {
+  align-self: flex-start;
+}
+
+.of-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0 calc(-32 * var(--u));
+}
+
+.of-rows .fd-row {
+  padding: calc(12 * var(--u)) calc(32 * var(--u)) !important;
+}
+
+.of-rows .fd-row b {
+  font-size: calc(24 * var(--u));
+}
+
+.of-rows .fd-row small em.muted {
+  color: var(--muted);
+}
+
+.of-rows .fd-row .fd-score {
+  font-size: calc(26 * var(--u));
+}
+
+.of .of-back {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--u));
+  font-size: calc(16 * var(--u)) !important;
+}
+
+.of-back i {
+  font-style: normal;
+  font-size: calc(24 * var(--u));
+  line-height: 1;
+  color: var(--accent);
+}
+
+.of-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(8 * var(--u));
+}
+
+.of .of-actions .fd-primary {
+  padding: calc(13 * var(--u)) calc(26 * var(--u)) !important;
+  font-size: calc(20 * var(--u)) !important;
+}
+
+.of .of-actions .fd-secondary {
+  padding: calc(12 * var(--u)) calc(16 * var(--u)) !important;
+  font-size: calc(17 * var(--u)) !important;
+}
+
+/* TV: the last quarter's short, to make or watch. */
+.of .of-short {
+  display: flex;
+  gap: calc(18 * var(--u));
+  align-items: center;
+  padding: calc(14 * var(--u)) !important;
+  border: 1px solid var(--line) !important;
+  text-align: left;
+}
+
+.of .of-short:not(:disabled):hover,
+.of .of-short:focus-visible {
+  border-color: var(--accent) !important;
+}
+
+.of-short > i {
+  flex: none;
+  width: calc(68 * var(--u));
+  height: calc(120 * var(--u));
+  overflow: hidden;
+  background: var(--ground);
+}
+
+.of-short > i img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.of-short > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(4 * var(--u));
+}
+
+.of-short small {
+  font-weight: 600;
+  font-size: calc(15 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.of-short b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: calc(28 * var(--u));
+}
+
+.of-short em {
+  flex: none;
+  font-style: normal;
+  font-weight: 700;
+  font-size: calc(20 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.of-short u {
+  flex: none;
+  width: calc(22 * var(--u));
+  height: calc(22 * var(--u));
+  border: calc(3 * var(--u)) solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: of-spin 900ms linear infinite;
+}
+
+@keyframes of-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Trophy cabinet: the reviews, best first. */
+.of-reviews {
+  display: flex;
+  flex-direction: column;
+  margin-top: calc(-8 * var(--u));
+}
+
+.of-reviews button {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(16 * var(--u));
+  padding: calc(8 * var(--u)) 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  text-align: left;
+}
+
+.of-reviews span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+}
+
+.of-reviews b {
+  font-weight: 700;
+  font-size: calc(22 * var(--u));
+}
+
+.of-reviews button:hover span,
+.of-reviews button:focus-visible span {
+  color: var(--accent);
+}
+
+/* Market intel: the Market screen inside the wide panel. */
+.of .of-panel .ms {
+  position: absolute;
+  inset: 0;
+  background: none;
+}
+
+.of .of-panel .ms-top {
+  height: calc(84 * var(--u));
+  margin: 0 calc(40 * var(--u));
+}
+
+.of .of-panel .ms-body {
+  padding: calc(20 * var(--u)) calc(40 * var(--u));
+}
+
+/* Over the room, under the strip: the quarter report and the statements. */
+.fd.of-over {
+  top: 7vh;
+  background: transparent;
+  z-index: 30;
+}
+
+.of-over .fd-books {
+  left: calc(33.333vw + 4 * var(--u));
+  right: calc(20 * var(--u));
+  top: calc(16 * var(--u));
+  bottom: calc(76 * var(--u));
+}
+

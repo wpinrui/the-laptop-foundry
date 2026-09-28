@@ -80,10 +80,6 @@
   height: 100%;
 }
 
-.ct-2006 .ct-row-main .ct-rating:empty {
-  display: none;
-}
-
 .ct-lid {
   fill: var(--slot-metal);
 }
@@ -106,29 +102,6 @@
 
 .ct-2026 .ct-scr-b {
   stop-color: var(--desk-2026-b);
-}
-
-.ct-stars {
-  position: relative;
-  display: inline-block;
-  color: var(--site06-rule);
-  letter-spacing: 1px;
-  white-space: nowrap;
-}
-
-.ct-stars .on {
-  position: absolute;
-  left: 0;
-  top: 0;
-  overflow: hidden;
-  color: var(--score-fair);
-}
-
-.ct-rating {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 1.3em;
 }
 
 .ct-badge {
@@ -237,8 +210,7 @@
 .ct-2006 .ct-links u,
 .ct-2006 .ct-group u,
 .ct-2006 .ct-title,
-.ct-2006 .ct-by,
-.ct-2006 .ct-rating u {
+.ct-2006 .ct-by {
   color: var(--site06-link);
   text-decoration: underline;
 }
@@ -756,11 +728,6 @@
   min-height: 2.6em;
 }
 
-.ct-2016 .ct-rating u {
-  color: var(--courts-blue);
-  font-size: 12px;
-}
-
 .ct-price16 {
   font-size: 24px;
 }
@@ -1170,15 +1137,6 @@
   font-weight: 600;
 }
 
-.ct-2026 .ct-rating {
-  padding: 0 4px;
-  font-size: 13px;
-}
-
-.ct-2026 .ct-rating u {
-  color: var(--site26-muted);
-}
-
 .ct-2026 .ct-card .ct-price {
   padding: 4px 4px 0;
   font-size: 22px;
@@ -1217,16 +1175,6 @@
 
 .ct-2026 .ct-about h1 {
   font-size: 30px;
-}
-
-.ct-chip {
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--site26-rule);
-  color: var(--courts-blue);
-  font-style: normal;
-  font-weight: 600;
-  font-size: 12px;
 }
 
 .ct-2026 .ct-rank {

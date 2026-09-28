@@ -333,10 +333,13 @@ The player is always on the world map or in one of four places: the Workshop, th
 - Any laptop can come to the Workshop, drafts included. Only a laptop that works can come to the Cafe.
 - The Workshop opens in free view, through the personnel door, with the laptop brought along on the turntable, or an empty turntable.
 - The Cafe opens through the street entrance, with the laptop brought along on the table. Empty handed, the table is bare and nothing asks for a laptop.
-- Walking out through the Workshop's personnel door or the Cafe's street entrance returns to the map. So does Map in either pause menu.
+- Walking out through the Workshop's personnel door returns to the map. In the Cafe and Courts the exit door is a wall to walk into: aiming at it shows E Leave, which returns to the map. So does Map in any pause menu.
 - From a place, Stay goes back in. From the menu, Menu goes back to the main menu.
 - The Office is where the player runs the company. Until it has its own room, the models screen with the campaign rails stands in for it. Map there returns to the map.
-- Courts is the store. It shows on the map but cannot be entered until its room is built.
+- Courts is the store, walked in first person. Its display tables hold what is on sale: in a campaign the last played quarter's shelf, rivals and the player's released models; in a sandbox the generated market of the year.
+- Each price tag carries the price and the specs. Courts shows no review scores.
+- Aiming at a laptop, E inspects it: a card with its maker, name, price, sales, specs and when it was released, a quarter such as 2024 Q2 in a campaign and the model's year in a sandbox. Previous and next step along the tables.
+- From the inspect view, E uses the laptop as in the Cafe: its own OS on its screen, a store demo account under the maker's name, or the company's for the player's own models. Clicks and typing go to the OS, the screen and speakers are that laptop's, F shows it full screen and E stops using. Display units run on mains power. A laptop whose build does not work cannot be used.
 
 ## Version 0.2
 
@@ -476,7 +479,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 - Quarter: the company's units, revenue, profit, share and rank against the market; every maker's share and movement; the quarter's launches with review scores; the best sellers, with the player's own ranks, and the year's awards in a Q4.
 - Rivals: for a player model, the five rivals it competes with most (buyer overlap times price closeness) by units won, and a stat matrix of indices on the market's par with buyer weights and a market score.
 - Buyers: every segment's buyers, wants, the share the company won, units per player model, and the brand's reach and reputation.
-- Store: the laptop's OS with Courts open, the same retailer site every laptop's OS carries, in its era's look, with class matrix filters, stars from review scores, best seller ranks, real stock and similar laptops from the Rivals overlap.
+- Store: the laptop's OS with Courts open, the same retailer site every laptop's OS carries, in its era's look, with class matrix filters, best seller ranks, real stock and similar laptops from the Rivals overlap.
 
 ## Stretch goals
 

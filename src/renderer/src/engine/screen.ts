@@ -1,4 +1,4 @@
-import { type Content, CONTENT } from "./content";
+import { available, type Content, CONTENT, contentYear } from "./content";
 import { activeArea } from "./content/display";
 import { eraFor } from "./content/eras";
 import { qualityOf } from "./quality";
@@ -163,7 +163,8 @@ export interface ResolvedPanel extends PanelOption {
 
 export function kindAvailable(kind: ScreenKind, year: number): boolean {
   const [a, b] = KIND_YEARS[kind];
-  return a <= year && year <= b;
+  const y = contentYear(year);
+  return a <= y && y <= b;
 }
 
 /** The engine's panel type (thickness, backlight, lab profile) for a kind in a year. CCFL to 2010, as the panel rows. */
@@ -215,7 +216,8 @@ export function gamutsFor(year: number, kind: ScreenKind): string[] {
 
 /** Panel rows sold in the year; before any were, the latest ones sold before it. */
 function yearRows(year: number, content: Content): PanelOption[] {
-  const sold = content.panels.filter((p) => p.from <= year && year <= p.until);
+  const y = contentYear(year);
+  const sold = content.panels.filter((p) => p.from <= y && y <= p.until);
   if (sold.length > 0) return sold;
   const past = content.panels.filter((p) => p.from <= year);
   const latest = Math.max(...past.map((p) => p.from));
@@ -291,8 +293,7 @@ export function madeRow(spec: ScreenSpec, year: number, content: Content = CONTE
   return content.panels.find(
     (p) =>
       p.type === type &&
-      p.from <= year &&
-      year <= p.until &&
+      available(p, year) &&
       Math.abs(p.inches - spec.diag) < 0.051 &&
       p.res[0] === spec.res[0] &&
       p.res[1] === spec.res[1] &&

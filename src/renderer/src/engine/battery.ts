@@ -1,3 +1,4 @@
+import { contentYear } from "./content/years";
 import type { Axis, BuildPart, Mm, OptionValue, Part, Shape } from "./types";
 
 // A pouch pack is sized by the player: length along the chassis width (x),
@@ -36,7 +37,7 @@ export function pouchShape(part: Part | undefined): PouchShape | undefined {
 
 /** Wh per litre in `year` at Compact spend `spend` (0 to 1). */
 export function pouchDensity(part: Part, shape: PouchShape, year: number, spend: number): number {
-  const years = Math.max(0, year - part.from);
+  const years = Math.max(0, contentYear(year) - part.from);
   const f = 1 - 0.15 * Math.min(1, Math.max(0, spend));
   return (shape.whPerLitre * (1 + DENSITY_GROWTH) ** years) / f;
 }

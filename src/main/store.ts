@@ -21,11 +21,9 @@ const legacyFile = () => join(app.getPath("userData"), "foundry.json");
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_NAME = 60;
-/** A campaign starts from 2006 to 2025 and runs to the end of 2026. */
+/** A campaign starts from 2006 to 2025 and runs on with no end. */
 const FIRST_START = 2006;
 const LAST_START = 2025;
-/** The last year a market can be opened in. */
-const LAST_YEAR = 2026;
 
 function isStart(y: unknown): y is number {
   return typeof y === "number" && Number.isInteger(y) && y >= FIRST_START && y <= LAST_START;
@@ -250,7 +248,7 @@ export function registerStore(): void {
     return lean(await put({ ...c, campaign: next, played: Date.now() }));
   });
   handleTop("store:save-market", async (_e, id: unknown, year: unknown, market: unknown) => {
-    if (typeof year !== "number" || !Number.isInteger(year) || year < FIRST_START || year > LAST_YEAR)
+    if (typeof year !== "number" || !Number.isInteger(year) || year < FIRST_START)
       throw new Error("bad market year");
     if (!market || typeof market !== "object") throw new Error("bad market");
     const c = await company(id);

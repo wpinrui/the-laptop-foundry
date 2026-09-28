@@ -1,4 +1,4 @@
-import { available, type Index } from "./content";
+import { available, contentYear, type Index } from "./content";
 import type {
   Body,
   Build,
@@ -20,7 +20,8 @@ import { speakerGrillOptionOk } from "./speakerGrill";
 /** Whether an option value can be had in the year: its own years where the part gives them. */
 export function optionAvailable(part: Part, key: string, value: OptionValue, year: number): boolean {
   const span = part.optionYears?.[key]?.[String(value)];
-  return !span || (span[0] <= year && year <= span[1]);
+  const y = contentYear(year);
+  return !span || (span[0] <= y && y <= span[1]);
 }
 
 /** A part's options for a year: where a default cannot be had that year, the first value that can. */

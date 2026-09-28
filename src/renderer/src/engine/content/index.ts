@@ -32,6 +32,7 @@ import { PORTS } from "./ports";
 import { BATTERIES, COOLING, HOTSWAP } from "./power";
 import { PROCESSORS } from "./processors";
 import { STORAGE } from "./storage";
+import { contentYear, FIRST_YEAR, LAST_YEAR } from "./years";
 
 export interface Content {
   eras: Era[];
@@ -75,8 +76,10 @@ export const CONTENT: Content = {
   ],
 };
 
+/** Whether a dated item can be had in the year; past the content's last year, as in it. */
 export function available(d: Dated, year: number): boolean {
-  return d.from <= year && year <= d.until;
+  const y = contentYear(year);
+  return d.from <= y && y <= d.until;
 }
 
 /** Index by id for constant-time lookups inside the solver. */
@@ -170,7 +173,5 @@ export {
   type Vendor,
 } from "./chips/gens";
 
-/** First and last year a build can be set in. */
-export const FIRST_YEAR = 2006;
-export const LAST_YEAR = 2026;
+export { contentYear, FIRST_YEAR, LAST_YEAR } from "./years";
 export const YEARS: number[] = Array.from({ length: LAST_YEAR - FIRST_YEAR + 1 }, (_, i) => FIRST_YEAR + i);

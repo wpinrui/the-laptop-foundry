@@ -2,7 +2,7 @@ import type { SavedCampaign, SavedModel } from "../../../../preload/store";
 import { type Award, awardsOf, presentAwards } from "./awards";
 import { type PublishedReview, publishReviews, reviewsOf } from "./critics";
 import { type Brand, brandOf, market, newBrand, type SegmentOutcome, updatePerception } from "./brand";
-import { END_YEAR, FIRST_START, LAST_START, STARTING_CASH } from "./constants";
+import { FIRST_START, LAST_START, STARTING_CASH } from "./constants";
 import { entryOf, type LedgerEntry, NO_SPEND, type Spent, settle, spentOf } from "./finance";
 import type { Rival } from "../market/field";
 import { type Release, releaseOf } from "./release";
@@ -11,7 +11,8 @@ import { type SalesRecord, salesRecordOf, simulateSales, wordOfMouth } from "./s
 import { type ShelfRecord, shelfRecordOf } from "./shelf";
 
 // Campaign mode: a company plays forward from a start year a quarter at a
-// time, to the end of 2026. The state lives in the company save; the main
+// time, with no last quarter: past 2026 the content holds at its last year
+// and the clock runs on. The state lives in the company save; the main
 // process keeps it opaque, so this module owns its shape.
 
 export * from "./awards";
@@ -38,7 +39,7 @@ export interface CampaignState {
   /** The quarter being played. */
   now: Quarter;
   cash: number;
-  /** Set once the last quarter of 2026 has been resolved. */
+  /** Set when the company goes bankrupt; a campaign has no other end. */
   over: boolean;
   /** Released models by model id. */
   releases: Record<string, Release>;
@@ -80,10 +81,6 @@ export function quarterLabel(q: Quarter): string {
   return `Q${q.quarter} ${q.year}`;
 }
 
-export function isLastQuarter(q: Quarter): boolean {
-  return q.year >= END_YEAR && q.quarter === 4;
-}
-
 export function nextQuarter(q: Quarter): Quarter {
   return q.quarter === 4 ? { year: q.year + 1, quarter: 1 } : { year: q.year, quarter: (q.quarter + 1) as QuarterOfYear };
 }
@@ -110,23 +107,24 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
   const fresh = newCampaign(saved.start);
   const s = (saved.state ?? {}) as Partial<CampaignState>;
   const n = s.now;
-  const now =
-    n &&
-    Number.isInteger(n.year) &&
-    n.year >= fresh.start &&
-    n.year <= END_YEAR &&
-    [1, 2, 3, 4].includes(n.quarter)
+  const at =
+    n && Number.isInteger(n.year) && n.year >= fresh.start && [1, 2, 3, 4].includes(n.quarter)
       ? { year: n.year, quarter: n.quarter }
       : fresh.now;
+  const bankrupt = s.bankrupt === true;
+  // Campaigns once ended after Q4 2026 with the clock left on it; such a save
+  // carries on from the quarter after.
+  const finished = s.over === true && !bankrupt;
+  const now = finished ? nextQuarter(at) : at;
   return {
     start: fresh.start,
     now,
     cash: typeof s.cash === "number" && Number.isFinite(s.cash) ? s.cash : fresh.cash,
-    over: s.over === true,
+    over: bankrupt,
     releases: releasesOf(s.releases),
     spent: spentOf(s.spent),
     ledger: Array.isArray(s.ledger) ? s.ledger.map(entryOf).filter((e): e is LedgerEntry => !!e) : [],
-    bankrupt: s.bankrupt === true,
+    bankrupt,
     brand: brandOf(s.brand),
     onSale: Array.isArray(s.onSale) ? s.onSale.filter((x): x is string => typeof x === "string") : [],
     sales: Array.isArray(s.sales) ? s.sales.map(salesRecordOf).filter((r): r is SalesRecord => !!r) : [],
@@ -176,14 +174,13 @@ export const QUARTER_STEPS: { name: string; run: QuarterStep }[] = [
 
 const STEPS: QuarterStep[] = QUARTER_STEPS.map((s) => s.run);
 
-/** Moves the clock on a quarter, or ends the campaign after its last one. */
+/** Moves the clock on a quarter. A bankrupt campaign stays where it is. */
 export function advanceClock(state: CampaignState): CampaignState {
   if (state.over) return state;
-  if (isLastQuarter(state.now)) return { ...state, over: true };
   return { ...state, now: nextQuarter(state.now) };
 }
 
-/** Plays out the current quarter and moves to the next. A finished campaign stays as it is. */
+/** Plays out the current quarter and moves to the next. A bankrupt campaign stays as it is. */
 export function resolveQuarter(state: CampaignState, ctx: QuarterContext = { models: [] }): CampaignState {
   if (state.over) return state;
   return advanceClock(STEPS.reduce((s, step) => step(s, ctx), state));

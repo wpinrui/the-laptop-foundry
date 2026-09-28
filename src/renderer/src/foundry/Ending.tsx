@@ -1,10 +1,10 @@
-import { type CampaignState, END_YEAR, quarterLabel } from "../engine/campaign";
+import { type CampaignState, quarterLabel } from "../engine/campaign";
 import { Column } from "./Menus";
 import { usd } from "./Release";
 import "./ending.css";
 
-// A campaign's end: bust, or played through to the end of 2026. The company,
-// its final cash and three stats: models released, units sold, awards won.
+// A campaign's end, which only bankruptcy brings: the company, its final cash
+// and three stats: models released, units sold, awards won.
 
 function unitsOf(n: number): string {
   return n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n.toLocaleString("en-US");
@@ -23,21 +23,17 @@ export function Ending({
   name,
   campaign,
   onMenu,
-  onModels,
 }: {
   name: string;
   campaign: CampaignState;
   onMenu: () => void;
-  /** Complete only: back to the laptop list. */
-  onModels?: () => void;
 }) {
-  const bust = campaign.bankrupt;
   const s = statsOf(campaign);
   const when = campaign.ledger.at(-1)?.quarter ?? campaign.now;
   return (
     <Column onBack={onMenu}>
-      <div className={`fd-end${bust ? " bust" : ""}`}>
-        <span className="when">{bust ? `Bust in ${quarterLabel(when)}` : `${campaign.start} to ${END_YEAR}`}</span>
+      <div className="fd-end bust">
+        <span className="when">Bust in {quarterLabel(when)}</span>
         <h1>{name}</h1>
         <b className="cash">{usd(campaign.cash)}</b>
         <div className="stats">
@@ -55,12 +51,7 @@ export function Ending({
           </span>
         </div>
         <div className="fd-actions">
-          {onModels && (
-            <button type="button" data-nav className="fd-primary" onClick={onModels}>
-              Models
-            </button>
-          )}
-          <button type="button" data-nav className={onModels ? "fd-text" : "fd-primary"} onClick={onMenu}>
+          <button type="button" data-nav className="fd-primary" onClick={onMenu}>
             Menu
           </button>
         </div>

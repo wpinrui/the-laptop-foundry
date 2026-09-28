@@ -1,5 +1,5 @@
 import { Canvas } from "@react-three/fiber";
-import { type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { SavedCompany } from "../../../preload/store";
 import { type Prompt, Prompts } from "../cafe/Cafe";
@@ -7,7 +7,8 @@ import { type CampaignState, quarterLabel } from "../engine/campaign";
 import { usd, usdShort } from "../foundry/Release";
 import { token } from "../viewer/theme";
 import { Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
-import { buildPanels, type OfficeActions, wallOrder } from "./Panels";
+import { buildPanels, type OfficeActions, statusOfModel, wallOrder } from "./Panels";
+import { Trophies, Wall } from "./Wall";
 import { labelOf, type OfficeAt, ringOf, type StationId, stepFrom } from "./stations";
 import "../foundry/foundry.css";
 import "../cafe/cafe.css";
@@ -31,17 +32,10 @@ export interface OfficeProps {
   blocked: boolean;
   /** What the stations' panels do; without it the stations have no panels. */
   actions?: OfficeActions;
-  /** What stands in the room: the product wall's laptops and the cabinet's awards. */
-  room?: (data: OfficeData) => ReactNode;
-  /** Laptops on the wall, for the bays shown and the pointer's picks. */
-  wall?: { count: number; boxes: React.RefObject<{ id: string; box: THREE.Box3 }[]> };
-  /** A stamp that changes when what stands in the room does: the shadows are redrawn. */
-  stamp?: string;
 }
 
 const typing = () => !!(document.activeElement as HTMLElement | null)?.closest?.("input, textarea, [contenteditable='true']");
 const onControl = () => document.activeElement instanceof HTMLButtonElement;
-const NO_BOXES = { current: [] as { id: string; box: THREE.Box3 }[] };
 
 export function Office({
   company,
@@ -53,9 +47,6 @@ export function Office({
   resolving,
   blocked,
   actions,
-  room,
-  wall,
-  stamp = "",
 }: OfficeProps) {
   const ring = useMemo(() => ringOf(!!campaign), [campaign]);
   const station: StationId = ring.includes(at.station) ? at.station : "desk";
@@ -66,7 +57,16 @@ export function Office({
   const arriving = useRef(at.arrive).current;
   const wrap = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<OfficeData | null>(null);
-  const bays = Math.min(5, Math.max(1, Math.ceil((wall?.count ?? 0) / 8)));
+  // The wall's laptops, newest first, with their status as the shelf shows it.
+  const items = useMemo(
+    () => wallOrder(company).map((model) => ({ model, status: statusOfModel(model, campaign) })),
+    [company, campaign],
+  );
+  const mine = useMemo(() => (campaign ? campaign.awards.filter((a) => a.maker === null) : []), [campaign]);
+  const boxes = useRef<{ id: string; box: THREE.Box3 }[]>([]);
+  const count = Math.min(40, items.length);
+  const stamp = `${items.map((i) => `${i.model.id}${i.status}${i.model.updated}`).join()}|${mine.length}`;
+  const bays = Math.min(5, Math.max(1, Math.ceil(count / 8)));
   const order = useMemo(() => wallOrder(company).map((m) => m.id), [company]);
   const goRef = useRef<(id: StationId, open?: boolean) => void>(() => {});
   const panels = actions
@@ -254,9 +254,10 @@ export function Office({
                     walk={walk}
                     active={free && !blocked}
                   />
-                  <Picker data={d} laptops={wall?.boxes ?? NO_BOXES} bays={bays} free={free} onPick={pick} onAim={setAim} />
-                  <Bays data={d} count={wall?.count ?? 0} />
-                  {room?.(d)}
+                  <Picker data={d} laptops={boxes} bays={bays} free={free} onPick={pick} onAim={setAim} />
+                  <Bays data={d} count={count} />
+                  <Wall data={d} items={items} picked={station === "products" ? at.model : null} boxes={boxes} />
+                  <Trophies data={d} awards={mine} />
                   <ShadowRefresh stamp={`${stamp}:${bays}`} />
                 </>
               )}

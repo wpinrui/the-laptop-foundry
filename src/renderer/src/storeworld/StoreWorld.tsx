@@ -1,0 +1,350 @@
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { SavedCompany } from "../../../preload/store";
+import { type Prompt, Prompts } from "../cafe/Cafe";
+import type { CampaignState } from "../engine/campaign";
+import { Column, Entry } from "../foundry/Menus";
+import { countShort } from "../world/data";
+import { flagOf, scoreColour } from "./displays";
+import { layoutOf } from "./layout";
+import { type OnSale, useOnSale } from "./onSale";
+import { Store } from "./Store";
+import "../cafe/cafe.css";
+import "./storeworld.css";
+
+// The Courts store as a place to walk around: the shell and pointer lock,
+// the aim dot, the inspect card with its previous and next, and the pause
+// menu. Walking out through the door calls onMap.
+
+const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+export interface StoreWorldProps {
+  /** The open company: its campaign's last quarter is on sale, or for a sandbox the market of `year`. */
+  company: SavedCompany;
+  /** The campaign's newest state, when it is ahead of the company's save. */
+  campaign?: CampaignState | null;
+  /** A sandbox company's year; its latest model's year when absent. Ignored in a campaign. */
+  year?: number;
+  sound?: boolean;
+  onSound?: (on: boolean) => void;
+  /** To the world map: out through the door, or Map from the pause menu. */
+  onMap: () => void;
+}
+
+export function StoreWorld({
+  company,
+  campaign,
+  year,
+  sound,
+  onSound,
+  onMap,
+}: StoreWorldProps) {
+  const stock = useOnSale(company, campaign, year);
+  const layout = useMemo(() => layoutOf(stock.items), [stock.items]);
+  const root = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLElement>(null);
+  const [paused, setPaused] = useState(false);
+  const [aim, setAim] = useState<number | null>(null);
+  const [inspect, setInspect] = useState<number | null>(null);
+  const [shift, setShift] = useState(0);
+  const expectUnlock = useRef(false);
+  const pausedAt = useRef(0);
+  const leaving = useRef(false);
+  const active = !paused;
+
+  const leave = useCallback(() => {
+    if (leaving.current) return;
+    leaving.current = true;
+    onMap();
+  }, [onMap]);
+
+  const pause = useCallback(() => {
+    pausedAt.current = performance.now();
+    setPaused(true);
+  }, []);
+
+  const lock = useCallback(() => {
+    const el = root.current;
+    if (!el) return;
+    Promise.resolve(el.requestPointerLock()).catch(pause);
+  }, [pause]);
+
+  const unlock = useCallback(() => {
+    if (!document.pointerLockElement) return;
+    expectUnlock.current = true;
+    document.exitPointerLock();
+  }, []);
+
+  useEffect(() => {
+    lock();
+    const change = () => {
+      if (document.pointerLockElement === root.current) return;
+      if (expectUnlock.current) {
+        expectUnlock.current = false;
+        return;
+      }
+      pause();
+    };
+    document.addEventListener("pointerlockchange", change);
+    document.addEventListener("pointerlockerror", pause);
+    return () => {
+      document.removeEventListener("pointerlockchange", change);
+      document.removeEventListener("pointerlockerror", pause);
+      expectUnlock.current = true;
+      if (document.pointerLockElement) document.exitPointerLock();
+    };
+  }, [lock, pause]);
+
+  const n = layout.seats.length;
+  const open = useCallback(
+    (i: number) => {
+      unlock();
+      setInspect(i);
+    },
+    [unlock],
+  );
+  const close = useCallback(() => {
+    setInspect(null);
+    lock();
+  }, [lock]);
+  const step = useCallback(
+    (d: number) =>
+      setInspect((i) => (i === null || n === 0 ? i : (((i + d) % n) + n) % n)),
+    [n],
+  );
+
+  const resume = useCallback(() => {
+    setPaused(false);
+    if (inspect === null) lock();
+  }, [inspect, lock]);
+
+  const state = useRef({ paused, aim, inspect, resume, open, close, step });
+  state.current = { paused, aim, inspect, resume, open, close, step };
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      const s = state.current;
+      if (e.code === "Escape") {
+        if (s.paused) {
+          if (performance.now() - pausedAt.current > 300) s.resume();
+        } else if (s.inspect !== null) s.close();
+        return;
+      }
+      if (s.paused || e.repeat) return;
+      if (s.inspect !== null) {
+        if (e.code === "ArrowLeft" || e.code === "KeyA") s.step(-1);
+        else if (e.code === "ArrowRight" || e.code === "KeyD") s.step(1);
+        else if (e.code === "KeyE" || e.code === "Backspace") s.close();
+      } else if (e.code === "KeyE" && s.aim !== null) s.open(s.aim);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
+
+  // A new market while inspecting starts the walk again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the layout
+  useEffect(() => {
+    setInspect(null);
+    setAim(null);
+  }, [layout]);
+
+  useLayoutEffect(() => {
+    if (inspect === null) return;
+    const on = () => setShift(Math.round((card.current?.offsetWidth ?? 0) / 2));
+    on();
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, [inspect]);
+
+  const seat = inspect !== null ? layout.seats[inspect] : undefined;
+  const prompts: Prompt[] =
+    active && inspect === null && aim !== null
+      ? [{ key: "E", label: "Inspect" }]
+      : [];
+
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: first-person input goes to the locked pointer
+    <div
+      ref={root}
+      className="cafe sw"
+      onMouseDown={() => {
+        if (!active || inspect !== null) return;
+        if (!document.pointerLockElement) lock();
+        else if (aim !== null) open(aim);
+      }}
+    >
+      <div className={`cafe-world${paused ? " paused" : ""}`}>
+        <Store
+          layout={layout}
+          era={stock.era}
+          active={active}
+          inspect={inspect}
+          shift={inspect !== null ? shift : 0}
+          onAim={setAim}
+          onExit={leave}
+        />
+      </div>
+      {active && inspect === null && (
+        <>
+          <i className="cafe-dot" />
+          <Prompts list={prompts} using={false} />
+        </>
+      )}
+      {seat && (
+        <Card
+          ref={card}
+          item={seat.item}
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+          onBack={close}
+        />
+      )}
+      {paused && (
+        <div className="fd fd-over">
+          <div className="fd-scrim" />
+          <Column>
+            <div className="fd-entries">
+              <Entry onClick={resume} autoFocus>
+                Resume
+              </Entry>
+              {sound !== undefined && onSound && (
+                <Entry
+                  valued
+                  sub={sound ? "On" : "Off"}
+                  onClick={() => onSound(!sound)}
+                >
+                  Sound
+                </Entry>
+              )}
+              <Entry onClick={leave}>Map</Entry>
+            </div>
+          </Column>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Chevron({ dir }: { dir: -1 | 1 }) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d={dir < 0 ? "m15 18-6-6 6-6" : "m9 18 6-6-6-6"} />
+    </svg>
+  );
+}
+
+function Card({
+  ref,
+  item,
+  onPrev,
+  onNext,
+  onBack,
+}: {
+  ref: Ref<HTMLElement>;
+  item: OnSale;
+  onPrev: () => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const s = item.spec;
+  const rows: [string, string][] = [
+    ["Processor", s.cpu],
+    ["Graphics", s.gpu],
+    ["Memory", s.memory],
+    ["Storage", s.storage],
+    ["Display", s.display],
+    ["Battery", s.battery],
+    ["Weight", item.kg ? `${Math.round(item.kg * 100) / 100} kg` : ""],
+  ];
+  if (item.stock !== null)
+    rows.push(["Stock", item.stock.toLocaleString("en-US")]);
+  const flag = flagOf(item);
+  const cells: [string, string, string?][] = [];
+  if (item.review !== null)
+    cells.push([
+      "Score",
+      `${Math.round(item.review)}`,
+      scoreColour(item.review),
+    ]);
+  if (item.units > 0) cells.push(["Sold", countShort(item.units)]);
+  if (item.rank !== null) cells.push(["Rank", `${item.rank}`]);
+  return (
+    <aside ref={ref} className="sw-card">
+      <div>
+        <div className="sw-mk">
+          {item.brand}
+          {flag && (
+            <i
+              className="sw-flag"
+              style={{ background: flag.bg, color: flag.fg }}
+            >
+              {flag.text}
+            </i>
+          )}
+        </div>
+        <div className="sw-nm">{item.name}</div>
+      </div>
+      <div className="sw-price">{usd(item.price)}</div>
+      {cells.length > 0 && (
+        <div
+          className="sw-cells"
+          style={{ gridTemplateColumns: `repeat(${cells.length}, 1fr)` }}
+        >
+          {cells.map(([k, v, colour]) => (
+            <div key={k}>
+              <span>{k}</span>
+              <b style={colour ? { color: colour } : undefined}>{v}</b>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="sw-specs">
+        {rows
+          .filter(([, v]) => v)
+          .map(([k, v]) => (
+            <div key={k} className="sw-row">
+              <span>{k}</span>
+              <b>{v}</b>
+            </div>
+          ))}
+      </div>
+      <div className="sw-nav">
+        <button
+          type="button"
+          className="sw-step"
+          aria-label="Previous"
+          onClick={onPrev}
+        >
+          <Chevron dir={-1} />
+        </button>
+        <button type="button" className="sw-back" onClick={onBack}>
+          Back
+        </button>
+        <button
+          type="button"
+          className="sw-step"
+          aria-label="Next"
+          onClick={onNext}
+        >
+          <Chevron dir={1} />
+        </button>
+      </div>
+    </aside>
+  );
+}

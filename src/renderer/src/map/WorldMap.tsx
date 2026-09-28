@@ -87,19 +87,16 @@ function Thumb({ model }: { model: SavedModel | null }) {
 export function WorldMap({
   company,
   from,
-  courts,
   onGo,
   onBack,
 }: {
   company: SavedCompany;
   from: MapFrom;
-  /** Whether Courts can be entered yet. */
-  courts: boolean;
   onGo: (to: Place, laptop: SavedModel | null) => void;
   /** Stay from a place, Menu from the menu. */
   onBack: () => void;
 }) {
-  const open = (p: Place) => p !== from && (p !== "courts" || courts);
+  const open = (p: Place) => p !== from;
   const [dest, setDest] = useState<Place>(() => PLACES.find((p) => open(p.id))?.id ?? "workshop");
   const [bring, setBring] = useState<string | null>(null);
   const all = useMemo(() => sortedModels(company), [company]);

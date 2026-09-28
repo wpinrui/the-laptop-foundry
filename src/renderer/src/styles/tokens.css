@@ -210,6 +210,10 @@
   --stage-rim: #86a2ff;
   --stage-fill-sky: #4a382a;
   --stage-fill-ground: #0a0806;
+  /* The world map: the glow under the streets, the streets and the parks. */
+  --map-glow: #231c20;
+  --map-street: rgba(239, 230, 220, 0.05);
+  --map-park: rgba(110, 140, 90, 0.07);
   /* The builder's workshop: its rooflight, sky and floor fill, and the clear colour while it loads. */
   --workshop-roof: #f4f1ea;
   --workshop-sky: #dfe4e6;

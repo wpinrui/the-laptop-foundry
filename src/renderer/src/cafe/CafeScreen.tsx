@@ -196,10 +196,15 @@ function useFanAudio(db: number, fan: number, muted: boolean, volume: number) {
 type Phase = "boot" | "on" | "off";
 
 export function CafeScreen(props: {
-  subject: Subject;
+  /** None: the player came empty handed. */
+  subject: Subject | null;
   /** The player's reviewed models, for the review site. */
   library?: Subject[];
-  onBack: () => void;
+  /** Back to the models screen; absent on a visit from the map. */
+  onBack?: () => void;
+  onMap: () => void;
+  /** Arrives through the street entrance. */
+  atDoor?: boolean;
   sound: boolean;
   onSound: (on: boolean) => void;
   /** The open company's saved Notepad documents. */
@@ -208,8 +213,15 @@ export function CafeScreen(props: {
   /** In a campaign, the retailer's site the laptop can browse. */
   shop?: Shop;
 }) {
-  return <OsCafeScreen {...props} />;
+  const { subject } = props;
+  if (!subject)
+    return (
+      <Cafe shoot={null} plugged={false} onPlug={noop} sound={props.sound} onSound={props.onSound} onLeave={props.onBack} onMap={props.onMap} atDoor={props.atDoor} />
+    );
+  return <OsCafeScreen {...props} subject={subject} />;
 }
+
+const noop = () => {};
 
 /** What the retailer's site on the laptop reads: the campaign, the player's models and the company's name. */
 export interface Shop {
@@ -222,6 +234,8 @@ function OsCafeScreen({
   subject,
   library = [],
   onBack,
+  onMap,
+  atDoor,
   sound,
   onSound,
   notes,
@@ -230,7 +244,9 @@ function OsCafeScreen({
 }: {
   subject: Subject;
   library?: Subject[];
-  onBack: () => void;
+  onBack?: () => void;
+  onMap: () => void;
+  atDoor?: boolean;
   sound: boolean;
   onSound: (on: boolean) => void;
   notes?: NoteDoc[];
@@ -250,11 +266,7 @@ function OsCafeScreen({
   );
   return (
     <Cafe
-      fit={fit}
-      year={build.year}
-      colours={colours}
-      decor={decorOf(build)}
-      surfaces={surfaces}
+      laptop={{ fit, year: build.year, colours, decor: decorOf(build), surfaces }}
       page={page}
       shoot={shoot}
       plugged={plugged}
@@ -262,6 +274,8 @@ function OsCafeScreen({
       sound={sound}
       onSound={onSound}
       onLeave={onBack}
+      onMap={onMap}
+      atDoor={atDoor}
     />
   );
 }

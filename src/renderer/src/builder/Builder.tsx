@@ -156,7 +156,10 @@ export function Builder({
   onSound = () => {},
   yearLocked = false,
   released = false,
+  onMap,
 }: {
+  /** To the world map, from free view's pause menu or through the workshop's door. */
+  onMap?: () => void;
   /** A campaign model released to market is locked like a reviewed one. */
   released?: boolean;
   /** A campaign model keeps the year it was made in. */
@@ -208,6 +211,16 @@ export function Builder({
     pending.current?.();
     onBack();
   }, [onBack]);
+  const toMap = useMemo(
+    () =>
+      onMap
+        ? () => {
+            pending.current?.();
+            onMap();
+          }
+        : undefined,
+    [onMap],
+  );
   // Free view: walking the workshop in first person. Null in the builder.
   const [free, setFree] = useState<FreeState | null>(null);
   const freeOn = useRef(false);
@@ -573,6 +586,7 @@ export function Builder({
                 page: valid && !free.full ? osScreen : undefined,
                 onAim: freeAim,
                 onSettled: freeSettled,
+                onDoor: toMap,
               }
             : undefined
         }
@@ -588,6 +602,7 @@ export function Builder({
           canUse={valid && !!osLook}
           page={osLook ? { node: <SlotView slot={osSlot} />, width: osLook.width, height: osLook.height } : undefined}
           onExit={leaveFree}
+          onMap={toMap}
           sound={sound}
           onSound={onSound}
         />

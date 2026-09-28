@@ -5,7 +5,9 @@ import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
+import { WorkshopVisit } from "./builder/Visit";
 import { CafeScreen } from "./cafe/CafeScreen";
+import { WorldMap } from "./map/WorldMap";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
 import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, type Quarter, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
@@ -53,6 +55,19 @@ const VIEWS: Record<Menu, StageView> = {
 /** A campaign's list: the laptop further back and between the rail and the side column. */
 const CAMPAIGN_VIEW: StageView = { azimuth: 0, distance: 1300, shift: 0.014, mode: "sway" };
 
+/**
+ * Where the player is while a company is open: on the world map or in one of
+ * its four places. The map remembers the place it was walked out of, which
+ * Stay goes back into; null when it opened from the menu. The workshop and the
+ * cafe hold the laptop brought along, if any; a cafe visit made from the
+ * Office's Use goes back to the Office on Leave.
+ */
+type InPlace =
+  | { at: "office" }
+  | { at: "courts" }
+  | { at: "workshop" | "cafe"; model: SavedModel | null; subject: Subject | null; office?: boolean };
+type Where = InPlace | { at: "map"; from: InPlace | null };
+
 function latestModel(c: SavedCompany | null | undefined): SavedModel | null {
   return c ? (sortedModels(c)[0] ?? null) : null;
 }
@@ -70,7 +85,8 @@ export function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState<Subject | null>(null);
-  const [using, setUsing] = useState<Subject | null>(null);
+  // Where the player is: the one place, or the map, that every screen of an open company hangs off.
+  const [where, setWhere] = useState<Where>({ at: "map", from: null });
   // The build waiting for the player to name it before it becomes a model.
   const [naming, setNaming] = useState<Build | null>(null);
   // A year's market is being generated before a screen that needs it opens.
@@ -135,6 +151,7 @@ export function App() {
           if (live.current?.id !== c.id) live.current = null;
           refresh(c);
           setSelected(latestModel(c)?.id ?? null);
+          setWhere({ at: "map", from: null });
           setMenu("list");
           // The year the company is in opens with it.
           const year = c.campaign ? campaignOf(c.campaign).now.year : (latestModel(c)?.build as Build | undefined)?.year;
@@ -287,19 +304,63 @@ export function App() {
     withMarket(subject(m), setReviewing);
   };
 
+  // Out of a place to the world map; Stay there goes back into the same place.
+  const toMap = (from: InPlace) => {
+    setOpen(null);
+    setWhere({ at: "map", from });
+  };
+  const visit = (place: "workshop" | "cafe", m: SavedModel | null, office = false) => {
+    if (m && !buildBlock(m.build)) withMarket(subject(m), (s) => setWhere({ at: place, model: m, subject: s, office }));
+    else setWhere({ at: place, model: m, subject: null, office });
+  };
+
   if (short) return <VideoScreen key={short.url} video={short} onBack={() => setShort(null)} />;
-  if (company && using)
+  if (company && where.at === "cafe")
     return (
       <CafeScreen
-        key={using.id}
-        subject={using}
+        key={where.model?.id ?? "empty"}
+        subject={where.subject}
         library={company.models.filter((x) => x.reviewed).map(subject)}
-        onBack={() => setUsing(null)}
+        onBack={where.office ? () => setWhere({ at: "office" }) : undefined}
+        onMap={() => toMap(where)}
+        atDoor={!where.office}
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
         notes={company.notes ?? []}
         onSaveNotes={saveNotes}
         shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
+      />
+    );
+  if (company && where.at === "workshop")
+    return (
+      <WorkshopVisit
+        key={where.model?.id ?? "empty"}
+        model={where.model}
+        company={company.name}
+        library={company.models.filter((x) => x.reviewed).map(subject)}
+        onMap={() => toMap(where)}
+        sound={settings.sound}
+        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+      />
+    );
+  if (company && where.at === "map")
+    return (
+      <WorldMap
+        key={where.from?.at ?? "menu"}
+        company={company}
+        from={where.from?.at ?? "menu"}
+        courts={false}
+        onGo={(to, m) => {
+          if (to === "office") setWhere({ at: "office" });
+          else if (to !== "courts") visit(to, m);
+        }}
+        onBack={() => {
+          if (where.from) setWhere(where.from);
+          else {
+            setCompany(null);
+            setMenu("start");
+          }
+        }}
       />
     );
   if (reviewing) {
@@ -337,6 +398,7 @@ export function App() {
         company={name}
         onSave={(m) => save(m)}
         onBack={() => setOpen(null)}
+        onMap={() => toMap({ at: "workshop", model, subject: null })}
         onReview={review}
         onDuplicate={() => {
           setOpen(null);
@@ -350,6 +412,10 @@ export function App() {
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
     );
+
+  // The Office: until the 3D office replaces it, its stand-in is the models
+  // screen below, with the campaign's rails. Leaving it goes to the map.
+  const leaveOffice = () => toMap({ at: "office" });
 
   const find = (id: string) => company?.models.find((x) => x.id === id);
   let screen: ReactNode = null;
@@ -376,6 +442,7 @@ export function App() {
             .then((c) => {
               refresh(c);
               setSelected(null);
+              setWhere({ at: "map", from: null });
               setMenu("list");
             })
         }
@@ -448,17 +515,14 @@ export function App() {
         resolving={resolving}
         selected={selected}
         onSelect={setSelected}
-        onMenu={() => {
-          setCompany(null);
-          setMenu("start");
-        }}
+        onMenu={leaveOffice}
         onNew={() => {
           setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
           setMenu("name");
         }}
         onUse={(id) => {
           const m = find(id);
-          if (m && !buildBlock(m.build)) withMarket(subject(m), setUsing);
+          if (m && !buildBlock(m.build)) visit("cafe", m, true);
         }}
         onReview={(id) => {
           const m = find(id);
@@ -518,10 +582,7 @@ export function App() {
             setTab(t);
             if (t === "awards") setSeenAwards(campaign.awards.length);
           }}
-          onMenu={() => {
-            setCompany(null);
-            setMenu("start");
-          }}
+          onMenu={leaveOffice}
           onMarket={
             worldQuarters(campaign).length > 0
               ? () => {

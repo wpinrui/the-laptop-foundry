@@ -399,7 +399,8 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 
 #### Modes
 
-- Campaign mode: the player picks a start year from 2006 to 2025, starts with $5,000,000 cash, and plays forward one quarter at a time with End quarter, to the end of 2026.
+- Campaign mode: the player picks a start year from 2006 to 2025, starts with $5,000,000 cash, and plays forward one quarter at a time with End quarter. A campaign has no last year: only bankruptcy ends it.
+- Past 2026 the world holds at 2026: the same parts, options, rival lines, price ranges, review scales, buyer populations and era looks, and the 2026 game editions. No new parts appear and none disappear. Marketing costs and price ceilings keep rising 3% a year.
 - Sandbox mode: today's free-year building stays, with no money and no sales. The 0.1 rules on spending and price hold there.
 
 #### Finances
@@ -454,7 +455,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 
 #### Market world
 
-- Every quarter the campaign keeps its whole shelf: units sold per laptop per buyer segment, the player's and the rivals', the quarter's launches, the player's prices and demand, and the brand's reach and reputation. It keeps every quarter of the campaign, about 360 KB over 2006 to 2026.
+- Every quarter the campaign keeps its whole shelf: units sold per laptop per buyer segment, the player's and the rivals', the quarter's launches, the player's prices and demand, and the brand's reach and reputation. It keeps every quarter of the campaign, about 360 KB over 2006 to 2026, and more for every year played past it.
 - A Market tab on the campaign rail shows the last quarter's market, share and best sellers, and opens the market view.
 - The market view shows any kept quarter: the market's units, best sellers, maker shares and their change, launches, reviews, awards, units per segment, and how the player did.
 - A retailer's site lists every laptop on sale in a quarter, with filters for price, screen, size, use, budget, brand and buyer segment, and a product page with its rating, units sold and specifications. Its look follows the era like the review site's. It opens from the market view and, in a campaign, from the laptop's desktop.

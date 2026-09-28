@@ -26,6 +26,7 @@ import type { CampaignState, Quarter, QuarterStep } from "./index";
 import { awardFactor } from "./awards";
 import { criticsScore } from "./critics";
 import { launchQuarter, quarterIndex } from "./rivals";
+import { apportion, type ShelfRecord, shelfBrand } from "./shelf";
 
 // The sales simulation (GDD, Version 0.2, "Sales"), ported from Laptop
 // Tycoon: each segment's buyers in the quarter (population over the
@@ -76,6 +77,8 @@ export interface SalesResult {
   /** What the player's buyers made of each model per segment, units after stock. */
   outcomes: SegmentOutcome[];
   total: number;
+  /** Units sold per seller per segment, in the order of the segments passed; each adds up to the seller's sold. */
+  segments: Record<string, number[]>;
 }
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
@@ -142,12 +145,14 @@ export function splitDemand(
   const demand: Record<string, number> = {};
   const saleDemand: Record<string, number> = {};
   const bySegment: Record<string, { segment: SegmentId; units: number; market: number; value: number }[]> = {};
+  const perSegment: Record<string, number[]> = {};
   for (const x of sellers) {
     demand[x.id] = 0;
     saleDemand[x.id] = 0;
     bySegment[x.id] = [];
+    perSegment[x.id] = segments.map(() => 0);
   }
-  for (const s of segments) {
+  for (const [si, s] of segments.entries()) {
     const buyers = segmentBuyers(s, now);
     const ceiling = priceCeiling(s, now.year);
     const appeal = sellers.map((x) => {
@@ -176,6 +181,7 @@ export function splitDemand(
       demand[x.id] += (buyers * appeal[i]) / fullTotal;
       const saleUnits = availableTotal > 0 ? (buyers * available[i]) / availableTotal : 0;
       saleDemand[x.id] += saleUnits;
+      perSegment[x.id][si] = saleUnits;
       if (x.maker === null && saleUnits > 0) {
         const sc = scores.get(x.id);
         const ms = sc?.segments[s.id];
@@ -190,16 +196,18 @@ export function splitDemand(
   }
   const sold: Record<string, number> = {};
   const outcomes: SegmentOutcome[] = [];
+  const bySeller: Record<string, number[]> = {};
   let total = 0;
   for (const x of sellers) {
     demand[x.id] = Math.round(demand[x.id]);
     const saleWant = Math.round(saleDemand[x.id]);
     sold[x.id] = Math.max(0, Math.min(saleWant, Math.floor(x.stock)));
     total += sold[x.id];
+    bySeller[x.id] = apportion(perSegment[x.id], sold[x.id]);
     const cut = saleWant > 0 ? sold[x.id] / saleWant : 0;
     for (const o of bySegment[x.id]) outcomes.push({ ...o, units: o.units * cut, review: x.review });
   }
-  return { sold, demand, outcomes, total };
+  return { sold, demand, outcomes, total, segments: bySeller };
 }
 
 // ------------------------------------------------------------------ sellers
@@ -263,10 +271,23 @@ export const simulateSales: QuarterStep = (state, ctx) => {
   let top: SalesRecord["top"];
   for (const x of sellers) if (res.sold[x.id] > 0 && res.sold[x.id] > (top?.units ?? 0)) top = { id: x.id, units: res.sold[x.id] };
   const record: SalesRecord = { quarter: { ...state.now }, units, demand, makers, total: res.total, ...(top ? { top } : {}) };
+  // The whole shelf, per segment, for the market views.
+  const at = quarterIndex(state.now);
+  const mine: ShelfRecord["own"] = {};
+  for (const x of sellers)
+    if (x.maker === null) mine[x.id] = { name: ctx.models.find((m) => m.id === x.id)?.name ?? "", price: x.price, demand: res.demand[x.id] };
+  const shelf: ShelfRecord = {
+    quarter: { ...state.now },
+    units: res.segments,
+    own: mine,
+    launched: sellers.filter((x) => x.launch === at).map((x) => x.id),
+    brand: shelfBrand(state.brand),
+  };
   return {
     ...state,
     releases,
     sales: [...state.sales, record].slice(-SALES_HISTORY),
+    shelf: [...state.shelf, shelf],
     outcomes: res.outcomes,
   };
 };

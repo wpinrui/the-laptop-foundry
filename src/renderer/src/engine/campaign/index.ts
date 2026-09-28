@@ -157,7 +157,17 @@ export const runMarketing: QuarterStep = (state) => ({
 /** Revenue, part and production costs and stock settle into cash. */
 export const settleFinances: QuarterStep = (state) => settle(state);
 
-const STEPS: QuarterStep[] = [launchRivals, publishReviews, simulateSales, runMarketing, settleFinances, presentAwards];
+/** The quarter's steps by name, in order, so the UI can show which one is running. */
+export const QUARTER_STEPS: { name: string; run: QuarterStep }[] = [
+  { name: "Rivals", run: launchRivals },
+  { name: "Critics", run: publishReviews },
+  { name: "Sales", run: simulateSales },
+  { name: "Marketing", run: runMarketing },
+  { name: "Books", run: settleFinances },
+  { name: "Awards", run: presentAwards },
+];
+
+const STEPS: QuarterStep[] = QUARTER_STEPS.map((s) => s.run);
 
 /** Moves the clock on a quarter, or ends the campaign after its last one. */
 export function advanceClock(state: CampaignState): CampaignState {

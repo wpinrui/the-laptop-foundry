@@ -1,28 +1,30 @@
 import type { ReactNode } from "react";
 import "./campaign.css";
 
-export type RailTab = "model" | "market" | "books" | "brand" | "awards";
+export type RailTab = "model" | "books" | "brand" | "awards";
 
 const TABS: [RailTab, string][] = [
   ["model", "Model"],
-  ["market", "Market"],
   ["books", "Books"],
   ["brand", "Brand"],
   ["awards", "Awards"],
 ];
 
-// The campaign's right rail: Menu, then the Model, Market, Books, Brand and Awards
-// tabs over the active tab's content.
+// The campaign's right rail: Market and Menu on top, then the Model, Books,
+// Brand and Awards tabs over the active tab's content.
 export function CampaignRail({
   tab,
   onTab,
   onMenu,
+  onMarket,
   dot,
   children,
 }: {
   tab: RailTab;
   onTab: (tab: RailTab) => void;
   onMenu: () => void;
+  /** Opens the Market screen; absent before any quarter has been played. */
+  onMarket?: () => void;
   /** Tabs with something new, marked with a dot. */
   dot?: RailTab[];
   children: ReactNode;
@@ -30,6 +32,9 @@ export function CampaignRail({
   return (
     <aside className="cr fd-in">
       <div className="cr-top">
+        <button type="button" className="fd-text cr-market" disabled={!onMarket} onClick={onMarket}>
+          Market
+        </button>
         <button type="button" className="fd-text" onClick={onMenu}>
           Menu
         </button>

@@ -348,12 +348,26 @@
 
 .cr-top {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: baseline;
   padding: calc(40 * var(--u)) calc(32 * var(--u)) 0;
 }
 
 .cr-top .fd-text {
   font-size: calc(22 * var(--u)) !important;
+}
+
+.cr-top .cr-market {
+  color: var(--text) !important;
+}
+
+.cr-top .cr-market:not(:disabled):hover,
+.cr-top .cr-market:focus-visible {
+  color: var(--accent) !important;
+}
+
+.cr-top .cr-market:disabled {
+  opacity: 0.3;
 }
 
 .cr-tabs {
@@ -428,6 +442,10 @@
 }
 
 /* Model tab. */
+.cr-new {
+  align-self: stretch;
+}
+
 .cr-model-head {
   display: flex;
   justify-content: space-between;
@@ -871,18 +889,18 @@
 
 .cr-brand-row .tier > span {
   display: flex;
-  gap: calc(3 * var(--u));
+  gap: calc(2 * var(--u));
 }
 
+/* The tier meter: one solid segment per tier, lit up to the campaign's tier. */
 .cr-brand-row .tier i {
-  width: calc(7 * var(--u));
-  height: calc(12 * var(--u));
-  border: 1px solid var(--line-strong);
+  width: calc(10 * var(--u));
+  height: calc(10 * var(--u));
+  background: var(--track);
 }
 
 .cr-brand-row .tier i.on {
   background: var(--accent);
-  border-color: var(--accent);
 }
 
 /* Awards tab. */
@@ -937,144 +955,4 @@
 
 .cr-award b.mine {
   color: var(--accent);
-}
-
-/* ------------------------------------------------------------ quarter report */
-
-.qr-back {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--ground-deep) 78%, transparent);
-  backdrop-filter: blur(6px);
-}
-
-.qr {
-  width: calc(880 * var(--u));
-  display: flex;
-  flex-direction: column;
-  background: var(--ground-deep);
-  border: 1px solid var(--line);
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-}
-
-.qr small,
-.qr-cells span {
-  font-weight: 600;
-  font-size: calc(14 * var(--u));
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.qr .short {
-  color: var(--warning);
-}
-
-.qr .up {
-  color: var(--accent);
-}
-
-.qr header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding: calc(30 * var(--u)) calc(36 * var(--u)) calc(24 * var(--u));
-  border-bottom: 1px solid var(--line);
-}
-
-.qr header > b {
-  font-weight: 700;
-  font-size: calc(64 * var(--u));
-  line-height: 0.9;
-  text-transform: uppercase;
-}
-
-.qr header > div {
-  display: flex;
-  gap: calc(40 * var(--u));
-  text-align: right;
-}
-
-.qr header span {
-  display: flex;
-  flex-direction: column;
-}
-
-.qr header span b {
-  font-weight: 700;
-  font-size: calc(34 * var(--u));
-}
-
-.qr-lines {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: calc(12 * var(--u));
-  padding: calc(16 * var(--u)) calc(36 * var(--u));
-  border-bottom: 1px solid var(--line);
-}
-
-.qr-lines span {
-  display: flex;
-  flex-direction: column;
-  gap: calc(2 * var(--u));
-}
-
-.qr-lines small {
-  font-size: calc(12 * var(--u));
-}
-
-.qr-lines b {
-  font-weight: 600;
-  font-size: calc(20 * var(--u));
-}
-
-.qr-cells {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.qr-cells > div {
-  display: flex;
-  flex-direction: column;
-  gap: calc(6 * var(--u));
-  padding: calc(22 * var(--u)) calc(36 * var(--u));
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
-
-.qr-cells > div:nth-child(3n) {
-  border-right: 0;
-}
-
-.qr-cells b {
-  font-weight: 700;
-  font-size: calc(40 * var(--u));
-  line-height: 1;
-}
-
-.qr-cells b.award {
-  font-size: calc(28 * var(--u));
-  line-height: 1.05;
-}
-
-.qr-cells em {
-  font-style: normal;
-  font-weight: 600;
-  font-size: calc(18 * var(--u));
-}
-
-.qr footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: calc(22 * var(--u)) calc(36 * var(--u));
-}
-
-.qr footer .fd-primary {
-  font-size: calc(22 * var(--u)) !important;
-  padding: calc(14 * var(--u)) calc(30 * var(--u)) !important;
 }

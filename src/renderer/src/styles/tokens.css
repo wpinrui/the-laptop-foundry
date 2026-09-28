@@ -169,6 +169,23 @@
   --cafe-lamp: #ffe8cc;
   /* Tints the designer's white terrazzo floor texture. */
   --cafe-floor: #7c7c7c;
+  /* The company office's lights, and its screens' drawings. */
+  --office-sun: #fff1dc;
+  --office-sky: #f6f1ea;
+  --office-ground: #8a7258;
+  --office-shade: #2b241e;
+  --office-screen: #0f1216;
+  --office-screen-line: #3a4a5c;
+  --office-screen-bar: #7fa8c9;
+  --office-screen-own: #f0a24a;
+  --office-screen-loss: #d0584a;
+  --office-foam: #d9d6d0;
+  --office-lit: #9fc4e8;
+  /* The small room the office's reflections are taken from. */
+  --office-env-room: #b5ab9c;
+  --office-env-window: #f6f1e6;
+  --office-env-floor: #9a7856;
+  --office-env-lamp: #ffe9c4;
   --desk-2006-a: #3a6ea5;
   --desk-2006-b: #7fb2e5;
   --desk-2026-a: #1d2b53;

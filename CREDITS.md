@@ -68,6 +68,26 @@ Everything else in the scene was built for this project and falls under the repo
 
 `src/renderer/src/assets/storeworld/courts-store.glb` is the designer's Courts laptop department, built for this project, and uses no third-party models or textures: the floor, signage, stock boxes and TV screens are drawn in code, and the back-wall logo is the game's own Courts logo. The display tables, maker signs and price tags are rebuilt in the game from the designer's layout, with their text set in Barlow Condensed and IBM Plex Sans (credited under the fonts below). Everything in it falls under the repository's own licence.
 
+## Office scene
+
+`src/renderer/src/assets/office/laptop-foundry-office.glb` is the designer's company office. Its third-party assets are from [Poly Haven](https://polyhaven.com) and are licensed **CC0 1.0** (public domain). Credit isn't required, but it is given here.
+
+| Asset | Used as | Source |
+|---|---|---|
+| Alarm Clock 01 | Desk clock | https://polyhaven.com/a/alarm_clock_01 |
+| Modern Arm Chair 01 | Desk chair | https://polyhaven.com/a/modern_arm_chair_01 |
+| Binder Notebook | Finance ledger | https://polyhaven.com/a/binder_notebook |
+| Clipboard | Finance sideboard | https://polyhaven.com/a/clipboard |
+| Hanging Picture Frame 01 | Review clipping frames | https://polyhaven.com/a/hanging_picture_frame_01 |
+| Standing Picture Frame 01 | Product wall filler | https://polyhaven.com/a/standing_picture_frame_01 |
+| Sofa 02 | Lounge | https://polyhaven.com/a/sofa_02 |
+| Coffee Table Round 01 | Lounge | https://polyhaven.com/a/coffee_table_round_01 |
+| Side Table 01 | Lounge | https://polyhaven.com/a/side_table_01 |
+| Potted Plant 04 | Filing cabinet, lounge, corner | https://polyhaven.com/a/potted_plant_04 |
+| White Oak Veneer (texture) | All oak and smoked oak furniture | https://polyhaven.com/a/white_oak_veneer |
+
+Everything else in the scene, including the room shell, windows, desk, calendar, monitor, cabinets, screen wall, whiteboard, trophy cabinet and award templates, product bays and fillers, TV, door and coat stand, and the floor, plaster, brick, rug, whiteboard and clipping textures, was built for this project and falls under the repository's own licence.
+
 ## Short video sets
 
 The four sets in `src/renderer/src/assets/video-sets/` (creator desk, colour sweep, night window, teardown bench) use these third-party assets. Every one is from [Poly Haven](https://polyhaven.com) and is licensed **CC0 1.0** (public domain). Credit isn't required, but it is given here.

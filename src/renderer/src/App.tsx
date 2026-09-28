@@ -6,14 +6,14 @@ import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
-import { AWARD_NAMES, type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign, setCampaign } from "./engine/campaign";
+import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, release, reorder, savedCampaign, setCampaign } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
-import { FinancePanel } from "./foundry/Finance";
+import { BooksTab, StatementView, type StatementTab } from "./foundry/Finance";
 import { Ending } from "./foundry/Ending";
 import { MarketingPanel } from "./foundry/Marketing";
-import { ReleasePanel } from "./foundry/Release";
-import { SalesPanel } from "./foundry/Sales";
+import { ModelTab } from "./foundry/Release";
+import { CampaignRail, type RailTab } from "./foundry/CampaignRail";
 import { AwardsPanel } from "./foundry/Awards";
 import { MAKERS } from "./engine/market/makers";
 import { setHonours } from "./review/honours";
@@ -47,6 +47,9 @@ const VIEWS: Record<Menu, StageView> = {
   name: { azimuth: 0.6, distance: 720, shift: 0.22, mode: "sway" },
 };
 
+/** A campaign's list: the laptop further back and between the rail and the side column. */
+const CAMPAIGN_VIEW: StageView = { azimuth: 0, distance: 1300, shift: 0.014, mode: "sway" };
+
 function latestModel(c: SavedCompany | null | undefined): SavedModel | null {
   return c ? (sortedModels(c)[0] ?? null) : null;
 }
@@ -66,8 +69,22 @@ export function App() {
   const [naming, setNaming] = useState<Build | null>(null);
   // A year's market is being generated before a screen that needs it opens.
   const [busy, setBusy] = useState(false);
-  // The marketing table is open in place of the release panel.
-  const [marketing, setMarketing] = useState(false);
+  // The campaign's right rail tab.
+  const [tab, setTab] = useState<RailTab>("model");
+  // The statement view open between the rails, on this tab.
+  const [statement, setStatement] = useState<StatementTab | null>(null);
+  // The run size picked per model.
+  const [runs, setRuns] = useState<Record<string, number>>({});
+  // The quarter's step running while it resolves.
+  const [resolving, setResolving] = useState<{ step: number; of: number; name: string } | null>(null);
+  // Awards the player has seen on the Awards tab; more than that marks the tab.
+  const [seenAwards, setSeenAwards] = useState<number | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the statement closes when the screen or company changes
+  useEffect(() => setStatement(null), [menu, company?.id]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a loaded company's awards so far count as seen
+  useEffect(() => {
+    setSeenAwards(company?.campaign ? campaignOf(company.campaign).awards.length : null);
+  }, [company?.id]);
   // The last quarter's best seller as a short video.
   const [short, setShort] = useState<ReadyShort | null>(null);
   // The company whose finished campaign's end screen was left for its models.
@@ -201,13 +218,26 @@ export function App() {
   const endQuarter = () => {
     if (!campaign || !company || busy) return;
     const y = campaign.now.year;
+    const of = QUARTER_STEPS.length;
     setBusy(true);
+    setResolving({ step: 0, of, name: QUARTER_STEPS[0].name });
     Promise.all([ensureMarket(y - 1), ensureMarket(y)])
-      .then(() => {
+      .then(async () => {
         const rivals = y - 1 >= FIRST_MARKET_YEAR ? [...rivalsFor(y - 1), ...rivalsFor(y)] : rivalsFor(y);
-        commit(resolveQuarter(campaign, { models: company.models, company: company.id, rivals }));
+        const ctx = { models: company.models, company: company.id, rivals };
+        // Step by step, each named on the End button while it runs.
+        let s = campaign;
+        for (const [i, step] of QUARTER_STEPS.entries()) {
+          setResolving({ step: i, of, name: step.name });
+          await new Promise((r) => setTimeout(r, 140));
+          s = step.run(s, ctx);
+        }
+        commit(advanceClock(s));
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        setBusy(false);
+        setResolving(null);
+      });
   };
   // Plays the short once it is made; before that, a click only makes sure it is on its way.
   const watchShort = () => {
@@ -370,8 +400,17 @@ export function App() {
         company={company}
         campaign={campaign}
         onEndQuarter={endQuarter}
-        onShort={shortId ? watchShort : undefined}
-        shortBusy={shortEntry?.state !== "ready"}
+        short={
+          shortId && best
+            ? {
+                quarter: `Q${best.record.quarter.quarter}`,
+                name: company.models.find((m) => m.id === best.id)?.name ?? subjectOf(best.id, [])?.subject.name ?? "",
+                ready: shortEntry?.state === "ready",
+                onWatch: watchShort,
+              }
+            : undefined
+        }
+        resolving={resolving}
         selected={selected}
         onSelect={setSelected}
         onMenu={() => {
@@ -426,29 +465,55 @@ export function App() {
     screen = (
       <>
         {screen}
-        <div className="fd-side">
-          <FinancePanel campaign={campaign} />
-          <SalesPanel campaign={campaign} models={company.models} />
-          <AwardsPanel campaign={campaign} models={company.models} />
-          <MarketingPanel
-            campaign={campaign}
-            open={marketing}
-            onToggle={() => setMarketing((m) => !m)}
-            onTier={(segment, tier) => commit({ ...campaign, brand: setCampaign(campaign.brand, segment, tier) })}
-          />
-          {current && !marketing && (
-            <ReleasePanel
+        {statement && (
+          <>
+            <div className="fd-scrim fd-books-scrim" />
+            <StatementView
+              campaign={campaign}
+              models={company.models}
+              tab={statement}
+              onTab={setStatement}
+              onClose={() => setStatement(null)}
+            />
+          </>
+        )}
+        <CampaignRail
+          tab={tab}
+          onTab={(t) => {
+            setTab(t);
+            if (t === "awards") setSeenAwards(campaign.awards.length);
+          }}
+          onMenu={() => {
+            setCompany(null);
+            setMenu("start");
+          }}
+          dot={seenAwards !== null && campaign.awards.length > seenAwards && tab !== "awards" ? ["awards"] : []}
+        >
+          {tab === "model" && current && (
+            <ModelTab
               key={current.id}
               campaign={campaign}
               model={current}
               models={company.models}
+              units={runs[current.id] || DEFAULT_RUN}
+              onUnits={(u) => setRuns((r) => ({ ...r, [current.id]: u }))}
               onRelease={(units, cost, re) =>
                 commit(release(campaign, current.id, (current.build as Build).price, cost, units, re))
               }
               onReorder={(units, cost) => commit(reorder(campaign, current.id, cost, units))}
             />
           )}
-        </div>
+          {tab === "books" && <BooksTab campaign={campaign} onOpen={setStatement} />}
+          {tab === "brand" && (
+            <MarketingPanel
+              campaign={campaign}
+              open
+              onToggle={() => {}}
+              onTier={(segment, t) => commit({ ...campaign, brand: setCampaign(campaign.brand, segment, t) })}
+            />
+          )}
+          {tab === "awards" && <AwardsPanel campaign={campaign} models={company.models} />}
+        </CampaignRail>
       </>
     );
 
@@ -459,7 +524,7 @@ export function App() {
         stageKey={staged ? `${staged.id}:${staged.updated}` : "stock"}
         maker={stagedCompany?.name ?? ""}
         model={staged?.name ?? ""}
-        view={VIEWS[menu]}
+        view={menu === "list" && campaign && !ended ? CAMPAIGN_VIEW : VIEWS[menu]}
       />
       {(menu !== "list" || ended) &&<div className="fd-scrim" />}
       <div key={menu}>{screen}</div>

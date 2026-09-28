@@ -1,14 +1,3 @@
-/* Campaign panels on the laptop list, down the right side: the books, then the selected model's release. */
-.fd-side {
-  position: absolute;
-  right: calc(56 * var(--u));
-  top: calc(110 * var(--u));
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: calc(16 * var(--u));
-}
-
 .fd-finance {
   border-collapse: collapse;
   padding: calc(12 * var(--u));
@@ -57,83 +46,6 @@
 .fd-bust span {
   font-weight: 700;
   font-size: calc(32 * var(--u));
-}
-
-.fd-release {
-  width: calc(260 * var(--u));
-  display: flex;
-  flex-direction: column;
-  gap: calc(14 * var(--u));
-  padding: calc(20 * var(--u)) calc(24 * var(--u));
-  background: color-mix(in srgb, var(--ground-deep) 80%, transparent);
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-}
-
-.fd-release-stock {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.fd-release small,
-.fd-release dt {
-  font-weight: 500;
-  font-size: calc(16 * var(--u));
-  color: var(--muted);
-}
-
-.fd-release-stock b {
-  font-weight: 700;
-  font-size: calc(28 * var(--u));
-  color: var(--text);
-}
-
-.fd-release-run {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.fd-release-units {
-  width: calc(130 * var(--u));
-  font: inherit;
-  font-weight: 700;
-  font-size: calc(28 * var(--u));
-  color: var(--text);
-  text-align: center;
-  background: none;
-  border: 0;
-  border-bottom: 1px solid transparent;
-  outline: none;
-}
-
-.fd-release-units:focus {
-  border-bottom-color: var(--accent);
-}
-
-.fd-release-run .fd-text {
-  font-size: calc(28 * var(--u)) !important;
-  padding: 0 calc(8 * var(--u)) !important;
-}
-
-.fd-release dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: calc(4 * var(--u)) calc(16 * var(--u));
-  margin: 0;
-}
-
-.fd-release dd {
-  margin: 0;
-  text-align: right;
-  font-weight: 600;
-  font-size: calc(18 * var(--u));
-  color: var(--text);
-}
-
-.fd-release dd.short {
-  color: var(--warning);
 }
 
 /* Marketing: a head with the quarter's campaign cost that opens a table of segments. */
@@ -252,6 +164,712 @@
   color: var(--accent);
 }
 
-.fd-release .fd-primary:disabled {
-  opacity: 0.4;
+/* The statement: its own view between the rails, over a darkened scene. */
+.fd-books-scrim {
+  background: color-mix(in srgb, var(--ground) 70%, transparent);
+}
+
+.fd-books {
+  position: absolute;
+  left: calc(464 * var(--u));
+  right: calc(424 * var(--u));
+  top: calc(40 * var(--u));
+  bottom: calc(44 * var(--u));
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: calc(16 * var(--u));
+  padding: calc(20 * var(--u)) calc(24 * var(--u));
+  background: color-mix(in srgb, var(--ground-deep) 94%, transparent);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-books header {
+  display: flex;
+  align-items: baseline;
+  gap: calc(24 * var(--u));
+}
+
+.fd-books header .fd-text {
+  font-size: calc(18 * var(--u)) !important;
+}
+
+.fd-books header .fd-text.on {
+  color: var(--accent) !important;
+}
+
+.fd-books-close {
+  margin-left: auto;
+}
+
+.fd-books-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.fd-books-table {
+  border-collapse: collapse;
+  font-size: calc(14 * var(--u));
+}
+
+.fd-books-table th,
+.fd-books-table td {
+  padding: calc(3 * var(--u)) calc(10 * var(--u));
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fd-books-table th {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.fd-books-table td {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.fd-books-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ground-deep);
+}
+
+.fd-books-table tbody th,
+.fd-books-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  text-align: left;
+  background: var(--ground-deep);
+}
+
+.fd-books-table thead th:first-child {
+  z-index: 2;
+}
+
+.fd-books-table .now {
+  color: var(--accent);
+}
+
+.fd-books-table td.now {
+  font-weight: 500;
+}
+
+.fd-books-table .sum {
+  position: sticky;
+  right: 0;
+  background: var(--ground-deep);
+  border-left: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+}
+
+.fd-books-table tr.strong th,
+.fd-books-table tr.strong td {
+  font-weight: 700;
+  border-top: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+}
+
+.fd-books-table tr.strong th {
+  color: var(--text);
+}
+
+.fd-books-table tr.group th {
+  padding-top: calc(12 * var(--u));
+  font-weight: 700;
+  color: var(--text);
+}
+
+.fd-books-table .short {
+  color: var(--warning);
+}
+
+/* ------------------------------------------------------------ left rail, campaign */
+
+/* Clock: the quarter large in accent, cash on the right with last quarter's profit under it. */
+.fd-rail .fd-clock {
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.fd-rail .fd-clock > b {
+  font-size: calc(40 * var(--u));
+  line-height: 1;
+}
+
+.fd-rail .fd-clock > span {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(2 * var(--u));
+}
+
+.fd-rail .fd-clock > span b {
+  font-weight: 700;
+  font-size: calc(32 * var(--u));
+  line-height: 1;
+  color: var(--text);
+}
+
+.fd-rail .fd-clock > span small {
+  font-weight: 500;
+  font-size: calc(17 * var(--u));
+  color: var(--muted);
+}
+
+.fd-rail .fd-clock > span small.short {
+  color: var(--warning);
+}
+
+.fd-rail .fd-clock > span small.up {
+  color: var(--accent);
+}
+
+/* Short card: a thumbnail, the quarter and model, then Watch or a progress bar. */
+.fd-rail .fd-short {
+  margin: 0 calc(36 * var(--u)) !important;
+  display: flex;
+  gap: calc(14 * var(--u));
+  align-items: center;
+  padding: calc(10 * var(--u)) !important;
+  border: 1px solid var(--line) !important;
+  font-family: var(--font-display);
+  text-align: left;
+}
+
+.fd-rail .fd-short:hover,
+.fd-rail .fd-short:focus-visible {
+  border-color: var(--accent) !important;
+}
+
+.fd-rail .fd-short > i {
+  flex: none;
+  width: calc(34 * var(--u));
+  height: calc(60 * var(--u));
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--text) 10%, transparent) 0 calc(4 * var(--u)),
+    color-mix(in srgb, var(--text) 2%, transparent) calc(4 * var(--u)) calc(8 * var(--u))
+  );
+}
+
+.fd-rail .fd-short > span {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+}
+
+.fd-rail .fd-short small {
+  font-weight: 600;
+  font-size: calc(14 * var(--u));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fd-rail .fd-short b {
+  font-weight: 600;
+  font-size: calc(22 * var(--u));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fd-rail .fd-short em {
+  font-style: normal;
+  font-weight: 700;
+  font-size: calc(18 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding-right: calc(6 * var(--u));
+}
+
+.fd-rail .fd-short u {
+  position: relative;
+  overflow: hidden;
+  width: calc(64 * var(--u));
+  height: calc(3 * var(--u));
+  margin-right: calc(6 * var(--u));
+  background: var(--line);
+}
+
+.fd-rail .fd-short u::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  background: var(--accent);
+  animation: fd-short-busy 1.4s ease-in-out infinite;
+}
+
+@keyframes fd-short-busy {
+  from {
+    left: -45%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+.fd-rail .fd-short + .fd-rows,
+.fd-rail .fd-clock + .fd-rows {
+  margin-top: calc(20 * var(--u));
+}
+
+.fd-row small em.muted,
+.fd-hero em.muted {
+  color: var(--muted);
+}
+
+/* Footer: End quarter pinned to the bottom, a named progress bar while it resolves. */
+.fd-rail-foot {
+  padding: calc(20 * var(--u)) calc(36 * var(--u)) calc(32 * var(--u));
+  border-top: 1px solid var(--line);
+}
+
+.fd-rail-foot .fd-primary {
+  width: 100%;
+  padding: calc(16 * var(--u)) 0 !important;
+}
+
+.fd-resolving {
+  position: relative;
+  height: calc(56 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-wash);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(24 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.fd-resolving i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: calc(3 * var(--u));
+  background: var(--accent);
+  transition: width 140ms linear;
+}
+
+/* Hero between the rails. */
+.fd-hero.campaign {
+  left: calc(480 * var(--u));
+  right: calc(440 * var(--u));
+  bottom: calc(44 * var(--u));
+}
+
+.fd-hero.campaign h2 {
+  font-size: calc(72 * var(--u));
+}
+
+.fd-hero.campaign > span {
+  font-size: calc(20 * var(--u));
+}
+
+.fd-hero.campaign .fd-bar {
+  gap: calc(10 * var(--u));
+  margin-top: calc(22 * var(--u));
+}
+
+.fd-hero.campaign .fd-bar .fd-primary {
+  font-size: calc(18 * var(--u)) !important;
+  padding: calc(11 * var(--u)) calc(24 * var(--u)) !important;
+}
+
+.fd-hero.campaign .fd-bar .fd-secondary {
+  font-size: calc(17 * var(--u)) !important;
+  padding: calc(10 * var(--u)) calc(16 * var(--u)) !important;
+}
+
+/* ------------------------------------------------------------ right rail */
+
+.cr {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(400 * var(--u));
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--ground-deep) 80%, transparent);
+  backdrop-filter: blur(18px);
+  border-left: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.cr-top {
+  display: flex;
+  justify-content: flex-end;
+  padding: calc(40 * var(--u)) calc(32 * var(--u)) 0;
+}
+
+.cr-top .fd-text {
+  font-size: calc(22 * var(--u)) !important;
+}
+
+.cr-tabs {
+  display: flex;
+  gap: calc(26 * var(--u));
+  padding: calc(22 * var(--u)) calc(32 * var(--u)) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.cr-tabs button {
+  position: relative;
+  padding: 0 0 calc(12 * var(--u)) !important;
+  margin-bottom: -1px !important;
+  border-bottom: 2px solid transparent !important;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted) !important;
+}
+
+.cr-tabs button:hover,
+.cr-tabs button:focus-visible {
+  color: var(--text) !important;
+}
+
+.cr-tabs button.on {
+  color: var(--text) !important;
+  border-bottom-color: var(--accent) !important;
+}
+
+.cr-tabs i {
+  position: absolute;
+  right: calc(-9 * var(--u));
+  top: calc(-2 * var(--u));
+  width: calc(6 * var(--u));
+  height: calc(6 * var(--u));
+  background: var(--accent);
+}
+
+.cr-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: calc(24 * var(--u)) calc(32 * var(--u)) calc(32 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(20 * var(--u));
+}
+
+.cr-label,
+.cr-line > span,
+.cr-cells span {
+  font-weight: 600;
+  font-size: calc(14 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cr-rule {
+  flex: none;
+  height: 1px;
+  background: var(--line);
+}
+
+.cr .short {
+  color: var(--warning) !important;
+}
+
+/* Model tab. */
+.cr-model-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(16 * var(--u));
+}
+
+.cr-model-head b:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: calc(34 * var(--u));
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.cr-model-head b + b {
+  flex: none;
+  font-weight: 700;
+  font-size: calc(26 * var(--u));
+}
+
+.cr-cells {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.cr-cells > div {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+  padding: calc(10 * var(--u)) calc(12 * var(--u));
+  background: var(--ground-deep);
+}
+
+.cr-cells b {
+  font-weight: 700;
+  font-size: calc(28 * var(--u));
+}
+
+.cr-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.cr-line b {
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+}
+
+.cr-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cr-stepper button {
+  width: calc(44 * var(--u));
+  height: calc(44 * var(--u));
+  border: 1px solid var(--line-strong) !important;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(26 * var(--u));
+  line-height: 1;
+}
+
+.cr-stepper button:hover,
+.cr-stepper button:focus-visible,
+.cr-presets button:hover,
+.cr-presets button:focus-visible {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.cr-stepper input {
+  width: calc(180 * var(--u));
+  font-family: var(--font-display) !important;
+  font-weight: 700 !important;
+  font-size: calc(34 * var(--u)) !important;
+  line-height: 1 !important;
+  text-align: center;
+  border-bottom: 1px solid transparent !important;
+}
+
+.cr-stepper input:focus {
+  border-bottom-color: var(--accent) !important;
+}
+
+.cr-presets {
+  display: flex;
+  gap: calc(8 * var(--u));
+}
+
+.cr-presets button {
+  flex: 1;
+  padding: calc(8 * var(--u)) 0 !important;
+  border: 1px solid var(--line-chip) !important;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(16 * var(--u));
+  line-height: 1;
+}
+
+.cr-costs {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: calc(6 * var(--u));
+  column-gap: 0;
+  margin: 0;
+  font-size: calc(17 * var(--u));
+}
+
+.cr-costs dt,
+.cr-costs dt button {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.cr-costs dt button {
+  display: inline-flex;
+  gap: calc(8 * var(--u));
+  font-size: inherit;
+}
+
+.cr-costs dt button i {
+  font-style: normal;
+  font-weight: 700;
+}
+
+.cr-costs dt button:hover,
+.cr-costs dt button:focus-visible,
+.cr-costs dt button[aria-expanded="true"] {
+  color: var(--accent) !important;
+}
+
+.cr-costs dd {
+  margin: 0;
+  padding-left: calc(16 * var(--u));
+  text-align: right;
+  font-weight: 600;
+}
+
+.cr-costs .sub {
+  font-size: calc(15 * var(--u));
+  padding-left: calc(12 * var(--u));
+}
+
+.cr-costs dd.sub {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.cr-costs .total,
+.cr-costs .gap {
+  border-top: 1px solid var(--line);
+  padding-top: calc(6 * var(--u));
+}
+
+.cr-costs dt.total {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cr-costs dd.total {
+  font-weight: 700;
+  font-size: calc(20 * var(--u));
+}
+
+.cr-action {
+  width: 100%;
+  padding: calc(15 * var(--u)) 0 !important;
+  font-size: calc(22 * var(--u)) !important;
+}
+
+.cr-short {
+  padding: calc(14 * var(--u)) 0;
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  text-align: center;
+  font-weight: 700;
+  font-size: calc(22 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--warning);
+}
+
+/* Books tab. */
+.cr-links {
+  display: flex;
+  justify-content: flex-end;
+  gap: calc(20 * var(--u));
+  margin-bottom: calc(-8 * var(--u));
+}
+
+.cr-links .fd-text {
+  font-size: calc(16 * var(--u)) !important;
+}
+
+.cr-bars {
+  display: flex;
+  flex-direction: column;
+  gap: calc(7 * var(--u));
+  margin-top: calc(-8 * var(--u));
+}
+
+.cr-bars > div {
+  display: grid;
+  grid-template-columns: calc(96 * var(--u)) 1fr calc(86 * var(--u));
+  align-items: center;
+  gap: calc(10 * var(--u));
+  font-size: calc(17 * var(--u));
+}
+
+.cr-bars > div > span:first-child {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.cr-bars .bar {
+  position: relative;
+  height: calc(10 * var(--u));
+}
+
+.cr-bars .bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--text) 55%, transparent);
+}
+
+.cr-bars .cost .bar i {
+  background: color-mix(in srgb, var(--warning) 45%, transparent);
+}
+
+.cr-bars b {
+  text-align: right;
+  font-weight: 600;
+}
+
+.cr-bars .profit {
+  border-top: 1px solid var(--line);
+  padding-top: calc(8 * var(--u));
+  font-size: calc(19 * var(--u));
+}
+
+.cr-bars .profit b:last-child {
+  font-weight: 700;
+}
+
+.cr-bars .profit b:first-child {
+  text-align: left;
+}
+
+.cr-history {
+  display: grid;
+  grid-template-columns: calc(62 * var(--u)) repeat(5, 1fr);
+  row-gap: calc(6 * var(--u));
+  column-gap: calc(6 * var(--u));
+  font-size: calc(16 * var(--u));
+  text-align: right;
+}
+
+.cr-history > span {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.cr-history > span.q {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cr-history b {
+  font-weight: 600;
 }

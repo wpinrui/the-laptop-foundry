@@ -3,6 +3,7 @@ import type { SavedCompany, SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
 import { type Build, scoresOf } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
+import { statusOf, usdShort } from "./Release";
 import "./foundry.css";
 
 const usd = (n: number) => `${n < 0 ? "-" : ""}$${Math.round(Math.abs(n)).toLocaleString("en-US")}`;
@@ -42,17 +43,17 @@ export function LaptopList({
   onDelete,
   campaign,
   onEndQuarter,
-  onShort,
-  shortBusy,
+  short,
+  resolving,
 }: {
   company: SavedCompany;
   /** Null for a sandbox company. */
   campaign: CampaignState | null;
   onEndQuarter: () => void;
-  /** Plays the last quarter's best seller as a short video; absent before any quarter has sold. */
-  onShort?: () => void;
-  /** The short is still being made. */
-  shortBusy?: boolean;
+  /** The last quarter's best seller as a short video; absent before any quarter has sold. */
+  short?: { quarter: string; name: string; ready: boolean; onWatch: () => void };
+  /** The quarter's step running while it resolves, or null. */
+  resolving?: { step: number; of: number; name: string } | null;
   selected: string | null;
   onSelect: (id: string) => void;
   onMenu: () => void;
@@ -73,6 +74,7 @@ export function LaptopList({
   const rows = useRef<HTMLDivElement>(null);
   const current = models.find((x) => x.m.id === selected) ?? null;
   const i = models.findIndex((x) => x.m.id === selected);
+  const last = campaign?.ledger[campaign.ledger.length - 1];
   const keys = useRef({ models, i, current, onSelect, onUse, onMenu });
   keys.current = { models, i, current, onSelect, onUse, onMenu };
   useEffect(() => {
@@ -116,27 +118,27 @@ export function LaptopList({
             </button>
           )}
         </header>
-        {campaign && (
-          <div className={`fd-clock${over ? " over" : ""}`}>
-            <b>{quarterLabel(campaign.now)}</b>
-            <span>{usd(campaign.cash)}</span>
-            {onShort && (
-              <button
-                type="button"
-                className={`fd-text${shortBusy ? " vd-busy" : ""}`}
-                aria-busy={shortBusy}
-                onClick={onShort}
-              >
-                Shorts
+        {campaign && !campaign.bankrupt ? (
+          <>
+            <div className={`fd-clock${over ? " over" : ""}`}>
+              <b>{quarterLabel(campaign.now)}</b>
+              <span>
+                <b>{usd(campaign.cash)}</b>
+                {last && <small className={last.profit < 0 ? "short" : "up"}>{usdShort(last.profit)}</small>}
+              </span>
+            </div>
+            {short && (
+              <button type="button" className="fd-short" onClick={short.onWatch}>
+                <i />
+                <span>
+                  <small>{short.quarter} short</small>
+                  <b>{short.name}</b>
+                </span>
+                {short.ready ? <em>Watch</em> : <u aria-busy />}
               </button>
             )}
-            {!over && (
-              <button type="button" className="fd-text" onClick={onEndQuarter}>
-                End quarter
-              </button>
-            )}
-          </div>
-        )}
+          </>
+        ) : null}
         <div ref={rows} className="fd-rows">
           {models.map(({ m, block, score }) => (
             <button
@@ -154,22 +156,40 @@ export function LaptopList({
                 <small>
                   {yearOf(m)}
                   {block && <em>{block}</em>}
+                  {campaign && !block && <Status campaign={campaign} id={m.id} />}
                 </small>
               </span>
               {score !== null && <span className="fd-score">{Math.round(score)}</span>}
             </button>
           ))}
         </div>
+        {campaign && !over && (
+          <footer className="fd-rail-foot">
+            {resolving ? (
+              <div className="fd-resolving">
+                <i style={{ width: `${((resolving.step + 1) / resolving.of) * 100}%` }} />
+                {resolving.name}
+              </div>
+            ) : (
+              <button type="button" className="fd-primary" onClick={onEndQuarter}>
+                End {quarterLabel(campaign.now)}
+              </button>
+            )}
+          </footer>
+        )}
       </aside>
-      <button type="button" className="fd-text fd-corner" onClick={onMenu}>
-        Menu
-      </button>
+      {!campaign && (
+        <button type="button" className="fd-text fd-corner" onClick={onMenu}>
+          Menu
+        </button>
+      )}
       {current && (
-        <section className="fd-hero fd-in" key={current.m.id}>
+        <section className={`fd-hero fd-in${campaign ? " campaign" : ""}`} key={current.m.id}>
           <h2>{current.m.name}</h2>
           <span>
             {yearOf(current.m)}
             {current.block && <em>{current.block}</em>}
+            {campaign && !current.block && <Status campaign={campaign} id={current.m.id} />}
           </span>
           <div className="fd-bar">
             <button
@@ -214,4 +234,9 @@ export function LaptopList({
       )}
     </>
   );
+}
+
+function Status({ campaign, id }: { campaign: CampaignState; id: string }) {
+  const s = statusOf(campaign, id);
+  return <em className={s.warn ? undefined : "muted"}>{s.text}</em>;
 }

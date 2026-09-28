@@ -11,6 +11,7 @@ import {
   quarterLabel,
   releaseQuote,
   reorderQuote,
+  clampRun,
   stepRun,
 } from "../engine/campaign";
 import "./campaign.css";
@@ -35,6 +36,7 @@ export function ReleasePanel({
   onReorder: (units: number, cost: number) => void;
 }) {
   const [units, setUnits] = useState(DEFAULT_RUN);
+  const [draft, setDraft] = useState<string | null>(null);
   const build = model.build as Build;
   const released = campaign.releases[model.id];
   const block = useMemo(() => buildBlock(build), [build]);
@@ -92,7 +94,24 @@ export function ReleasePanel({
         >
           -
         </button>
-        <b>{units.toLocaleString("en-US")}</b>
+        <input
+          className="fd-release-units"
+          inputMode="numeric"
+          aria-label="Units"
+          value={draft ?? units.toLocaleString("en-US")}
+          onFocus={(e) => {
+            setDraft(String(units));
+            e.currentTarget.select();
+          }}
+          onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))}
+          onBlur={() => {
+            if (draft) setUnits(clampRun(Number(draft)));
+            setDraft(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+          }}
+        />
         <button
           type="button"
           className="fd-text"

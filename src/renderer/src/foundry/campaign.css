@@ -95,10 +95,21 @@
   justify-content: space-between;
 }
 
-.fd-release-run b {
+.fd-release-units {
+  width: calc(130 * var(--u));
+  font: inherit;
   font-weight: 700;
   font-size: calc(28 * var(--u));
   color: var(--text);
+  text-align: center;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  outline: none;
+}
+
+.fd-release-units:focus {
+  border-bottom-color: var(--accent);
 }
 
 .fd-release-run .fd-text {

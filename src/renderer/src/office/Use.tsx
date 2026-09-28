@@ -1,10 +1,11 @@
+import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { SavedModel } from "../../../preload/store";
-import { type Build, colourHex, decorOf, type Fit, migrateBody, migrateColours, migrateScreen, solve } from "../engine";
+import { type Build, colourHex, SAMPLES, decorOf, type Fit, migrateBody, migrateColours, migrateScreen, solve } from "../engine";
 import { Model, surfacesOf } from "../viewer/Scene";
-import { fovFor, type OfficeData, type Pose } from "./Room";
+import { fovFor, M, type OfficeData, type Pose } from "./Room";
 
 // Using the office's computers in free roam: a laptop off the product wall,
 // leaned in on with its OS on screen as in the cafe, and the TV playing the
@@ -173,4 +174,58 @@ export function TvShort({ data, url, sound, take }: { data: OfficeData; url: str
     tex.needsUpdate = true;
   });
   return null;
+}
+
+/** The desk computer: an ideal all-in-one, its build only there for the OS's sizes. */
+export const DESK_PC: Build = SAMPLES.find((s) => s.id === "ultrabook-14")?.build ?? SAMPLES[SAMPLES.length - 1].build;
+
+/** The desk monitor's screen in the room, mm: its centre, the way it faces, and its size. */
+function deskScreen(data: OfficeData): { centre: THREE.Vector3; normal: THREE.Vector3; w: number; h: number } | null {
+  const mesh = data.scene.getObjectByName("desk_monitor_screen");
+  const cam = data.poses.desk;
+  if (!mesh || !cam) return null;
+  data.scene.updateMatrixWorld(true);
+  const inv = data.scene.matrixWorld.clone().invert();
+  const box = new THREE.Box3().setFromObject(mesh).applyMatrix4(inv);
+  box.min.multiplyScalar(M);
+  box.max.multiplyScalar(M);
+  const centre = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  // The screen faces the desk's own camera, over the chair.
+  const normal = cam.pos.clone().sub(centre).setY(0).normalize();
+  return { centre, normal, w: Math.max(size.x, size.z), h: size.y };
+}
+
+/** Where the camera leans in to the desk computer: its screen filling most of the view. */
+export function deskLean(data: OfficeData, aspect: number): Pose | null {
+  const s = deskScreen(data);
+  if (!s) return null;
+  const tanV = Math.tan((fovFor(aspect) * Math.PI) / 360);
+  const d = Math.max(s.w / (2 * tanV * aspect), s.h / (2 * tanV)) / USE_FILL;
+  const eye = s.centre.clone().add(s.normal.clone().multiplyScalar(d));
+  const quat = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(eye, s.centre, new THREE.Vector3(0, 1, 0)));
+  return { pos: eye, quat };
+}
+
+/** The desk computer's OS page, laid on its monitor. */
+export function DeskScreen({
+  data,
+  page,
+  portal,
+}: {
+  data: OfficeData;
+  page?: { node: ReactNode; width: number; height: number };
+  portal: RefObject<HTMLDivElement | null>;
+}) {
+  const s = useMemo(() => deskScreen(data), [data]);
+  if (!s || !page) return null;
+  const k = Math.min(s.w / page.width, s.h / page.height);
+  const at = s.centre.clone().add(s.normal.clone().multiplyScalar(3));
+  return (
+    <group position={at} rotation={[0, Math.atan2(s.normal.x, s.normal.z), 0]}>
+      <Html transform portal={portal as RefObject<HTMLElement>} distanceFactor={k * 400} zIndexRange={[4, 0]} wrapperClass="lid-screen">
+        {page.node}
+      </Html>
+    </group>
+  );
 }

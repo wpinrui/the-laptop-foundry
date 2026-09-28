@@ -10,7 +10,7 @@ import { usd, usdShort } from "../foundry/Release";
 import { token } from "../viewer/theme";
 import { Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
 import { buildPanels, type OfficeActions, statusOfModel, wallOrder } from "./Panels";
-import { buildOf, fitOf, leanFor, TvShort, UsedLaptop } from "./Use";
+import { buildOf, DESK_PC, DeskScreen, deskLean, fitOf, leanFor, TvShort, UsedLaptop } from "./Use";
 import { Trophies, Wall } from "./Wall";
 import { labelOf, type OfficeAt, ringOf, type StationId, stepFrom } from "./stations";
 import "../foundry/foundry.css";
@@ -59,6 +59,9 @@ function Keys({ list }: { list: Prompt[] }) {
     </div>
   );
 }
+
+/** The desk computer's id among the things in use. */
+const DESK = "desk-pc";
 
 export function Office({
   company,
@@ -112,13 +115,25 @@ export function Office({
   const usedModel = usedIndex >= 0 ? items[usedIndex].model : null;
   const usedBuild = useMemo(() => (usedModel ? buildOf(usedModel) : null), [usedModel]);
   const usedFit = useMemo(() => (usedBuild ? fitOf(usedBuild) : null), [usedBuild]);
+  // The desk computer: an ideal machine, not one of the company's laptops.
+  const atDesk = used === DESK;
   const lean = useMemo(
-    () => (data && usedFit && usedIndex >= 0 ? leanFor(data, usedIndex, usedFit, window.innerWidth / window.innerHeight) : null),
-    [data, usedFit, usedIndex],
+    () =>
+      data && atDesk
+        ? deskLean(data, window.innerWidth / window.innerHeight)
+        : data && usedFit && usedIndex >= 0
+          ? leanFor(data, usedIndex, usedFit, window.innerWidth / window.innerHeight)
+          : null,
+    [data, atDesk, usedFit, usedIndex],
   );
   const usedSubject = useMemo<Subject | null>(
-    () => (usedModel && usedBuild ? { id: usedModel.id, name: usedModel.name, company: company.name, build: usedBuild } : null),
-    [usedModel, usedBuild, company.name],
+    () =>
+      atDesk
+        ? { id: DESK, name: "", company: company.name, build: DESK_PC }
+        : usedModel && usedBuild
+          ? { id: usedModel.id, name: usedModel.name, company: company.name, build: usedBuild }
+          : null,
+    [atDesk, usedModel, usedBuild, company.name],
   );
   /** A laptop on the wall that runs: a valid build within the wall's slots. */
   const runs = useMemo(
@@ -191,7 +206,8 @@ export function Office({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the station and free roam are the triggers
   useEffect(() => setPlaying(false), [station, free]);
 
-  const aimed = aim?.kind === "laptop" && usable(aim.id) ? aim.id : null;
+  const aimed =
+    aim?.kind === "laptop" && usable(aim.id) ? aim.id : aim?.kind === "station" && aim.id === "desk" ? DESK : null;
   const keys = useRef({ station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem });
   keys.current = { station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem };
   const onAtRef = useRef(onAt);
@@ -373,6 +389,7 @@ export function Office({
                       portal={overlay}
                     />
                   )}
+                  {free && atDesk && <DeskScreen data={d} page={osPage && !full ? osPage : undefined} portal={overlay} />}
                   {tv && <TvShort data={d} url={tv} sound={sound} take={take} />}
                   <Trophies data={d} awards={mine} />
                   <ShadowRefresh stamp={`${stamp}:${bays}`} />
@@ -442,6 +459,7 @@ export function Office({
           onSound={onSound}
           slot={slot}
           onLook={setLook}
+          perfect={atDesk}
         />
       )}
     </div>

@@ -199,6 +199,7 @@ export function FreeOs({
   onSound,
   slot,
   onLook,
+  perfect,
 }: {
   subject: Subject;
   library: Subject[];
@@ -206,9 +207,10 @@ export function FreeOs({
   onSound: (on: boolean) => void;
   slot: Slot;
   onLook: (l: PageLook | null) => void;
+  perfect?: boolean;
 }) {
   // On the workshop's bench it runs on the charger.
-  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true, room: "workshop" });
+  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true, room: "workshop", perfect });
   const node = os.page?.node ?? null;
   useLayoutEffect(() => slot.set(node));
   useEffect(() => () => slot.set(null), [slot]);

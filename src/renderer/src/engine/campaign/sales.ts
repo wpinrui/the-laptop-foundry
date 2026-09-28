@@ -33,7 +33,9 @@ import { launchQuarter, quarterIndex } from "./rivals";
 // by appeal. Appeal multiplies the market score, the price against the
 // segment's ceiling, the screen fit, novelty, the critics and the maker's
 // brand. Every buyer buys; the player's sales stop at the stock, and the
-// rest of that demand is lost.
+// rest of that demand is lost. A sold-out model still takes its share of
+// appeal and gets its demand recorded, but its buyers re-split among the
+// sellers that still have stock rather than vanish from the market.
 
 /** A laptop on sale in the quarter. */
 export interface Seller {
@@ -138,9 +140,11 @@ export function splitDemand(
   const scores = new Map(sellers.map((x) => [x.id, marketScore({ id: x.id, stats: x.stats }, basis, segments)]));
   const luck = new Map(sellers.map((x) => [x.id, 1 + (rng(`${seed}:${x.id}`)() * 2 - 1) * SALES_NOISE]));
   const demand: Record<string, number> = {};
+  const saleDemand: Record<string, number> = {};
   const bySegment: Record<string, { segment: SegmentId; units: number; market: number; value: number }[]> = {};
   for (const x of sellers) {
     demand[x.id] = 0;
+    saleDemand[x.id] = 0;
     bySegment[x.id] = [];
   }
   for (const s of segments) {
@@ -161,17 +165,23 @@ export function splitDemand(
         (luck.get(x.id) ?? 1)
       );
     });
-    const total = appeal.reduce((a, b) => a + b, 0);
-    if (!(total > 0)) continue;
+    // Every seller's share of the segment, sold out or not: what "wanted" reports.
+    const fullTotal = appeal.reduce((a, b) => a + b, 0);
+    if (!(fullTotal > 0)) continue;
+    // The same split with sold-out sellers zeroed: their would-be buyers go
+    // to whoever still has stock, in the same proportions as before.
+    const available = sellers.map((x, i) => (x.stock > 0 ? appeal[i] : 0));
+    const availableTotal = available.reduce((a, b) => a + b, 0);
     sellers.forEach((x, i) => {
-      const units = (buyers * appeal[i]) / total;
-      demand[x.id] += units;
-      if (x.maker === null && units > 0) {
+      demand[x.id] += (buyers * appeal[i]) / fullTotal;
+      const saleUnits = availableTotal > 0 ? (buyers * available[i]) / availableTotal : 0;
+      saleDemand[x.id] += saleUnits;
+      if (x.maker === null && saleUnits > 0) {
         const sc = scores.get(x.id);
         const ms = sc?.segments[s.id];
         bySegment[x.id].push({
           segment: s.id,
-          units,
+          units: saleUnits,
           market: ms ? ms.score : MARKET_PAR,
           value: sc ? valueOf(sc.ratios, s) : 1,
         });
@@ -182,11 +192,11 @@ export function splitDemand(
   const outcomes: SegmentOutcome[] = [];
   let total = 0;
   for (const x of sellers) {
-    const want = Math.round(demand[x.id]);
-    demand[x.id] = want;
-    sold[x.id] = Math.max(0, Math.min(want, Math.floor(x.stock)));
+    demand[x.id] = Math.round(demand[x.id]);
+    const saleWant = Math.round(saleDemand[x.id]);
+    sold[x.id] = Math.max(0, Math.min(saleWant, Math.floor(x.stock)));
     total += sold[x.id];
-    const cut = want > 0 ? sold[x.id] / want : 0;
+    const cut = saleWant > 0 ? sold[x.id] / saleWant : 0;
     for (const o of bySegment[x.id]) outcomes.push({ ...o, units: o.units * cut, review: x.review });
   }
   return { sold, demand, outcomes, total };
@@ -202,13 +212,13 @@ export function rivalLaunch(company: string, r: Rival, at: number): number {
   return launch > at ? launch - 4 : launch;
 }
 
-/** Every laptop on sale this quarter: the player's releases with stock and the rivals on sale. */
+/** Every laptop on sale this quarter: the player's releases (even sold out) and the rivals on sale. */
 export function sellersOf(state: CampaignState, models: { id: string; build: unknown }[], rivals: Rival[], company: string): Seller[] {
   const at = quarterIndex(state.now);
   const out: Seller[] = [];
   for (const [id, r] of Object.entries(state.releases)) {
     const m = models.find((x) => x.id === id);
-    if (!m || r.stock <= 0 || quarterIndex(r.quarter) > at) continue;
+    if (!m || quarterIndex(r.quarter) > at) continue;
     const build = { ...(m.build as Build), price: r.price };
     const p = profileOf(id, build);
     out.push({ id, maker: null, ...p, review: criticsScore(state, id), price: r.price, launch: quarterIndex(r.quarter), stock: r.stock });

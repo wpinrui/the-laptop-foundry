@@ -21,13 +21,8 @@ export const STARTING_CASH = 5_000_000;
 
 // ------------------------------------------------------------------ releases
 
-/**
- * Production run sizes the player steps through. A small maker's first order
- * with a contract manufacturer is a few thousand units; 100,000 is a hit
- * mainstream model's run for a quarter.
- */
+/** The smallest production run. There is no largest. */
 export const MIN_RUN = 100;
-export const MAX_RUN = 100_000;
 
 /** The run size the picker starts on: the scale reference, a sensible first order. */
 export const DEFAULT_RUN = 5_000;

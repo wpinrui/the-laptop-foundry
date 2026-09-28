@@ -10,7 +10,6 @@ import {
   isRefresh,
   marketingCost,
   outlook,
-  MAX_RUN,
   MIN_RUN,
   publicationQuarter,
   quarterLabel,
@@ -103,12 +102,19 @@ const SMALL_RUN = 2_000;
 
 /** The largest run the cash pays for, or 0 when not even the smallest does. */
 function maxAffordable(cost: number, cash: number, setup: number): number {
-  let best = 0;
-  for (let u = MIN_RUN; u <= MAX_RUN; u += 100) {
-    if (setup + cost * scaleFactor(u) * u <= cash) best = u;
-    else break;
+  // The run's total cost rises with its size, so search the 100-unit steps.
+  const fits = (u: number) => setup + cost * scaleFactor(u) * u <= cash;
+  if (!fits(MIN_RUN)) return 0;
+  let lo = MIN_RUN / 100;
+  let hi = lo;
+  while (fits(hi * 200)) hi *= 2;
+  hi *= 2;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (fits(mid * 100)) lo = mid;
+    else hi = mid - 1;
   }
-  return best;
+  return lo * 100;
 }
 
 const warn = (bad: boolean) => (bad ? "short" : undefined);

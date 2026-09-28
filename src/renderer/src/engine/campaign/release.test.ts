@@ -64,7 +64,7 @@ describe("quotes", () => {
     expect(stepRun(5_000, 1)).toBe(5_500);
     expect(stepRun(5_000, -1)).toBe(4_900);
     expect(stepRun(100, -1)).toBe(100);
-    expect(stepRun(100_000, 1)).toBe(100_000);
+    expect(stepRun(100_000, 1)).toBe(101_000);
     expect(stepRun(20_000, 1)).toBe(21_000);
   });
 });

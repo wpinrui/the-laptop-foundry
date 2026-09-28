@@ -3,16 +3,15 @@ import type { SavedModel } from "../../../preload/store";
 import {
   buyersOf,
   type CampaignState,
-  competitorsOf,
   type Quarter,
   type WorldMarket,
   worldQuarters,
 } from "../engine/campaign";
-import { HEADLINE_STATS } from "../engine/market/types";
-import { count, usd } from "../foundry/Release";
+import { count } from "../foundry/Release";
 import { pct } from "../foundry/Finance";
-import { cap, inchesLabel, laptopName, STAT_LABEL, segmentName, useWorldMarket } from "./data";
+import { STAT_LABEL, segmentName, useWorldMarket } from "./data";
 import { QuarterTab } from "./QuarterTab";
+import { RivalsTab } from "./RivalsTab";
 import "./world.css";
 
 // The Market screen, full screen over the campaign: what happened in any
@@ -36,101 +35,6 @@ function Cell({ label, value, tone }: { label: string; value: string; tone?: str
     <div className="mw-cell">
       <span>{label}</span>
       <b className={tone}>{value}</b>
-    </div>
-  );
-}
-
-function CompetitorsPanel({
-  campaign,
-  market,
-  quarter,
-  model,
-  company,
-}: {
-  campaign: CampaignState;
-  market: WorldMarket;
-  quarter: Quarter;
-  model: string;
-  company: string;
-}) {
-  const c = useMemo(() => competitorsOf(campaign, market, model, quarter), [campaign, market, model, quarter]);
-  if (!c.model) return null;
-  const cols = [c.model, ...c.rivals];
-  const idx = (v: number | undefined) => (v === undefined ? "" : Math.round(v).toString());
-  return (
-    <div className="mw-scroll">
-      <table className="fd-books-table mw-table mw-versus">
-        <thead>
-          <tr>
-            <th />
-            {cols.map((l) => (
-              <th key={l.id} className={l.own ? "mine" : undefined}>
-                {laptopName(l, company)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th>Price</th>
-            {cols.map((l) => (
-              <td key={l.id}>{usd(l.price)}</td>
-            ))}
-          </tr>
-          <tr>
-            <th>Units</th>
-            {cols.map((l) => (
-              <td key={l.id}>{count(l.units)}</td>
-            ))}
-          </tr>
-          <tr>
-            <th>Rating</th>
-            {cols.map((l) => (
-              <td key={l.id}>{l.review === null ? "" : `${l.review.toFixed(1)}%`}</td>
-            ))}
-          </tr>
-          <tr>
-            <th>Overlap</th>
-            <td />
-            {c.rivals.map((r) => (
-              <td key={r.id}>{pct(r.overlap)}</td>
-            ))}
-          </tr>
-          <tr>
-            <th>Screen</th>
-            {cols.map((l) => (
-              <td key={l.id}>{inchesLabel(l.inches)}</td>
-            ))}
-          </tr>
-          <tr>
-            <th>Weight</th>
-            {cols.map((l) => (
-              <td key={l.id}>{l.kg === null ? "" : `${l.kg.toFixed(2)} kg`}</td>
-            ))}
-          </tr>
-          <tr>
-            <th>Class</th>
-            {cols.map((l) => (
-              <td key={l.id}>{[cap(l.body), cap(l.performance)].filter(Boolean).join(", ")}</td>
-            ))}
-          </tr>
-          {HEADLINE_STATS.filter((k) => k !== "price").map((k) => (
-            <tr key={k}>
-              <th>{STAT_LABEL[k]}</th>
-              {cols.map((l) => {
-                const v = l.index?.[k];
-                const mine = c.model?.index?.[k];
-                const tone = !l.own && v !== undefined && mine !== undefined ? (v > mine * 1.05 ? "short" : v < mine * 0.95 ? "up" : undefined) : undefined;
-                return (
-                  <td key={l.id} className={tone}>
-                    {idx(v)}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -309,7 +213,7 @@ export function MarketScreen({
         {quarter && tab === "rivals" && (
           <>
             <ModelChips models={choices} model={model} onPick={setModel} />
-            {model && <CompetitorsPanel campaign={campaign} market={market} quarter={quarter} model={model} company={company} />}
+            <RivalsTab campaign={campaign} market={market} quarter={quarter} models={choices} model={model} company={company} />
           </>
         )}
         {quarter && tab === "buyers" && (

@@ -11,10 +11,10 @@ import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { BooksTab, StatementView, type StatementTab } from "./foundry/Finance";
 import { Ending } from "./foundry/Ending";
-import { MarketingPanel } from "./foundry/Marketing";
+import { BrandTab } from "./foundry/Marketing";
 import { ModelTab } from "./foundry/Release";
 import { CampaignRail, type RailTab } from "./foundry/CampaignRail";
-import { AwardsPanel } from "./foundry/Awards";
+import { AwardsTab } from "./foundry/Awards";
 import { MAKERS } from "./engine/market/makers";
 import { setHonours } from "./review/honours";
 import { Stage, type StageView } from "./foundry/Stage";
@@ -505,14 +505,12 @@ export function App() {
           )}
           {tab === "books" && <BooksTab campaign={campaign} onOpen={setStatement} />}
           {tab === "brand" && (
-            <MarketingPanel
+            <BrandTab
               campaign={campaign}
-              open
-              onToggle={() => {}}
               onTier={(segment, t) => commit({ ...campaign, brand: setCampaign(campaign.brand, segment, t) })}
             />
           )}
-          {tab === "awards" && <AwardsPanel campaign={campaign} models={company.models} />}
+          {tab === "awards" && <AwardsTab campaign={campaign} models={company.models} />}
         </CampaignRail>
       </>
     );

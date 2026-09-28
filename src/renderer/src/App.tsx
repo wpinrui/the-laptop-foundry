@@ -5,7 +5,9 @@ import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
+import { WorkshopVisit } from "./builder/Visit";
 import { CafeScreen } from "./cafe/CafeScreen";
+import { type Place, WorldMap } from "./map/WorldMap";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
 import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, type Quarter, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
@@ -38,7 +40,7 @@ function migrated(c: SavedCompany): SavedCompany {
   return { ...c, models: c.models.map((m) => ({ ...m, build: migrateBody(m.build as Build) })) };
 }
 
-type Menu = "start" | "new" | "load" | "settings" | "list" | "name";
+type Menu = "start" | "new" | "load" | "settings" | "list" | "name" | "map";
 
 /** Camera view per menu screen. The start menu orbits; the list sways. */
 const VIEWS: Record<Menu, StageView> = {
@@ -48,6 +50,7 @@ const VIEWS: Record<Menu, StageView> = {
   load: { azimuth: -0.45, distance: 820, shift: 0.18, mode: "orbit" },
   list: { azimuth: 0, distance: 820, shift: 0.17, mode: "sway" },
   name: { azimuth: 0.6, distance: 720, shift: 0.22, mode: "sway" },
+  map: { azimuth: 0, distance: 820, shift: 0.17, mode: "sway" },
 };
 
 /** A campaign's list: the laptop further back and between the rail and the side column. */
@@ -71,6 +74,8 @@ export function App() {
   const [open, setOpen] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState<Subject | null>(null);
   const [using, setUsing] = useState<Subject | null>(null);
+  // A visit from the world map: the place, and the laptop brought along, if any.
+  const [visit, setVisit] = useState<{ place: Place; model: SavedModel | null; subject: Subject | null } | null>(null);
   // The build waiting for the player to name it before it becomes a model.
   const [naming, setNaming] = useState<Build | null>(null);
   // A year's market is being generated before a screen that needs it opens.
@@ -135,7 +140,7 @@ export function App() {
           if (live.current?.id !== c.id) live.current = null;
           refresh(c);
           setSelected(latestModel(c)?.id ?? null);
-          setMenu("list");
+          setMenu("map");
           // The year the company is in opens with it.
           const year = c.campaign ? campaignOf(c.campaign).now.year : (latestModel(c)?.build as Build | undefined)?.year;
           if (year) void ensureMarket(year);
@@ -287,7 +292,46 @@ export function App() {
     withMarket(subject(m), setReviewing);
   };
 
+  // Back to the world map from anywhere the player walks.
+  const toMap = () => {
+    setUsing(null);
+    setOpen(null);
+    setVisit(null);
+    setMenu("map");
+  };
+  const go = (place: Place, m: SavedModel | null) => {
+    if (m && !buildBlock(m.build)) withMarket(subject(m), (s) => setVisit({ place, model: m, subject: s }));
+    else setVisit({ place, model: m, subject: null });
+  };
+
   if (short) return <VideoScreen key={short.url} video={short} onBack={() => setShort(null)} />;
+  if (company && visit?.place === "cafe")
+    return (
+      <CafeScreen
+        key={visit.model?.id ?? "empty"}
+        subject={visit.subject}
+        library={company.models.filter((x) => x.reviewed).map(subject)}
+        onMap={toMap}
+        atDoor
+        sound={settings.sound}
+        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+        notes={company.notes ?? []}
+        onSaveNotes={saveNotes}
+        shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
+      />
+    );
+  if (company && visit?.place === "workshop")
+    return (
+      <WorkshopVisit
+        key={visit.model?.id ?? "empty"}
+        model={visit.model}
+        company={company.name}
+        library={company.models.filter((x) => x.reviewed).map(subject)}
+        onMap={toMap}
+        sound={settings.sound}
+        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+      />
+    );
   if (company && using)
     return (
       <CafeScreen
@@ -295,6 +339,7 @@ export function App() {
         subject={using}
         library={company.models.filter((x) => x.reviewed).map(subject)}
         onBack={() => setUsing(null)}
+        onMap={toMap}
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
         notes={company.notes ?? []}
@@ -337,6 +382,7 @@ export function App() {
         company={name}
         onSave={(m) => save(m)}
         onBack={() => setOpen(null)}
+        onMap={toMap}
         onReview={review}
         onDuplicate={() => {
           setOpen(null);
@@ -348,6 +394,19 @@ export function App() {
         library={(company?.models ?? []).filter((x) => x.reviewed).map(subject)}
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+      />
+    );
+
+  if (company && menu === "map")
+    return (
+      <WorldMap
+        company={company}
+        onGo={go}
+        onModels={() => setMenu("list")}
+        onMenu={() => {
+          setCompany(null);
+          setMenu("start");
+        }}
       />
     );
 
@@ -376,7 +435,7 @@ export function App() {
             .then((c) => {
               refresh(c);
               setSelected(null);
-              setMenu("list");
+              setMenu("map");
             })
         }
       />
@@ -448,10 +507,7 @@ export function App() {
         resolving={resolving}
         selected={selected}
         onSelect={setSelected}
-        onMenu={() => {
-          setCompany(null);
-          setMenu("start");
-        }}
+        onMenu={() => setMenu("map")}
         onNew={() => {
           setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
           setMenu("name");
@@ -518,10 +574,7 @@ export function App() {
             setTab(t);
             if (t === "awards") setSeenAwards(campaign.awards.length);
           }}
-          onMenu={() => {
-            setCompany(null);
-            setMenu("start");
-          }}
+          onMenu={() => setMenu("map")}
           onMarket={
             worldQuarters(campaign).length > 0
               ? () => {

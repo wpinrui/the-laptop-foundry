@@ -1,0 +1,126 @@
+/* The world map: a plain street plan on the Foundry ground. Design pixels times --u, as the menus. */
+
+.wm {
+  background: var(--ground-deep);
+}
+
+.wm-map {
+  position: absolute;
+  inset: 0;
+}
+
+.wm-road {
+  position: absolute;
+  background: var(--line);
+}
+
+.wm-main {
+  left: 0;
+  right: 0;
+  top: calc(470 * var(--u));
+  height: calc(64 * var(--u));
+}
+
+.wm-side {
+  left: calc(688 * var(--u));
+  width: calc(64 * var(--u));
+  top: 0;
+  height: calc(470 * var(--u));
+}
+
+.fd .wm-place {
+  position: absolute;
+  display: flex;
+  align-items: flex-end;
+  padding: calc(24 * var(--u)) calc(28 * var(--u));
+  background: var(--ground);
+  border: 1px solid var(--line-strong);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(52 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.fd .wm-place:not(:disabled):hover,
+.fd .wm-place:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.fd .wm-place:disabled {
+  opacity: 0.35;
+}
+
+.wm-workshop {
+  left: calc(140 * var(--u));
+  top: calc(150 * var(--u));
+  width: calc(500 * var(--u));
+  height: calc(280 * var(--u));
+}
+
+.wm-cafe {
+  left: calc(800 * var(--u));
+  top: calc(200 * var(--u));
+  width: calc(420 * var(--u));
+  height: calc(230 * var(--u));
+}
+
+.wm-courts {
+  left: calc(460 * var(--u));
+  top: calc(574 * var(--u));
+  width: calc(640 * var(--u));
+  height: calc(176 * var(--u));
+}
+
+.wm-top {
+  position: absolute;
+  left: calc(48 * var(--u));
+  right: calc(48 * var(--u));
+  top: calc(40 * var(--u));
+  display: flex;
+  align-items: baseline;
+  gap: calc(32 * var(--u));
+}
+
+.wm-top .fd-text {
+  font-size: calc(22 * var(--u)) !important;
+}
+
+.wm-company {
+  margin-right: auto;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(22 * var(--u));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* The laptop picker, over the map. */
+.wm-pick {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ground-deep) 55%, transparent);
+}
+
+.wm-pick-title {
+  margin: 0 0 calc(40 * var(--u));
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(80 * var(--u));
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.wm-pick-list {
+  max-height: calc(480 * var(--u));
+  overflow-y: auto;
+  padding-right: calc(24 * var(--u));
+}
+
+.wm-pick-list .fd-entry {
+  font-size: calc(34 * var(--u)) !important;
+}

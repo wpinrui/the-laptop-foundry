@@ -14,6 +14,15 @@ import COLLIDERS from "./colliders.json";
 
 export type Aim = "laptop" | "power" | null;
 
+/** The laptop on the table, as the room draws it. */
+export interface LaptopLook {
+  fit: Fit;
+  year: number;
+  colours: { floor: string; deck: string; lid: string };
+  decor?: Decor;
+  surfaces: Surfaces;
+}
+
 const M = 1000;
 const ROOM = { x0: -7000, x1: 7000, z0: -3400, z1: 6600 };
 const EYE = 1620;
@@ -29,6 +38,10 @@ export const ZOOM_STEP = 0.0025;
 const BODY = 280;
 /** Where the player first stands, in the aisle behind the table. */
 const START: [number, number, number] = [1500, EYE, 1900];
+/** Arriving from the street: just inside the entrance. */
+const DOOR_START: [number, number, number] = [-2000, EYE, -2500];
+/** The entrance in the glass street front: walking into it leaves the cafe. */
+const DOOR = { x0: -2900, x1: -1100 };
 /** The socket sits flush in the table top; this is how much the aim dot catches. */
 const SOCKET = new THREE.Vector3(70, 50, 70);
 /** The shadow maps are redrawn for this many frames after the room loads, then held. */
@@ -228,7 +241,11 @@ function Player({
   anchors,
   onAim,
   onClickAim,
+  atDoor,
+  onDoor,
 }: {
+  atDoor: boolean;
+  onDoor?: () => void;
   seated: boolean;
   using: boolean;
   active: boolean;
@@ -238,7 +255,10 @@ function Player({
   onClickAim: RefObject<Aim>;
 }) {
   const camera = useThree((s) => s.camera);
-  const pos = useRef(new THREE.Vector3(...START));
+  const pos = useRef(new THREE.Vector3(...(atDoor ? DOOR_START : START)));
+  const door = useRef(onDoor);
+  door.current = onDoor;
+  const out = useRef(false);
   const look = useRef(lookAngles(pos.current, new THREE.Vector3(...anchors.laptop)));
   const keys = useRef(new Set<string>());
   const move = useRef({ clock: 0 });
@@ -318,6 +338,11 @@ function Player({
         pos.current.x += dx * SPEED * dt;
         pos.current.z += dz * SPEED * dt;
         collide(pos.current);
+        const p = pos.current;
+        if (door.current && !out.current && p.z <= ROOM.z0 + BODY + 1 && p.x > DOOR.x0 && p.x < DOOR.x1) {
+          out.current = true;
+          door.current();
+        }
       }
     }
     const l = look.current;
@@ -352,7 +377,8 @@ function Player({
         next = "laptop";
       }
     }
-    if (ray.ray.intersectBox(socket, hit) && hit.distanceTo(origin) < best) next = "power";
+    // With no laptop on the table the socket has nothing to charge.
+    if (lap && ray.ray.intersectBox(socket, hit) && hit.distanceTo(origin) < best) next = "power";
     if (next !== aimed.current) {
       aimed.current = next;
       onClickAim.current = next;
@@ -373,8 +399,12 @@ function Room({
   active,
   onAim,
   aimRef,
+  atDoor,
+  onDoor,
 }: {
-  model: ModelProps;
+  atDoor: boolean;
+  onDoor?: () => void;
+  model?: ModelProps;
   seated: boolean;
   using: boolean;
   active: boolean;
@@ -391,9 +421,11 @@ function Room({
         <primitive object={scene} />
       </group>
       <ShadowWarmup />
-      <group ref={laptop} position={anchors.laptop}>
-        <Model {...model} lidAngle={105} xray={false} labelFor={noLabel} onHover={noHover} />
-      </group>
+      {model && (
+        <group ref={laptop} position={anchors.laptop}>
+          <Model {...model} lidAngle={105} xray={false} labelFor={noLabel} onHover={noHover} />
+        </group>
+      )}
       <Player
         seated={seated}
         using={using}
@@ -402,29 +434,30 @@ function Room({
         anchors={anchors}
         onAim={onAim}
         onClickAim={aimRef}
+        atDoor={atDoor}
+        onDoor={onDoor}
       />
     </>
   );
 }
 
 export function World({
-  fit,
-  year,
-  colours,
-  decor,
-  surfaces,
+  laptop,
   screen,
   seated,
   using,
   active,
   onAim,
   aimRef,
+  atDoor = false,
+  onDoor,
 }: {
-  fit: Fit;
-  year: number;
-  colours: { floor: string; deck: string; lid: string };
-  decor?: Decor;
-  surfaces: Surfaces;
+  /** None: the table stands empty. */
+  laptop?: LaptopLook;
+  /** Arrives through the street entrance. */
+  atDoor?: boolean;
+  /** Walking out through the street entrance. */
+  onDoor?: () => void;
   screen?: { node: ReactNode; width: number; mm: { x: number; y: number } };
   seated: boolean;
   /** Seated with the pointer free on the laptop's screen. */
@@ -448,12 +481,14 @@ export function World({
         <Lights />
         <Suspense fallback={null}>
           <Room
-            model={{ fit, year, colours, decor, surfaces, screen, portal: overlay }}
+            model={laptop ? { ...laptop, screen, portal: overlay } : undefined}
             seated={seated}
             using={using}
             active={active}
             onAim={onAim}
             aimRef={aimRef}
+            atDoor={atDoor}
+            onDoor={onDoor}
           />
         </Suspense>
       </Canvas>

@@ -182,7 +182,7 @@ export function LaptopList({
       </aside>
       {!campaign && (
         <button type="button" className="fd-text fd-corner" onClick={onMenu}>
-          Menu
+          Map
         </button>
       )}
       {current && (

@@ -1,0 +1,205 @@
+/* The Office: the 3D room, the strip along the top, and each station's panel
+   on the calm third of its view. Design px times --u, as in the menus. */
+
+.of {
+  background: var(--office-shade);
+}
+
+.of-scene {
+  position: absolute;
+  inset: 0;
+}
+
+/* The top 7% of the view: the room keeps it clear of anything important. */
+.of-hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 7vh;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(24 * var(--u));
+  padding: 0 calc(28 * var(--u));
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ground-deep) 82%, transparent),
+    color-mix(in srgb, var(--ground-deep) 45%, transparent)
+  );
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  pointer-events: auto;
+}
+
+.of-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: calc(24 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.of-clock {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: calc(22 * var(--u));
+}
+
+.of-clock > b {
+  font-weight: 700;
+  font-size: calc(24 * var(--u));
+  line-height: 1;
+}
+
+.of-clock > b:first-child {
+  color: var(--accent);
+}
+
+.of-clock > small {
+  font-weight: 600;
+  font-size: calc(19 * var(--u));
+  color: var(--muted);
+}
+
+.of-clock > small.short {
+  color: var(--warning);
+}
+
+.of-clock > small.up {
+  color: var(--accent);
+}
+
+.of .of-end {
+  padding: calc(9 * var(--u)) calc(22 * var(--u)) !important;
+  font-size: calc(20 * var(--u)) !important;
+}
+
+.of-resolving {
+  position: relative;
+  min-width: calc(200 * var(--u));
+  height: calc(38 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 calc(16 * var(--u));
+  background: var(--accent-wash);
+  font-weight: 700;
+  font-size: calc(18 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.of-resolving i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: calc(3 * var(--u));
+  background: var(--accent);
+  transition: width 140ms linear;
+}
+
+/* A station's panel: the calm third of the view, under the strip. */
+.of .of-panel {
+  position: absolute;
+  top: calc(7vh + 16 * var(--u));
+  bottom: calc(76 * var(--u));
+  width: calc(33.333vw - 40 * var(--u));
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--ground-deep) 84%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.of .of-panel.left {
+  left: calc(20 * var(--u));
+}
+
+.of .of-panel.right {
+  right: calc(20 * var(--u));
+}
+
+/* The station's name on its calm side: a click opens the panel. */
+.of .of-station {
+  position: absolute;
+  bottom: calc(96 * var(--u));
+  z-index: 10;
+  padding: calc(14 * var(--u)) calc(22 * var(--u));
+  border-left: calc(3 * var(--u)) solid var(--accent);
+  background: color-mix(in srgb, var(--ground-deep) 70%, transparent);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(34 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.of .of-station:not(:disabled):hover,
+.of .of-station:focus-visible {
+  color: var(--accent);
+}
+
+.of .of-station:disabled {
+  opacity: 1;
+  border-left-color: var(--muted);
+}
+
+.of .of-station.left {
+  left: calc(40 * var(--u));
+}
+
+.of .of-station.right {
+  right: calc(40 * var(--u));
+}
+
+/* The neighbours either way round the room, along the bottom. */
+.of-ring {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(64 * var(--u));
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 calc(28 * var(--u));
+  background: linear-gradient(to top, color-mix(in srgb, var(--ground-deep) 70%, transparent), transparent);
+  pointer-events: none;
+}
+
+.of-ring button {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--u));
+  font-size: calc(20 * var(--u)) !important;
+  color: var(--text) !important;
+  text-shadow: 0 1px 6px color-mix(in srgb, var(--ground) 80%, transparent);
+}
+
+.of-ring button i {
+  font-style: normal;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+  color: var(--accent);
+}
+
+.of.free .of-scene canvas {
+  cursor: none;
+}

@@ -29,6 +29,8 @@ import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
 import { bestSeller, shortFacts, subjectOf, writeShort } from "./video/script";
 import { cancelShort, prepareShort, type ReadyShort, shortKey, useShort } from "./video/shorts";
 import { VideoScreen } from "./video/VideoScreen";
+import { Office } from "./office/Office";
+import { OFFICE_START, type OfficeAt } from "./office/stations";
 
 const store = () => window.api.store;
 
@@ -104,6 +106,8 @@ export function App() {
   const [seenAwards, setSeenAwards] = useState<number | null>(null);
   // The Market screen, when open: its tab, the quarter and model it opened on, and whether End quarter opened it.
   const [marketView, setMarketView] = useState<{ tab: MarketTab; quarter?: Quarter; model?: string | null; proceed?: boolean } | null>(null);
+  // Where the Office stands: its station and panel, kept while the player is in the builder, a review or the cafe.
+  const [officeAt, setOfficeAt] = useState<OfficeAt>(OFFICE_START);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the statement closes when the screen or company changes
   useEffect(() => {
     setStatement(null);
@@ -360,7 +364,10 @@ export function App() {
         company={company}
         from={where.from?.at ?? "menu"}
         onGo={(to, m) => {
-          if (to === "office") setWhere({ at: "office" });
+          if (to === "office") {
+            setOfficeAt(OFFICE_START);
+            setWhere({ at: "office" });
+          }
           else if (to === "courts") setWhere({ at: "courts" });
           else visit(to, m);
         }}
@@ -423,9 +430,43 @@ export function App() {
       />
     );
 
-  // The Office: until the 3D office replaces it, its stand-in is the models
-  // screen below, with the campaign's rails. Leaving it goes to the map.
+  // The Office: the 3D room, its stations' panels and the quarter report over it. Leaving it goes to the map.
   const leaveOffice = () => toMap({ at: "office" });
+  if (company && where.at === "office" && menu === "list" && !(campaign?.over && campaign.bankrupt))
+    return (
+      <>
+        <Office
+          company={company}
+          campaign={campaign}
+          at={officeAt}
+          onAt={setOfficeAt}
+          onMap={leaveOffice}
+          onEndQuarter={endQuarter}
+          resolving={resolving}
+          blocked={!!marketView || !!statement}
+        />
+        {campaign && marketView && (
+          <div className="fd">
+            <MarketScreen
+              key={`${marketView.quarter?.year}-${marketView.quarter?.quarter}-${marketView.model}`}
+              campaign={campaign}
+              models={company.models}
+              company={company.name}
+              tab={marketView.tab}
+              onTab={(t) => setMarketView((v) => (v ? { ...v, tab: t } : v))}
+              quarter={marketView.quarter}
+              model={marketView.model}
+              proceed={marketView.proceed}
+              onClose={() => {
+                // After End quarter's report, back to the desk.
+                if (marketView.proceed) setOfficeAt((a) => ({ ...a, station: "desk", panel: false, detail: false }));
+                setMarketView(null);
+              }}
+            />
+          </div>
+        )}
+      </>
+    );
 
   const find = (id: string) => company?.models.find((x) => x.id === id);
   let screen: ReactNode = null;

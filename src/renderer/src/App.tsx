@@ -414,6 +414,7 @@ export function App() {
                 quarter: `Q${best.record.quarter.quarter}`,
                 name: company.models.find((m) => m.id === best.id)?.name ?? subjectOf(best.id, [])?.subject.name ?? "",
                 ready: shortEntry?.state === "ready",
+                poster: shortEntry?.state === "ready" ? shortEntry.poster : undefined,
                 onWatch: watchShort,
               }
             : undefined

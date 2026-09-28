@@ -18,12 +18,14 @@ export interface ReadyShort {
   /** The quarter it covers and the model it is about. */
   quarter: Quarter;
   model: string;
+  /** A still of the laptop from the short, as an object URL; absent when there is none. */
+  poster?: string;
 }
 
 type Entry = { state: "busy" } | ({ state: "ready" } & ReadyShort);
 
 /** Bumped when the video changes, so a short kept on disk from before is made again. */
-const VERSION = 3;
+const VERSION = 4;
 
 /** Ready videos kept in memory; older ones fall out. */
 const KEEP = 6;
@@ -41,7 +43,10 @@ function set(key: string, e: Entry | null) {
   else cache.delete(key);
   const ready = [...cache.entries()].filter(([, v]) => v.state === "ready");
   for (const [k, v] of ready.slice(0, Math.max(0, ready.length - KEEP))) {
-    if (v.state === "ready") URL.revokeObjectURL(v.url);
+    if (v.state === "ready") {
+      URL.revokeObjectURL(v.url);
+      if (v.poster) URL.revokeObjectURL(v.poster);
+    }
     cache.delete(k);
   }
   notify();
@@ -93,22 +98,37 @@ export function prepareShort(key: string, company: string, quarter: Quarter, ind
     const name = saveName(short);
     const about = { quarter: short.facts.quarter, model: short.facts.subject.name };
     const kept = await window.api.video.kept(company, file).catch(() => null);
-    if (kept) return { blob: new Blob([kept as Uint8Array<ArrayBuffer>], { type: "video/mp4" }), name, ...about };
+    if (kept) {
+      const still = await window.api.video.poster(company, file).catch(() => null);
+      const poster = still ? new Blob([still as Uint8Array<ArrayBuffer>], { type: "image/jpeg" }) : null;
+      return { blob: new Blob([kept as Uint8Array<ArrayBuffer>], { type: "video/mp4" }), poster, name, ...about };
+    }
     // Two narrators, taking turns by quarter.
     const narrator = index % 2 === 0 ? "michael" : "heart";
     const voice = await window.api.video.say(short.lines.map((l) => l.say), narrator).catch(() => null);
     if (cancelled) return null;
-    const blob = await renderShort(short, lookFor(index), voice, () => cancelled);
+    const { video: blob, poster } = await renderShort(short, lookFor(index), voice, () => cancelled);
     void blob
       .arrayBuffer()
       .then((b) => window.api.video.keep(company, file, new Uint8Array(b)))
       .catch((e) => console.error("short: could not keep", e));
-    return { blob, name, ...about };
+    void poster
+      ?.arrayBuffer()
+      .then((b) => window.api.video.keepPoster(company, file, new Uint8Array(b)))
+      .catch((e) => console.error("short: could not keep its poster", e));
+    return { blob, poster, name, ...about };
   })()
     .then(
       (r) => {
         if (cancelled) return;
-        set(key, r ? { state: "ready", ...r, url: URL.createObjectURL(r.blob) } : null);
+        if (!r) return set(key, null);
+        const { poster, ...rest } = r;
+        set(key, {
+          state: "ready",
+          ...rest,
+          url: URL.createObjectURL(r.blob),
+          ...(poster ? { poster: URL.createObjectURL(poster) } : {}),
+        });
       },
       (e) => {
         if (!(e instanceof Cancelled)) console.error("short: could not render", e);

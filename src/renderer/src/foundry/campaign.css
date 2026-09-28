@@ -182,11 +182,15 @@
   flex: none;
   width: calc(34 * var(--u));
   height: calc(60 * var(--u));
-  background: repeating-linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--text) 10%, transparent) 0 calc(4 * var(--u)),
-    color-mix(in srgb, var(--text) 2%, transparent) calc(4 * var(--u)) calc(8 * var(--u))
-  );
+  overflow: hidden;
+  background: var(--ground);
+}
+
+.fd-rail .fd-short > i img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .fd-rail .fd-short > span {

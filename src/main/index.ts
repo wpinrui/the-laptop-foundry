@@ -14,6 +14,9 @@ import { registerVideo } from "./video";
 // above the page, so the short's buttons beside the video vanish. Kept off,
 // the overlay covers only the video itself.
 app.commandLine.appendSwitch("disable-features", "DirectCompositionLetterboxVideoOptimization");
+// Turning off only the letterbox step was not enough on real hardware: keep
+// video out of hardware overlays altogether, so the page always draws above it.
+app.commandLine.appendSwitch("disable-direct-composition-video-overlays");
 
 protocol.registerSchemesAsPrivileged([
   { scheme: "foundry", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },

@@ -57,5 +57,20 @@ export function points(change: number | null): string {
 /** Inches as a size label: 15.6". */
 export const inchesLabel = (n: number) => (n > 0 ? `${Math.round(n * 10) / 10}"` : "");
 
+/** Units in a few characters: 2,900, 38k, 1.17M. */
+export function countShort(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (a >= 1e4) return `${Math.round(n / 1e3)}k`;
+  return Math.round(n).toLocaleString("en-US");
+}
+
+/** 1st, 2nd, 3rd, 11th. */
+export function ordinal(n: number): string {
+  const t = n % 100;
+  const suffix = t >= 11 && t <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${suffix}`;
+}
+
 /** A class word with a capital. */
 export const cap = (s: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");

@@ -452,6 +452,15 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 - Each line launches its yearly model in a quarter fixed per company, line and year: business lines early in the year, consumer lines skew to back to school and the holidays, gaming lines chase the fall game releases and the holidays. Apple and Microsoft follow their own announcement calendars instead.
 - A model stays on sale until its successor launches, plus a quarter to clear stock, or four quarters after its own launch if the line ends.
 
+#### Market world
+
+- Every quarter the campaign keeps its whole shelf: units sold per laptop per buyer segment, the player's and the rivals', the quarter's launches, the player's prices and demand, and the brand's reach and reputation. It keeps every quarter of the campaign, about 360 KB over 2006 to 2026.
+- A Market tab on the campaign rail shows the last quarter's market, share and best sellers, and opens the market view.
+- The market view shows any kept quarter: the market's units, best sellers, maker shares and their change, launches, reviews, awards, units per segment, and how the player did.
+- A retailer's site lists every laptop on sale in a quarter, with filters for price, screen, size, use, budget, brand and buyer segment, and a product page with its rating, units sold and specifications. Its look follows the era like the review site's. It opens from the market view and, in a campaign, from the laptop's desktop.
+- For a player model, the market view shows its closest rivals, by the segments they sell to and their price, with their headline stats beside its own, and its buyers: units, split and share won per segment, what each segment weighs most, and the brand's reach and reputation there.
+- The quarter report adds the player's share and its change and the best seller, and opens the market view on that quarter.
+
 ## Stretch goals
 
 - A cinematic video review, narrated with non-language-model text-to-speech, with pre-animated camera variety. Feasibility is not judged yet.

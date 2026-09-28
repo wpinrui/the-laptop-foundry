@@ -9,6 +9,12 @@ import { registerVideo } from "./video";
 // The review photo sets' bundled assets (HDRIs, models, textures), served from
 // the built renderer's review-assets folder. A custom scheme, because fetch
 // cannot read file:// URLs. Nothing here touches the network.
+// In a full screen window, Chromium on Windows lifts a pillarboxed video into a
+// hardware overlay stretched over the whole display with black bars, drawn
+// above the page, so the short's buttons beside the video vanish. Kept off,
+// the overlay covers only the video itself.
+app.commandLine.appendSwitch("disable-features", "DirectCompositionLetterboxVideoOptimization");
+
 protocol.registerSchemesAsPrivileged([
   { scheme: "foundry", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ]);

@@ -1,17 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SavedModel } from "../../../preload/store";
-import {
-  buyersOf,
-  type CampaignState,
-  type Quarter,
-  type WorldMarket,
-  worldQuarters,
-} from "../engine/campaign";
-import { count } from "../foundry/Release";
-import { pct } from "../foundry/Finance";
-import { STAT_LABEL, segmentName, useWorldMarket } from "./data";
+import { type CampaignState, type Quarter, worldQuarters } from "../engine/campaign";
+import { useWorldMarket } from "./data";
 import { QuarterTab } from "./QuarterTab";
 import { RivalsTab } from "./RivalsTab";
+import { BuyersTab } from "./BuyersTab";
 import "./world.css";
 
 // The Market screen, full screen over the campaign: what happened in any
@@ -28,63 +21,6 @@ const TABS: [MarketTab, string][] = [
 ];
 
 const same = (a: Quarter, b: Quarter) => a.year === b.year && a.quarter === b.quarter;
-const sign = (n: number | null) => (n === null ? undefined : n > 0 ? "up" : n < 0 ? "short" : undefined);
-
-function Cell({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="mw-cell">
-      <span>{label}</span>
-      <b className={tone}>{value}</b>
-    </div>
-  );
-}
-
-function BuyersPanel({ campaign, quarter, model, scope }: { campaign: CampaignState; quarter: Quarter; model: string; scope: "all" | "quarter" }) {
-  const b = useMemo(() => buyersOf(campaign, model, scope === "quarter" ? quarter : undefined), [campaign, model, quarter, scope]);
-  return (
-    <div className="mw-scroll">
-      <div className="mw-cells">
-        <Cell label="Sold" value={count(b.units)} />
-        <Cell label="Quarters" value={String(b.quarters)} />
-      </div>
-      <table className="fd-books-table mw-table mw-buyers">
-        <thead>
-          <tr>
-            <th />
-            <th>Units</th>
-            <th>Split</th>
-            <th>Share won</th>
-            <th className="left">Wants</th>
-            <th>Reach</th>
-            <th>Rep</th>
-          </tr>
-        </thead>
-        <tbody>
-          {b.segments.map((g) => (
-            <tr key={g.segment} className={g.units > 0 ? undefined : "off"}>
-              <th>{segmentName(g.segment)}</th>
-              <td>{count(g.units)}</td>
-              <td>
-                <span className="mw-bar">
-                  <i style={{ width: `${g.split * 100}%` }} />
-                </span>
-                {pct(g.split)}
-              </td>
-              <td>{pct(g.won)}</td>
-              <td className="left">{g.priorities.map((k) => STAT_LABEL[k]).join(", ")}</td>
-              <td>{`${Math.round(g.reach * 100)}%`}</td>
-              <td className={g.perception < 0 ? "short" : g.perception > 0 ? "up" : undefined}>
-                {`${g.perception > 0 ? "+" : ""}${Math.round(g.perception)}`}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-
 /** The models the Rivals tab can pick: released first, newest first. */
 function pickable(campaign: CampaignState, models: SavedModel[]): SavedModel[] {
   const rel = (m: SavedModel) => campaign.releases[m.id];
@@ -216,12 +152,7 @@ export function MarketScreen({
             <RivalsTab campaign={campaign} market={market} quarter={quarter} models={choices} model={model} company={company} />
           </>
         )}
-        {quarter && tab === "buyers" && (
-          <>
-            <ModelChips models={choices} model={model} onPick={setModel} />
-            {model && <BuyersPanel campaign={campaign} quarter={quarter} model={model} scope="quarter" />}
-          </>
-        )}
+        {quarter && tab === "buyers" && <BuyersTab campaign={campaign} quarter={quarter} />}
       </div>
     </section>
   );

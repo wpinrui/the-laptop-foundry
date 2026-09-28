@@ -27,11 +27,17 @@ describe("buildCost and chassis", () => {
 });
 
 describe("scaleFactor", () => {
-  it("is full cost at or under the reference and floors at 0.7", () => {
-    expect(scaleFactor(1_000)).toBe(1);
+  it("is full cost at the reference, dearer below it and cheaper above, down to 0.7", () => {
     expect(scaleFactor(5_000)).toBe(1);
+    expect(scaleFactor(1_000)).toBeCloseTo(1.16, 2);
+    expect(scaleFactor(100)).toBeCloseTo(1.39, 2);
+    expect(scaleFactor(10_000)).toBeCloseTo(0.89, 2);
     expect(scaleFactor(50_000)).toBeCloseTo(1 / 1.4, 6);
     expect(scaleFactor(100_000)).toBe(0.7);
+  });
+
+  it("moves the unit cost with every step of the run", () => {
+    for (const u of [100, 1_000, 4_200, 4_900, 5_500, 20_000]) expect(scaleFactor(u)).not.toBe(scaleFactor(u + 100));
   });
 });
 
@@ -72,7 +78,7 @@ describe("release", () => {
       quarter: { year: 2010, quarter: 1 },
     });
     const more = next && reorder(next, "a", 600, 1_000);
-    expect(more?.cash).toBe(400_000);
+    expect(more?.cash).toBeCloseTo(1_000_000 - 600 * scaleFactor(1_000) * 1_000, 6);
     expect(more?.releases.a.stock).toBe(6_000);
   });
 

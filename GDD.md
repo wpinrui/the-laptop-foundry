@@ -345,19 +345,19 @@ The player is always on the world map or in one of four places: the Workshop, th
 
 The Office is a small loft in the workshop's building, and works as a 3D menu. Its stations run clockwise from the desk: Desk, Finance, Market intel, Marketing, Door, TV, Product wall and Trophy cabinet.
 
-- Each station is a fixed view. Left and Right glide the camera to the next station; Up and Down move within one, such as along the product wall's laptops. Enter or a click opens the station's panel, laid over the calm third of the view. Esc backs out one level: the panel, then the station, back to the Desk.
-- A strip along the top shows the quarter, the cash, last quarter's profit and End quarter at every station and in free roam.
-- Desk: the company at a glance, with the clock, cash, profit trend, alerts for sold out laptops, reviews due, new awards and a ready short, and End quarter. The desk clock and flip calendar also end the quarter. End quarter plays the quarter report, then returns to the Desk.
+- Each station is a fixed view, and its panel is open whenever the view is on it, with no key or click to open or close it. Left and Right glide the camera to the next station and swap to its panel; Up and Down pick a laptop at the Desk and on the product wall. Nothing in the room is clicked. Key prompts along the bottom name the keys.
+- A strip along the top shows the quarter, the cash, last quarter's profit and End quarter at every station and in free roam. End quarter is only there; it plays the quarter report, then returns to the Desk.
+- Desk: where the business is run, at one glance across the view. The company's overview (quarter, cash, profit trend, alerts for sold out laptops, reviews due, new awards and a ready short), the laptops with their status and stock, and for the picked one everything that decides its production and price: run size, price, unit cost with the run size's effect, the retailers' cut, margin, setup, overhead, marketing, profit and break-even, stock, sold and wanted last quarter, and Release or Order, with Use, Read review, Open in the workshop, Duplicate, Delete and New model.
 - Finance: the Books, with the statement and sales beside them. Marketing: the Brand. Market intel: the Market screen's Quarter, Rivals, Buyers and Store.
-- Product wall: the company's laptops on shelves, newest first, in as many bays as they fill. A draft stands in foam grey, a laptop in stock has its screen lit, and a sold out one is dark with its lid half shut. Its panel lists the models; a pick opens the Model panel (release, order, price, costs, stock, review) with Use, Read review, Open in the workshop, Duplicate and Delete. New model goes to the workshop builder.
-- Trophy cabinet: a cup, obelisk or plaque per award won, and the panel's awards and reviews. TV: the last quarter's short, made and watched.
-- Door: Enter or E leaves to the map. Arriving from the map starts at the door and walks to the Desk.
-- Tab walks the room in first person, with WASD and the mouse. Aiming at a station names it, and a click goes to it; aiming at the door shows E Leave. Walking into the door never leaves.
+- Product wall: a showcase of the company's laptops on shelves, newest first, in as many bays as they fill. A draft stands in foam grey, a laptop in stock has its screen lit, and a sold out one is dark with its lid half shut. Its panel shows the picked laptop and the list at a glance; decisions are made at the Desk.
+- Trophy cabinet: a cup, obelisk or plaque per award won, and the panel's awards and reviews. TV: the last quarter's short, made at the TV and watched on its screen, with its sound.
+- Door: E leaves to the map. Arriving from the map starts at the door and walks to the Desk.
+- M walks the room in first person, with WASD and the mouse, the panels hidden; M again returns to the nearest station. Aiming at a laptop on the product wall that works, E uses it as in the Cafe: its own OS on its screen, F full screen and E stops using. Aiming at the door, E leaves. The desk's monitor is scenery.
 - A sandbox company's office has no Finance, Market intel or Marketing in the ring and no End quarter.
 
 ## The system menu
 
-M opens the system menu over any place of an open company: Resume, New company, Load company, Sound and Quit. M, Esc or Resume return to exactly where the player was.
+In the Office, Esc opens the system menu: Resume, New company, Load company, Sound and Quit. Esc or Resume return to exactly where the player was, a laptop in use included. The other places keep their own Esc pause menus, which end with New company, Load company and Quit.
 
 ## Version 0.2
 

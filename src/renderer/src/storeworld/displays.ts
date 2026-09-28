@@ -31,10 +31,6 @@ export function flagOf(
   return null;
 }
 
-export function scoreColour(score: number): string {
-  return score >= 85 ? "#1a7f37" : score >= 75 ? "#b86e00" : "#8a8a8a";
-}
-
 /** The spec lines a tag prints, empty parts dropped. */
 export function tagLines(l: OnSale): string[][] {
   const s = l.spec;
@@ -96,31 +92,6 @@ function drawTag(g: CanvasRenderingContext2D, l: OnSale) {
   g.font = '700 84px "Barlow Condensed"';
   g.textBaseline = "alphabetic";
   g.fillText(usd(l.price), 22, 342);
-  if (l.review !== null) {
-    const cx = w - 58;
-    const cy = 310;
-    const r = 36;
-    g.lineWidth = 8;
-    g.strokeStyle = "rgba(18,58,128,.18)";
-    g.beginPath();
-    g.arc(cx, cy, r, 0, Math.PI * 2);
-    g.stroke();
-    g.strokeStyle = scoreColour(l.review);
-    g.beginPath();
-    g.arc(
-      cx,
-      cy,
-      r,
-      -Math.PI / 2,
-      -Math.PI / 2 + (Math.PI * 2 * l.review) / 100,
-    );
-    g.stroke();
-    g.fillStyle = BLUE_D;
-    g.font = '700 30px "Barlow Condensed"';
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    g.fillText(`${Math.round(l.review)}`, cx, cy + 1);
-  }
 }
 
 function canvasTexture(

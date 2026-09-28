@@ -53,7 +53,7 @@ const DOOR_BOX = new THREE.Box3(
 );
 const LID = 110;
 /** In use, the screen fills this much of the view. */
-const USE_FILL = 0.84;
+const USE_FILL = 0.74;
 /** Beyond this distance a laptop draws its simpler copy. */
 const FAR = 2800;
 /** Laptop models mounted for baking at once. */

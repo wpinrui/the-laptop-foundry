@@ -1,20 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SavedModel } from "../../../preload/store";
 import {
-  AWARD_NAMES,
   buyersOf,
   type CampaignState,
   competitorsOf,
   type Quarter,
-  quarterSummary,
-  type WorldLaptop,
   type WorldMarket,
   worldQuarters,
 } from "../engine/campaign";
 import { HEADLINE_STATS } from "../engine/market/types";
-import { count, usd, usdShort } from "../foundry/Release";
+import { count, usd } from "../foundry/Release";
 import { pct } from "../foundry/Finance";
-import { cap, inchesLabel, laptopName, makerName, points, STAT_LABEL, segmentName, useWorldMarket } from "./data";
+import { cap, inchesLabel, laptopName, STAT_LABEL, segmentName, useWorldMarket } from "./data";
+import { QuarterTab } from "./QuarterTab";
 import "./world.css";
 
 // The Market screen, full screen over the campaign: what happened in any
@@ -38,151 +36,6 @@ function Cell({ label, value, tone }: { label: string; value: string; tone?: str
     <div className="mw-cell">
       <span>{label}</span>
       <b className={tone}>{value}</b>
-    </div>
-  );
-}
-
-function Name({ l, company }: { l: WorldLaptop; company: string }) {
-  return <th className={l.own ? "mine" : undefined}>{laptopName(l, company)}</th>;
-}
-
-function QuarterPanel({ campaign, market, quarter, company }: { campaign: CampaignState; market: WorldMarket; quarter: Quarter; company: string }) {
-  const s = useMemo(() => quarterSummary(campaign, market, quarter), [campaign, market, quarter]);
-  const p = s.player;
-  return (
-    <div className="mw-scroll">
-      <div className="mw-cells">
-        <Cell label="Market" value={count(s.total)} />
-        <Cell label="Sold" value={count(p.units)} />
-        <Cell label="Share" value={pct(p.share)} />
-        <Cell label="Share change" value={points(p.change)} tone={sign(p.change)} />
-        <Cell label="Profit" value={p.entry ? usdShort(p.entry.profit) : ""} tone={p.entry && p.entry.profit < 0 ? "short" : undefined} />
-        <Cell label="Cash" value={p.entry ? usdShort(p.entry.cash) : ""} />
-      </div>
-      <div className="mw-cols">
-        <table className="fd-books-table mw-table">
-          <caption>Best sellers</caption>
-          <thead>
-            <tr>
-              <th />
-              <th>Units</th>
-              <th>Share</th>
-              <th>Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {s.best.map((b) => (
-              <tr key={b.id}>
-                <Name l={b} company={company} />
-                <td>{count(b.units)}</td>
-                <td>{pct(b.share)}</td>
-                <td>{usd(b.price)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <table className="fd-books-table mw-table">
-          <caption>Makers</caption>
-          <thead>
-            <tr>
-              <th />
-              <th>Units</th>
-              <th>Share</th>
-              <th>Change</th>
-            </tr>
-          </thead>
-          <tbody>
-            {s.makers.map((m) => (
-              <tr key={m.maker ?? "own"}>
-                <th className={m.maker === null ? "mine" : undefined}>{makerName(m.maker, company)}</th>
-                <td>{count(m.units)}</td>
-                <td>{pct(m.share)}</td>
-                <td className={sign(m.change)}>{points(m.change)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mw-cols">
-        {p.models.length > 0 && (
-          <table className="fd-books-table mw-table">
-            <caption>{company}</caption>
-            <thead>
-              <tr>
-                <th />
-                <th>Sold</th>
-                <th>Wanted</th>
-                <th>Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {p.models.map((m) => (
-                <tr key={m.id}>
-                  <th className="mine">{m.name}</th>
-                  <td>{count(m.units)}</td>
-                  <td className={m.demand > m.units ? "short" : undefined}>{count(m.demand)}</td>
-                  <td>{usd(m.price)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {s.launches.length > 0 && (
-          <table className="fd-books-table mw-table">
-            <caption>Launches</caption>
-            <tbody>
-              {s.launches.map((l) => (
-                <tr key={l.id}>
-                  <Name l={l} company={company} />
-                  <td>{usd(l.price)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {s.reviews.length > 0 && (
-          <table className="fd-books-table mw-table">
-            <caption>Reviews</caption>
-            <tbody>
-              {s.reviews.map((l) => (
-                <tr key={l.id}>
-                  <Name l={l} company={company} />
-                  <td>{l.review === null ? "" : `${l.review.toFixed(1)}%`}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {s.awards.length > 0 && (
-          <table className="fd-books-table mw-table">
-            <caption>Awards</caption>
-            <tbody>
-              {s.awards.map((a) => (
-                <tr key={a.award}>
-                  <th>{AWARD_NAMES[a.award]}</th>
-                  <td className={a.maker === null ? "mine" : undefined}>{`${makerName(a.maker, company)} ${a.name}`}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {s.segments.length > 0 && (
-          <table className="fd-books-table mw-table">
-            <caption>Segments</caption>
-            <tbody>
-              {[...s.segments]
-                .sort((a, b) => b.units - a.units)
-                .map((g) => (
-                  <tr key={g.segment}>
-                    <th>{segmentName(g.segment)}</th>
-                    <td>{count(g.units)}</td>
-                    <td>{pct(s.total > 0 ? g.units / s.total : 0)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        )}
-      </div>
     </div>
   );
 }
@@ -452,7 +305,7 @@ export function MarketScreen({
         </div>
       </header>
       <div className="ms-body">
-        {quarter && tab === "quarter" && <QuarterPanel campaign={campaign} market={market} quarter={quarter} company={company} />}
+        {quarter && tab === "quarter" && <QuarterTab campaign={campaign} market={market} quarter={quarter} company={company} />}
         {quarter && tab === "rivals" && (
           <>
             <ModelChips models={choices} model={model} onPick={setModel} />

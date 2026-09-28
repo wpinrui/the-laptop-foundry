@@ -322,7 +322,13 @@ export const BODIES: Body[] = [
     layouts: ["a", "b", "c"],
   },
   {
-    // The first thin-and-light: the underside sweeps up in one convex curve to a thin edge all round.
+    // The first thin-and-light: the underside sweeps up in one convex curve to a
+    // thin front edge, the rear and sides stay near full height. The deep sweep
+    // is the front's alone: on the sides it took 70% of the height all along the
+    // depth, so every side port and vent needed a base over 35 mm, and a sweep
+    // over a quarter of the depth lifted whatever sat near an edge. The sweep
+    // now runs about the palm rest's depth, the front edge keeps 40% of the
+    // height, and the sides and rear keep a short roll that leaves them flat.
     id: "teardrop",
     name: "Teardrop",
     from: 2006,
@@ -335,9 +341,9 @@ export const BODIES: Body[] = [
       profile: 0,
       perim: {
         top: { kind: "round", h: 0.8, d: 0.8 },
-        bot: { kind: "curve", h: "edge", d: s([0.1, 0.28], "y", 12, 80) },
-        edge: { k: 0.3, min: 4 },
-        sides: { f: 1.3, s: 1, r: 0.35 },
+        bot: { kind: "curve", h: "edge", d: s([0.06, 0.2], "y", 10, 60) },
+        edge: { k: 0.4, min: 4 },
+        sides: { f: 1.3, s: 0.4, r: 0.35 },
         tune: true,
       },
       hinge: "drop",

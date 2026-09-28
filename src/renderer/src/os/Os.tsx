@@ -4,6 +4,7 @@ import type { ProfileId } from "../engine";
 import { BOOT_MS, paintAsh, paintBoot, paintKiln } from "./art";
 import { installOsFonts, osFontsReady } from "./fonts";
 import { Battery, ErrorIcon, Glyph, Mark, PowerGlyph, Speaker, Warn } from "./Icons";
+import { STORE } from "../store/name";
 import { type AppId, clockOf, type Era, type Owner, type Power } from "./types";
 import "./os.css";
 
@@ -25,8 +26,9 @@ export const APP_NAME: Record<AppId, string> = {
   fox: "Firefox",
   note: "Notepad",
   sys: "System",
+  shop: STORE[2026].name,
 };
-const DESK_APPS: AppId[] = ["kiln", "ash", "rally", "tiles", "web", "fox", "note", "sys"];
+export const DESK_APPS: AppId[] = ["kiln", "ash", "rally", "tiles", "web", "fox", "note", "sys"];
 
 const PROFILE_NAME: Record<ProfileId, string> = { high: "High", medium: "Medium", low: "Low" };
 const PRESET_NAME: Record<Preset, string> = { low: "Low", medium: "Medium", high: "High", ultra: "Ultra" };
@@ -199,16 +201,17 @@ export function Taskbar(p: TaskbarProps) {
 export function Desktop({
   wallpaper,
   children,
+  apps = DESK_APPS,
   ...bar
-}: TaskbarProps & { wallpaper: string; children?: ReactNode }) {
+}: TaskbarProps & { wallpaper: string; children?: ReactNode; apps?: AppId[] }) {
   return (
     <>
       <img className="os-wall" src={wallpaper} alt="" draggable={false} />
       <div className="os-icons">
-        {DESK_APPS.map((a) => (
+        {apps.map((a) => (
           <button key={a} type="button" className="os-icon" onClick={() => bar.onOpen?.(a)}>
             <Glyph app={a} s={44} />
-            <span>{APP_NAME[a]}</span>
+            <span>{a === "shop" ? STORE[bar.era].name : APP_NAME[a]}</span>
           </button>
         ))}
       </div>

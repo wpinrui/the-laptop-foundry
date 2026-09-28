@@ -360,8 +360,12 @@ export function storeFacets(items: StoreItem[]) {
 
 // ------------------------------------------------------------------ competitors
 
+/** Each headline stat against the shelf's average, 100 at par. Null when the laptop cannot be measured. */
+export type StatIndex = Record<HeadlineStat, number> | null;
+
 export interface Competitor extends WorldLaptop {
   units: number;
+  index: StatIndex;
   /** How much of the two laptops' buyers come from the same segments, 0 to 1. */
   overlap: number;
   /** Its price over the model's. */
@@ -370,7 +374,7 @@ export interface Competitor extends WorldLaptop {
 
 export interface Competition {
   quarter: Quarter;
-  model: (WorldLaptop & { units: number }) | null;
+  model: (WorldLaptop & { units: number; index: StatIndex }) | null;
   rivals: Competitor[];
 }
 
@@ -395,10 +399,19 @@ export function competitorsOf(state: CampaignState, market: WorldMarket, modelId
   const shelf = quarter ? shelfAt(state, quarter) : state.shelf[state.shelf.length - 1];
   const q = shelf?.quarter ?? quarter ?? state.now;
   const self = laptopOf(state, market, modelId, q);
-  if (!shelf || !self) return { quarter: q, model: self ? { ...self, units: 0 } : null, rivals: [] };
+  if (!shelf || !self) return { quarter: q, model: self ? { ...self, units: 0, index: null } : null, rivals: [] };
   const rivals = Object.keys(shelf.units)
     .filter((id) => !shelf.own[id])
     .flatMap((id) => laptopOf(state, market, id, q) ?? []);
+  const measured = [self, ...rivals].flatMap((l) => (l.stats ? [l.stats] : []));
+  const avg = Object.fromEntries(
+    HEADLINE_STATS.map((k) => [k, measured.reduce((a, v) => a + v[k], 0) / Math.max(1, measured.length)]),
+  ) as Record<HeadlineStat, number>;
+  const indexOf = (l: WorldLaptop): StatIndex => {
+    const st = l.stats;
+    if (!st) return null;
+    return Object.fromEntries(HEADLINE_STATS.map((k) => [k, avg[k] > 0 ? (st[k] / avg[k]) * 100 : 100])) as Record<HeadlineStat, number>;
+  };
   const mine = shelf.units[modelId];
   const mix =
     (mine && mixOf(mine)) ?? likelyMix(self, rivals.flatMap((r) => (r.stats ? [r.stats] : [])));
@@ -406,12 +419,12 @@ export function competitorsOf(state: CampaignState, market: WorldMarket, modelId
     const other = mixOf(shelf.units[r.id] ?? []);
     const overlap = mix && other ? mix.reduce((a, m, i) => a + Math.min(m, other[i] ?? 0), 0) : 0;
     const priceRatio = self.price > 0 ? r.price / self.price : 1;
-    return { ...r, units: unitsOf(shelf.units[r.id]), overlap, priceRatio };
+    return { ...r, units: unitsOf(shelf.units[r.id]), index: indexOf(r), overlap, priceRatio };
   });
   const closeness = (c: Competitor) => c.overlap * Math.exp(-Math.abs(Math.log(Math.max(1e-6, c.priceRatio))) / 0.4);
   return {
     quarter: q,
-    model: { ...self, units: unitsOf(mine) },
+    model: { ...self, units: unitsOf(mine), index: indexOf(self) },
     rivals: scored.sort((a, b) => closeness(b) - closeness(a) || b.units - a.units).slice(0, n),
   };
 }

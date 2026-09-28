@@ -175,6 +175,7 @@ export function ModelTab({
   onPrice,
   onRelease,
   onReorder,
+  onMarket,
 }: {
   campaign: CampaignState;
   model: SavedModel;
@@ -184,14 +185,28 @@ export function ModelTab({
   onPrice: (price: number) => void;
   onRelease: (units: number, cost: number, refresh: boolean) => void;
   onReorder: (units: number, cost: number) => void;
+  /** Opens the market view on the model's competitors or buyers. */
+  onMarket?: (tab: "competitors" | "buyers") => void;
 }) {
   const [open, setOpen] = useState<Open | null>(null);
   const { released, lines, cost, refresh, price } = useRun(campaign, model, models);
   const head = (
-    <div className="cr-model-head">
-      <b>{model.name}</b>
-      {price > 0 && <b>{usd(price)}</b>}
-    </div>
+    <>
+      {onMarket && (
+        <div className="cr-links">
+          <button type="button" className="fd-text" onClick={() => onMarket("competitors")}>
+            Competitors
+          </button>
+          <button type="button" className="fd-text" onClick={() => onMarket("buyers")}>
+            Buyers
+          </button>
+        </div>
+      )}
+      <div className="cr-model-head">
+        <b>{model.name}</b>
+        {price > 0 && <b>{usd(price)}</b>}
+      </div>
+    </>
   );
   if (lines === null || cost === null) return head;
 

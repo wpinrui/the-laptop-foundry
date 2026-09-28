@@ -1,0 +1,153 @@
+/* The market view between the rails. It borrows the books view's frame and tables. */
+
+.mw-picks {
+  display: flex;
+  gap: calc(10 * var(--u));
+  margin-left: auto;
+}
+
+.mw-picks + .fd-books-close {
+  margin-left: calc(12 * var(--u));
+}
+
+.mw-picks select {
+  font: inherit;
+  font-size: calc(15 * var(--u));
+  font-weight: 600;
+  color: var(--text);
+  background: var(--ground-deep);
+  border: 1px solid var(--line);
+  padding: calc(3 * var(--u)) calc(6 * var(--u));
+}
+
+.mw-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: calc(20 * var(--u));
+}
+
+.mw-site {
+  display: block;
+  border: 1px solid var(--line);
+}
+
+.mw-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(12 * var(--u)) calc(36 * var(--u));
+}
+
+.mw-cell {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--u));
+}
+
+.mw-cell span {
+  font-weight: 600;
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mw-cell b {
+  font-weight: 700;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+}
+
+.mw .up {
+  color: var(--accent);
+}
+
+.mw .short {
+  color: var(--warning);
+}
+
+.mw .mine {
+  color: var(--accent) !important;
+}
+
+.mw-cols {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: calc(20 * var(--u)) calc(40 * var(--u));
+}
+
+.mw-table caption {
+  text-align: left;
+  padding: 0 calc(10 * var(--u)) calc(6 * var(--u));
+  font-weight: 700;
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mw-table tbody th {
+  position: static;
+}
+
+.mw-table .left {
+  text-align: left;
+}
+
+.mw-table tr.off th,
+.mw-table tr.off td {
+  opacity: 0.45;
+}
+
+.mw-versus thead th {
+  max-width: calc(150 * var(--u));
+  white-space: normal;
+  text-align: right;
+  vertical-align: bottom;
+}
+
+.mw-bar {
+  display: inline-block;
+  width: calc(60 * var(--u));
+  height: calc(6 * var(--u));
+  margin-right: calc(8 * var(--u));
+  background: color-mix(in srgb, var(--muted) 25%, transparent);
+  vertical-align: middle;
+}
+
+.mw-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* The Market rail tab. */
+.cr-market-top {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4 * var(--u));
+}
+
+.cr-market-row {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(12 * var(--u));
+  font-size: calc(15 * var(--u));
+}
+
+.cr-market-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cr-market-row b {
+  font-variant-numeric: tabular-nums;
+}
+
+.cr-market-row .mine {
+  color: var(--accent);
+}

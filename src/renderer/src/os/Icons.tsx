@@ -55,6 +55,13 @@ export function Glyph({ app, s }: { app: AppId; s: number }) {
         <b className="line" />
       </i>
     );
+  if (app === "shop")
+    return (
+      <i className="osi osi-shop" style={size(s)}>
+        <b className="handle" />
+        <b className="bag" />
+      </i>
+    );
   if (app === "web")
     return (
       <i className="osi osi-web" style={size(s)}>

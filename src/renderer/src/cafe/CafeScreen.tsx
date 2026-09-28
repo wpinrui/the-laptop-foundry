@@ -52,6 +52,13 @@ import { PanelPage } from "../panel/PanelPage";
 import { setSpeakerOs, speakerOf } from "../panel/speaker";
 import type { Room } from "../panel/tuning";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
+import type { CampaignState } from "../engine/campaign";
+import type { SavedModel } from "../../../preload/store";
+import { StoreSite } from "../store/StoreSite";
+import { STORE } from "../store/name";
+import { DESK_APPS } from "../os/Os";
+import { useWorldMarket } from "../world/data";
+import { quarterIndex } from "../engine/campaign/rivals";
 import { useMarket, useMarkets } from "../market/markets";
 import { usePhotos } from "../viewer/Photos";
 import { surfacesOf } from "../viewer/Scene";
@@ -64,6 +71,7 @@ import "./cafe.css";
 
 const BATTERY_SPEED = 30;
 const INDEX = "index";
+const NO_MODELS: SavedModel[] = [];
 const LATEST = Math.max(...CONTENT.eras.map((e) => e.year));
 const GAME_EDITIONS: number[] = [];
 for (let y = 2005; y <= gameEdition(LATEST); y += 3) GAME_EDITIONS.push(y);
@@ -197,8 +205,17 @@ export function CafeScreen(props: {
   /** The open company's saved Notepad documents. */
   notes?: NoteDoc[];
   onSaveNotes?: (docs: NoteDoc[]) => void;
+  /** In a campaign, the retailer's site the laptop can browse. */
+  shop?: Shop;
 }) {
   return <OsCafeScreen {...props} />;
+}
+
+/** What the retailer's site on the laptop reads: the campaign, the player's models and the company's name. */
+export interface Shop {
+  state: CampaignState;
+  models: SavedModel[];
+  company: string;
 }
 
 function OsCafeScreen({
@@ -209,6 +226,7 @@ function OsCafeScreen({
   onSound,
   notes,
   onSaveNotes,
+  shop,
 }: {
   subject: Subject;
   library?: Subject[];
@@ -217,8 +235,9 @@ function OsCafeScreen({
   onSound: (on: boolean) => void;
   notes?: NoteDoc[];
   onSaveNotes?: (docs: NoteDoc[]) => void;
+  shop?: Shop;
 }) {
-  const { build, fit, page, shoot, plugged, plug } = useLaptopOs({ subject, library, sound, onSound, notes, onSaveNotes });
+  const { build, fit, page, shoot, plugged, plug } = useLaptopOs({ subject, library, sound, onSound, notes, onSaveNotes, shop });
   const colour = (id: string) => colourHex(id);
   const surfaces = useMemo(() => surfacesOf(build), [build]);
   const colours = useMemo(
@@ -269,9 +288,11 @@ export function useLaptopOs({
   room = "cafe",
   notes,
   onSaveNotes,
+  shop,
 }: {
   subject: Subject;
   library?: Subject[];
+  shop?: Shop;
   sound: boolean;
   onSound: (on: boolean) => void;
   startPlugged?: boolean;
@@ -317,6 +338,10 @@ export function useLaptopOs({
   const [heat, setHeat] = useState(0);
   const [kiln, setKiln] = useState({ running: false, progress: 0, elapsed: 0, result: null as number | null });
   const [web, setWeb] = useState({ list: [INDEX], at: 0, n: 0 });
+  // The retailer's site: the product open, or null for the listing.
+  const [shopPage, setShopPage] = useState<string | null>(null);
+  const shopMarket = useWorldMarket(shop?.models ?? NO_MODELS);
+  const shopQuarter = shop?.state.shelf.length ? shop.state.shelf[shop.state.shelf.length - 1].quarter : null;
   const fox = useFox(app === "fox", () => setApp(null));
   const note = useNote(notes, onSaveNotes);
   const now = useNow();
@@ -493,6 +518,7 @@ export function useLaptopOs({
     setMinimised(false);
     setDismissed(null);
     if (a === "web") setWeb((w) => ({ list: [INDEX], at: 0, n: w.n + 1 }));
+    if (a === "shop") setShopPage(null);
     if (a === "fox") fox.reset();
     setApp(a);
   };
@@ -590,6 +616,31 @@ export function useLaptopOs({
         </Browser>
       </Win>
     );
+  else if (app === "shop" && shop && shopQuarter)
+    win = (
+      <Win app="shop" title={STORE[era].name} w={99999} h={99999} {...winProps}>
+        <Browser
+          era={era}
+          title={STORE[era].name}
+          url={`${STORE[era].domain}/laptops${shopPage ? `/${shopPage}` : ""}`}
+          canBack={!!shopPage}
+          canForward={false}
+          onBack={() => setShopPage(null)}
+          onReload={() => setShopPage((p) => p)}
+        >
+          <StoreSite
+            key={quarterIndex(shopQuarter)}
+            state={shop.state}
+            market={shopMarket}
+            quarter={shopQuarter}
+            company={shop.company}
+            era={era}
+            page={shopPage}
+            onPage={setShopPage}
+          />
+        </Browser>
+      </Win>
+    );
   else if (app === "fox")
     win = (
       <Win app="fox" title={fox.tab.title === "New Tab" ? "Mozilla Firefox" : fox.tab.title} w={99999} h={99999} {...winProps}>
@@ -623,7 +674,7 @@ export function useLaptopOs({
         <Empty />
       ) : (
         <>
-          <Desktop {...bar} wallpaper={wallpaper}>
+          <Desktop {...bar} wallpaper={wallpaper} apps={shop && shopQuarter ? [...DESK_APPS, "shop"] : DESK_APPS}>
             {win}
             {trayOpen && (
               <Flyout

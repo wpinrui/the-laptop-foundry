@@ -36,7 +36,7 @@ export function CampaignRail({
           Market
         </button>
         <button type="button" className="fd-text" onClick={onMenu}>
-          Menu
+          Map
         </button>
       </div>
       <nav className="cr-tabs">

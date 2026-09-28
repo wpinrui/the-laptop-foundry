@@ -72,6 +72,18 @@ Still on, because none of it is code quality:
 - `-log` save the segment of this conversation that went wrong to `.incidents/<date>-<kebab-summary>.md`, then carry on. Do the same unprompted when I am clearly angry (caps, swearing). The segment runs from where it started going wrong to the latest turn: my messages and your replies verbatim, each tool call as one line.
 
 ## Working with me
+- Every prompt written for my designer ends with this block, verbatim:
+
+  ```
+  Never output — or ·.
+
+  They stand in for decisions I want made. In meta lines, nav, and labels: distinguish items by weight, size, colour, or spacing, not a separator glyph. If two items would get identical treatment, they are one item. Merge or cut.
+
+  NEVER ADD needless text to the frontend, EVER. If the app is usable without certain text, fuck off!
+
+  You must use DESIGN, not lazy text to communicate intent to the player.
+  ```
+- When the designer is asked to do 3D modelling, the prompt also tells them to search liberally for CC0 and CC BY 3D models to use, crediting every one (CC BY requires attribution).
 - Use subagents of appropriate size liberally. Have a balanced approach: don't burn tokens but don't engage incompetent subagents.
 - Keep the main conversation for the PM role. Delegate implementation, research and reviews to subagents, and continue the same subagent with SendMessage when the work carries on.
 - Never change `GDD.md` without my sign-off. When code and the GDD disagree, stop and show me the proposed GDD change. Once I approve, it lands in its own `docs:` commit, never inside a feature commit.

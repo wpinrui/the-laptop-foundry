@@ -1,0 +1,313 @@
+/* The world map, to the designer's handoff: 1440 by 810 design px times --u.
+   The street plan fills the left, the panel is the right 400. */
+
+.wm {
+  background: var(--ground);
+  font-variant-numeric: tabular-nums;
+}
+
+.wm-map {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  right: calc(400 * var(--u));
+  overflow: hidden;
+}
+
+.wm-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 70% at 45% 50%, var(--map-glow) 0%, var(--ground) 75%);
+}
+
+.wm-street {
+  position: absolute;
+  background: var(--map-street);
+}
+
+.wm-park {
+  position: absolute;
+  border-radius: calc(6 * var(--u));
+  background: var(--map-park);
+}
+
+.wm-park.faint {
+  opacity: 0.7;
+}
+
+.wm-route {
+  position: absolute;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--accent) 0 calc(10 * var(--u)),
+    transparent calc(10 * var(--u)) calc(16 * var(--u))
+  );
+}
+
+.wm-route.across {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--accent) 0 calc(10 * var(--u)),
+    transparent calc(10 * var(--u)) calc(16 * var(--u))
+  );
+}
+
+/* A place: its dot on the street corner, the tile and name above right of it. */
+.wm-place {
+  position: absolute;
+}
+
+@keyframes wm-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.wm-ping {
+  position: absolute;
+  left: calc(-12 * var(--u));
+  top: calc(-12 * var(--u));
+  width: calc(24 * var(--u));
+  height: calc(24 * var(--u));
+  border-radius: 50%;
+  background: var(--text);
+  animation: wm-ping 1.8s ease-out infinite;
+}
+
+.wm-dot {
+  position: absolute;
+  left: calc(-8 * var(--u));
+  top: calc(-8 * var(--u));
+  width: calc(16 * var(--u));
+  height: calc(16 * var(--u));
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: var(--ground);
+  border: calc(2 * var(--u)) solid var(--line-strong);
+}
+
+.wm-place.here .wm-dot {
+  background: var(--text);
+  border-color: var(--text);
+}
+
+.wm-place.on .wm-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.fd .wm-place button {
+  position: absolute;
+  left: calc(22 * var(--u));
+  top: calc(-72 * var(--u));
+  display: flex;
+  align-items: center;
+  gap: calc(14 * var(--u));
+  font-family: var(--font-display);
+  white-space: nowrap;
+}
+
+.fd .wm-place.here button:disabled {
+  opacity: 0.55;
+}
+
+.fd .wm-place.shut button:disabled {
+  opacity: 0.3;
+}
+
+.wm-tile {
+  width: calc(56 * var(--u));
+  height: calc(56 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--ground-deep) 70%, transparent);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+}
+
+.wm-tile svg {
+  width: calc(26 * var(--u));
+  height: calc(26 * var(--u));
+}
+
+.wm-place.here .wm-tile {
+  border-color: var(--text);
+}
+
+.wm-place.on .wm-tile {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ground);
+}
+
+.wm-place b {
+  font-weight: 700;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.wm-place.on b,
+.fd .wm-place button:not(:disabled):hover b {
+  color: var(--accent);
+}
+
+/* The panel: the rail style, on the right. */
+.wm-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(400 * var(--u));
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--ground-deep) 86%, transparent);
+  backdrop-filter: blur(18px);
+  border-left: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  font-family: var(--font-display);
+}
+
+.wm-dest {
+  padding: calc(40 * var(--u)) calc(32 * var(--u)) calc(24 * var(--u));
+  font-weight: 700;
+  font-size: calc(48 * var(--u));
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.wm-bring {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 calc(32 * var(--u)) calc(10 * var(--u));
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.wm-bring span:first-child {
+  font-size: calc(14 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.wm-bring span:last-child {
+  font-size: calc(17 * var(--u));
+}
+
+.wm-list,
+.wm-fill {
+  flex: 1;
+  min-height: 0;
+}
+
+.wm-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: calc(6 * var(--u)) 0;
+}
+
+.fd .wm-row {
+  display: flex;
+  align-items: center;
+  gap: calc(16 * var(--u));
+  padding: calc(10 * var(--u)) calc(32 * var(--u));
+  text-align: left;
+  font-family: var(--font-display);
+}
+
+.fd .wm-row:hover {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.fd .wm-row.on {
+  background: var(--accent-wash);
+}
+
+.wm-row > span:not(.wm-thumb) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wm-row b {
+  font-weight: 600;
+  font-size: calc(24 * var(--u));
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wm-row.none b {
+  color: var(--muted);
+}
+
+.wm-row.on b {
+  color: var(--accent);
+}
+
+.wm-row small {
+  font-weight: 500;
+  font-size: calc(16 * var(--u));
+  color: var(--muted);
+}
+
+.wm-row em {
+  font-style: normal;
+  font-weight: 600;
+  font-size: calc(26 * var(--u));
+}
+
+.wm-thumb {
+  width: calc(52 * var(--u));
+  height: calc(36 * var(--u));
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+}
+
+.wm-thumb.none {
+  border-style: dashed;
+}
+
+.wm-thumb i {
+  display: block;
+  border-radius: calc(2 * var(--u));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 18%, transparent);
+}
+
+.wm-foot {
+  padding: calc(20 * var(--u)) calc(32 * var(--u)) calc(32 * var(--u));
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--u));
+}
+
+.wm-foot button {
+  width: 100%;
+  text-align: center;
+}
+
+.wm-foot .fd-primary {
+  padding: calc(16 * var(--u)) 0 !important;
+}
+
+.wm-foot .fd-secondary {
+  padding: calc(13 * var(--u)) 0 !important;
+}

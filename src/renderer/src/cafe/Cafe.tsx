@@ -1,9 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import type { Decor, Fit } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
 import { setSpeakerFull } from "../panel/speaker";
-import type { Surfaces } from "../viewer/Scene";
-import { type Aim, World } from "./World";
+import { type Aim, type LaptopLook, World } from "./World";
 
 // The cafe's first-person shell: pointer lock, the aim dot and prompts, the
 // sit (seated, looking and zooming), use (seated, free cursor on the screen)
@@ -93,11 +91,7 @@ export function FullPage({ page }: { page: { node: ReactNode; width: number; hei
 }
 
 export function Cafe({
-  fit,
-  year,
-  colours,
-  decor,
-  surfaces,
+  laptop,
   page,
   shoot,
   plugged,
@@ -105,19 +99,23 @@ export function Cafe({
   sound,
   onSound,
   onLeave,
+  onMap,
+  atDoor,
 }: {
-  fit: Fit;
-  year: number;
-  colours: { floor: string; deck: string; lid: string };
-  decor?: Decor;
-  surfaces: Surfaces;
+  /** None: the player came empty handed. */
+  laptop?: LaptopLook;
   page?: Page;
   shoot: ReactNode;
   plugged: boolean;
   onPlug: () => void;
   sound: boolean;
   onSound: (on: boolean) => void;
-  onLeave: () => void;
+  /** Back to the models screen; absent on a visit from the map. */
+  onLeave?: () => void;
+  /** To the world map, from the pause menu or out through the entrance. */
+  onMap: () => void;
+  /** Arrives through the street entrance. */
+  atDoor?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   // Sitting: seated, pointer locked, looking around. Using: seated with the
@@ -249,11 +247,9 @@ export function Cafe({
       {shoot}
       <div className={`cafe-world${paused ? " paused" : ""}`}>
         <World
-          fit={fit}
-          year={year}
-          colours={colours}
-          decor={decor}
-          surfaces={surfaces}
+          laptop={laptop}
+          atDoor={atDoor}
+          onDoor={onMap}
           screen={page && !full ? page : undefined}
           seated={pose !== "stand"}
           using={using}
@@ -281,7 +277,8 @@ export function Cafe({
               <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)}>
                 Sound
               </Entry>
-              <Entry onClick={onLeave}>Leave</Entry>
+              {onLeave && <Entry onClick={onLeave}>Leave</Entry>}
+              <Entry onClick={onMap}>Map</Entry>
             </div>
           </Column>
         </div>

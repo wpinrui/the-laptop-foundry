@@ -58,14 +58,19 @@ const RECTS: Rect[] = [
   { x0: 3400, x1: 7250, z0: -250, z1: 850 },
   // The lounge.
   { x0: -7800, x1: -3850, z0: 3600, z1: 6500 },
-  // The left wall's desk and shelves.
-  { x0: -9000, x1: -6400, z0: -2950, z1: 3600 },
+  // The left wall's desk and shelves, and the coat stand by the door.
+  { x0: -9000, x1: -6400, z0: -2950, z1: 2100 },
+  { x0: -8700, x1: -8100, z0: 3240, z1: 4000 },
   // The right wall's shelves.
   { x0: 8000, x1: 9000, z0: -2950, z1: 2200 },
   // The sink counter and the finish cabinet along the front wall.
   { x0: -3220, x1: -1680, z0: 5860, z1: 6500 },
   { x0: 4400, x1: 8800, z0: 6100, z1: 6500 },
 ];
+/** The personnel door in the left wall: walking into it leaves the workshop. */
+const DOOR = { z0: 2450, z1: 3250 };
+/** Arriving through the door: where the player stands. */
+const DOOR_START = new THREE.Vector3(ROOM.x0 + 900, EYE, 2700);
 /** Degrees a second the lid turns. */
 const LID_SPEED = 200;
 /** Seconds to turn the laptop over, and to lift the cover off. */
@@ -218,12 +223,14 @@ interface Pose {
   at: THREE.Vector3;
 }
 
-function Walker({
+export function Walker({
   laptop,
   active,
   using,
   useAt,
   onAim,
+  atDoor = false,
+  onDoor,
 }: {
   laptop: RefObject<THREE.Group | null>;
   active: boolean;
@@ -231,6 +238,10 @@ function Walker({
   /** Where the player stands to use the laptop, and what they look at. */
   useAt: (aspect: number) => Pose;
   onAim: (on: boolean) => void;
+  /** Arrives through the personnel door rather than from the builder's camera. */
+  atDoor?: boolean;
+  /** Walking out through the personnel door. */
+  onDoor?: () => void;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
@@ -256,6 +267,9 @@ function Walker({
   const fov = useRef(FOV);
   const live = useRef({ using, active });
   live.current = { using, active };
+  const door = useRef(onDoor);
+  door.current = onDoor;
+  const out = useRef(false);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.current.add(e.code);
@@ -300,11 +314,15 @@ function Walker({
     if (!started.current) {
       // Stand where the builder's camera is, out of the island, facing the laptop.
       started.current = true;
-      const p = new THREE.Vector3(camera.position.x, EYE, camera.position.z);
+      const p = atDoor ? DOOR_START.clone() : new THREE.Vector3(camera.position.x, EYE, camera.position.z);
       collideIn(p, ROOM, RECTS, BODY);
       pos.current.copy(p);
       look.current = lookAngles(p, new THREE.Vector3(0, PLINTH_H + 60, 0));
-      enter.current = camFrom(camera, clock.current);
+      if (atDoor) {
+        camera.fov = FOV;
+        camera.clearViewOffset();
+        camera.updateProjectionMatrix();
+      } else enter.current = camFrom(camera, clock.current);
     }
     if (wasUsing.current !== using) {
       wasUsing.current = using;
@@ -342,6 +360,11 @@ function Walker({
         pos.current.x += ((-Math.sin(yaw) * f + Math.cos(yaw) * r) / len) * SPEED * dt;
         pos.current.z += ((-Math.cos(yaw) * f - Math.sin(yaw) * r) / len) * SPEED * dt;
         collideIn(pos.current, ROOM, RECTS, BODY);
+        const p = pos.current;
+        if (door.current && !out.current && p.x <= ROOM.x0 + BODY + 1 && p.z > DOOR.z0 && p.z < DOOR.z1) {
+          out.current = true;
+          door.current();
+        }
       }
     }
     const e = enter.current;
@@ -390,6 +413,10 @@ export interface FreeDrive {
   page?: ScreenPage;
   onAim: (on: boolean) => void;
   onSettled: () => void;
+  /** Arrives through the personnel door. */
+  atDoor?: boolean;
+  /** Walking out through the personnel door. */
+  onDoor?: () => void;
 }
 
 type ModelProps = ComponentProps<typeof Model>;
@@ -567,6 +594,8 @@ export function WorkshopLaptop({
           using={free.state.using}
           useAt={useAt}
           onAim={free.onAim}
+          atDoor={free.atDoor}
+          onDoor={free.onDoor}
         />
       )}
     </>
@@ -583,6 +612,7 @@ export function FreeOverlay({
   canUse,
   page,
   onExit,
+  onMap,
   sound,
   onSound,
 }: {
@@ -592,7 +622,9 @@ export function FreeOverlay({
   canUse: boolean;
   /** The OS page, for full screen. */
   page?: { node: ReactNode; width: number; height: number };
-  onExit: () => void;
+  /** Back to the builder; absent on a visit from the map. */
+  onExit?: () => void;
+  onMap?: () => void;
   sound: boolean;
   onSound: (on: boolean) => void;
 }) {
@@ -741,13 +773,14 @@ export function FreeOverlay({
               <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)}>
                 Sound
               </Entry>
-              <Entry onClick={onExit}>Leave free view</Entry>
+              {onExit && <Entry onClick={onExit}>Leave free view</Entry>}
+              {onMap && <Entry onClick={onMap}>Map</Entry>}
             </div>
           </Column>
         </div>
       )}
       {/* The builder's Free view button, pressed: while the pointer is free, it leaves. */}
-      {(state.paused || (state.using && !state.full)) && (
+      {onExit && (state.paused || (state.using && !state.full)) && (
         <button type="button" className="fd-text bd-free on" onClick={onExit}>
           Free view
         </button>

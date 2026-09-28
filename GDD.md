@@ -322,6 +322,22 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 - The player plugs in and unplugs with C, aiming at the laptop or the power socket in the table.
 - F shows the screen full screen.
 
+## The world map
+
+The player is always on the world map or in one of four places: the Workshop, the Cafe, the Office and Courts.
+
+- Opening a company from the menu lands on the map, with no current place.
+- The map is a street plan with the four places on street corners. A panel beside it names the selected destination and holds Go.
+- The place the player walked out of is marked as the current place and cannot be picked. A dashed route runs along the streets from it to the destination.
+- The Workshop and the Cafe ask which laptop to bring. None comes first and is the default: the player arrives empty handed.
+- Any laptop can come to the Workshop, drafts included. Only a laptop that works can come to the Cafe.
+- The Workshop opens in free view, through the personnel door, with the laptop brought along on the turntable, or an empty turntable.
+- The Cafe opens through the street entrance, with the laptop brought along on the table. Empty handed, the table is bare and nothing asks for a laptop.
+- Walking out through the Workshop's personnel door or the Cafe's street entrance returns to the map. So does Map in either pause menu.
+- From a place, Stay goes back in. From the menu, Menu goes back to the main menu.
+- The Office is where the player runs the company. Until it has its own room, the models screen with the campaign rails stands in for it. Map there returns to the map.
+- Courts is the store. It shows on the map but cannot be entered until its room is built.
+
 ## Version 0.2
 
 Version 0.2 is built. It came in three parts: a realism audit of the builder, then scoring and the market, then the sales simulation.
@@ -456,11 +472,11 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 #### Market world
 
 - Every quarter the campaign keeps its whole shelf: units sold per laptop per buyer segment, the player's and the rivals', the quarter's launches, the player's prices and demand, and the brand's reach and reputation. It keeps every quarter of the campaign, about 360 KB over 2006 to 2026, and more for every year played past it.
-- A Market tab on the campaign rail shows the last quarter's market, share and best sellers, and opens the market view.
-- The market view shows any kept quarter: the market's units, best sellers, maker shares and their change, launches, reviews, awards, units per segment, and how the player did.
-- A retailer's site lists every laptop on sale in a quarter, or in a sandbox company the laptop's own generated year, with filters for price, screen, size, use, budget, brand and buyer segment, and a product page with its rating, units sold and specifications. Its look follows the era like the review site's. It lives on the laptop's own OS, not the market view: a desktop and dock app on every laptop, and its address typed into the browser.
-- For a player model, the market view shows its closest rivals, by the segments they sell to and their price, with their headline stats beside its own, and its buyers: units, split and share won per segment, what each segment weighs most, and the brand's reach and reputation there.
-- The quarter report adds the player's share and its change and the best seller, and opens the market view on that quarter.
+- The Market screen fills the window: Quarter, Rivals, Buyers and Store tabs, a quarter picker driving every tab but Store, and Close, or Continue after End quarter. End quarter opens it on the quarter just played; Market on the campaign rail opens it on the last played quarter.
+- Quarter: the company's units, revenue, profit, share and rank against the market; every maker's share and movement; the quarter's launches with review scores; the best sellers, with the player's own ranks, and the year's awards in a Q4.
+- Rivals: for a player model, the five rivals it competes with most (buyer overlap times price closeness) by units won, and a stat matrix of indices on the market's par with buyer weights and a market score.
+- Buyers: every segment's buyers, wants, the share the company won, units per player model, and the brand's reach and reputation.
+- Store: the laptop's OS with Courts open, the same retailer site every laptop's OS carries, in its era's look, with class matrix filters, stars from review scores, best seller ranks, real stock and similar laptops from the Rivals overlap.
 
 ## Stretch goals
 

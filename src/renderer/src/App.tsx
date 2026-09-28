@@ -14,6 +14,7 @@ import { Ending } from "./foundry/Ending";
 import { BrandTab } from "./foundry/Marketing";
 import { ModelTab } from "./foundry/Release";
 import { CampaignRail, type RailTab } from "./foundry/CampaignRail";
+import { type QuarterReport, ReportModal, reportOf } from "./foundry/Report";
 import { AwardsTab } from "./foundry/Awards";
 import { MAKERS } from "./engine/market/makers";
 import { setHonours } from "./review/honours";
@@ -79,8 +80,13 @@ export function App() {
   const [resolving, setResolving] = useState<{ step: number; of: number; name: string } | null>(null);
   // Awards the player has seen on the Awards tab; more than that marks the tab.
   const [seenAwards, setSeenAwards] = useState<number | null>(null);
+  // The report on the quarter just resolved, until Continue.
+  const [report, setReport] = useState<QuarterReport | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the statement closes when the screen or company changes
-  useEffect(() => setStatement(null), [menu, company?.id]);
+  useEffect(() => {
+    setStatement(null);
+    setReport(null);
+  }, [menu, company?.id]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a loaded company's awards so far count as seen
   useEffect(() => {
     setSeenAwards(company?.campaign ? campaignOf(company.campaign).awards.length : null);
@@ -232,7 +238,9 @@ export function App() {
           await new Promise((r) => setTimeout(r, 140));
           s = step.run(s, ctx);
         }
-        commit(advanceClock(s));
+        const next = advanceClock(s);
+        commit(next);
+        if (!next.over) setReport(reportOf(s, company.models));
       })
       .finally(() => {
         setBusy(false);
@@ -512,6 +520,7 @@ export function App() {
           )}
           {tab === "awards" && <AwardsTab campaign={campaign} models={company.models} />}
         </CampaignRail>
+        {report && <ReportModal report={report} onClose={() => setReport(null)} />}
       </>
     );
 

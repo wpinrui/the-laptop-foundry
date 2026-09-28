@@ -1,4 +1,4 @@
-/* The quarter video: the rendered 9:16 file, centred on black. */
+/* The quarter video: the rendered 9:16 file, painted on a canvas centred on black. */
 .fd.vd {
   background: #000;
 }
@@ -10,6 +10,18 @@
   height: 100vh;
   aspect-ratio: 9 / 16;
   transform: translate(-50%, -50%);
+}
+
+/* The source video: still decoding and playing its sound, but 1px, transparent
+   and out of the way, so it is never a layer anyone sees. */
+.vd-src {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .vd-bar {

@@ -1,13 +1,33 @@
-import { type KeyboardEvent, useCallback, useEffect, useId, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useId, useRef, useState } from "react";
+import type { Era } from "../review/Charts";
+import { StoreSite, type StoreSource } from "../store/StoreSite";
 import "./fox.css";
 
 // A small Firefox look-alike that loads real sites. Each tab is a sandboxed
 // iframe; the main process strips the headers that forbid framing for these
 // frames only and reports where each one navigates, so the address bar and
-// the tab titles follow the page even across origins.
+// the tab titles follow the page even across origins. One address, the
+// in-game retailer's, never reaches the network: it renders the same store
+// site the laptop's desktop app shows, locally, in place of a frame.
 
 export const FOX_HOME = "https://duckduckgo.com/";
 const SEARCH = "https://duckduckgo.com/?q=";
+
+/** What the Firefox app needs to show the retailer locally when its address is typed. */
+export interface CourtsData {
+  source: StoreSource;
+  company: string;
+  era: Era;
+}
+
+/** True for the retailer's in-game address, however it was typed: never given to a frame. */
+export function isCourtsUrl(url: string): boolean {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "") === "courts.com";
+  } catch {
+    return false;
+  }
+}
 
 /** What a site may do in its frame. No top navigation, no downloads. */
 const SANDBOX = "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox";
@@ -255,7 +275,7 @@ const Arrow = ({ flip }: { flip?: boolean }) => (
   </svg>
 );
 
-export function FoxApp({ fox }: { fox: Fox }) {
+export function FoxApp({ fox, courts }: { fox: Fox; courts?: CourtsData }) {
   const { tabs, tab, sel } = fox;
   const url = tab.list[tab.at];
   const [draft, setDraft] = useState<string | null>(null);
@@ -301,8 +321,15 @@ export function FoxApp({ fox }: { fox: Fox }) {
               if (e.key === "Enter") fox.setSel(t.id);
             }}
           >
-            <Favicon url={t.list[t.at]} loading={t.loading} />
-            <span className="fx-tab-title">{t.title}</span>
+            {isCourtsUrl(t.list[t.at]) ? (
+              <i className="osi osi-shop fx-fav" style={{ "--s": "14px" } as CSSProperties}>
+                <b className="handle" />
+                <b className="bag" />
+              </i>
+            ) : (
+              <Favicon url={t.list[t.at]} loading={t.loading} />
+            )}
+            <span className="fx-tab-title">{isCourtsUrl(t.list[t.at]) ? "Courts" : t.title}</span>
             <button
               type="button"
               className="fx-tab-x"
@@ -364,9 +391,15 @@ export function FoxApp({ fox }: { fox: Fox }) {
         </span>
       </div>
       <div className="fx-page">
-        {tabs.map((t) => (
-          <Frame key={`${t.id}:${t.nonce}`} tab={t} shown={t.id === sel} onLoad={() => fox.loaded(t.id)} />
-        ))}
+        {tabs.map((t) => {
+          if (isCourtsUrl(t.list[t.at]) && courts)
+            return t.id === sel ? (
+              <div key={`${t.id}:${t.nonce}`} className="fx-courts">
+                <StoreSite source={courts.source} company={courts.company} era={courts.era} />
+              </div>
+            ) : null;
+          return <Frame key={`${t.id}:${t.nonce}`} tab={t} shown={t.id === sel} onLoad={() => fox.loaded(t.id)} />;
+        })}
       </div>
     </div>
   );

@@ -309,15 +309,8 @@ function topSegments(units: number[] | undefined, n = 3): SegmentId[] {
     .map(([id]) => id);
 }
 
-/** Every laptop on sale in the quarter, filtered and sorted. */
-export function storeListing(state: CampaignState, market: WorldMarket, q: Quarter, filters: StoreFilters = {}): StoreItem[] {
-  const shelf = shelfAt(state, q);
-  if (!shelf) return [];
-  const f = filters;
-  const items = Object.entries(shelf.units).flatMap(([id, u]): StoreItem[] => {
-    const l = laptopOf(state, market, id, q);
-    return l ? [{ ...l, units: unitsOf(u), isNew: shelf.launched.includes(id), segments: topSegments(u) }] : [];
-  });
+/** A listing filtered and sorted the way the store site's sidebar and sort pick do. */
+function filteredListing(items: StoreItem[], f: StoreFilters): StoreItem[] {
   const shown = items.filter(
     (x) =>
       (f.minPrice === undefined || x.price >= f.minPrice) &&
@@ -344,6 +337,51 @@ export function storeListing(state: CampaignState, market: WorldMarket, q: Quart
     const d = typeof x === "string" ? x.localeCompare(y as string) : x - (y as number);
     return (asc ? d : -d) || a.id.localeCompare(b.id);
   });
+}
+
+/** Every laptop on sale in the quarter, filtered and sorted. */
+export function storeListing(state: CampaignState, market: WorldMarket, q: Quarter, filters: StoreFilters = {}): StoreItem[] {
+  const shelf = shelfAt(state, q);
+  if (!shelf) return [];
+  const items = Object.entries(shelf.units).flatMap(([id, u]): StoreItem[] => {
+    const l = laptopOf(state, market, id, q);
+    return l ? [{ ...l, units: unitsOf(u), isNew: shelf.launched.includes(id), segments: topSegments(u) }] : [];
+  });
+  return filteredListing(items, filters);
+}
+
+/**
+ * Every laptop the generated market offers in a year, standing in for a
+ * quarter's shelf when there is no campaign to keep one: a sandbox company's
+ * laptop reads its own year's field this way.
+ */
+export function yearListing(rivals: Rival[], filters: StoreFilters = {}): StoreItem[] {
+  const items: StoreItem[] = rivals.map((r) => {
+    const p = safe(() => rivalProfile(r));
+    const f = safe(() => factsOf({ id: r.id, name: r.name, company: "", build: r.build }));
+    const line = LINES.find((l) => l.id === r.line);
+    const shape = line ? shapeFor(line, r.build.year).class : null;
+    return {
+      id: r.id,
+      own: false,
+      maker: r.maker,
+      name: r.name,
+      year: r.build.year,
+      price: r.build.price ?? 0,
+      inches: p?.inches ?? r.build.screen?.diag ?? 0,
+      kg: f?.kg ?? null,
+      budget: f?.cls.budget ?? shape?.budget ?? null,
+      body: f?.cls.body ?? shape?.body ?? null,
+      performance: f?.cls.performance ?? shape?.performance ?? null,
+      review: p?.review ?? null,
+      stats: p?.stats ?? null,
+      build: r.build,
+      units: 0,
+      isNew: false,
+      segments: [],
+    };
+  });
+  return filteredListing(items, filters);
 }
 
 /** What a listing can be filtered by: its makers, price and size range, and the segments present. */

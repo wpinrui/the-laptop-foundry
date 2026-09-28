@@ -15,20 +15,18 @@ import {
 import { HEADLINE_STATS } from "../engine/market/types";
 import { count, usd, usdShort } from "../foundry/Release";
 import { pct } from "../foundry/Finance";
-import { eraOf } from "../review/ReviewSite";
-import { StoreSite } from "../store/StoreSite";
 import { cap, inchesLabel, laptopName, makerName, points, STAT_LABEL, segmentName, useWorldMarket } from "./data";
 import "./world.css";
 
-// The market world between the rails: what happened in any kept quarter, the
-// retailer's shelf, a model's closest rivals and its buyers. Each panel takes
-// a selector's values and lays them out; nothing here computes the market.
+// The market world between the rails: what happened in any kept quarter, a
+// model's closest rivals and its buyers. Each panel takes a selector's values
+// and lays them out; nothing here computes the market. The retailer's site
+// lives on the laptop's own OS, not here.
 
-export type MarketTab = "quarter" | "store" | "competitors" | "buyers";
+export type MarketTab = "quarter" | "competitors" | "buyers";
 
 const TABS: [MarketTab, string][] = [
   ["quarter", "Quarter"],
-  ["store", "Store"],
   ["competitors", "Competitors"],
   ["buyers", "Buyers"],
 ];
@@ -375,7 +373,6 @@ export function MarketView({
   const choices = pickable(campaign, models);
   const [model, setModel] = useState(startModel ?? choices[0]?.id ?? "");
   const [scope, setScope] = useState<"all" | "quarter">("all");
-  const [page, setPage] = useState<string | null>(null);
   const needsModel = tab === "competitors" || tab === "buyers";
   return (
     <section className="fd-books mw fd-in">
@@ -416,11 +413,6 @@ export function MarketView({
         </button>
       </header>
       {quarter && tab === "quarter" && <QuarterPanel campaign={campaign} market={market} quarter={quarter} company={company} />}
-      {quarter && tab === "store" && (
-        <div className="mw-scroll mw-site">
-          <StoreSite state={campaign} market={market} quarter={quarter} company={company} era={eraOf(quarter.year)} page={page} onPage={setPage} />
-        </div>
-      )}
       {quarter && tab === "competitors" && model && (
         <CompetitorsPanel campaign={campaign} market={market} quarter={quarter} model={model} company={company} />
       )}

@@ -8,9 +8,11 @@ import {
   storeFacets,
   storeListing,
   type WorldMarket,
+  yearListing,
 } from "../engine/campaign";
 import type { BodyClass, Budget, PerfClass } from "../engine/price";
 import { reviewOf } from "../engine/review";
+import type { Rival } from "../engine/market/field";
 import type { SegmentId } from "../engine/market/types";
 import type { Era } from "../review/Charts";
 import { count, usd } from "../foundry/Release";
@@ -21,7 +23,11 @@ import "./store.css";
 // The in-game retailer's website: every laptop on sale in a quarter, with
 // filters, and a product page. Its look follows the era like the review
 // site's: a 2006 portal, a 2016 flat shop, a 2026 editorial page. The data
-// comes from storeListing; this file only lays it out.
+// comes from storeListing in a campaign, or yearListing for a sandbox
+// company's own year; this file only lays it out.
+
+/** Where the listing comes from: a campaign's kept quarter, or a sandbox laptop's own generated year. */
+export type StoreSource = { kind: "quarter"; state: CampaignState; market: WorldMarket; quarter: Quarter } | { kind: "year"; rivals: Rival[]; year: number };
 
 const PRICE_BANDS: [string, number | undefined, number | undefined][] = [
   ["Under $500", undefined, 499.99],
@@ -76,7 +82,7 @@ function Select<T extends string>({
   );
 }
 
-function Masthead({ era, quarter, onHome }: { era: Era; quarter: Quarter; onHome: () => void }) {
+function Masthead({ era, when, onHome }: { era: Era; when: string; onHome: () => void }) {
   return (
     <header className="st-mast">
       <button type="button" className="st-logo" onClick={onHome}>
@@ -88,7 +94,7 @@ function Masthead({ era, quarter, onHome }: { era: Era; quarter: Quarter; onHome
         <span>Phones</span>
         <span>TV</span>
       </nav>
-      <span className="st-when">{quarterLabel(quarter)}</span>
+      <span className="st-when">{when}</span>
     </header>
   );
 }
@@ -176,19 +182,15 @@ function Product({ item, company, era, onBack }: { item: StoreItem; company: str
   );
 }
 
-/** The retailer's site for the quarter. The product page is controlled when `page` is passed. */
+/** The retailer's site for a campaign's quarter or a sandbox year. The product page is controlled when `page` is passed. */
 export function StoreSite({
-  state,
-  market,
-  quarter,
+  source,
   company,
   era,
   page,
   onPage,
 }: {
-  state: CampaignState;
-  market: WorldMarket;
-  quarter: Quarter;
+  source: StoreSource;
   company: string;
   era: Era;
   page?: string | null;
@@ -201,7 +203,9 @@ export function StoreSite({
   const [price, setPrice] = useState("");
   const [size, setSize] = useState("");
   const [maker, setMaker] = useState("");
-  const all = useMemo(() => storeListing(state, market, quarter), [state, market, quarter]);
+  const listingOf = (f: StoreFilters) =>
+    source.kind === "quarter" ? storeListing(source.state, source.market, source.quarter, f) : yearListing(source.rivals, f);
+  const all = useMemo(() => listingOf({}), [source]);
   const facets = useMemo(() => storeFacets(all), [all]);
   const band = (bands: typeof PRICE_BANDS, v: string) => bands.find(([l]) => l === v);
   const f: StoreFilters = {
@@ -212,17 +216,18 @@ export function StoreSite({
     maxInches: band(SIZE_BANDS, size)?.[2],
     maker: maker === "" ? undefined : maker === OWN ? null : maker,
   };
-  const items = useMemo(() => storeListing(state, market, quarter, f), [state, market, quarter, JSON.stringify(f)]);
+  const items = useMemo(() => listingOf(f), [source, JSON.stringify(f)]);
   const item = open ? all.find((x) => x.id === open) : undefined;
   const set = <K extends keyof StoreFilters>(k: K, v: StoreFilters[K] | "") =>
     setFilters((x) => ({ ...x, [k]: v === "" ? undefined : v }));
   const makers = facets.makers
     .map((m): [string, string] => [m === null ? OWN : m, makerName(m, company)])
     .sort((a, b) => a[1].localeCompare(b[1]));
+  const when = source.kind === "quarter" ? quarterLabel(source.quarter) : String(source.year);
   return (
     <div className={`st st-${era}`}>
       <div className="st-frame">
-        <Masthead era={era} quarter={quarter} onHome={() => go(null)} />
+        <Masthead era={era} when={when} onHome={() => go(null)} />
         {item ? (
           <Product item={item} company={company} era={era} onBack={() => go(null)} />
         ) : (

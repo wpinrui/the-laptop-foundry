@@ -229,19 +229,23 @@ export function Builder({
     [locked],
   );
 
+  // A campaign model's year is fixed, so its stage never shows in the builder.
+  const stages: Stage[] = yearLocked ? STAGES.filter((s) => s !== "year") : [...STAGES];
+
   // Reopen where the player left off. Only a brand-new model starts on Year.
   const [stage, setStage] = useState<Stage>(() => {
     const saved = build.stage as Stage | undefined;
-    if (saved && STAGES.includes(saved)) return saved;
-    return Object.values(build.parts).some((l) => (l ?? []).length > 0) ? "chassis" : "year";
+    if (saved && stages.includes(saved)) return saved;
+    if (Object.values(build.parts).some((l) => (l ?? []).length > 0)) return "chassis";
+    return yearLocked ? "chassis" : "year";
   });
-  const [visited, setVisited] = useState<Set<Stage>>(() => new Set(STAGES.slice(0, STAGES.indexOf(stage) + 1)));
+  const [visited, setVisited] = useState<Set<Stage>>(() => new Set(stages.slice(0, stages.indexOf(stage) + 1)));
   const go = (s: Stage) => {
     setStage(s);
     setVisited((v) => (v.has(s) ? v : new Set([...v, s])));
     set((b) => (b.stage === s ? b : { ...b, stage: s }));
   };
-  const idx = STAGES.indexOf(stage);
+  const idx = stages.indexOf(stage);
   const [insideSlot, setInsideSlot] = useState("processor");
   const [surfaceItem, setSurfaceItem] = useState<SurfaceItem>("keyboard");
   const [port, setPort] = useState(0);
@@ -600,7 +604,7 @@ export function Builder({
       {TRAY.has(stage) && !powering && <div className="bd-scrim-bottom" />}
 
       <nav className="bd-stages">
-        {STAGES.map((s, i) => (
+        {stages.map((s, i) => (
           <button
             type="button"
             key={s}
@@ -660,7 +664,7 @@ export function Builder({
                 <button type="button" className="fd-text" onClick={leave}>
                   Back
                 </button>
-                <button type="button" className="fd-primary" onClick={() => go(STAGES[idx + 1])}>
+                <button type="button" className="fd-primary" onClick={() => go(stages[idx + 1])}>
                   Next
                 </button>
               </div>
@@ -672,11 +676,11 @@ export function Builder({
                 {tray}
               </fieldset>
               <div className="bd-actions">
-                <button type="button" className="fd-text" onClick={() => go(STAGES[idx - 1])}>
+                <button type="button" className="fd-text" onClick={idx > 0 ? () => go(stages[idx - 1]) : leave}>
                   Back
                 </button>
                 {stage !== "price" ? (
-                  <button type="button" className="fd-primary" onClick={() => go(STAGES[idx + 1])}>
+                  <button type="button" className="fd-primary" onClick={() => go(stages[idx + 1])}>
                     Next
                   </button>
                 ) : (

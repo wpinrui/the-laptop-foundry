@@ -405,7 +405,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 #### Finances
 
 - Releasing a model pays design and certification, then chassis tooling, once: $300,000 and $700,000 for a new chassis, $75,000 and $50,000 for a refresh on a body already tooled.
-- A production run is ordered at a size from 1,000 to 100,000 units. A unit pays the build's full cost at 5,000 units or fewer; economies of scale bring that to about 71% at 50,000 and a floor of 70% beyond.
+- A production run is ordered at a size from 100 to 100,000 units. A unit pays the build's full cost at 5,000 units. Smaller runs pay more per unit, about 116% at 1,000 and 139% at 100; economies of scale bring larger runs to about 89% at 10,000, 71% at 50,000 and a floor of 70% beyond.
 - Retailers keep 20% of every sale's retail price.
 - Fixed overhead runs $150,000 a quarter, plus $40,000 for every released line still holding stock.
 - Unsold stock costs 4% of its production value a quarter in holding, about 16% a year.

@@ -573,6 +573,36 @@
   font-weight: 600;
 }
 
+.cr-costs .head {
+  margin-top: calc(8 * var(--u));
+  padding-bottom: calc(2 * var(--u));
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  font-size: calc(14 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cr-price .cr-stepper.small {
+  gap: calc(8 * var(--u));
+}
+
+.cr-price .cr-stepper.small button {
+  width: calc(30 * var(--u));
+  height: calc(30 * var(--u));
+  font-size: calc(20 * var(--u));
+}
+
+.cr-price .cr-stepper.small input {
+  width: calc(110 * var(--u));
+  font-size: calc(24 * var(--u)) !important;
+}
+
+.cr-price {
+  align-items: center;
+}
+
 .cr-costs dd small {
   margin-right: calc(10 * var(--u));
   font-weight: 600;

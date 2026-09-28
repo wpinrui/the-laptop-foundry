@@ -6,7 +6,7 @@ import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
 import { CafeScreen } from "./cafe/CafeScreen";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
-import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, release, reorder, savedCampaign, setCampaign } from "./engine/campaign";
+import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { BooksTab, StatementView, type StatementTab } from "./foundry/Finance";
@@ -505,6 +505,7 @@ export function App() {
               models={company.models}
               units={runs[current.id] || DEFAULT_RUN}
               onUnits={(u) => setRuns((r) => ({ ...r, [current.id]: u }))}
+              onPrice={(p) => commit(setPrice(campaign, current.id, p))}
               onRelease={(units, cost, re) =>
                 commit(release(campaign, current.id, (current.build as Build).price, cost, units, re))
               }

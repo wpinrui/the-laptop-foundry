@@ -220,7 +220,12 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
   const ids = [...new Set(rows.flatMap((r) => Object.keys(r.units)))];
   const scroller = useScrolledRight();
   const name = (id: string) => models.find((m) => m.id === id)?.name ?? "";
-  const price = (id: string) => campaign.releases[id]?.price ?? 0;
+  // The price a model sold at in a quarter, from its history; the current one before any is kept.
+  const price = (id: string, r: (typeof rows)[number]) => {
+    const rel = campaign.releases[id];
+    const kept = rel?.prices.find((p) => p.quarter.year === r.quarter.year && p.quarter.quarter === r.quarter.quarter);
+    return kept?.price ?? rel?.price ?? 0;
+  };
   const q = (r: (typeof rows)[number]) => quarterLabel(r.quarter);
   return (
     <div className="fd-books-scroll" ref={scroller}>
@@ -280,9 +285,16 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
                 </tr>
               )}
               <tr>
+                <th>Price</th>
+                {rows.map((r) => (
+                  <td key={q(r)}>{r.units[id] === undefined ? "" : usdShort(price(id, r))}</td>
+                ))}
+                <td className="sum">{campaign.releases[id] ? usdShort(campaign.releases[id].price) : ""}</td>
+              </tr>
+              <tr>
                 <th>Revenue</th>
                 {rows.map((r) => (
-                  <td key={q(r)}>{r.units[id] ? usdShort(r.units[id] * price(id)) : ""}</td>
+                  <td key={q(r)}>{r.units[id] ? usdShort(r.units[id] * price(id, r)) : ""}</td>
                 ))}
                 <td className="sum" />
               </tr>

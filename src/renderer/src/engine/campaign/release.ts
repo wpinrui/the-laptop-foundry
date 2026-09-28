@@ -9,6 +9,9 @@ import {
   SCALE_REFERENCE,
   SCALE_SLOPE,
   SCALE_SMALL_SLOPE,
+  HOLDING_RATE,
+  OVERHEAD_BASE,
+  OVERHEAD_PER_LINE,
   RETAILER_CUT,
   TOOLING_COST,
 } from "./constants";
@@ -33,7 +36,18 @@ export interface Release {
   unitCost: number;
   /** Units sold in the quarter being resolved. The sales step fills it. */
   sold: number;
+  /** The price each settled quarter sold at, oldest first. */
+  prices: PricedQuarter[];
 }
+
+/** A quarter's price for a release. */
+export interface PricedQuarter {
+  quarter: Quarter;
+  price: number;
+}
+
+/** The highest price the player can set. */
+export const MAX_PRICE = 20_000;
 
 /** What producing a run costs. */
 export interface Quote {
@@ -188,6 +202,7 @@ export function release(
     made: units,
     unitCost: q.unit,
     sold: 0,
+    prices: [],
   };
   return {
     ...state,
@@ -242,5 +257,80 @@ export function releaseOf(x: unknown): Release | null {
     made: r.made as number,
     unitCost: num(r.unitCost) ? (r.unitCost as number) : 0,
     sold: num(r.sold) ? (r.sold as number) : 0,
+    prices: Array.isArray(r.prices)
+      ? r.prices.filter(
+          (p): p is PricedQuarter =>
+            !!p && num(p.price) && !!p.quarter && num(p.quarter.year) && num(p.quarter.quarter),
+        )
+      : [],
+  };
+}
+
+/** The state with a released model's price changed from now on, or null when it cannot be. */
+export function setPrice(state: CampaignState, id: string, price: number): CampaignState | null {
+  const r = state.releases[id];
+  if (state.over || !r || !Number.isFinite(price)) return null;
+  const p = Math.min(MAX_PRICE, Math.max(1, Math.round(price)));
+  if (p === r.price) return null;
+  return { ...state, releases: { ...state.releases, [id]: { ...r, price: p } } };
+}
+
+/** The next price up or down: $10 steps under $1,000, $25 from there. */
+export function stepPrice(price: number, dir: 1 | -1): number {
+  const at = dir > 0 ? price : price - 1;
+  const step = at < 1_000 ? 10 : 25;
+  return Math.min(MAX_PRICE, Math.max(1, price + dir * step));
+}
+
+/** What a quarter holds for a run beside the run itself: the fixed costs, and the profit if it sells. */
+export interface Outlook {
+  /** The company's own overhead. */
+  overheadBase: number;
+  /** The overhead this model's line adds while it holds stock. */
+  overheadModel: number;
+  /** The campaigns running this quarter. */
+  marketing: number;
+  /** Units on hand once the run is in. */
+  available: number;
+  /** The quarter's profit if every unit on hand sells. */
+  profitSoldOut: number;
+  /** At last quarter's demand: units sold, holding on the rest, the quarter's profit. Null without a demand. */
+  atDemand: { sold: number; holding: number; profit: number } | null;
+  /** Units to sell this quarter to cover its spend, or null when a unit earns nothing. */
+  breakEven: number | null;
+}
+
+/**
+ * A run's quarter: the run and its setup, the company's and this model's
+ * overhead and the campaigns running, against what the units on hand earn
+ * after the retailers' cut. Stock already on hand was paid for in its own
+ * quarter, as in the ledger.
+ */
+export function outlook(
+  e: Economics,
+  units: number,
+  onHand: { stock: number; unitCost: number } | null,
+  marketing: number,
+  demand: number | null,
+): Outlook {
+  const stock = onHand?.stock ?? 0;
+  const available = stock + units;
+  const avgCost = available > 0 ? (stock * (onHand?.unitCost ?? 0) + units * e.unit) / available : 0;
+  const net = e.price - e.retail;
+  const spend = e.total + OVERHEAD_BASE + OVERHEAD_PER_LINE + marketing;
+  let atDemand: Outlook["atDemand"] = null;
+  if (demand !== null) {
+    const sold = Math.min(available, Math.max(0, Math.round(demand)));
+    const holding = (available - sold) * avgCost * HOLDING_RATE;
+    atDemand = { sold, holding, profit: sold * net - spend - holding };
+  }
+  return {
+    overheadBase: OVERHEAD_BASE,
+    overheadModel: OVERHEAD_PER_LINE,
+    marketing,
+    available,
+    profitSoldOut: available * net - spend,
+    atDemand,
+    breakEven: net > 0 ? Math.ceil(spend / net) : null,
   };
 }

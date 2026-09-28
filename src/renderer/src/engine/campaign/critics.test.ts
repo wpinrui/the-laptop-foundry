@@ -21,7 +21,7 @@ const released = (): CampaignState => ({
   ...newCampaign(2012),
   now: { year: 2012, quarter: 2 },
   releases: {
-    own: { quarter: { year: 2012, quarter: 2 }, price: 999, refresh: false, stock: 100, made: 100, unitCost: 500, sold: 0 },
+    own: { quarter: { year: 2012, quarter: 2 }, price: 999, refresh: false, stock: 100, made: 100, unitCost: 500, sold: 0, prices: [] },
   },
 });
 

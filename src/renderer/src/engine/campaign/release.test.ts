@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { SAMPLES } from "../samples";
 import {
   buildCost,
+  economics,
   isRefresh,
+  outlook,
+  setPrice,
+  stepPrice,
   newCampaign,
   release,
   releaseQuote,
@@ -80,6 +84,25 @@ describe("release", () => {
     const more = next && reorder(next, "a", 600, 1_000);
     expect(more?.cash).toBeCloseTo(1_000_000 - 600 * scaleFactor(1_000) * 1_000, 6);
     expect(more?.releases.a.stock).toBe(6_000);
+  });
+
+  it("reprices a released model and steps prices", () => {
+    const next = release(s, "a", 999, 600, 5_000, false);
+    expect(next && setPrice(next, "a", 899)?.releases.a.price).toBe(899);
+    expect(setPrice(s, "a", 899)).toBeNull();
+    expect(stepPrice(990, 1)).toBe(1_000);
+    expect(stepPrice(1_000, 1)).toBe(1_025);
+    expect(stepPrice(1_000, -1)).toBe(990);
+  });
+
+  it("projects the quarter with every fixed cost", () => {
+    const e = economics(600, 1_000, 5_000, false, false);
+    const o = outlook(e, 5_000, null, 50_000, 4_000);
+    const spend = 1_000_000 + 3_000_000 + 150_000 + 40_000 + 50_000;
+    expect(o.profitSoldOut).toBeCloseTo(5_000 * 800 - spend, 6);
+    expect(o.atDemand?.sold).toBe(4_000);
+    expect(o.atDemand?.holding).toBeCloseTo(1_000 * 600 * 0.04, 6);
+    expect(o.breakEven).toBe(Math.ceil(spend / 800));
   });
 
   it("is blocked when cash is short, unpriced or already released", () => {

@@ -101,17 +101,19 @@ export function MarketScreen({
   model?: string | null;
   /** Opened by End quarter: Continue in place of Close. */
   proceed?: boolean;
-  onClose: () => void;
+  /** Absent in an office panel: the screen stays open, with no Close and no Escape. */
+  onClose?: () => void;
 }) {
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
     // Escape closes the screen before it reaches the laptop list; Enter continues after End quarter.
     const k = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" && !(proceed && e.key === "Enter")) return;
+      const shut = close.current;
+      if (!shut || (e.key !== "Escape" && !(proceed && e.key === "Enter"))) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      close.current();
+      shut();
     };
     window.addEventListener("keydown", k, true);
     return () => window.removeEventListener("keydown", k, true);
@@ -146,9 +148,11 @@ export function MarketScreen({
               Continue
             </button>
           ) : (
-            <button type="button" className="fd-text ms-close" onClick={onClose}>
-              Close
-            </button>
+            onClose && (
+              <button type="button" className="fd-text ms-close" onClick={onClose}>
+                Close
+              </button>
+            )
           )}
         </div>
       </header>

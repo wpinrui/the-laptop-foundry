@@ -200,11 +200,14 @@ export function Wall({
   data,
   items,
   picked,
+  hidden,
   boxes,
 }: {
   data: OfficeData;
   items: WallItem[];
   picked: string | null;
+  /** The laptop in use, drawn whole in its place. */
+  hidden: string | null;
   boxes: RefObject<{ id: string; box: THREE.Box3 }[]>;
 }) {
   const lit = useLit();
@@ -228,7 +231,7 @@ export function Wall({
       {shown.map((it, i) => {
         const s = data.slots[i];
         return (
-          <group key={it.model.id} position={s.pos} quaternion={s.quat}>
+          <group key={it.model.id} position={s.pos} quaternion={s.quat} visible={it.model.id !== hidden}>
             <group position={it.model.id === picked ? [0, 12, PULL] : [0, 0, 0]}>
               <Laptop
                 key={`${it.status}:${it.model.updated}`}

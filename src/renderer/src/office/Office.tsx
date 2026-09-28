@@ -2,23 +2,27 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { SavedCompany } from "../../../preload/store";
-import { type Prompt, Prompts } from "../cafe/Cafe";
+import { FreeOs, makeSlot, type PageLook, SlotView } from "../builder/Free";
+import { blurField, FullPage, type Prompt, Prompts } from "../cafe/Cafe";
+import type { Subject } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
 import { usd, usdShort } from "../foundry/Release";
 import { token } from "../viewer/theme";
 import { Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
 import { buildPanels, type OfficeActions, statusOfModel, wallOrder } from "./Panels";
+import { buildOf, fitOf, leanFor, TvShort, UsedLaptop } from "./Use";
 import { Trophies, Wall } from "./Wall";
 import { labelOf, type OfficeAt, ringOf, type StationId, stepFrom } from "./stations";
 import "../foundry/foundry.css";
 import "../cafe/cafe.css";
 import "./office.css";
 
-// The Office: the company's loft as a 3D menu. The arrow keys step round
-// its stations, each a fixed view with its panel on the view's calm side;
-// Tab walks the room in first person. A strip along the top carries the
-// quarter, the cash, last quarter's profit and End quarter wherever the
-// player is.
+// The Office: the company's loft as a 3D menu. The arrow keys step round its
+// stations, each a fixed view with its panel open on the view's calm side. M
+// walks the room in first person, where the laptops on the product wall can
+// be used as in the cafe, and M again comes back to the nearest station.
+// Escape opens the system menu. A strip along the top carries the quarter,
+// the cash, last quarter's profit and End quarter wherever the player is.
 
 export interface OfficeProps {
   company: SavedCompany;
@@ -28,14 +32,33 @@ export interface OfficeProps {
   onMap: () => void;
   onEndQuarter: () => void;
   resolving: { step: number; of: number; name: string } | null;
-  /** Something is open over the office (the quarter report, a statement): keys are its. */
+  /** Something is open over the office (the quarter report, a statement, the system menu): keys are its. */
   blocked: boolean;
   /** What the stations' panels do; without it the stations have no panels. */
   actions?: OfficeActions;
+  /** The player's reviewed models, for the review site on a laptop's own screen. */
+  library: Subject[];
+  sound: boolean;
+  onSound: (on: boolean) => void;
+  /** Opens the system menu. */
+  onSystem: () => void;
 }
 
 const typing = () => !!(document.activeElement as HTMLElement | null)?.closest?.("input, textarea, [contenteditable='true']");
-const onControl = () => document.activeElement instanceof HTMLButtonElement;
+
+/** Key prompts along the bottom of the view. */
+function Keys({ list }: { list: Prompt[] }) {
+  return (
+    <div className="of-keys">
+      {list.map((p) => (
+        <div key={p.label} className="cafe-prompt">
+          <span className="cafe-key">{p.key}</span>
+          <span>{p.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function Office({
   company,
@@ -47,11 +70,25 @@ export function Office({
   resolving,
   blocked,
   actions,
+  library,
+  sound,
+  onSound,
+  onSystem,
 }: OfficeProps) {
   const ring = useMemo(() => ringOf(!!campaign), [campaign]);
   const station: StationId = ring.includes(at.station) ? at.station : "desk";
   const [free, setFree] = useState(false);
   const [aim, setAim] = useState<Pick | null>(null);
+  // In free roam: the wall laptop whose OS runs, whether its screen has the pointer, and full screen.
+  const [used, setUsed] = useState<string | null>(null);
+  const [using, setUsing] = useState(false);
+  const [full, setFull] = useState(false);
+  const [look, setLook] = useState<PageLook | null>(null);
+  const slot = useMemo(makeSlot, []);
+  const overlay = useRef<HTMLDivElement>(null);
+  // The short on the TV, and each Watch or Replay.
+  const [playing, setPlaying] = useState(false);
+  const [take, setTake] = useState(0);
   const walk = useRef<Walk>({ pos: new THREE.Vector3(), yaw: 0, pitch: 0 });
   // Read once: the room loads after the arrival is marked played.
   const arriving = useRef(at.arrive).current;
@@ -67,42 +104,67 @@ export function Office({
   const count = Math.min(40, items.length);
   const stamp = `${items.map((i) => `${i.model.id}${i.status}${i.model.updated}`).join()}|${mine.length}`;
   const bays = Math.min(5, Math.max(1, Math.ceil(count / 8)));
-  const order = useMemo(() => wallOrder(company).map((m) => m.id), [company]);
-  const goRef = useRef<(id: StationId, open?: boolean) => void>(() => {});
-  const panels = actions
-    ? buildPanels({
-        company,
-        campaign,
-        at,
-        onAt,
-        go: (id, open) => goRef.current(id, open),
-        close: () => goRef.current(station),
-        onEndQuarter,
-        resolving,
-        actions,
-      })
-    : {};
-  const hasPanel = (id: StationId) => !!panels[id];
+  const order = useMemo(() => items.map((i) => i.model.id), [items]);
+  const picked = order.includes(at.model ?? "") ? at.model : (order[0] ?? null);
+
+  // The laptop in use: its build, its fit and its slot, and where the camera leans in to it.
+  const usedIndex = used ? order.indexOf(used) : -1;
+  const usedModel = usedIndex >= 0 ? items[usedIndex].model : null;
+  const usedBuild = useMemo(() => (usedModel ? buildOf(usedModel) : null), [usedModel]);
+  const usedFit = useMemo(() => (usedBuild ? fitOf(usedBuild) : null), [usedBuild]);
+  const lean = useMemo(
+    () => (data && usedFit && usedIndex >= 0 ? leanFor(data, usedIndex, usedFit, window.innerWidth / window.innerHeight) : null),
+    [data, usedFit, usedIndex],
+  );
+  const usedSubject = useMemo<Subject | null>(
+    () => (usedModel && usedBuild ? { id: usedModel.id, name: usedModel.name, company: company.name, build: usedBuild } : null),
+    [usedModel, usedBuild, company.name],
+  );
+  /** A laptop on the wall that runs: a valid build within the wall's slots. */
+  const runs = useMemo(
+    () =>
+      new Set(
+        items
+          .slice(0, 40)
+          .filter((i) => i.status !== "block" && !!fitOf(buildOf(i.model)))
+          .map((i) => i.model.id),
+      ),
+    [items],
+  );
+  const usable = (id: string) => runs.has(id);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the arrival plays once
   useEffect(() => {
     if (at.arrive) onAt({ ...at, arrive: false });
   }, []);
 
-  const go = useCallback(
-    (id: StationId, open = false) => {
-      setFree(false);
-      if (document.pointerLockElement) document.exitPointerLock();
-      onAt({ ...at, station: id, panel: open && hasPanel(id), detail: open && id === "products" && at.detail, arrive: false });
-    },
-    // biome-ignore lint/correctness/useExhaustiveDependencies: panels are read as they are
-    [at, onAt, panels],
-  );
-  goRef.current = go;
-  const openPanel = () => {
-    if (station === "door") onMap();
-    else if (hasPanel(station)) onAt({ ...at, station, panel: true });
+  // Leaving pointer lock on purpose (a laptop, full screen, the stations) is not a pause.
+  const expectUnlock = useRef(false);
+  const lock = useCallback(() => {
+    wrap.current?.requestPointerLock?.()?.catch?.(() => {});
+  }, []);
+  const unlock = useCallback(() => {
+    if (!document.pointerLockElement) return;
+    expectUnlock.current = true;
+    document.exitPointerLock();
+  }, []);
+  const stopUsing = () => {
+    setUsed(null);
+    setUsing(false);
+    setFull(false);
+    blurField();
   };
+
+  const go = useCallback(
+    (id: StationId) => {
+      setFree(false);
+      stopUsing();
+      unlock();
+      onAt({ ...at, station: id, arrive: false });
+    },
+    // biome-ignore lint/correctness/useExhaustiveDependencies: stopUsing only sets state
+    [at, onAt, unlock],
+  );
   // Free roam ends at the station nearest where the player stands.
   const nearest = (): StationId => {
     if (!data) return "desk";
@@ -120,30 +182,63 @@ export function Office({
     return best;
   };
   const enterFree = () => {
-    onAt({ ...at, panel: false, arrive: false });
+    onAt({ ...at, arrive: false });
     setFree(true);
-    wrap.current?.requestPointerLock?.()?.catch?.(() => {});
+    lock();
   };
 
-  const keys = useRef({ station, free, at, blocked, go, openPanel, enterFree, nearest, aim, onMap, ring, order });
-  keys.current = { station, free, at, blocked, go, openPanel, enterFree, nearest, aim, onMap, ring, order };
+  // The TV stops when the view leaves it.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the station and free roam are the triggers
+  useEffect(() => setPlaying(false), [station, free]);
+
+  const aimed = aim?.kind === "laptop" && usable(aim.id) ? aim.id : null;
+  const keys = useRef({ station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem });
+  keys.current = { station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem };
+  const onAtRef = useRef(onAt);
+  onAtRef.current = onAt;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reads the latest through keys
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const k = keys.current;
-      if (k.blocked || e.defaultPrevented || typing()) return;
-      if (e.key === "Tab") {
+      if (k.blocked || e.defaultPrevented) return;
+      // Escape opens the system menu; on a laptop's screen too, as in the cafe.
+      if (e.key === "Escape" && (k.used || !typing())) {
+        e.preventDefault();
+        k.onSystem();
+        return;
+      }
+      if (typing()) return;
+      if (e.code === "KeyM") {
+        if (e.repeat || k.used) return;
         e.preventDefault();
         if (k.free) k.go(k.nearest());
         else k.enterFree();
         return;
       }
       if (k.free) {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          k.go(k.nearest());
-        } else if (e.code === "KeyE" && k.aim?.kind === "station" && k.aim.id === "door") {
-          e.preventDefault();
-          k.onMap();
+        if (e.repeat) return;
+        if (e.code === "KeyF") {
+          if (k.full) {
+            setFull(false);
+            if (!k.using) {
+              setUsed(null);
+              lock();
+            }
+          } else if (k.using) setFull(true);
+          else if (k.aimed) {
+            unlock();
+            setUsed(k.aimed);
+            setFull(true);
+          }
+        } else if (e.code === "KeyE" && !k.full) {
+          if (k.using) {
+            stopUsing();
+            lock();
+          } else if (k.aimed) {
+            unlock();
+            setUsed(k.aimed);
+            setUsing(true);
+          } else if (k.aim?.kind === "station" && k.aim.id === "door") k.onMap();
         }
         return;
       }
@@ -152,84 +247,88 @@ export function Office({
         k.go(stepFrom(k.ring, k.station, e.key === "ArrowRight" ? 1 : -1));
         return;
       }
-      if (e.key === "Escape") {
+      if ((k.station === "products" || k.station === "desk") && (e.key === "ArrowUp" || e.key === "ArrowDown") && k.order.length > 0) {
         e.preventDefault();
-        if (k.at.panel && k.at.detail) keysDetail(false);
-        else if (k.at.panel) k.go(k.station);
-        else if (k.station !== "desk") k.go("desk");
-        return;
-      }
-      if (k.station === "products" && (e.key === "ArrowUp" || e.key === "ArrowDown") && k.order.length > 0) {
-        e.preventDefault();
-        const i = k.at.model ? k.order.indexOf(k.at.model) : -1;
+        const i = Math.max(0, k.picked ? k.order.indexOf(k.picked) : 0);
         const step = e.key === "ArrowDown" ? 1 : -1;
-        const next = i < 0 ? k.order[0] : k.order[(i + step + k.order.length) % k.order.length];
-        onAtRef.current({ ...k.at, model: next });
+        onAtRef.current({ ...k.at, model: k.order[(i + step + k.order.length) % k.order.length] });
         return;
       }
       if (k.station === "door" && e.code === "KeyE") {
         e.preventDefault();
         k.onMap();
-        return;
       }
-      if (e.key === "Enter" && !onControl()) {
-        // On the product wall Enter opens the picked laptop's Model panel.
-        if (k.station === "products" && k.at.model && !k.at.detail) {
-          e.preventDefault();
-          onAtRef.current({ ...k.at, panel: true, detail: true });
-        } else if (!k.at.panel) {
-          e.preventDefault();
-          k.openPanel();
-        }
-      }
-    };
-    const keysDetail = (detail: boolean) => {
-      const k = keys.current;
-      onAtRef.current({ ...k.at, detail });
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
-  const onAtRef = useRef(onAt);
-  onAtRef.current = onAt;
 
-  // Losing the pointer lock keeps free roam: the mouse drags to look, a click on nothing locks again.
-  const pick = (p: Pick | null) => {
-    if (free && !p) {
-      wrap.current?.requestPointerLock?.()?.catch?.(() => {});
-      return;
-    }
-    if (!p) return;
-    if (p.kind === "clock") {
-      if (campaign && !campaign.over && !free) onEndQuarter();
-      else go("desk");
-      return;
-    }
-    if (p.kind === "laptop") {
-      onAt({ ...at, station: "products", model: p.id, panel: hasPanel("products"), detail: true, arrive: false });
-      setFree(false);
+  // In free roam, losing the pointer (Escape) opens the system menu, as the cafe pauses.
+  useEffect(() => {
+    const change = () => {
+      if (document.pointerLockElement) return;
+      if (expectUnlock.current) {
+        expectUnlock.current = false;
+        return;
+      }
+      const k = keys.current;
+      if (k.free && !k.blocked) k.onSystem();
+    };
+    document.addEventListener("pointerlockchange", change);
+    return () => document.removeEventListener("pointerlockchange", change);
+  }, []);
+  // Back from the system menu into free roam: the pointer is taken again.
+  const wasBlocked = useRef(blocked);
+  useEffect(() => {
+    if (wasBlocked.current && !blocked && free && !used) lock();
+    wasBlocked.current = blocked;
+  }, [blocked, free, used, lock]);
+  useEffect(
+    () => () => {
+      expectUnlock.current = true;
       if (document.pointerLockElement) document.exitPointerLock();
-      return;
-    }
-    if (!ring.includes(p.id)) return;
-    if (!free && p.id === station) openPanel();
-    else go(p.id);
-  };
+    },
+    [],
+  );
+
+  const panels = actions
+    ? buildPanels({
+        company,
+        campaign,
+        at,
+        onAt,
+        go,
+        actions,
+        playing,
+        onWatch: () => {
+          setPlaying(true);
+          setTake((t) => t + 1);
+        },
+      })
+    : {};
 
   const target = free || !data ? null : (data.poses[station === "products" ? `products_${bays}` : station] ?? null);
   const side = data?.sides[station] ?? "right";
-  const prompts: Prompt[] =
-    free && aim?.kind === "station"
-      ? aim.id === "door"
-        ? [{ key: "E", label: "Leave" }]
-        : [{ key: "mouse", label: labelOf(aim.id) }]
-      : free && aim?.kind === "clock"
-        ? [{ key: "mouse", label: labelOf("desk") }]
-        : [];
   const last = campaign?.ledger[campaign.ledger.length - 1];
   const prev = stepFrom(ring, station, -1);
   const next = stepFrom(ring, station, 1);
-  const panel = at.panel && !free ? panels[station] : null;
+  const panel = free ? null : panels[station];
+  const wide = station === "market" || station === "desk";
+  const tv = !free && station === "tv" && playing ? actions?.short?.url : undefined;
+
+  const screen = { key: "F", label: "Full screen" };
+  let prompts: Prompt[] = [];
+  if (free && using && !full) prompts = [{ key: "E", label: "Stop using" }, screen];
+  else if (free && !used && aimed) prompts = [{ key: "E", label: "Use" }, screen];
+  else if (free && !used && aim?.kind === "station" && aim.id === "door") prompts = [{ key: "E", label: "Leave" }];
+  const stationKeys: Prompt[] = [
+    { key: "←", label: labelOf(prev) },
+    { key: "→", label: labelOf(next) },
+  ];
+  if ((station === "desk" || station === "products") && order.length > 1) stationKeys.push({ key: "↑↓", label: "Laptops" });
+  if (station === "door") stationKeys.push({ key: "E", label: "Leave" });
+  stationKeys.push({ key: "M", label: "Free roam" });
+  const osPage = look && usedSubject ? { node: <SlotView slot={slot} />, width: look.width, height: look.height, mm: look.mm } : null;
 
   return (
     <div className={`fd of${free ? " free" : ""}`}>
@@ -250,13 +349,31 @@ export function Office({
                   <Rig
                     data={d}
                     target={free ? null : (d.poses[station === "products" ? `products_${bays}` : station] ?? null)}
+                    lean={free ? lean : null}
                     arrive={arriving}
                     walk={walk}
-                    active={free && !blocked}
+                    active={free && !blocked && !used}
                   />
-                  <Picker data={d} laptops={boxes} bays={bays} free={free} onPick={pick} onAim={setAim} />
+                  <Picker data={d} laptops={boxes} bays={bays} free={free && !used && !blocked} onLock={lock} onAim={setAim} />
                   <Bays data={d} count={count} />
-                  <Wall data={d} items={items} picked={station === "products" ? at.model : null} boxes={boxes} />
+                  <Wall
+                    data={d}
+                    items={items}
+                    picked={free ? used : station === "products" ? picked : null}
+                    hidden={free && usedFit ? used : null}
+                    boxes={boxes}
+                  />
+                  {free && usedBuild && usedFit && usedIndex >= 0 && (
+                    <UsedLaptop
+                      data={d}
+                      index={usedIndex}
+                      build={usedBuild}
+                      fit={usedFit}
+                      page={osPage && !full ? osPage : undefined}
+                      portal={overlay}
+                    />
+                  )}
+                  {tv && <TvShort data={d} url={tv} sound={sound} take={take} />}
                   <Trophies data={d} awards={mine} />
                   <ShadowRefresh stamp={`${stamp}:${bays}`} />
                 </>
@@ -264,8 +381,13 @@ export function Office({
             </OfficeScene>
           </Suspense>
         </Canvas>
+        <div
+          ref={overlay}
+          className={`cafe-overlay${using ? " using" : ""}`}
+          style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}
+        />
       </div>
-      <header className="of-hud">
+      <header className="of-hud" style={full ? { display: "none" } : undefined}>
         <b className="of-name">{company.name}</b>
         {campaign && !campaign.bankrupt && (
           <div className="of-clock">
@@ -288,38 +410,39 @@ export function Office({
       </header>
       {free ? (
         <>
-          <div className="cafe-dot" />
-          <Prompts list={prompts} using={false} />
+          {!used && <div className="cafe-dot" />}
+          <Prompts list={prompts} using={using} />
+          {!used && <Keys list={[{ key: "M", label: "Stations" }]} />}
+          {full && osPage && (
+            <div className="cafe-world">
+              <FullPage page={osPage} />
+            </div>
+          )}
         </>
       ) : (
         target && (
           <>
             {panel ? (
-              <aside key={station} className={`of-panel cr ${side}${station === "market" ? " wide" : ""} fd-in`}>
+              <aside key={station} className={`of-panel cr ${side}${wide ? " wide" : ""}${station === "desk" ? " desk" : ""} fd-in`}>
                 {panel}
               </aside>
             ) : (
-              <button
-                type="button"
-                className={`of-station ${side}`}
-                onClick={openPanel}
-                disabled={station !== "door" && !hasPanel(station)}
-              >
-                {labelOf(station)}
-              </button>
+              <div className={`of-station ${side}`}>{labelOf(station)}</div>
             )}
-            <nav className="of-ring">
-              <button type="button" className="fd-text" onClick={() => go(prev)}>
-                <i>‹</i>
-                {labelOf(prev)}
-              </button>
-              <button type="button" className="fd-text" onClick={() => go(next)}>
-                {labelOf(next)}
-                <i>›</i>
-              </button>
-            </nav>
+            <Keys list={stationKeys} />
           </>
         )
+      )}
+      {free && usedSubject && (
+        <FreeOs
+          key={usedSubject.id}
+          subject={usedSubject}
+          library={library}
+          sound={sound}
+          onSound={onSound}
+          slot={slot}
+          onLook={setLook}
+        />
       )}
     </div>
   );

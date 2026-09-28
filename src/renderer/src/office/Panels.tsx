@@ -11,14 +11,18 @@ import { ModelTab, statusOf, usd, usdShort } from "../foundry/Release";
 import { type MarketTab, MarketScreen } from "../world/MarketScreen";
 import { labelOf, type OfficeAt, type StationId } from "./stations";
 
-// Each station's panel: the data views the campaign already has, laid out
-// in the calm third of the station's view.
+// Each station's panel, open while the view is on the station. The Desk runs
+// the business at one glance across the view; the rest sit in the calm third
+// of their station's view.
 
 export interface ShortCard {
   quarter: string;
   name: string;
   state: "idle" | "busy" | "ready";
   poster?: string;
+  /** The rendered short, once ready: it plays on the TV. */
+  url?: string;
+  /** Starts making it. */
   onClick: () => void;
 }
 
@@ -33,6 +37,8 @@ export interface OfficeActions {
   units: (id: string) => number;
   onUnits: (id: string, units: number) => void;
   onPrice: (id: string, price: number) => void;
+  /** An unreleased, unreviewed model's price, saved with its build. */
+  onDraftPrice: (id: string, price: number) => void;
   onRelease: (id: string, units: number, cost: number, refresh: boolean) => void;
   onReorder: (id: string, units: number, cost: number) => void;
   onTier: (segment: SegmentId, tier: number) => void;
@@ -60,38 +66,19 @@ export function statusOfModel(m: SavedModel, campaign: CampaignState | null): St
   return r.stock <= 0 ? "soldout" : "stock";
 }
 
-function Frame({
-  title,
-  onClose,
-  onBack,
-  foot,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  /** A level up within the panel: the title becomes its way back. */
-  onBack?: () => void;
-  /** Kept in view under the scrolling content. */
-  foot?: ReactNode;
-  children: ReactNode;
-}) {
+/** The laptop picked at the Desk and on the wall: the one in `at`, else the newest. */
+export function pickedModel(company: SavedCompany, at: OfficeAt): SavedModel | null {
+  const models = wallOrder(company);
+  return models.find((m) => m.id === at.model) ?? models[0] ?? null;
+}
+
+function Frame({ title, children }: { title: string; children: ReactNode }) {
   return (
     <>
       <header className="of-panel-head">
-        {onBack ? (
-          <button type="button" className="of-up" onClick={onBack}>
-            <i>‹</i>
-            <h2>{title}</h2>
-          </button>
-        ) : (
-          <h2>{title}</h2>
-        )}
-        <button type="button" className="fd-text" onClick={onClose}>
-          Close
-        </button>
+        <h2>{title}</h2>
       </header>
       <div className="cr-body">{children}</div>
-      {foot && <footer className="of-panel-foot">{foot}</footer>}
     </>
   );
 }
@@ -101,31 +88,27 @@ interface Ctx {
   campaign: CampaignState | null;
   at: OfficeAt;
   onAt: (at: OfficeAt) => void;
-  go: (id: StationId, open?: boolean) => void;
-  close: () => void;
-  onEndQuarter: () => void;
-  resolving: { step: number; of: number; name: string } | null;
+  go: (id: StationId) => void;
   actions: OfficeActions;
+  /** The short is playing on the TV. */
+  playing: boolean;
+  onWatch: () => void;
 }
 
 export function buildPanels(c: Ctx): Partial<Record<StationId, ReactNode>> {
-  const { campaign, close } = c;
+  const { campaign } = c;
   const out: Partial<Record<StationId, ReactNode>> = {
-    desk: (
-      <Frame title={labelOf("desk")} onClose={close} foot={<EndQuarter {...c} />}>
-        <Desk {...c} />
-      </Frame>
-    ),
+    desk: <Desk {...c} />,
     products: <Products {...c} />,
   };
   if (campaign) {
     out.finance = (
-      <Frame title={labelOf("finance")} onClose={close}>
+      <Frame title={labelOf("finance")}>
         <BooksTab campaign={campaign} onOpen={c.actions.onStatement} />
       </Frame>
     );
     out.marketing = (
-      <Frame title={labelOf("marketing")} onClose={close}>
+      <Frame title={labelOf("marketing")}>
         <BrandTab campaign={campaign} onTier={c.actions.onTier} />
       </Frame>
     );
@@ -133,21 +116,99 @@ export function buildPanels(c: Ctx): Partial<Record<StationId, ReactNode>> {
   }
   if (c.actions.short)
     out.tv = (
-      <Frame title={labelOf("tv")} onClose={close}>
-        <Short card={c.actions.short} />
+      <Frame title={labelOf("tv")}>
+        <Short card={c.actions.short} playing={c.playing} onWatch={c.onWatch} />
       </Frame>
     );
   const reviewed = c.company.models.some((m) => (campaign ? campaign.reviews[m.id] : m.reviewed));
   if (campaign || reviewed)
     out.trophies = (
-      <Frame title={labelOf("trophies")} onClose={close}>
+      <Frame title={labelOf("trophies")}>
         <Trophies {...c} />
       </Frame>
     );
   return out;
 }
 
-function Desk({ company, campaign, actions, go, at, onAt }: Ctx) {
+/**
+ * The Desk, where the business is run at one glance: the company's overview,
+ * its laptops with their status, and for the picked one everything that
+ * decides its production and price.
+ */
+function Desk(c: Ctx) {
+  const { company, campaign, actions, at, onAt } = c;
+  const models = useMemo(() => wallOrder(company), [company]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scored when the models change
+  const scores = useMemo(
+    () => new Map(models.map((m) => [m.id, m.reviewed ? overallOf(m, company.name) : null])),
+    [company.models, company.name],
+  );
+  const current = pickedModel(company, at);
+  const currentId = current?.id;
+  // The picked laptop stays in view as Up and Down move through the list.
+  useEffect(() => {
+    if (currentId) document.querySelector(".of-desk .of-rows .selected")?.scrollIntoView({ block: "nearest" });
+  }, [currentId]);
+  const over = !!campaign?.over;
+  return (
+    <>
+      <header className="of-panel-head">
+        <h2>{labelOf("desk")}</h2>
+      </header>
+      <div className="of-desk">
+        <section className="of-desk-over">
+          <Overview {...c} />
+        </section>
+        <section className="of-desk-models">
+          {!over && (
+            <button type="button" className="fd-secondary of-new" onClick={actions.onNew}>
+              New model
+            </button>
+          )}
+          <div className="of-rows">
+            {models.map((m) => {
+              const block = buildBlock(m.build);
+              const s = campaign && !block ? statusOf(campaign, m.id) : null;
+              const score = scores.get(m.id);
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`fd-row${m.id === currentId ? " selected" : ""}`}
+                  onClick={() => onAt({ ...at, model: m.id })}
+                >
+                  <span>
+                    <b>{m.name}</b>
+                    <small>
+                      {yearOf(m)}
+                      {block && <em>{block}</em>}
+                      {s && <em className={s.warn ? undefined : "muted"}>{s.text}</em>}
+                    </small>
+                  </span>
+                  {score != null && <span className="fd-score">{Math.round(score)}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+        <section className="of-desk-model">
+          {current && (
+            <Detail
+              key={current.id}
+              model={current}
+              models={company.models}
+              campaign={campaign}
+              score={scores.get(current.id) ?? null}
+              actions={actions}
+            />
+          )}
+        </section>
+      </div>
+    </>
+  );
+}
+
+function Overview({ company, campaign, actions, go, at, onAt }: Ctx) {
   if (!campaign) {
     const scores = company.models.filter((m) => m.reviewed).map((m) => overallOf(m, company.name) ?? 0);
     return (
@@ -170,7 +231,7 @@ function Desk({ company, campaign, actions, go, at, onAt }: Ctx) {
   const ledger = campaign.ledger.slice(-8);
   const last = ledger[ledger.length - 1];
   const top = Math.max(1, ...ledger.map((e) => Math.abs(e.profit)));
-  const alerts: { kind: string; text: string; to: StationId; model?: string; warn?: boolean }[] = [];
+  const alerts: { kind: string; text: string; to?: StationId; model?: string; warn?: boolean }[] = [];
   const soldOut: SavedModel[] = [];
   const due: SavedModel[] = [];
   for (const m of company.models) {
@@ -180,15 +241,13 @@ function Desk({ company, campaign, actions, go, at, onAt }: Ctx) {
     const pub = publicationQuarter(r.quarter);
     if (!campaign.reviews[m.id] && pub.year === campaign.now.year && pub.quarter === campaign.now.quarter) due.push(m);
   }
-  // One line each: a single laptop opens its Model panel, several open the wall's list.
+  // One line each: a laptop's line picks it at the Desk.
   const line = (kind: string, ms: SavedModel[], warn = false) => {
-    if (ms.length === 1) alerts.push({ kind, text: ms[0].name, to: "products", model: ms[0].id, warn });
-    else if (ms.length > 1) alerts.push({ kind, text: ms.map((m) => m.name).join(", "), to: "products", warn });
+    if (ms.length > 0) alerts.push({ kind, text: ms.map((m) => m.name).join(", "), model: ms[0].id, warn });
   };
   line("Sold out", soldOut, true);
   line("Review", due);
-  if (actions.newAwards > 0)
-    alerts.push({ kind: "Awards", text: String(actions.newAwards), to: "trophies" });
+  if (actions.newAwards > 0) alerts.push({ kind: "Awards", text: String(actions.newAwards), to: "trophies" });
   if (actions.short?.state === "ready") alerts.push({ kind: "Short", text: actions.short.name, to: "tv" });
   return (
     <>
@@ -200,20 +259,14 @@ function Desk({ company, campaign, actions, go, at, onAt }: Ctx) {
         </span>
       </div>
       {ledger.length > 0 && (
-        <>
-          <span className="cr-label">Profit</span>
-          <div className="of-trend">
-            {ledger.map((e) => (
-              <div key={`${e.quarter.year}-${e.quarter.quarter}`} title={`${quarterLabel(e.quarter)} ${usdShort(e.profit)}`}>
-                <i
-                  className={e.profit < 0 ? "down" : "up"}
-                  style={{ height: `${(Math.abs(e.profit) / top) * 50}%` }}
-                />
-                <small>{`Q${e.quarter.quarter}`}</small>
-              </div>
-            ))}
-          </div>
-        </>
+        <div className="of-trend">
+          {ledger.map((e) => (
+            <div key={`${e.quarter.year}-${e.quarter.quarter}`} title={`${quarterLabel(e.quarter)} ${usdShort(e.profit)}`}>
+              <i className={e.profit < 0 ? "down" : "up"} style={{ height: `${(Math.abs(e.profit) / top) * 50}%` }} />
+              <small>{`Q${e.quarter.quarter}`}</small>
+            </div>
+          ))}
+        </div>
       )}
       {alerts.length > 0 && (
         <div className="of-alerts">
@@ -222,11 +275,7 @@ function Desk({ company, campaign, actions, go, at, onAt }: Ctx) {
               key={`${a.kind}-${a.text}`}
               type="button"
               className={a.warn ? "warn" : undefined}
-              onClick={() =>
-                a.model
-                  ? onAt({ ...at, station: "products", panel: true, model: a.model, detail: true, arrive: false })
-                  : go(a.to, true)
-              }
+              onClick={() => (a.model ? onAt({ ...at, model: a.model }) : a.to && go(a.to))}
             >
               <span>{a.kind}</span>
               <b>{a.text}</b>
@@ -238,64 +287,32 @@ function Desk({ company, campaign, actions, go, at, onAt }: Ctx) {
   );
 }
 
-function EndQuarter({ campaign, resolving, onEndQuarter }: Ctx) {
-  if (!campaign || campaign.over) return null;
-  return resolving ? (
-    <div className="of-resolving big">
-      <i style={{ width: `${((resolving.step + 1) / resolving.of) * 100}%` }} />
-      {resolving.name}
-    </div>
-  ) : (
-    <button type="button" className="fd-primary" onClick={onEndQuarter}>
-      End {quarterLabel(campaign.now)}
-    </button>
-  );
-}
-
-function Products({ company, campaign, at, onAt, close, actions }: Ctx) {
+/** The product wall at a glance: the picked laptop as it stands, and the rest along the wall. */
+function Products({ company, campaign, at }: Ctx) {
   const models = useMemo(() => wallOrder(company), [company]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scored when the models change
-  const scores = useMemo(
-    () => new Map(models.map((m) => [m.id, m.reviewed ? overallOf(m, company.name) : null])),
-    [company.models, company.name],
-  );
-  const current = models.find((m) => m.id === at.model) ?? null;
-  // The picked laptop stays in view as the arrow keys move along the wall.
+  const current = pickedModel(company, at);
+  const currentId = current?.id;
   useEffect(() => {
-    if (at.model) document.querySelector(".of-rows .selected")?.scrollIntoView({ block: "nearest" });
-  }, [at.model]);
-  const over = !!campaign?.over;
-  if (at.detail && current)
-    return (
-      <Frame title={labelOf("products")} onClose={close} onBack={() => onAt({ ...at, detail: false })}>
-        <Detail
-          model={current}
-          models={company.models}
-          campaign={campaign}
-          score={scores.get(current.id) ?? null}
-          actions={actions}
-        />
-      </Frame>
-    );
+    if (currentId) document.querySelector(".of-panel .of-rows .selected")?.scrollIntoView({ block: "nearest" });
+  }, [currentId]);
+  const score = (m: SavedModel) =>
+    campaign ? (campaign.reviews[m.id]?.score ?? null) : m.reviewed ? overallOf(m, company.name) : null;
+  const price = (m: SavedModel) => campaign?.releases[m.id]?.price ?? (m.build as { price?: number }).price ?? 0;
   return (
-    <Frame title={labelOf("products")} onClose={close}>
-      {!over && (
-        <button type="button" className="fd-secondary of-new" onClick={actions.onNew}>
-          New model
-        </button>
+    <Frame title={labelOf("products")}>
+      {current && (
+        <div className="cr-model-head">
+          <b>{current.name}</b>
+          {price(current) > 0 && <b>{usd(price(current))}</b>}
+        </div>
       )}
       <div className="of-rows">
         {models.map((m) => {
           const block = buildBlock(m.build);
           const s = campaign && !block ? statusOf(campaign, m.id) : null;
-          const score = scores.get(m.id);
+          const sc = score(m);
           return (
-            <button
-              key={m.id}
-              type="button"
-              className={`fd-row${m.id === at.model ? " selected" : ""}`}
-              onClick={() => onAt({ ...at, model: m.id, detail: true })}
-            >
+            <div key={m.id} className={`fd-row${m.id === currentId ? " selected" : ""}`}>
               <span>
                 <b>{m.name}</b>
                 <small>
@@ -304,8 +321,8 @@ function Products({ company, campaign, at, onAt, close, actions }: Ctx) {
                   {s && <em className={s.warn ? undefined : "muted"}>{s.text}</em>}
                 </small>
               </span>
-              {score != null && <span className="fd-score">{Math.round(score)}</span>}
-            </button>
+              {sc != null && <span className="fd-score">{campaign ? sc.toFixed(1) : Math.round(sc)}</span>}
+            </div>
           );
         })}
       </div>
@@ -373,40 +390,35 @@ function Detail({
       </div>
       {block && <div className="cr-short">{block}</div>}
       {campaign && (
-        <ModelTab
-          key={model.id}
-          campaign={campaign}
-          model={model}
-          models={models}
-          units={actions.units(model.id)}
-          onUnits={(u) => actions.onUnits(model.id, u)}
-          onPrice={(p) => actions.onPrice(model.id, p)}
-          onRelease={(u, cost, re) => actions.onRelease(model.id, u, cost, re)}
-          onReorder={(u, cost) => actions.onReorder(model.id, u, cost)}
-          onMarket={worldQuarters(campaign).length > 0 ? (t) => actions.onMarket(t, model.id) : undefined}
-        />
+        <div className="of-model-tab">
+          <ModelTab
+            key={model.id}
+            campaign={campaign}
+            model={model}
+            models={models}
+            units={actions.units(model.id)}
+            onUnits={(u) => actions.onUnits(model.id, u)}
+            onPrice={(p) => actions.onPrice(model.id, p)}
+            onDraftPrice={model.reviewed ? undefined : (p) => actions.onDraftPrice(model.id, p)}
+            onRelease={(u, cost, re) => actions.onRelease(model.id, u, cost, re)}
+            onReorder={(u, cost) => actions.onReorder(model.id, u, cost)}
+            onMarket={worldQuarters(campaign).length > 0 ? (t) => actions.onMarket(t, model.id) : undefined}
+          />
+        </div>
       )}
     </>
   );
 }
 
-function Market({ company, campaign, close }: Ctx & { campaign: CampaignState }) {
+function Market({ company, campaign }: Ctx & { campaign: CampaignState }) {
   const [tab, setTab] = useState<MarketTab>("quarter");
-  return (
-    <MarketScreen
-      campaign={campaign}
-      models={company.models}
-      company={company.name}
-      tab={tab}
-      onTab={setTab}
-      onClose={close}
-    />
-  );
+  return <MarketScreen campaign={campaign} models={company.models} company={company.name} tab={tab} onTab={setTab} />;
 }
 
-function Short({ card }: { card: ShortCard }) {
+function Short({ card, playing, onWatch }: { card: ShortCard; playing: boolean; onWatch: () => void }) {
+  const ready = card.state === "ready";
   return (
-    <button type="button" className="of-short" onClick={card.onClick} disabled={card.state === "busy"}>
+    <button type="button" className="of-short" onClick={ready ? onWatch : card.onClick} disabled={card.state === "busy"}>
       {card.poster && (
         <i>
           <img src={card.poster} alt="" />
@@ -416,7 +428,7 @@ function Short({ card }: { card: ShortCard }) {
         <small>{card.quarter}</small>
         <b>{card.name}</b>
       </span>
-      {card.state === "busy" ? <u aria-busy /> : <em>{card.state === "ready" ? "Watch" : "Make"}</em>}
+      {card.state === "busy" ? <u aria-busy /> : <em>{ready ? (playing ? "Replay" : "Watch") : "Make"}</em>}
     </button>
   );
 }

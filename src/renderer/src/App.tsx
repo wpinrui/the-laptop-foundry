@@ -24,7 +24,7 @@ import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
 import { bestSeller, shortFacts, subjectOf, writeShort } from "./video/script";
 import { cancelShort, prepareShort, type ReadyShort, shortKey, useShort } from "./video/shorts";
 import { VideoScreen } from "./video/VideoScreen";
-import { SystemMenu, useSystemMenu } from "./foundry/SystemMenu";
+import { SystemActions, SystemMenu, useSystemMenu } from "./foundry/SystemMenu";
 import { Office } from "./office/Office";
 import { OFFICE_START, type OfficeAt } from "./office/stations";
 import type { OfficeActions } from "./office/Panels";
@@ -454,7 +454,7 @@ export function App() {
           .deleteModel(company.id, id)
           .then((c) => {
             refresh(c);
-            setOfficeAt((a) => ({ ...a, model: null, detail: false }));
+            setOfficeAt((a) => ({ ...a, model: null }));
             // A deleted model's line ends and its stock is written off.
             commit((s) => {
               if (!s.releases[id]) return null;
@@ -465,6 +465,11 @@ export function App() {
       units: (id) => runs[id] || DEFAULT_RUN,
       onUnits: (id, u) => setRuns((r) => ({ ...r, [id]: u })),
       onPrice: (id, p) => commit((s) => setPrice(s, id, p)),
+      onDraftPrice: (id, p) => {
+        const m = find(id);
+        const price = Math.max(1, Math.round(p));
+        if (m && !m.reviewed && Number.isFinite(price)) save({ ...m, build: { ...(m.build as Build), price }, updated: Date.now() });
+      },
       onRelease: (id, units, cost, re) => {
         const m = find(id);
         if (m) commit((s) => release(s, id, (m.build as Build).price, cost, units, re));
@@ -486,6 +491,7 @@ export function App() {
               name: company.models.find((m) => m.id === best.id)?.name ?? subjectOf(best.id, [])?.subject.name ?? "",
               state: shortEntry?.state === "ready" ? "ready" : shortEntry?.state === "busy" ? "busy" : "idle",
               poster: shortEntry?.state === "ready" ? shortEntry.poster : undefined,
+              url: shortEntry?.state === "ready" ? shortEntry.url : undefined,
               onClick: shortAction,
             }
           : undefined,
@@ -500,14 +506,21 @@ export function App() {
           at={officeAt}
           onAt={(next) => {
             // Opening the cabinet counts its awards as seen.
-            if (campaign && next.station === "trophies" && next.panel) setSeenAwards(campaign.awards.length);
+            if (campaign && next.station === "trophies") setSeenAwards(campaign.awards.length);
             setOfficeAt(next);
           }}
           onMap={leaveOffice}
           onEndQuarter={endQuarter}
           resolving={resolving}
-          blocked={!!marketView || !!statement}
+          blocked={!!marketView || !!statement || system}
           actions={actions}
+          library={company.models.filter((x) => x.reviewed).map(subject)}
+          sound={settings.sound}
+          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          onSystem={() => {
+            if (document.pointerLockElement) document.exitPointerLock();
+            setSystem(true);
+          }}
         />
         {campaign && statement && (
           <div className="fd of-over">
@@ -535,7 +548,7 @@ export function App() {
               proceed={marketView.proceed}
               onClose={() => {
                 // After End quarter's report, back to the desk.
-                if (marketView.proceed) setOfficeAt((a) => ({ ...a, station: "desk", panel: false, detail: false }));
+                if (marketView.proceed) setOfficeAt((a) => ({ ...a, station: "desk" }));
                 setMarketView(null);
               }}
             />
@@ -616,7 +629,7 @@ export function App() {
           save(m).then(() => {
             setNaming(null);
             setSelected(m.id);
-            setOfficeAt((a) => ({ ...a, station: "products", panel: true, model: m.id, detail: true, arrive: false }));
+            setOfficeAt((a) => ({ ...a, station: "desk", model: m.id, arrive: false }));
             setMenu("list");
             setOpen(m.id);
           });
@@ -652,7 +665,7 @@ export function App() {
   );
   })();
 
-  // M over any place of an open company: the place stays mounted underneath, so M again returns to it as it was.
+  // Over the Office, and from the places' pause menus: the place stays mounted underneath the system menu.
   const leaveCompany = (to: Menu) => {
     setSystem(false);
     if (document.pointerLockElement) document.exitPointerLock();
@@ -664,7 +677,7 @@ export function App() {
     setMenu(to);
   };
   return (
-    <>
+    <SystemActions.Provider value={company ? { onNew: () => leaveCompany("new"), onLoad: () => leaveCompany("load") } : null}>
       {view}
       {system && company && (
         <SystemMenu
@@ -676,6 +689,6 @@ export function App() {
           onLoad={() => leaveCompany("load")}
         />
       )}
-    </>
+    </SystemActions.Provider>
   );
 }

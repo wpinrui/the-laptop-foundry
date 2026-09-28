@@ -625,3 +625,105 @@
   bottom: calc(76 * var(--u));
 }
 
+
+/* The key prompts along the bottom: round the stations, and in free roam. */
+.of-keys {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(60 * var(--u));
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(36 * var(--u));
+  background: linear-gradient(to top, color-mix(in srgb, var(--ground-deep) 70%, transparent), transparent);
+  pointer-events: none;
+}
+
+.of-keys .cafe-prompt {
+  font-size: calc(18 * var(--u));
+}
+
+.of-keys .cafe-key {
+  width: auto;
+  min-width: calc(30 * var(--u));
+  padding: 0 calc(6 * var(--u));
+  font-size: calc(17 * var(--u));
+}
+
+/* The Desk: the whole view under the strip, in three columns. */
+.of .of-panel.desk {
+  bottom: calc(68 * var(--u));
+}
+
+.of-desk {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 0.85fr 1fr 2.1fr;
+}
+
+.of-desk > section {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: calc(18 * var(--u)) calc(26 * var(--u)) calc(20 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(14 * var(--u));
+}
+
+.of-desk > section + section {
+  border-left: 1px solid var(--line);
+}
+
+.of-desk .of-desk-clock > span b {
+  font-size: calc(36 * var(--u));
+}
+
+.of-desk .of-trend {
+  height: calc(90 * var(--u));
+  margin: 0 0 calc(18 * var(--u));
+}
+
+.of-desk-models .of-rows {
+  margin: 0 calc(-26 * var(--u));
+}
+
+.of-desk-models .of-rows .fd-row {
+  padding: calc(9 * var(--u)) calc(26 * var(--u)) !important;
+}
+
+.of-desk-models .of-rows .fd-row b {
+  font-size: calc(21 * var(--u));
+}
+
+.of-desk-models .of-rows .fd-row small {
+  font-size: calc(15 * var(--u));
+}
+
+/* The picked laptop's run: its sales and price on the left, the costs and Release on the right. */
+.of-model-tab {
+  columns: 2;
+  column-gap: calc(32 * var(--u));
+}
+
+.of-model-tab > * {
+  break-inside: avoid;
+  margin-bottom: calc(14 * var(--u));
+}
+
+.of-model-tab > .cr-costs {
+  break-before: column;
+}
+
+.of-model-tab .cr-action {
+  width: 100%;
+}
+
+/* The product wall's list is to read, not to click. */
+.of-panel .of-rows div.fd-row {
+  cursor: default;
+}

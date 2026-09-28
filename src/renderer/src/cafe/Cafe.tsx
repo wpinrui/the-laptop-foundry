@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Column, Entry } from "../foundry/Menus";
+import { SystemEntries } from "../foundry/SystemMenu";
 import { setSpeakerFull } from "../panel/speaker";
 import { type Aim, type LaptopLook, World } from "./World";
 
@@ -282,6 +283,7 @@ export function Cafe({
               </Entry>
               {onLeave && <Entry onClick={onLeave}>Leave</Entry>}
               <Entry onClick={onMap}>Map</Entry>
+              <SystemEntries />
             </div>
           </Column>
         </div>

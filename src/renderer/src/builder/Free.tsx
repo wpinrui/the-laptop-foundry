@@ -19,6 +19,7 @@ import { blurField, FullPage, type Prompt, Prompts, typing } from "../cafe/Cafe"
 import { clamp, collideIn, easeOut, FOV_MIN, lookAngles, type Rect, ZOOM_STEP } from "../cafe/World";
 import type { Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
+import { SystemEntries } from "../foundry/SystemMenu";
 import { PLINTH_H } from "../foundry/Stage";
 import { BottomCover, Model } from "../viewer/Scene";
 import type { AimShelf } from "./Archive";
@@ -861,6 +862,7 @@ export function FreeOverlay({
               </Entry>
               {onExit && <Entry onClick={onExit}>Leave free view</Entry>}
               {onMap && <Entry onClick={onMap}>Map</Entry>}
+              <SystemEntries />
             </div>
           </Column>
         </div>

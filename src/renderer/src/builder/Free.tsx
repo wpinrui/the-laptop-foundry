@@ -21,6 +21,7 @@ import type { Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
 import { PLINTH_H } from "../foundry/Stage";
 import { BottomCover, Model } from "../viewer/Scene";
+import type { AimShelf } from "./Archive";
 import { lidPoint } from "./view";
 
 // Free view: the player walks the workshop in first person, the laptop on
@@ -67,8 +68,8 @@ const RECTS: Rect[] = [
   { x0: -3220, x1: -1680, z0: 5860, z1: 6500 },
   { x0: 4400, x1: 8800, z0: 6100, z1: 6500 },
 ];
-/** The personnel door in the left wall: walking into it leaves the workshop. */
-const DOOR = { z0: 2450, z1: 3250 };
+/** The personnel door in the left wall, from the designer's workshop: looking at it offers leaving. */
+const DOOR = new THREE.Box3(new THREE.Vector3(ROOM.x0 - 250, FLOOR, 2700), new THREE.Vector3(ROOM.x0 + 60, FLOOR + 2300, 3700));
 /** Arriving through the door: where the player stands. */
 const DOOR_START = new THREE.Vector3(ROOM.x0 + 900, EYE, 2700);
 /** Degrees a second the lid turns. */
@@ -138,6 +139,10 @@ export interface FreeState {
   aim: boolean;
   /** The laptop is moving to a new pose: no keys until it settles. */
   busy: boolean;
+  /** The shelved laptop the aim dot is on, by model id. */
+  shelf: string | null;
+  /** The aim dot is on the personnel door. */
+  door: boolean;
 }
 
 export const freeStart = (lidOpen: boolean, flipped = false): FreeState => ({
@@ -149,6 +154,8 @@ export const freeStart = (lidOpen: boolean, flipped = false): FreeState => ({
   paused: false,
   aim: false,
   busy: false,
+  shelf: null,
+  door: false,
 });
 
 // ------------------------------------------------------------------ the OS page
@@ -223,6 +230,13 @@ interface Pose {
   at: THREE.Vector3;
 }
 
+/** Where the player stands and looks, kept while a laptop is swapped on the turntable. */
+export interface Stance {
+  pos: THREE.Vector3;
+  look: { yaw: number; pitch: number };
+  fov: number;
+}
+
 export function Walker({
   laptop,
   active,
@@ -231,6 +245,9 @@ export function Walker({
   onAim,
   atDoor = false,
   onDoor,
+  stance,
+  shelves,
+  onShelf,
 }: {
   laptop: RefObject<THREE.Group | null>;
   active: boolean;
@@ -240,8 +257,13 @@ export function Walker({
   onAim: (on: boolean) => void;
   /** Arrives through the personnel door rather than from the builder's camera. */
   atDoor?: boolean;
-  /** Walking out through the personnel door. */
-  onDoor?: () => void;
+  /** Whether the aim dot is on the personnel door; without it the door is not offered. */
+  onDoor?: (on: boolean) => void;
+  /** Where the player stood before a swap on the turntable remounted this. */
+  stance?: RefObject<Stance | null>;
+  /** The archive's shelved laptops, and which one the aim dot is on. */
+  shelves?: RefObject<AimShelf | null>;
+  onShelf?: (id: string | null) => void;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
@@ -267,9 +289,8 @@ export function Walker({
   const fov = useRef(FOV);
   const live = useRef({ using, active });
   live.current = { using, active };
-  const door = useRef(onDoor);
-  door.current = onDoor;
-  const out = useRef(false);
+  const doorAimed = useRef(false);
+  const shelfAimed = useRef<string | null>(null);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.current.add(e.code);
@@ -311,6 +332,17 @@ export function Walker({
 
   useFrame((_, dt) => {
     clock.current += dt;
+    const was = stance?.current;
+    if (!started.current && was) {
+      // A swap on the turntable: the player stays where they stood.
+      started.current = true;
+      pos.current.copy(was.pos);
+      look.current = { ...was.look };
+      fov.current = was.fov;
+      camera.fov = was.fov;
+      camera.clearViewOffset();
+      camera.updateProjectionMatrix();
+    }
     if (!started.current) {
       // Stand where the builder's camera is, out of the island, facing the laptop.
       started.current = true;
@@ -360,11 +392,6 @@ export function Walker({
         pos.current.x += ((-Math.sin(yaw) * f + Math.cos(yaw) * r) / len) * SPEED * dt;
         pos.current.z += ((-Math.cos(yaw) * f - Math.sin(yaw) * r) / len) * SPEED * dt;
         collideIn(pos.current, ROOM, RECTS, BODY);
-        const p = pos.current;
-        if (door.current && !out.current && p.x <= ROOM.x0 + BODY + 1 && p.z > DOOR.z0 && p.z < DOOR.z1) {
-          out.current = true;
-          door.current();
-        }
       }
     }
     const e = enter.current;
@@ -383,20 +410,55 @@ export function Walker({
       camera.rotation.set(look.current.pitch, look.current.yaw, 0, "YXZ");
     }
 
+    if (stance) {
+      const st = stance.current ?? { pos: new THREE.Vector3(), look: { yaw: 0, pitch: 0 }, fov: FOV };
+      st.pos.copy(pos.current);
+      st.look = { ...look.current };
+      st.fov = fov.current;
+      stance.current = st;
+    }
+
     // Whether the aim dot is on the laptop: its bounds are cheap to hit and forgiving to aim at.
     let on = false;
+    let shelf: string | null = null;
+    let atTheDoor = false;
     const lap = laptop.current;
-    if (lap && !using) {
-      if (clock.current - bounds.current.at > 0.5) {
-        bounds.current = { box: new THREE.Box3().setFromObject(lap), at: clock.current };
-      }
+    if (!using) {
       ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+      let d = Number.POSITIVE_INFINITY;
+      if (lap) {
+        if (clock.current - bounds.current.at > 0.5) {
+          bounds.current = { box: new THREE.Box3().setFromObject(lap), at: clock.current };
+        }
+        const hit = new THREE.Vector3();
+        if (ray.ray.intersectBox(bounds.current.box, hit)) d = hit.distanceTo(ray.ray.origin);
+        on = d < REACH;
+      }
+      // A shelved laptop nearer than the turntable's takes the aim.
+      const s = shelves?.current?.(ray.ray, REACH);
+      if (s && s.d < d) {
+        on = false;
+        shelf = s.id;
+        d = s.d;
+      }
       const hit = new THREE.Vector3();
-      on = !!ray.ray.intersectBox(bounds.current.box, hit) && hit.distanceTo(ray.ray.origin) < REACH;
+      if (onDoor && ray.ray.intersectBox(DOOR, hit) && hit.distanceTo(ray.ray.origin) < Math.min(d, REACH)) {
+        on = false;
+        shelf = null;
+        atTheDoor = true;
+      }
     }
     if (on !== aimed.current) {
       aimed.current = on;
       onAim(on);
+    }
+    if (shelf !== shelfAimed.current) {
+      shelfAimed.current = shelf;
+      onShelf?.(shelf);
+    }
+    if (atTheDoor !== doorAimed.current) {
+      doorAimed.current = atTheDoor;
+      onDoor?.(atTheDoor);
     }
     // Before the default frame hooks, so the screen's Html follows this frame's camera.
   }, -1);
@@ -415,8 +477,11 @@ export interface FreeDrive {
   onSettled: () => void;
   /** Arrives through the personnel door. */
   atDoor?: boolean;
-  /** Walking out through the personnel door. */
-  onDoor?: () => void;
+  /** Whether the aim dot is on the personnel door, which leaves to the map. */
+  onDoor?: (on: boolean) => void;
+  stance?: RefObject<Stance | null>;
+  shelves?: RefObject<AimShelf | null>;
+  onShelf?: (id: string | null) => void;
 }
 
 type ModelProps = ComponentProps<typeof Model>;
@@ -596,6 +661,9 @@ export function WorkshopLaptop({
           onAim={free.onAim}
           atDoor={free.atDoor}
           onDoor={free.onDoor}
+          stance={free.stance}
+          shelves={free.shelves}
+          onShelf={free.onShelf}
         />
       )}
     </>
@@ -615,9 +683,12 @@ export function FreeOverlay({
   onMap,
   sound,
   onSound,
+  archive,
 }: {
   state: FreeState;
   set: Dispatch<SetStateAction<FreeState | null>>;
+  /** The archive's keys: a shelved laptop onto the turntable, the turntable's back, the next shelf load. */
+  archive?: { take: (id: string) => void; putAway?: () => void; more?: () => void };
   /** The laptop runs: it can be used. */
   canUse: boolean;
   /** The OS page, for full screen. */
@@ -675,11 +746,11 @@ export function FreeOverlay({
     if (!state.using && !state.full) lock();
   }, [patch, lock, state.using, state.full]);
 
-  const live = useRef({ state, canUse, resume });
-  live.current = { state, canUse, resume };
+  const live = useRef({ state, canUse, resume, archive, onMap });
+  live.current = { state, canUse, resume, archive, onMap };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      const { state: s, canUse: runs, resume: back } = live.current;
+      const { state: s, canUse: runs, resume: back, archive: shelves, onMap: leave } = live.current;
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) back();
@@ -707,8 +778,18 @@ export function FreeOverlay({
         lock();
         return;
       }
+      if (s.door && !s.using) {
+        if (e.code === "KeyE") leave?.();
+        return;
+      }
+      if (s.shelf && shelves && !s.using) {
+        if (e.code === "KeyE") shelves.take(s.shelf);
+        else if (e.code === "KeyN") shelves.more?.();
+        return;
+      }
       if (!s.aim || s.using) return;
-      if (e.code === "KeyE" && !s.flipped && s.lidOpen && runs) {
+      if (e.code === "KeyP" && shelves?.putAway) shelves.putAway();
+      else if (e.code === "KeyE" && !s.flipped && s.lidOpen && runs) {
         unlock();
         patch({ using: true });
       } else if (e.code === "KeyR" && !s.coverOff) {
@@ -727,7 +808,11 @@ export function FreeOverlay({
   const screen = { key: "F", label: "Full screen" };
   let prompts: Prompt[] = [];
   if (active && state.using) prompts = [{ key: "E", label: "Stop using" }, screen];
-  else if (active && state.aim && !state.busy) {
+  else if (active && state.door && onMap) prompts.push({ key: "E", label: "Leave" });
+  else if (active && state.shelf && archive && !state.busy) {
+    prompts.push({ key: "E", label: "Put on turntable" });
+    if (archive.more) prompts.push({ key: "N", label: "Next shelf" });
+  } else if (active && state.aim && !state.busy) {
     if (!state.flipped) {
       if (state.lidOpen && canUse) prompts.push({ key: "E", label: "Use" }, screen);
       prompts.push({ key: "L", label: state.lidOpen ? "Shut lid" : "Open lid" });
@@ -736,6 +821,7 @@ export function FreeOverlay({
       prompts.push({ key: "O", label: state.coverOff ? "Cover on" : "Cover off" });
       if (!state.coverOff) prompts.push({ key: "R", label: "Turn upright" });
     }
+    if (archive?.putAway) prompts.push({ key: "P", label: "Put away" });
   }
 
   return (

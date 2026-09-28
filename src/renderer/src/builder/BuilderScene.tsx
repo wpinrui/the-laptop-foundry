@@ -148,7 +148,16 @@ export function BuilderScene({
   free,
   freeUsing = false,
   paused = false,
+  room,
+  hideLaptop = false,
+  portal,
 }: {
+  /** More of the workshop in the canvas: the archive's shelves, a laptop swapped onto the turntable. */
+  room?: ReactNode;
+  /** Free view has another laptop, or none, on the turntable. */
+  hideLaptop?: boolean;
+  /** Where free view's on-screen page mounts, when the caller needs it too. */
+  portal?: RefObject<HTMLDivElement | null>;
   /** Free view: the player walks the same scene, and the laptop answers to them. */
   free?: FreeDrive;
   /** In free view, the player is using the laptop: its screen takes the pointer. */
@@ -185,7 +194,8 @@ export function BuilderScene({
   const nudge = useRef<Nudge>({ az: 0, el: 0, zoom: 1 });
   const drag = useRef<{ x: number; y: number; moved: number } | null>(null);
   const moved = useRef(0);
-  const overlay = useRef<HTMLDivElement | null>(null);
+  const own = useRef<HTMLDivElement | null>(null);
+  const overlay = portal ?? own;
   const glowAt = useMemo(() => {
     const o = fit.shell.outer;
     return [0, PLINTH_H + o.z + o.y * 0.5, 260] as [number, number, number];
@@ -237,7 +247,8 @@ export function BuilderScene({
         <Lights dim={0.45} />
         <directionalLight position={[200, 1200, 1600]} color={token("stage-key")} intensity={0.3} />
         {glow && <pointLight position={glowAt} color={token("screen-glow")} intensity={2.5} distance={0} decay={0} />}
-        <WorkshopLaptop
+        {room}
+        {!hideLaptop && <WorkshopLaptop
           fit={fit}
           lidAngle={lidAngle}
           flip={!!flip}
@@ -263,7 +274,7 @@ export function BuilderScene({
             extra,
             lidExtra,
           }}
-        />
+        />}
         <Rig view={view} nudge={nudge} resetKey={resetKey} active={!free} />
       </Canvas>
       {/* Free view's on-screen page mounts here, over the canvas. It takes the

@@ -335,6 +335,7 @@ export function App() {
       <WorkshopVisit
         key={where.model?.id ?? "empty"}
         model={where.model}
+        models={company.models}
         company={company.name}
         library={company.models.filter((x) => x.reviewed).map(subject)}
         onMap={() => toMap(where)}
@@ -418,6 +419,7 @@ export function App() {
         yearLocked={!!campaign}
         released={!!campaign?.releases[model.id]}
         reroll={(b) => randomName(b.year, inchesOf(b))}
+        models={company?.models ?? []}
         library={(company?.models ?? []).filter((x) => x.reviewed).map(subject)}
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}

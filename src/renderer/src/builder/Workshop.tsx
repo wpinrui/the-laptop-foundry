@@ -17,6 +17,7 @@ const SHADOW_FRAMES = 3;
 /** Groups that never cast: the roof would shade the whole hall from the rooflight. */
 const NO_CAST = ["roof", "clerestory", "lights"];
 const noRaycast = () => {};
+const PLACEHOLDER = /^front_(finish_|label$)/;
 
 function useWorkshop(): { scene: THREE.Group; casters: THREE.Mesh[]; lift: number } {
   const gltf = useLoader(GLTFLoader, workshopUrl);
@@ -35,8 +36,10 @@ function useWorkshop(): { scene: THREE.Group; casters: THREE.Mesh[]; lift: numbe
     scene.traverse((o) => {
       o.updateMatrix();
       o.matrixAutoUpdate = false;
+      // The archive shelving's stand-in laptops and tags: the company's own laptops take their place.
+      if (PLACEHOLDER.test(o.name)) o.visible = false;
       const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
+      if (!mesh.isMesh || !mesh.visible) return;
       mesh.raycast = noRaycast;
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const unlit = mats.some((m) => m.type === "MeshBasicMaterial");

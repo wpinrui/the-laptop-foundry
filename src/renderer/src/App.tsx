@@ -23,7 +23,7 @@ import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
 import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
 import { bestSeller, shortFacts, subjectOf, writeShort } from "./video/script";
-import { prepareShort, type ReadyShort, shortKey, useShort } from "./video/shorts";
+import { cancelShort, prepareShort, type ReadyShort, shortKey, useShort } from "./video/shorts";
 import { VideoScreen } from "./video/VideoScreen";
 
 const store = () => window.api.store;
@@ -176,11 +176,15 @@ export function App() {
     );
   }, [company]);
 
-  // The last quarter's short is made in the background from the moment the quarter ends.
+  // The last quarter's short: made only when the player asks for it, from the Short card.
   const campaignState = company?.campaign;
   const best = useMemo(() => (campaignState ? bestSeller(campaignOf(campaignState)) : null), [campaignState]);
   const shortId = company && best ? shortKey(company.id, best.record.quarter) : null;
   const shortEntry = useShort(shortId);
+  // Leaving the company, or its short moving to a new quarter, cancels a render still on its way.
+  useEffect(() => {
+    return () => cancelShort();
+  }, [shortId]);
   const startShort = () => {
     if (!company?.campaign || !best || !shortId) return;
     const c = company;
@@ -199,10 +203,6 @@ export function App() {
       }),
     );
   };
-  // biome-ignore lint/correctness/useExhaustiveDependencies: once per company and quarter
-  useEffect(() => {
-    if (shortId) startShort();
-  }, [shortId]);
 
   if (!companies) return null;
 
@@ -268,8 +268,8 @@ export function App() {
         setResolving(null);
       });
   };
-  // Plays the short once it is made; before that, a click only makes sure it is on its way.
-  const watchShort = () => {
+  // Plays the short if it is ready; otherwise the click starts making it.
+  const shortAction = () => {
     if (shortEntry?.state === "ready") setShort(shortEntry);
     else if (!shortEntry) startShort();
   };
@@ -434,9 +434,9 @@ export function App() {
             ? {
                 quarter: `Q${best.record.quarter.quarter}`,
                 name: company.models.find((m) => m.id === best.id)?.name ?? subjectOf(best.id, [])?.subject.name ?? "",
-                ready: shortEntry?.state === "ready",
+                state: shortEntry?.state === "ready" ? "ready" : shortEntry?.state === "busy" ? "busy" : "idle",
                 poster: shortEntry?.state === "ready" ? shortEntry.poster : undefined,
-                onWatch: watchShort,
+                onClick: shortAction,
               }
             : undefined
         }

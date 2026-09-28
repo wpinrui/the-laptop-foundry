@@ -4,11 +4,11 @@ import { Cancelled, renderShort } from "./render";
 import { quarterCaption, type Short } from "./script";
 import { lookFor } from "./sets";
 
-// Each company's last quarter's short, made in the background as soon as the
-// quarter ends: script, voice, then an offline render. One job at a time; a
-// newer quarter cancels an older one still rendering. Finished videos stay in
-// memory for the session and on disk in the company's folder, so a reopened
-// save plays at once.
+// Each company's last quarter's short, made on demand when the player asks
+// for it: script, voice, then an offline render. One job at a time; asking
+// for a different one, or cancelShort, stops whatever is still rendering.
+// Finished videos stay in memory for the session and on disk in the
+// company's folder, so a reopened save plays at once.
 
 export interface ReadyShort {
   url: string;
@@ -54,6 +54,15 @@ function set(key: string, e: Entry | null) {
 
 export function shortKey(company: string, q: Quarter): string {
   return `${company}:${q.year}q${q.quarter}`;
+}
+
+/** Stops whatever short is still rendering, if any, and clears its busy entry. */
+export function cancelShort(): void {
+  if (!current) return;
+  const job = current;
+  current = null;
+  job.cancel();
+  set(job.key, null);
 }
 
 export function saveName(short: Short): string {

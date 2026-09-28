@@ -51,7 +51,7 @@ export function LaptopList({
   campaign: CampaignState | null;
   onEndQuarter: () => void;
   /** The last quarter's best seller as a short video; absent before any quarter has sold. */
-  short?: { quarter: string; name: string; ready: boolean; poster?: string; onWatch: () => void };
+  short?: { quarter: string; name: string; state: "idle" | "busy" | "ready"; poster?: string; onClick: () => void };
   /** The quarter's step running while it resolves, or null. */
   resolving?: { step: number; of: number; name: string } | null;
   selected: string | null;
@@ -130,13 +130,13 @@ export function LaptopList({
               </span>
             </div>
             {short && (
-              <button type="button" className="fd-short" onClick={short.onWatch}>
+              <button type="button" className="fd-short" onClick={short.onClick}>
                 <i>{short.poster && <img src={short.poster} alt="" />}</i>
                 <span>
                   <small>{short.quarter} short</small>
                   <b>{short.name}</b>
                 </span>
-                {short.ready ? <em>Watch</em> : <u aria-busy />}
+                {short.state === "busy" ? <u aria-busy /> : <em>{short.state === "ready" ? "Watch" : "Make"}</em>}
               </button>
             )}
           </>

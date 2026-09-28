@@ -67,6 +67,12 @@ const api = {
     /** Keeps a rendered short beside the company's save, replacing older quarters'. */
     keep: (company: string, quarter: string, bytes: Uint8Array): Promise<void> =>
       ipcRenderer.invoke("video:keep", company, quarter, bytes),
+    /** A kept short's poster still (JPEG), or null. */
+    poster: (company: string, quarter: string): Promise<Uint8Array | null> =>
+      ipcRenderer.invoke("video:poster", company, quarter),
+    /** Keeps a short's poster still beside it. */
+    keepPoster: (company: string, quarter: string, bytes: Uint8Array): Promise<void> =>
+      ipcRenderer.invoke("video:keepPoster", company, quarter, bytes),
     /** Opens a save dialog for a rendered video. True once written. */
     save: (bytes: Uint8Array, name: string): Promise<boolean> => ipcRenderer.invoke("video:save", bytes, name),
   },

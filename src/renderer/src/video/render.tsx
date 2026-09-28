@@ -128,8 +128,29 @@ interface Job {
   cancelled: () => boolean;
 }
 
-/** Steps the scene through every frame, encodes it with the narration and returns the MP4. */
-async function encode(job: Job, state: RootState, time: { current: number }): Promise<Blob> {
+/** A rendered short: the MP4 and a small still of the laptop from it. */
+export interface Rendered {
+  video: Blob;
+  /** A JPEG of the hero shot without captions, or null when it could not be taken. */
+  poster: Blob | null;
+}
+
+/** The poster's size in pixels, the video's portrait shape. */
+const POSTER_W = 180;
+const POSTER_H = 320;
+
+/** The frame the poster is taken from: midway through the first wide shot of the laptop. */
+function posterFrame(short: Short, tl: Timeline): number {
+  const i = Math.max(
+    0,
+    short.lines.findIndex((l) => l.shot === "title" || l.shot === "orbit"),
+  );
+  const end = i + 1 < tl.starts.length ? tl.starts[i + 1] : tl.total;
+  return Math.floor(((tl.starts[i] + end) / 2) * FPS);
+}
+
+/** Steps the scene through every frame, encodes it with the narration and returns the MP4 and its poster. */
+async function encode(job: Job, state: RootState, time: { current: number }): Promise<Rendered> {
   const { short, tl, voice, cancelled } = job;
   const began = performance.now();
   const vc = await pickVideo();
@@ -156,6 +177,8 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
   if (!g) throw new Error("no 2d context");
   const gl = state.gl.domElement;
   const frames = Math.ceil(tl.total * FPS);
+  const still = Math.min(frames - 1, posterFrame(short, tl));
+  let poster: Promise<Blob | null> = Promise.resolve(null);
   try {
     for (let f = 0; f < frames; f++) {
       if (cancelled()) throw new Cancelled();
@@ -166,6 +189,12 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
       g.fillStyle = "#14100d";
       g.fillRect(0, 0, W, H);
       g.drawImage(gl, 0, 0, W, H);
+      if (f === still) {
+        // The 3D view alone, before the captions go over it.
+        const p = new OffscreenCanvas(POSTER_W, POSTER_H);
+        p.getContext("2d")?.drawImage(frame, 0, 0, POSTER_W, POSTER_H);
+        poster = p.convertToBlob({ type: "image/jpeg", quality: 0.85 }).catch(() => null);
+      }
       drawOverlay(g, short, tl, t);
       const vf = new VideoFrame(frame, { timestamp: Math.round((f * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
       enc.encode(vf, { keyFrame: f % (FPS * 2) === 0 });
@@ -186,7 +215,7 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
   muxer.finalize();
   const secs = (performance.now() - began) / 1000;
   console.info(`short: ${frames} frames (${tl.total.toFixed(1)} s, ${vc.mux} ${vc.config.hardwareAcceleration}${ac ? `+${ac.mux}` : ""}) in ${secs.toFixed(1)} s, ${(tl.total / secs).toFixed(2)}x real time, ${target.buffer.byteLength} bytes`);
-  return new Blob([target.buffer], { type: "video/mp4" });
+  return { video: new Blob([target.buffer], { type: "video/mp4" }), poster: await poster };
 }
 
 /** Hands the renderer the r3f state once the canvas is up. */
@@ -199,7 +228,7 @@ function Driver({ onState }: { onState: (s: RootState) => void }) {
   return null;
 }
 
-function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Blob | Error) => void }) {
+function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered | Error) => void }) {
   const time = useRef(0);
   const ready = useMemo(() => {
     let state: (s: RootState) => void = () => {};
@@ -260,7 +289,7 @@ export function timelineFor(short: Short, voice: Voice | null): Timeline {
  * from whatever the player is looking at. Rejects with Cancelled once
  * `cancelled` turns true.
  */
-export function renderShort(short: Short, look: Look, voice: Voice | null, cancelled: () => boolean): Promise<Blob> {
+export function renderShort(short: Short, look: Look, voice: Voice | null, cancelled: () => boolean): Promise<Rendered> {
   let fit: Fit;
   try {
     fit = solve(short.facts.subject.build);
@@ -274,15 +303,15 @@ export function renderShort(short: Short, look: Look, voice: Voice | null, cance
   host.style.cssText = `position:fixed;left:-${W * 4}px;top:0;width:${W}px;height:${H}px;pointer-events:none;visibility:hidden;`;
   document.body.appendChild(host);
   const root = createRoot(host);
-  return new Promise<Blob>((resolve, reject) => {
-    const done = (r: Blob | Error) => {
+  return new Promise<Rendered>((resolve, reject) => {
+    const done = (r: Rendered | Error) => {
       // Unmounted on the next turn: the encoder's last callbacks run first.
       setTimeout(() => {
         root.unmount();
         host.remove();
       }, 0);
-      if (r instanceof Blob) resolve(r);
-      else reject(r);
+      if (r instanceof Error) reject(r);
+      else resolve(r);
     };
     root.render(<Renderer job={job} fit={fit} done={done} />);
   });

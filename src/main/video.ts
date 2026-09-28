@@ -21,6 +21,8 @@ interface Tts {
 const MAX_LINES = 24;
 const MAX_CHARS = 400;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
+/** A poster still is a small JPEG. */
+const MAX_POSTER_BYTES = 2 * 1024 * 1024;
 /** The narrators, by name, as Kokoro v1.0's speaker ids. */
 const NARRATORS: Record<string, number> = { michael: 16, heart: 3 };
 /** A touch quicker than Kokoro's own pace, for a short. */
@@ -113,8 +115,26 @@ export function registerVideo(): void {
     if (!(bytes instanceof Uint8Array) || bytes.byteLength > MAX_VIDEO_BYTES) throw new Error("video:keep: bad video");
     const { dir, file } = shortFile(company, quarter);
     await mkdir(dir, { recursive: true });
-    for (const f of await readdir(dir)) if (join(dir, f) !== file) await rm(join(dir, f), { force: true });
+    // Older quarters' files go; this quarter's poster stays.
+    for (const f of await readdir(dir)) if (!f.startsWith(`${quarter}.`)) await rm(join(dir, f), { force: true });
     await writeFile(file, bytes);
+  });
+
+  /** A short's poster still kept before, or null. */
+  handleTop("video:poster", async (_e, company: unknown, quarter: unknown) => {
+    const { file } = shortFile(company, quarter);
+    return readFile(file.replace(/\.mp4$/, ".jpg")).then(
+      (b) => new Uint8Array(b.buffer, b.byteOffset, b.byteLength),
+      () => null,
+    );
+  });
+
+  /** Keeps a short's poster still beside it. */
+  handleTop("video:keepPoster", async (_e, company: unknown, quarter: unknown, bytes: unknown) => {
+    if (!(bytes instanceof Uint8Array) || bytes.byteLength > MAX_POSTER_BYTES) throw new Error("video:keepPoster: bad poster");
+    const { dir, file } = shortFile(company, quarter);
+    await mkdir(dir, { recursive: true });
+    await writeFile(file.replace(/\.mp4$/, ".jpg"), bytes);
   });
 
   /** Saves a rendered video where the player picks. True once written. */

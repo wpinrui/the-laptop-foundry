@@ -51,7 +51,7 @@ export function LaptopList({
   campaign: CampaignState | null;
   onEndQuarter: () => void;
   /** The last quarter's best seller as a short video; absent before any quarter has sold. */
-  short?: { quarter: string; name: string; ready: boolean; onWatch: () => void };
+  short?: { quarter: string; name: string; ready: boolean; poster?: string; onWatch: () => void };
   /** The quarter's step running while it resolves, or null. */
   resolving?: { step: number; of: number; name: string } | null;
   selected: string | null;
@@ -129,7 +129,7 @@ export function LaptopList({
             </div>
             {short && (
               <button type="button" className="fd-short" onClick={short.onWatch}>
-                <i />
+                <i>{short.poster && <img src={short.poster} alt="" />}</i>
                 <span>
                   <small>{short.quarter} short</small>
                   <b>{short.name}</b>

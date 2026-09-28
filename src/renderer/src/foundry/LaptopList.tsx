@@ -64,9 +64,11 @@ export function LaptopList({
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  // Scoring every model is slow: only a change to the models redoes it, not a campaign change.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed by the models and the name
   const models = useMemo(
     () => sortedModels(company).map((m) => ({ m, block: buildBlock(m.build), score: m.reviewed ? overallOf(m, company.name) : null })),
-    [company],
+    [company.models, company.name],
   );
   const [armed, setArmed] = useState<string | null>(null);
   // A finished campaign keeps its models but makes no new ones.

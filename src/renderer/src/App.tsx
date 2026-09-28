@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel, SavedNote, Settings } from "../../preload/store";
+import { campaignSaved, queueCampaignSave } from "./app/campaignSaves";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
@@ -57,7 +58,10 @@ function latestModel(c: SavedCompany | null | undefined): SavedModel | null {
 
 export function App() {
   const [companies, setCompanies] = useState<SavedCompany[] | null>(null);
-  const ending = useRef(false);
+  // The open company's newest campaign state, ahead of its save landing.
+  const live = useRef<{ id: string; state: CampaignState } | null>(null);
+  // While a quarter resolves, campaign changes are held off: the quarter's result would overwrite them.
+  const resolvingRef = useRef(false);
   const [settings, setSettings] = useState<Settings>({ sound: true });
   const [company, setCompany] = useState<SavedCompany | null>(null);
   const [menu, setMenu] = useState<Menu>("start");
@@ -102,7 +106,10 @@ export function App() {
   }, []);
 
   const refresh = useCallback((saved: SavedCompany) => {
-    const c = migrated(saved);
+    let c = migrated(saved);
+    // A campaign change still on its way to disk is newer than what the save returned.
+    const l = live.current;
+    if (l && l.id === c.id && c.campaign) c = { ...c, campaign: savedCampaign(l.state) };
     openMarkets(c);
     setCompany(c);
     setCompanies((all) => [c, ...(all ?? []).filter((x) => x.id !== c.id)]);
@@ -126,6 +133,7 @@ export function App() {
       store()
         .openCompany(id)
         .then((c) => {
+          if (live.current?.id !== c.id) live.current = null;
           refresh(c);
           setSelected(latestModel(c)?.id ?? null);
           setMenu("list");
@@ -200,16 +208,25 @@ export function App() {
 
   const name = company?.name ?? "";
   const campaign = company?.campaign ? campaignOf(company.campaign) : null;
-  // Saves a changed campaign state. One change at a time: a second click before the save lands would apply twice.
-  const commit = (next: CampaignState | null) => {
-    if (!company || !next || ending.current) return;
-    ending.current = true;
-    store()
-      .saveCampaign(company.id, savedCampaign(next))
-      .then(refresh)
-      .finally(() => {
-        ending.current = false;
-      });
+  // Shows a new campaign state at once and saves it in the background; resolves once it is on disk.
+  const apply = (next: CampaignState): Promise<void> => {
+    if (!company) return Promise.resolve();
+    const id = company.id;
+    live.current = { id, state: next };
+    const saved = savedCampaign(next);
+    const played = Date.now();
+    setCompany((c) => (c && c.id === id ? { ...c, campaign: saved, played } : c));
+    setCompanies((all) => {
+      const c = all?.find((x) => x.id === id);
+      return c ? [{ ...c, campaign: saved, played }, ...(all ?? []).filter((x) => x.id !== id)] : all;
+    });
+    return queueCampaignSave(id, saved);
+  };
+  // Applies a change to the newest campaign state. Every click lands, however fast, and the saves follow.
+  const commit = (change: (s: CampaignState) => CampaignState | null) => {
+    if (!company || !campaign || resolvingRef.current) return;
+    const next = change(live.current?.id === company.id ? live.current.state : campaign);
+    if (next) void apply(next);
   };
   const subject = (m: SavedModel): Subject => ({ id: m.id, name: m.name, company: name, build: m.build as Build });
   // Opens the subject's year first: its review and apps compare it with that year's market.
@@ -225,24 +242,28 @@ export function App() {
     if (!campaign || !company || busy) return;
     const y = campaign.now.year;
     const of = QUARTER_STEPS.length;
+    resolvingRef.current = true;
     setBusy(true);
     setResolving({ step: 0, of, name: QUARTER_STEPS[0].name });
-    Promise.all([ensureMarket(y - 1), ensureMarket(y)])
+    // Every change made so far is on disk before the quarter resolves.
+    campaignSaved()
+      .then(() => Promise.all([ensureMarket(y - 1), ensureMarket(y)]))
       .then(async () => {
         const rivals = y - 1 >= FIRST_MARKET_YEAR ? [...rivalsFor(y - 1), ...rivalsFor(y)] : rivalsFor(y);
         const ctx = { models: company.models, company: company.id, rivals };
         // Step by step, each named on the End button while it runs.
-        let s = campaign;
+        let s = live.current?.id === company.id ? live.current.state : campaign;
         for (const [i, step] of QUARTER_STEPS.entries()) {
           setResolving({ step: i, of, name: step.name });
           await new Promise((r) => setTimeout(r, 140));
           s = step.run(s, ctx);
         }
         const next = advanceClock(s);
-        commit(next);
         if (!next.over) setReport(reportOf(s, company.models));
+        await apply(next);
       })
       .finally(() => {
+        resolvingRef.current = false;
         setBusy(false);
         setResolving(null);
       });
@@ -447,11 +468,11 @@ export function App() {
               refresh(c);
               setSelected(sortedModels(c)[0]?.id ?? null);
               // A deleted model's line ends and its stock is written off.
-              const s = c.campaign ? campaignOf(c.campaign) : null;
-              if (s?.releases[id]) {
+              commit((s) => {
+                if (!s.releases[id]) return null;
                 const { [id]: _, ...releases } = s.releases;
-                return store().saveCampaign(c.id, savedCampaign({ ...s, releases })).then(refresh);
-              }
+                return { ...s, releases };
+              });
             })
         }
       />
@@ -506,18 +527,18 @@ export function App() {
               models={company.models}
               units={runs[current.id] || DEFAULT_RUN}
               onUnits={(u) => setRuns((r) => ({ ...r, [current.id]: u }))}
-              onPrice={(p) => commit(setPrice(campaign, current.id, p))}
+              onPrice={(p) => commit((s) => setPrice(s, current.id, p))}
               onRelease={(units, cost, re) =>
-                commit(release(campaign, current.id, (current.build as Build).price, cost, units, re))
+                commit((s) => release(s, current.id, (current.build as Build).price, cost, units, re))
               }
-              onReorder={(units, cost) => commit(reorder(campaign, current.id, cost, units))}
+              onReorder={(units, cost) => commit((s) => reorder(s, current.id, cost, units))}
             />
           )}
           {tab === "books" && <BooksTab campaign={campaign} onOpen={setStatement} />}
           {tab === "brand" && (
             <BrandTab
               campaign={campaign}
-              onTier={(segment, t) => commit({ ...campaign, brand: setCampaign(campaign.brand, segment, t) })}
+              onTier={(segment, t) => commit((s) => ({ ...s, brand: setCampaign(s.brand, segment, t) }))}
             />
           )}
           {tab === "awards" && <AwardsTab campaign={campaign} models={company.models} />}

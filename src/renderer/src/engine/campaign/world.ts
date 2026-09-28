@@ -1,7 +1,7 @@
 import type { Rival } from "../market/field";
 import { shapeFor, LINES } from "../market/makers";
 import { profileOf, rivalProfile } from "../market/profile";
-import { marketScore } from "../market/score";
+import { marketScore, statRatio, weightedRatio } from "../market/score";
 import { SEGMENTS } from "../market/segments";
 import type { HeadlineValues } from "../market/stats";
 import { HEADLINE_STATS, type HeadlineStat, type SegmentId } from "../market/types";
@@ -524,4 +524,107 @@ export function buyersOf(state: CampaignState, modelId: string, quarter?: Quarte
     perception: state.brand.perception[s.id],
   })).sort((a, b) => b.units - a.units || b.reach - a.reach);
   return { units, quarters: sold, segments };
+}
+
+// ------------------------------------------------------------------ rivals
+
+/** A laptop in a contest: its units, the units it won from the picked model's buyers, and how it stands. */
+export interface ContestLaptop extends WorldLaptop {
+  units: number;
+  /** Units it sold to the segments the picked model's buyers come from. */
+  won: number;
+  /** Share of buyers in common with the picked model, 0 to 1; null for the picked model itself. */
+  overlap: number | null;
+  index: StatIndex;
+  /** The market score for the picked model's buyers, 100 at the market's par. */
+  score: number | null;
+}
+
+export interface Contest {
+  quarter: Quarter;
+  /** The picked model, or null when the player has none to pick. */
+  model: ContestLaptop | null;
+  /** The picked model and the rivals it competes with most, most units won first. */
+  laptops: ContestLaptop[];
+  /** How much the picked model's buyers weight each headline stat, the heaviest at 1. */
+  weights: Record<HeadlineStat, number>;
+}
+
+/** A segment is one of a model's own when at least this much of its buyers come from it. */
+const OWN_SEGMENT = 0.05;
+
+/**
+ * The rivals a player model competes with most in the quarter: the highest
+ * overlap times (0.4 + 0.6 times price closeness), where overlap sums over the
+ * segments the smaller share of each laptop's buyers, and closeness is
+ * 1 - |ln(price ratio)| / 0.7, floored at 0. With no model, the quarter's best
+ * sellers against the whole market's buyers.
+ */
+export function contestOf(state: CampaignState, market: WorldMarket, modelId: string | null, q: Quarter, n = 5): Contest {
+  const shelf = shelfAt(state, q);
+  const empty = Object.fromEntries(HEADLINE_STATS.map((k) => [k, 0])) as Record<HeadlineStat, number>;
+  if (!shelf) return { quarter: q, model: null, laptops: [], weights: empty };
+  const onShelf = Object.keys(shelf.units).flatMap((id) => laptopOf(state, market, id, q) ?? []);
+  const rivals = onShelf.filter((l) => !l.own);
+  const self = modelId ? (onShelf.find((l) => l.id === modelId) ?? laptopOf(state, market, modelId, q)) : null;
+  const measured = [...onShelf, ...(self && !onShelf.includes(self) ? [self] : [])].flatMap((l) => (l.stats ? [l.stats] : []));
+  const avg = Object.fromEntries(
+    HEADLINE_STATS.map((k) => [k, measured.reduce((a, v) => a + v[k], 0) / Math.max(1, measured.length)]),
+  ) as Record<HeadlineStat, number>;
+  const indexOf = (l: WorldLaptop): StatIndex => {
+    const st = l.stats;
+    if (!st) return null;
+    return Object.fromEntries(HEADLINE_STATS.map((k) => [k, avg[k] > 0 ? (st[k] / avg[k]) * 100 : 100])) as Record<HeadlineStat, number>;
+  };
+  const segUnits = (id: string) => shelf.units[id] ?? [];
+  const marketMix = mixOf(SEGMENTS.map((_, i) => Object.values(shelf.units).reduce((a, u) => a + (u[i] ?? 0), 0)));
+  const mix =
+    (self && (mixOf(segUnits(self.id)) ?? likelyMix(self, rivals.flatMap((r) => (r.stats ? [r.stats] : []))))) ??
+    marketMix ??
+    SEGMENTS.map(() => 1 / SEGMENTS.length);
+  const weights = Object.fromEntries(
+    HEADLINE_STATS.map((k) => [k, SEGMENTS.reduce((a, s, i) => a + mix[i] * s.weights[k], 0)]),
+  ) as Record<HeadlineStat, number>;
+  const heaviest = Math.max(1e-9, ...Object.values(weights));
+  for (const k of HEADLINE_STATS) weights[k] /= heaviest;
+  const scoreOf = (l: WorldLaptop): number | null => {
+    const st = l.stats;
+    if (!st) return null;
+    const ratios = Object.fromEntries(HEADLINE_STATS.map((k) => [k, statRatio(st[k], avg[k])])) as Record<HeadlineStat, number>;
+    return SEGMENTS.reduce((a, s, i) => a + mix[i] * weightedRatio(ratios, s.weights), 0) * 100;
+  };
+  const wonBy = (id: string) => {
+    const u = segUnits(id);
+    return SEGMENTS.reduce((a, _, i) => a + (mix[i] >= OWN_SEGMENT ? (u[i] ?? 0) : 0), 0);
+  };
+  const entry = (l: WorldLaptop, overlap: number | null): ContestLaptop => ({
+    ...l,
+    units: unitsOf(shelf.units[l.id]),
+    won: wonBy(l.id),
+    overlap,
+    index: indexOf(l),
+    score: scoreOf(l),
+  });
+  let picked: ContestLaptop[];
+  if (self) {
+    picked = rivals
+      .map((r) => {
+        const other = mixOf(segUnits(r.id));
+        const overlap = other ? mix.reduce((a, m, i) => a + Math.min(m, other[i] ?? 0), 0) : 0;
+        const closeness = self.price > 0 && r.price > 0 ? Math.max(0, 1 - Math.abs(Math.log(r.price / self.price)) / 0.7) : 0;
+        return { r, overlap, closeness, key: overlap * (0.4 + 0.6 * closeness) };
+      })
+      .filter((c) => c.overlap > 0 && c.closeness > 0)
+      .sort((a, b) => b.key - a.key || a.r.id.localeCompare(b.r.id))
+      .slice(0, n)
+      .map((c) => entry(c.r, c.overlap));
+  } else {
+    picked = onShelf
+      .map((l) => entry(l, null))
+      .sort((a, b) => b.units - a.units)
+      .slice(0, n + 1);
+  }
+  const model = self ? entry(self, null) : null;
+  const laptops = [...(model ? [model] : []), ...picked].sort((a, b) => b.won - a.won || b.units - a.units);
+  return { quarter: q, model, laptops, weights };
 }

@@ -622,3 +622,292 @@
   height: 100%;
   background: var(--accent);
 }
+
+/* ------------------------------------------------------------ Rivals tab */
+
+.mr {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: calc(500 * var(--u)) minmax(0, 1fr);
+  gap: calc(56 * var(--u));
+  margin-top: calc(14 * var(--u));
+}
+
+.mr-list {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.mr-row {
+  display: grid;
+  grid-template-columns: calc(46 * var(--u)) minmax(0, 1fr) calc(70 * var(--u)) calc(52 * var(--u)) calc(66 * var(--u)) calc(110 * var(--u));
+  align-items: center;
+  column-gap: calc(8 * var(--u));
+  min-height: calc(60 * var(--u));
+  padding: calc(4 * var(--u)) calc(8 * var(--u)) calc(4 * var(--u)) 0;
+  border-bottom: 1px solid var(--line-row);
+}
+
+.mr-row.no-overlap {
+  grid-template-columns: calc(46 * var(--u)) minmax(0, 1fr) calc(70 * var(--u)) calc(52 * var(--u)) calc(110 * var(--u));
+}
+
+.mr-head {
+  min-height: 0;
+  padding-bottom: calc(10 * var(--u));
+  border-bottom-color: var(--line);
+  font-weight: 600;
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mr-head span {
+  text-align: right;
+}
+
+.mr-row > em {
+  font-style: normal;
+  font-weight: 700;
+  font-size: calc(34 * var(--u));
+  line-height: 1;
+  text-align: center;
+  color: var(--muted);
+}
+
+.mr-row > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mr-row small {
+  font-weight: 600;
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mr-row > span b {
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+  line-height: 1.05;
+}
+
+.mr-row > strong {
+  font-weight: 600;
+  font-size: calc(18 * var(--u));
+  text-align: right;
+}
+
+.mr-row .mq-score {
+  justify-self: end;
+  width: auto;
+  height: auto;
+  background: none;
+  font-size: calc(20 * var(--u));
+}
+
+.mr-row > u {
+  text-decoration: none;
+  font-weight: 500;
+  font-size: calc(18 * var(--u));
+  text-align: right;
+  color: var(--muted);
+}
+
+.mr-won {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(4 * var(--u));
+}
+
+.mr-won b {
+  font-weight: 600;
+  font-size: calc(17 * var(--u));
+}
+
+.mr-won > i {
+  width: 100%;
+  height: calc(6 * var(--u));
+  background: var(--line);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mr-won > i > i {
+  display: block;
+  height: 100%;
+  background: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+.mr-row.own {
+  background: var(--accent-wash);
+}
+
+.mr-row.own > span b {
+  color: var(--accent);
+}
+
+.mr-row.own .mr-won > i > i {
+  background: var(--accent);
+}
+
+.mr-matrix {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  display: grid;
+  align-content: start;
+}
+
+.mr-line {
+  display: contents;
+}
+
+.mr-name {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: calc(2 * var(--u));
+  padding: calc(8 * var(--u)) calc(10 * var(--u));
+  border-bottom: 1px solid var(--line);
+}
+
+.mr-name small {
+  font-weight: 600;
+  font-size: calc(12 * var(--u));
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mr-name b {
+  font-weight: 600;
+  font-size: calc(15 * var(--u));
+  line-height: 1.05;
+}
+
+.mr-name.own b {
+  color: var(--accent);
+}
+
+.mr-matrix > span {
+  border-bottom: 1px solid var(--line);
+}
+
+.mr-label {
+  display: flex;
+  align-items: center;
+  height: calc(38 * var(--u));
+  border-bottom: 1px solid var(--line-row);
+  font-weight: 500;
+  font-size: calc(16 * var(--u));
+  color: var(--muted);
+}
+
+.mr-label.strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mr-pips {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--u));
+  height: calc(38 * var(--u));
+  border-bottom: 1px solid var(--line-row);
+}
+
+.mr-pips i {
+  width: calc(5 * var(--u));
+  height: calc(10 * var(--u));
+  background: var(--track);
+}
+
+.mr-pips i.on {
+  background: var(--accent);
+}
+
+.mr-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(4 * var(--u));
+  height: calc(38 * var(--u));
+  padding: 0 calc(10 * var(--u));
+  border-bottom: 1px solid var(--line-row);
+  font-weight: 600;
+  font-size: calc(16 * var(--u));
+}
+
+.mr-cell.own {
+  background: var(--accent-wash);
+}
+
+.mr-cell.best b {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.mr-cell.short b {
+  color: var(--warning);
+}
+
+.mr-bar {
+  position: relative;
+  display: block;
+  height: calc(3 * var(--u));
+  background: var(--line);
+}
+
+.mr-bar > i {
+  display: block;
+  height: 100%;
+  background: color-mix(in srgb, var(--muted) 60%, transparent);
+}
+
+.mr-cell.best .mr-bar > i {
+  background: var(--accent);
+}
+
+.mr-cell.short .mr-bar > i {
+  background: var(--warning);
+}
+
+.mr-bar > u {
+  position: absolute;
+  top: calc(-2 * var(--u));
+  bottom: calc(-2 * var(--u));
+  width: 1px;
+  background: var(--text);
+  opacity: 0.6;
+}
+
+.mr-total > .mr-label,
+.mr-total > span,
+.mr-total > .mr-cell {
+  height: calc(52 * var(--u));
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 0;
+}
+
+.mr-total > .mr-label {
+  font-size: calc(18 * var(--u));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mr-total > .mr-cell {
+  font-weight: 700;
+  font-size: calc(30 * var(--u));
+}
+
+.mr-total > .mr-cell.best {
+  color: var(--accent);
+}

@@ -173,8 +173,8 @@ export function Cafe({
     document.exitPointerLock();
   }, []);
 
-  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug });
-  state.current = { pose, using, full, paused, aim, active, resume, onPlug };
+  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug, onMap });
+  state.current = { pose, using, full, paused, aim, active, resume, onPlug, onMap };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
@@ -196,6 +196,8 @@ export function Cafe({
           unlock();
           setFull(true);
         }
+      } else if (e.code === "KeyE" && s.active && s.aim === "door" && s.pose === "stand") {
+        s.onMap();
       } else if (e.code === "KeyE" && s.active) {
         if (s.using) {
           setPose("sit");
@@ -213,7 +215,7 @@ export function Cafe({
           lock();
         }
         setPose("stand");
-      } else if (e.code === "KeyC" && (s.using || s.full || (s.active && s.aim !== null))) {
+      } else if (e.code === "KeyC" && (s.using || s.full || (s.active && (s.aim === "laptop" || s.aim === "power")))) {
         s.onPlug();
       }
     };
@@ -232,6 +234,7 @@ export function Cafe({
     else prompts = [stand];
   } else if (active && aim === "laptop") prompts = [{ key: "E", label: "Sit" }, charge, screen];
   else if (active && aim === "power") prompts = [charge];
+  else if (active && aim === "door") prompts = [{ key: "E", label: "Leave" }];
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: first-person input goes to the locked pointer

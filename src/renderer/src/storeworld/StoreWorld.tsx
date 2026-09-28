@@ -1,4 +1,5 @@
 import {
+  type ReactNode,
   type Ref,
   useCallback,
   useEffect,
@@ -6,16 +7,20 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { SavedCompany } from "../../../preload/store";
-import { type Prompt, Prompts } from "../cafe/Cafe";
+import { blurField, FullPage, type Prompt, Prompts, typing } from "../cafe/Cafe";
+import { useLaptopOs } from "../cafe/CafeScreen";
+import { panelOf, simulate, solve } from "../engine";
 import type { CampaignState } from "../engine/campaign";
 import { Column, Entry } from "../foundry/Menus";
+import { lookOf as screenLook } from "../review/look";
 import { countShort } from "../world/data";
-import { flagOf, scoreColour } from "./displays";
+import { flagOf } from "./displays";
 import { layoutOf } from "./layout";
 import { type OnSale, useOnSale } from "./onSale";
-import { Store } from "./Store";
+import { Store, type StoreAim } from "./Store";
 import "../cafe/cafe.css";
 import "./storeworld.css";
 
@@ -24,6 +29,92 @@ import "./storeworld.css";
 // menu. Walking out through the door calls onMap.
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+
+/** A display unit can be used when its build fits, simulates and has a screen. */
+const usableCache = new WeakMap<OnSale, boolean>();
+function usable(item: OnSale): boolean {
+  let ok = usableCache.get(item);
+  if (ok === undefined) {
+    try {
+      const fit = solve(item.build);
+      simulate(item.build, fit);
+      ok = !!screenLook(panelOf(item.build));
+    } catch {
+      ok = false;
+    }
+    usableCache.set(item, ok);
+  }
+  return ok;
+}
+
+/** The in-use laptop's page, handed from its OS to the screen without re-rendering the store. */
+interface Slot {
+  get: () => ReactNode;
+  set: (n: ReactNode) => void;
+  subscribe: (f: () => void) => () => void;
+}
+
+function makeSlot(): Slot {
+  let node: ReactNode = null;
+  const subs = new Set<() => void>();
+  return {
+    get: () => node,
+    set: (n) => {
+      if (n === node) return;
+      node = n;
+      for (const f of subs) f();
+    },
+    subscribe: (f) => {
+      subs.add(f);
+      return () => subs.delete(f);
+    },
+  };
+}
+
+function SlotView({ slot }: { slot: Slot }) {
+  return <>{useSyncExternalStore(slot.subscribe, slot.get)}</>;
+}
+
+interface PageLook {
+  width: number;
+  height: number;
+  mm: { x: number; y: number };
+}
+
+/** The display unit's OS: a store demo account, on mains power, already running. */
+function StoreOs({
+  item,
+  sound,
+  onSound,
+  slot,
+  onLook,
+}: {
+  item: OnSale;
+  sound: boolean;
+  onSound: (on: boolean) => void;
+  slot: Slot;
+  onLook: (l: PageLook | null) => void;
+}) {
+  const subject = useMemo(
+    () => ({ id: item.id, name: item.name, company: item.brand, build: item.build }),
+    [item],
+  );
+  const os = useLaptopOs({ subject, sound, onSound, startPlugged: true, startOn: true });
+  const node = os.page?.node ?? null;
+  useLayoutEffect(() => slot.set(node));
+  useEffect(() => () => slot.set(null), [slot]);
+  const w = os.page?.width ?? 0;
+  const h = os.page?.height ?? 0;
+  const mx = os.page?.mm.x ?? 0;
+  const my = os.page?.mm.y ?? 0;
+  useEffect(() => {
+    onLook(w && h ? { width: w, height: h, mm: { x: mx, y: my } } : null);
+  }, [w, h, mx, my, onLook]);
+  useEffect(() => () => onLook(null), [onLook]);
+  return <>{os.shoot}</>;
+}
+
+const noSound = () => {};
 
 export interface StoreWorldProps {
   /** The open company: its campaign's last quarter is on sale, or for a sandbox the market of `year`. */
@@ -51,13 +142,17 @@ export function StoreWorld({
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLElement>(null);
   const [paused, setPaused] = useState(false);
-  const [aim, setAim] = useState<number | null>(null);
+  const [aim, setAim] = useState<StoreAim>(null);
   const [inspect, setInspect] = useState<number | null>(null);
+  const [using, setUsing] = useState(false);
+  const [full, setFull] = useState(false);
+  const [look, setLook] = useState<PageLook | null>(null);
+  const slot = useMemo(makeSlot, []);
   const [shift, setShift] = useState(0);
   const expectUnlock = useRef(false);
   const pausedAt = useRef(0);
   const leaving = useRef(false);
-  const active = !paused;
+  const active = !paused && !full;
 
   const leave = useCallback(() => {
     if (leaving.current) return;
@@ -112,6 +207,8 @@ export function StoreWorld({
   );
   const close = useCallback(() => {
     setInspect(null);
+    setUsing(false);
+    setFull(false);
     lock();
   }, [lock]);
   const step = useCallback(
@@ -125,32 +222,51 @@ export function StoreWorld({
     if (inspect === null) lock();
   }, [inspect, lock]);
 
-  const state = useRef({ paused, aim, inspect, resume, open, close, step });
-  state.current = { paused, aim, inspect, resume, open, close, step };
+  const seat = inspect !== null ? layout.seats[inspect] : undefined;
+  const canUse = !!seat && usable(seat.item);
+
+  const state = useRef({ paused, aim, inspect, using, full, canUse, resume, open, close, step, leave });
+  state.current = { paused, aim, inspect, using, full, canUse, resume, open, close, step, leave };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
-        } else if (s.inspect !== null) s.close();
+        } else if (s.full || s.using) pause();
+        else if (s.inspect !== null) s.close();
         return;
       }
-      if (s.paused || e.repeat) return;
+      if (s.paused || e.repeat || typing(e)) return;
+      if (s.full) {
+        if (e.code === "KeyF") setFull(false);
+        return;
+      }
+      if (s.using) {
+        if (e.code === "KeyE") {
+          blurField();
+          setUsing(false);
+        } else if (e.code === "KeyF") setFull(true);
+        return;
+      }
       if (s.inspect !== null) {
         if (e.code === "ArrowLeft" || e.code === "KeyA") s.step(-1);
         else if (e.code === "ArrowRight" || e.code === "KeyD") s.step(1);
+        else if (e.code === "KeyE" && s.canUse) setUsing(true);
         else if (e.code === "KeyE" || e.code === "Backspace") s.close();
-      } else if (e.code === "KeyE" && s.aim !== null) s.open(s.aim);
+      } else if (e.code === "KeyE" && s.aim === "door") s.leave();
+      else if (e.code === "KeyE" && typeof s.aim === "number") s.open(s.aim);
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, []);
+  }, [pause]);
 
   // A new market while inspecting starts the walk again.
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the layout
   useEffect(() => {
     setInspect(null);
+    setUsing(false);
+    setFull(false);
     setAim(null);
   }, [layout]);
 
@@ -162,11 +278,19 @@ export function StoreWorld({
     return () => window.removeEventListener("resize", on);
   }, [inspect]);
 
-  const seat = inspect !== null ? layout.seats[inspect] : undefined;
-  const prompts: Prompt[] =
-    active && inspect === null && aim !== null
-      ? [{ key: "E", label: "Inspect" }]
-      : [];
+  let prompts: Prompt[] = [];
+  if (active && using)
+    prompts = [
+      { key: "E", label: "Stop using" },
+      { key: "F", label: "Full screen" },
+    ];
+  else if (active && inspect !== null && canUse)
+    prompts = [{ key: "E", label: "Use" }];
+  else if (active && inspect === null && aim === "door")
+    prompts = [{ key: "E", label: "Leave" }];
+  else if (active && inspect === null && aim !== null)
+    prompts = [{ key: "E", label: "Inspect" }];
+  const page = using && look ? { node: <SlotView slot={slot} />, ...look } : undefined;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: first-person input goes to the locked pointer
@@ -176,7 +300,7 @@ export function StoreWorld({
       onMouseDown={() => {
         if (!active || inspect !== null) return;
         if (!document.pointerLockElement) lock();
-        else if (aim !== null) open(aim);
+        else if (typeof aim === "number") open(aim);
       }}
     >
       <div className={`cafe-world${paused ? " paused" : ""}`}>
@@ -185,18 +309,26 @@ export function StoreWorld({
           era={stock.era}
           active={active}
           inspect={inspect}
-          shift={inspect !== null ? shift : 0}
+          using={using}
+          screen={page && !full ? page : undefined}
+          shift={inspect !== null && !using ? shift : 0}
           onAim={setAim}
-          onExit={leave}
         />
+        {full && page && <FullPage page={page} />}
       </div>
-      {active && inspect === null && (
-        <>
-          <i className="cafe-dot" />
-          <Prompts list={prompts} using={false} />
-        </>
+      {seat && using && (
+        <StoreOs
+          key={seat.item.id}
+          item={seat.item}
+          sound={sound ?? true}
+          onSound={onSound ?? noSound}
+          slot={slot}
+          onLook={setLook}
+        />
       )}
-      {seat && (
+      {active && inspect === null && <i className="cafe-dot" />}
+      {active && <Prompts list={prompts} using={inspect !== null} />}
+      {seat && !using && (
         <Card
           ref={card}
           item={seat.item}
@@ -271,17 +403,12 @@ function Card({
     ["Display", s.display],
     ["Battery", s.battery],
     ["Weight", item.kg ? `${Math.round(item.kg * 100) / 100} kg` : ""],
+    ["Released", item.released],
   ];
   if (item.stock !== null)
     rows.push(["Stock", item.stock.toLocaleString("en-US")]);
   const flag = flagOf(item);
   const cells: [string, string, string?][] = [];
-  if (item.review !== null)
-    cells.push([
-      "Score",
-      `${Math.round(item.review)}`,
-      scoreColour(item.review),
-    ]);
   if (item.units > 0) cells.push(["Sold", countShort(item.units)]);
   if (item.rank !== null) cells.push(["Rank", `${item.rank}`]);
   return (

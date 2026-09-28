@@ -33,15 +33,18 @@ export const MAX_RUN = 100_000;
 export const DEFAULT_RUN = 5_000;
 
 /**
- * Economies of scale on the parts and assembly cost of a run:
- * 1 / (1 + SCALE_SLOPE * log10(units / SCALE_REFERENCE)), clamped to
- * SCALE_FLOOR..1. At 5,000 units and below a unit pays the build's full
- * cost; 50,000 units cost about 71% each, as suppliers discount volume and
- * the line setup spreads thinner. Past about 56,000 units the floor holds:
- * parts have a price below which no supplier goes.
+ * Run size against the parts and assembly cost of a unit, on
+ * x = log10(units / SCALE_REFERENCE); see scaleFactor in release.ts. A run of
+ * 5,000 pays the build's full cost. Smaller runs pay more, 1 - SCALE_SMALL_SLOPE * x:
+ * suppliers charge small orders a premium and the line setup spreads over
+ * fewer units, about +16% at 1,000 and +39% at 100. Larger runs pay less,
+ * 1 / (1 + SCALE_SLOPE * x): about -11% at 10,000 and -29% at 50,000. Past
+ * about 56,000 units SCALE_FLOOR holds: parts have a price below which no
+ * supplier goes.
  */
 export const SCALE_REFERENCE = 5_000;
 export const SCALE_SLOPE = 0.4;
+export const SCALE_SMALL_SLOPE = 0.23;
 export const SCALE_FLOOR = 0.7;
 
 /**

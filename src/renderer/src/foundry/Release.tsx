@@ -142,6 +142,7 @@ export function ModelTab({
   if (lines === null || cost === null) return head;
 
   const e = economics(cost, price, units, refresh, !!released);
+  const scale = Math.round((scaleFactor(units) - 1) * 100);
   const setup = e.design + e.tooling;
   const priced = price > 0;
   const short = e.total > campaign.cash;
@@ -223,13 +224,16 @@ export function ModelTab({
                 Unit <i>{open === "unit" ? "-" : "+"}</i>
               </button>
             </dt>
-            <dd>{usd(e.unit)}</dd>
+            <dd>
+              {scale !== 0 && <small className={scale > 0 ? "short" : "up"}>{`${scale > 0 ? "+" : ""}${scale}%`}</small>}
+              {usd(e.unit)}
+            </dd>
             {open === "unit" && (
               <>
                 {lines.map((l) => (
                   <Sub key={l.what} label={PART_NAMES[l.what]} value={usd(l.usd)} />
                 ))}
-                <Sub label={`Volume ${count(units)}`} value={usd(e.unit - cost)} />
+                <Sub label={`Run size ${count(units)}`} value={`${e.unit >= cost ? "+" : ""}${usd(e.unit - cost)}`} />
               </>
             )}
             {setup > 0 && (

@@ -573,6 +573,16 @@
   font-weight: 600;
 }
 
+.cr-costs dd small {
+  margin-right: calc(10 * var(--u));
+  font-weight: 600;
+  font-size: calc(14 * var(--u));
+}
+
+.cr-costs dd small.up {
+  color: var(--accent);
+}
+
 .cr-costs .sub {
   font-size: calc(15 * var(--u));
   padding-left: calc(12 * var(--u));

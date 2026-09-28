@@ -8,6 +8,7 @@ import {
   SCALE_FLOOR,
   SCALE_REFERENCE,
   SCALE_SLOPE,
+  SCALE_SMALL_SLOPE,
   RETAILER_CUT,
   TOOLING_COST,
 } from "./constants";
@@ -43,11 +44,16 @@ export interface Quote {
   total: number;
 }
 
-/** The share of a build's cost a unit in a run of this size pays. */
+/**
+ * The share of a build's cost a unit in a run of this size pays: above 1 for
+ * runs under SCALE_REFERENCE, below it for larger ones, down to SCALE_FLOOR.
+ * The one place the run-size curve lives; constants.ts gives its figures.
+ */
 export function scaleFactor(units: number): number {
   if (units <= 0) return 1;
-  const f = 1 / (1 + SCALE_SLOPE * Math.log10(units / SCALE_REFERENCE));
-  return Math.min(1, Math.max(SCALE_FLOOR, f));
+  const x = Math.log10(units / SCALE_REFERENCE);
+  const f = x < 0 ? 1 - SCALE_SMALL_SLOPE * x : 1 / (1 + SCALE_SLOPE * x);
+  return Math.max(SCALE_FLOOR, f);
 }
 
 /** A build's parts and assembly cost per unit, before scale. */

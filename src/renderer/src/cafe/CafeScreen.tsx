@@ -303,6 +303,7 @@ export function useLaptopOs({
   notes,
   onSaveNotes,
   shop,
+  perfect = false,
 }: {
   subject: Subject;
   library?: Subject[];
@@ -317,6 +318,8 @@ export function useLaptopOs({
   /** The open company's saved Notepad documents. Session-only when absent. */
   notes?: NoteDoc[];
   onSaveNotes?: (docs: NoteDoc[]) => void;
+  /** An ideal machine: no panel simulation, no speaker model, no page pacing. */
+  perfect?: boolean;
 }): {
   build: Subject["build"];
   fit: ReturnType<typeof solve>;
@@ -391,10 +394,12 @@ export function useLaptopOs({
   const fan = off ? 0 : load ? active.fan[i] : Math.max(last(tl.idle.fan), heat > 0 ? tl.cpu.fan[i] : 0);
   useFanAudio(db, fan, !sound, volume);
   const speaker = useMemo(() => speakerOf(build, fit), [build, fit]);
-  useEffect(() => setSpeakerOs(speaker, sound ? volume / 100 : 0), [speaker, sound, volume]);
+  useEffect(() => {
+    if (!perfect) setSpeakerOs(speaker, sound ? volume / 100 : 0);
+  }, [speaker, sound, volume, perfect]);
   useEffect(() => () => setSpeakerOs(null, 0), []);
   const pace = useMemo(() => paceOf(build, m), [build, m]);
-  useEffect(() => setPace(running ? pace : null), [pace, running]);
+  useEffect(() => setPace(running && !perfect ? pace : null), [pace, running, perfect]);
   useEffect(() => () => setPace(null), []);
 
   const edition = KILNBENCH.find((e) => e.year === benchYear) ?? KILNBENCH[0];
@@ -726,8 +731,9 @@ export function useLaptopOs({
     </Screen>
   );
 
-  const page =
-    look && fx ? (
+  const page = perfect && look ? (
+    <div style={{ width: look.width, height: look.height, overflow: "hidden" }}>{desktop}</div>
+  ) : look && fx ? (
       <PanelPage fx={fx} width={look.width} height={look.height}>
         {desktop}
       </PanelPage>

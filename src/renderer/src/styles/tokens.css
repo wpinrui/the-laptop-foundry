@@ -144,6 +144,9 @@
   --site26-l2: #6f8f5a;
   --site26-l3: #8a6f9e;
   --site26-l4: #a39a86;
+  /* Courts, the in-game retailer: its blue and its yellow, every era. */
+  --courts-blue: #1d5fbf;
+  --courts-yellow: #f7c600;
   /* Very loud on the noise scale, every era. */
   --site-loud: #8c1d18;
   /* Score piece: poor, fair, good, great. */

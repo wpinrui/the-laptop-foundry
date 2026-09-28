@@ -1085,3 +1085,22 @@
   font-weight: 600;
   text-align: right;
 }
+
+/* ------------------------------------------------------------ Store tab */
+
+/* The OS desktop at 1440 by 810, scaled to the window and centred. */
+.ms-os {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--ground);
+}
+
+.ms-os-frame {
+  flex: none;
+  transform-origin: center;
+}

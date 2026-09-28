@@ -1,5 +1,7 @@
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import {
+  type ReactNode,
+  type RefObject,
   Suspense,
   useCallback,
   useEffect,
@@ -19,7 +21,7 @@ import {
   type Rect,
   ZOOM_STEP,
 } from "../cafe/World";
-import { colourHex, decorOf, solve } from "../engine";
+import { type Build, colourHex, decorOf, type Fit, solve } from "../engine";
 import { useOsStill } from "../os/useOsScreen";
 import type { Era } from "../review/Charts";
 import { Model, surfacesOf } from "../viewer/Scene";
@@ -44,9 +46,14 @@ const REACH = 2600;
 const FLY_MS = 700;
 /** Where the player comes in: just inside the door, facing the logo. */
 const START = new THREE.Vector3(0, EYE, 8000);
-/** Past this z in the doorway, the player has walked into the door. */
-const EXIT_Z = 9450;
+/** The door in the front wall: what the aim dot catches to leave. */
+const DOOR_BOX = new THREE.Box3(
+  new THREE.Vector3(DOOR.x0 * M, 0, ROOM.z1 * M - 150),
+  new THREE.Vector3(DOOR.x1 * M, 2300, ROOM.z1 * M + 50),
+);
 const LID = 110;
+/** In use, the screen fills this much of the view. */
+const USE_FILL = 0.74;
 /** Beyond this distance a laptop draws its simpler copy. */
 const FAR = 2800;
 /** Laptop models mounted for baking at once. */
@@ -299,29 +306,12 @@ function Bakery({
   const frames = useRef(0);
   const done = useRef(false);
   const build = item.build;
-  const fit = useMemo(() => {
-    try {
-      return solve(build);
-    } catch (e) {
-      console.error(`store laptop ${item.id} could not be fitted`, e);
-      return null;
-    }
+  const look = useMemo(() => {
+    const l = lookOf(build);
+    if (!l) console.error(`store laptop ${item.id} could not be fitted`);
+    return l;
   }, [build, item.id]);
-  const colours = useMemo(() => {
-    const hex = (c: string) => {
-      try {
-        return colourHex(c);
-      } catch {
-        return "#888888";
-      }
-    };
-    return {
-      floor: hex(build.finish.floor.colour),
-      deck: hex(build.finish.deck.colour),
-      lid: hex(build.finish.lid.colour),
-    };
-  }, [build]);
-  const surfaces = useMemo(() => surfacesOf(build), [build]);
+  const fit = look?.fit ?? null;
   useEffect(() => {
     if (!fit) onDone(item.id, null);
   }, [fit, item.id, onDone]);
@@ -342,16 +332,16 @@ function Bakery({
     }
     onDone(item.id, b);
   });
-  if (!fit) return null;
+  if (!look) return null;
   return (
     <group ref={root} visible={false}>
       <Model
-        fit={fit}
+        fit={look.fit}
         year={build.year}
         lidAngle={LID}
-        colours={colours}
-        decor={decorOf(build)}
-        surfaces={surfaces}
+        colours={look.colours}
+        decor={look.decor}
+        surfaces={look.surfaces}
         xray={false}
         problems={false}
         labelFor={noLabel}
@@ -364,8 +354,120 @@ function Bakery({
 
 const OWNER = { maker: "Courts", wordmark: "COURTS" };
 
+/** What the Model draws for a build; null when it cannot be fitted. */
+function lookOf(build: Build) {
+  let fit: Fit;
+  try {
+    fit = solve(build);
+  } catch {
+    return null;
+  }
+  const hex = (c: string) => {
+    try {
+      return colourHex(c);
+    } catch {
+      return "#888888";
+    }
+  };
+  return {
+    fit,
+    colours: {
+      floor: hex(build.finish.floor.colour),
+      deck: hex(build.finish.deck.colour),
+      lid: hex(build.finish.lid.colour),
+    },
+    surfaces: surfacesOf(build),
+    decor: decorOf(build),
+  };
+}
+
+/** The OS page on the screen of the laptop in use. */
+export interface StoreScreen {
+  node: ReactNode;
+  width: number;
+  mm: { x: number; y: number };
+}
+
+/** The laptop in use, drawn live in place of its baked copy. */
+function Live({
+  seat,
+  screen,
+  still,
+  portal,
+}: {
+  seat: Seat;
+  screen?: StoreScreen;
+  /** The display units' shared desktop picture, shown until the OS page is up. */
+  still?: THREE.Texture;
+  portal: RefObject<HTMLDivElement | null>;
+}) {
+  const look = useMemo(() => lookOf(seat.item.build), [seat.item.build]);
+  if (!look) return null;
+  return (
+    <group
+      position={[seat.x * M, TABLE_Y * M, seat.z * M]}
+      rotation={[0, seat.side > 0 ? 0 : Math.PI, 0]}
+    >
+      <Model
+        fit={look.fit}
+        year={seat.item.build.year}
+        lidAngle={LID}
+        colours={look.colours}
+        decor={look.decor}
+        surfaces={look.surfaces}
+        xray={false}
+        problems={false}
+        labelFor={noLabel}
+        onHover={noHover}
+        screen={screen}
+        lockScreen={screen ? undefined : still}
+        portal={portal}
+      />
+    </group>
+  );
+}
+
+/** Where to stand to use a seat's laptop, close enough that its screen fills most of the view. */
+function leanOf(
+  s: Seat,
+  aspect: number,
+): { pos: THREE.Vector3; at: THREE.Vector3 } | null {
+  const look = lookOf(s.item.build);
+  if (!look) return null;
+  const fit = look.fit;
+  const o = fit.shell.outer;
+  const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
+  const r = panel ? o.y - (panel.at.y + panel.size.y / 2) : o.y / 2;
+  const a = (LID * Math.PI) / 180;
+  const py = o.z + r * Math.sin(a);
+  const pz = -o.y / 2 + r * Math.cos(a);
+  const tanV = Math.tan(((FOV / 2) * Math.PI) / 180);
+  const sw = panel?.size.x ?? o.x;
+  const sh = panel?.size.y ?? o.y * 0.8;
+  const d = Math.max(sw / (2 * tanV * aspect), sh / (2 * tanV)) / USE_FILL;
+  const base = new THREE.Vector3(s.x * M, TABLE_Y * M, s.z * M);
+  const k = s.side > 0 ? 1 : -1;
+  const at = base.clone().add(new THREE.Vector3(0, py, pz * k));
+  const pos = base
+    .clone()
+    .add(
+      new THREE.Vector3(0, py - Math.cos(a) * d, (pz + Math.sin(a) * d) * k),
+    );
+  return { pos, at };
+}
+
 /** The laptops on the tables: each model mounted, baked and placed in turn. */
-function Laptops({ seats }: { seats: Seat[] }) {
+function Laptops({
+  seats,
+  live,
+  page,
+  portal,
+}: {
+  seats: Seat[];
+  live: number | null;
+  page?: StoreScreen;
+  portal: RefObject<HTMLDivElement | null>;
+}) {
   const looks = useMemo(() => new Looks(), []);
   const [baked, setBaked] = useState<Map<string, Baked | null>>(
     () => new Map(),
@@ -404,13 +506,22 @@ function Laptops({ seats }: { seats: Seat[] }) {
           onDone={onDone}
         />
       ))}
-      {seats.map((s) => {
+      {live !== null && seats[live] && (
+        <Live
+          seat={seats[live]}
+          screen={page}
+          still={screen}
+          portal={portal}
+        />
+      )}
+      {seats.map((s, i) => {
         const b = baked.get(s.item.id);
         if (!b) return null;
         return (
           <primitive
             key={s.item.id}
             object={b.object}
+            visible={i !== live}
             position={[s.x * M, TABLE_Y * M, s.z * M]}
             rotation={[0, s.side > 0 ? 0 : Math.PI, 0]}
           />
@@ -436,21 +547,25 @@ function seatBox(s: Seat): THREE.Box3 {
   );
 }
 
+/** What the aim dot is on: a laptop's seat, the door, or nothing. */
+export type StoreAim = number | "door" | null;
+
 function Player({
   layout,
   active,
   inspect,
+  using,
   shift,
   onAim,
-  onExit,
 }: {
   layout: Layout;
   active: boolean;
   inspect: number | null;
+  /** The inspected laptop is in use: the camera leans in to its screen. */
+  using: boolean;
   /** Pixels the picture moves left while the inspect card is open. */
   shift: number;
-  onAim: (seat: number | null) => void;
-  onExit: () => void;
+  onAim: (aim: StoreAim) => void;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
@@ -458,8 +573,7 @@ function Player({
   const look = useRef({ yaw: 0, pitch: -0.12 });
   const keys = useRef(new Set<string>());
   const fov = useRef(FOV);
-  const aimed = useRef<number | null>(null);
-  const left = useRef(false);
+  const aimed = useRef<StoreAim>(null);
   const fly = useRef<{
     fromPos: THREE.Vector3;
     fromQ: THREE.Quaternion;
@@ -467,7 +581,7 @@ function Player({
     toQ: THREE.Quaternion;
     t: number;
   } | null>(null);
-  const was = useRef<number | null>(null);
+  const was = useRef("null:false");
   const live = useRef({ active, inspect });
   live.current = { active, inspect };
   const ray = useMemo(() => new THREE.Raycaster(), []);
@@ -533,15 +647,16 @@ function Player({
   }, [active, inspect]);
 
   useFrame((_, dt) => {
-    // Into or between inspect views, and back to walking: ease the camera.
-    if (was.current !== inspect) {
+    // Into or between inspect views, into use, and back to walking: ease the camera.
+    const mode = `${inspect}:${using}`;
+    if (was.current !== mode) {
       const fromPos = camera.position.clone();
       const fromQ = camera.quaternion.clone();
       let toPos: THREE.Vector3;
       let toQ: THREE.Quaternion;
       const seat = inspect !== null ? layout.seats[inspect] : undefined;
       if (seat) {
-        const f = focusOf(seat);
+        const f = (using && leanOf(seat, camera.aspect)) || focusOf(seat);
         toPos = f.pos;
         const a = lookAngles(f.pos, f.at);
         toQ = new THREE.Quaternion().setFromEuler(
@@ -554,10 +669,10 @@ function Player({
         );
       }
       fly.current =
-        was.current === null && inspect === null
+        was.current === "null:false" && inspect === null
           ? null
           : { fromPos, fromQ, toPos, toQ, t: 0 };
-      was.current = inspect;
+      was.current = mode;
     }
     if (inspect === null && active && !fly.current) {
       const k = keys.current;
@@ -577,16 +692,6 @@ function Player({
         pos.current.x += ((-Math.sin(yaw) * f + Math.cos(yaw) * r) / len) * v;
         pos.current.z += ((-Math.cos(yaw) * f - Math.sin(yaw) * r) / len) * v;
         collideIn(pos.current, ROOM_MM, rects, BODY);
-        const p = pos.current;
-        if (
-          !left.current &&
-          p.z > EXIT_Z &&
-          p.x > DOOR.x0 * M &&
-          p.x < DOOR.x1 * M
-        ) {
-          left.current = true;
-          onExit();
-        }
       }
     }
     const cam = camera;
@@ -614,7 +719,7 @@ function Player({
       cam.rotation.set(look.current.pitch, look.current.yaw, 0, "YXZ");
     }
     // The inspect card covers the right: centre the laptop in what is left.
-    const off = inspect !== null ? shift : 0;
+    const off = inspect !== null && !using ? shift : 0;
     const has = cam.view?.enabled && cam.view.offsetX !== 0;
     if (off > 0 && (!has || cam.view?.offsetX !== off)) {
       cam.setViewOffset(
@@ -631,8 +736,8 @@ function Player({
       cam.updateProjectionMatrix();
     }
 
-    // Which laptop the aim dot is on.
-    let next: number | null = null;
+    // Which laptop the aim dot is on, or the door.
+    let next: StoreAim = null;
     if (inspect === null && active) {
       ray.setFromCamera(new THREE.Vector2(0, 0), cam);
       const hit = new THREE.Vector3();
@@ -646,6 +751,9 @@ function Player({
           }
         }
       });
+      if (ray.ray.intersectBox(DOOR_BOX, hit)) {
+        if (hit.distanceTo(ray.ray.origin) < best) next = "door";
+      }
     }
     if (next !== aimed.current) {
       aimed.current = next;
@@ -660,17 +768,21 @@ function Room({
   era,
   active,
   inspect,
+  using,
+  screen,
+  portal,
   shift,
   onAim,
-  onExit,
 }: {
   layout: Layout;
   era: Era;
   active: boolean;
   inspect: number | null;
+  using: boolean;
+  screen?: StoreScreen;
+  portal: RefObject<HTMLDivElement | null>;
   shift: number;
-  onAim: (seat: number | null) => void;
-  onExit: () => void;
+  onAim: (aim: StoreAim) => void;
 }) {
   const fonts = useFonts();
   const shell = useShell(era, fonts);
@@ -686,14 +798,19 @@ function Room({
         {displays && <primitive object={displays.group} />}
       </group>
       <ShadowWarmup stamp={displays} />
-      <Laptops seats={layout.seats} />
+      <Laptops
+        seats={layout.seats}
+        live={using ? inspect : null}
+        page={screen}
+        portal={portal}
+      />
       <Player
         layout={layout}
         active={active}
         inspect={inspect}
+        using={using}
         shift={shift}
         onAim={onAim}
-        onExit={onExit}
       />
     </>
   );
@@ -704,11 +821,15 @@ export function Store(props: {
   era: Era;
   active: boolean;
   inspect: number | null;
+  /** The inspected laptop is in use: live, its OS on the screen. */
+  using: boolean;
+  screen?: StoreScreen;
   shift: number;
-  onAim: (seat: number | null) => void;
-  onExit: () => void;
+  onAim: (aim: StoreAim) => void;
 }) {
+  const overlay = useRef<HTMLDivElement | null>(null);
   return (
+    <div style={{ position: "absolute", inset: 0 }}>
     <Canvas
       shadows={{ enabled: true, type: THREE.PCFShadowMap, autoUpdate: false }}
       dpr={[1, 1.5]}
@@ -729,11 +850,26 @@ export function Store(props: {
           era={props.era}
           active={props.active}
           inspect={props.inspect}
+          using={props.using}
+          screen={props.screen}
+          portal={overlay}
           shift={props.shift}
           onAim={props.onAim}
-          onExit={props.onExit}
         />
       </Suspense>
     </Canvas>
+      {/* The in-use screen's page mounts here, over the canvas. It takes the
+          pointer only while the laptop is in use. */}
+      <div
+        ref={overlay}
+        className={`cafe-overlay${props.using ? " using" : ""}`}
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          overflow: "hidden",
+        }}
+      />
+    </div>
   );
 }

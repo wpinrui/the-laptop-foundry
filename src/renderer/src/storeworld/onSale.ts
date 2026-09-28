@@ -8,6 +8,8 @@ import {
   storeListing,
   yearListing,
 } from "../engine/campaign";
+import { quarterIndex } from "../engine/campaign/rivals";
+import { rivalLaunch } from "../engine/campaign/sales";
 import { rivalsFor } from "../engine/market/field";
 import { FIRST_MARKET_YEAR, useMarket } from "../market/markets";
 import type { Era } from "../review/Charts";
@@ -35,6 +37,8 @@ export interface OnSale {
   stock: number | null;
   kg: number | null;
   inches: number;
+  /** When it went on sale: "2024 Q2" in a campaign, the model's year in a sandbox. */
+  released: string;
   build: Build;
   spec: Spec;
 }
@@ -73,6 +77,18 @@ export function useOnSale(
     const ranked = list
       .filter((x) => x.units > 0)
       .sort((a, b) => b.units - a.units || a.id.localeCompare(b.id));
+    const now = shelf ? quarterIndex(shelf.quarter) : 0;
+    const releasedOf = (x: StoreItem): string => {
+      if (!state || !shelf) return `${x.year}`;
+      if (x.own) {
+        const q = state.releases[x.id]?.quarter;
+        return q ? `${q.year} Q${q.quarter}` : `${x.year}`;
+      }
+      const rival = market.rivals.find((m) => m.id === x.id);
+      if (!rival) return `${x.year}`;
+      const i = rivalLaunch(company.id, rival, now);
+      return `${Math.floor(i / 4)} Q${(i % 4) + 1}`;
+    };
     return list.flatMap((x): OnSale[] => {
       if (!x.build) return [];
       const r = ranked.indexOf(x);
@@ -90,12 +106,13 @@ export function useOnSale(
           stock: x.own && state ? (state.releases[x.id]?.stock ?? 0) : null,
           kg: x.kg,
           inches: x.inches,
+          released: releasedOf(x),
           build: { ...x.build, price: x.price },
           spec: specOf(x, company.name),
         },
       ];
     });
-  }, [ready, state, shelf, market, at, company.name]);
+  }, [ready, state, shelf, market, at, company.name, company.id]);
   return { year: at, era: eraOf(at), items, ready };
 }
 

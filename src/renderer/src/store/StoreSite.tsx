@@ -56,7 +56,7 @@ interface Product extends StoreItem {
   specs: Spec;
 }
 
-interface Spec {
+export interface Spec {
   cpu: string;
   gpu: string;
   memory: string;
@@ -69,7 +69,7 @@ interface Spec {
 
 const specCache = new Map<string, Spec>();
 
-function specOf(item: StoreItem, company: string): Spec {
+export function specOf(item: StoreItem, company: string): Spec {
   const key = `${item.id}:${item.price}`;
   const hit = specCache.get(key);
   if (hit) return hit;

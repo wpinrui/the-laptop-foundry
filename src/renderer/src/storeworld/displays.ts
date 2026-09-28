@@ -20,9 +20,13 @@ const ATLAS_COLS = 8;
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
 /** The tag's flag, if any: sold out, a top three seller, or launched this quarter. */
-export function flagOf(l: OnSale): { text: string; bg: string; fg: string } | null {
-  if (l.stock !== null && l.stock <= 0) return { text: "SOLD OUT", bg: "#4a4a4f", fg: "#fff" };
-  if (l.rank !== null && l.rank <= 3) return { text: "BEST SELLER", bg: YEL, fg: BLUE_D };
+export function flagOf(
+  l: OnSale,
+): { text: string; bg: string; fg: string } | null {
+  if (l.stock !== null && l.stock <= 0)
+    return { text: "SOLD OUT", bg: "#4a4a4f", fg: "#fff" };
+  if (l.rank !== null && l.rank <= 3)
+    return { text: "BEST SELLER", bg: YEL, fg: BLUE_D };
   if (l.isNew) return { text: "NEW", bg: "#e2231a", fg: "#fff" };
   return null;
 }
@@ -34,7 +38,12 @@ export function scoreColour(score: number): string {
 /** The spec lines a tag prints, empty parts dropped. */
 export function tagLines(l: OnSale): string[][] {
   const s = l.spec;
-  return [[s.cpu], [s.display], [s.memory, s.storage], [s.battery, l.kg ? `${Math.round(l.kg * 100) / 100} kg` : ""]]
+  return [
+    [s.cpu],
+    [s.display],
+    [s.memory, s.storage],
+    [s.battery, l.kg ? `${Math.round(l.kg * 100) / 100} kg` : ""],
+  ]
     .map((parts) => parts.filter(Boolean))
     .filter((parts) => parts.length > 0);
 }
@@ -98,7 +107,13 @@ function drawTag(g: CanvasRenderingContext2D, l: OnSale) {
     g.stroke();
     g.strokeStyle = scoreColour(l.review);
     g.beginPath();
-    g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * l.review) / 100);
+    g.arc(
+      cx,
+      cy,
+      r,
+      -Math.PI / 2,
+      -Math.PI / 2 + (Math.PI * 2 * l.review) / 100,
+    );
     g.stroke();
     g.fillStyle = BLUE_D;
     g.font = '700 30px "Barlow Condensed"';
@@ -108,7 +123,11 @@ function drawTag(g: CanvasRenderingContext2D, l: OnSale) {
   }
 }
 
-function canvasTexture(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void): THREE.CanvasTexture {
+function canvasTexture(
+  w: number,
+  h: number,
+  draw: (g: CanvasRenderingContext2D) => void,
+): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
@@ -121,7 +140,12 @@ function canvasTexture(w: number, h: number, draw: (g: CanvasRenderingContext2D)
 }
 
 /** A sign's face: the makers on a table, or the department's name. */
-function drawHeader(g: CanvasRenderingContext2D, w: number, h: number, makers: string[]) {
+function drawHeader(
+  g: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  makers: string[],
+) {
   g.fillStyle = BLUE;
   g.fillRect(0, 0, w, h);
   g.fillStyle = YEL;
@@ -133,7 +157,12 @@ function drawHeader(g: CanvasRenderingContext2D, w: number, h: number, makers: s
   const fs = shown.length > 2 ? 58 : shown.length > 1 ? 76 : 88;
   g.font = `700 ${fs}px "Barlow Condensed"`;
   shown.forEach((m, i, a) => {
-    g.fillText(m.toUpperCase(), w / 2, h / 2 - 6 + (i - (a.length - 1) / 2) * fs * 0.95, w - 40);
+    g.fillText(
+      m.toUpperCase(),
+      w / 2,
+      h / 2 - 6 + (i - (a.length - 1) / 2) * fs * 0.95,
+      w - 40,
+    );
   });
 }
 
@@ -154,16 +183,26 @@ export function signTexture(label: string): THREE.CanvasTexture {
 
 type Parts = Map<THREE.Material, THREE.BufferGeometry[]>;
 
-function put(parts: Parts, m: THREE.Material, geo: THREE.BufferGeometry, at: THREE.Matrix4) {
+function put(
+  parts: Parts,
+  m: THREE.Material,
+  geo: THREE.BufferGeometry,
+  at: THREE.Matrix4,
+) {
   const g = (geo.index ? geo.toNonIndexed() : geo.clone()).applyMatrix4(at);
-  for (const k of Object.keys(g.attributes)) if (k !== "position" && k !== "normal" && k !== "uv") g.deleteAttribute(k);
+  for (const k of Object.keys(g.attributes))
+    if (k !== "position" && k !== "normal" && k !== "uv") g.deleteAttribute(k);
   const list = parts.get(m) ?? [];
   list.push(g);
   parts.set(m, list);
 }
 
 const m4 = (x: number, y: number, z: number, ry = 0, rx = 0) =>
-  new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, 0, "YXZ")), new THREE.Vector3(1, 1, 1));
+  new THREE.Matrix4().compose(
+    new THREE.Vector3(x, y, z),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, 0, "YXZ")),
+    new THREE.Vector3(1, 1, 1),
+  );
 
 export interface Displays {
   group: THREE.Group;
@@ -175,8 +214,18 @@ export function buildDisplays(layout: Layout): Displays {
   const group = new THREE.Group();
   group.name = "displays";
   const owned: { dispose(): void }[] = [];
-  const std = (color: string, roughness: number, metalness = 0, extra: THREE.MeshStandardMaterialParameters = {}) => {
-    const m = new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
+  const std = (
+    color: string,
+    roughness: number,
+    metalness = 0,
+    extra: THREE.MeshStandardMaterialParameters = {},
+  ) => {
+    const m = new THREE.MeshStandardMaterial({
+      color,
+      roughness,
+      metalness,
+      ...extra,
+    });
     owned.push(m);
     return m;
   };
@@ -216,7 +265,9 @@ export function buildDisplays(layout: Layout): Displays {
       put(parts, edgeM, edge, m4(t.x, TABLE_Y - 0.025, t.z + s * 0.556));
       put(parts, stripeM, stripe, m4(t.x, TABLE_Y - 0.2, t.z + s * 0.455));
     }
-    const hdr = canvasTexture(600, 200, (g) => drawHeader(g, 600, 200, t.makers));
+    const hdr = canvasTexture(600, 200, (g) =>
+      drawHeader(g, 600, 200, t.makers),
+    );
     owned.push(hdr);
     const hm = std("#ffffff", 0.4, 0, { map: hdr });
     for (const end of [-1, 1]) {
@@ -256,8 +307,16 @@ export function buildDisplays(layout: Layout): Displays {
     const cable = new THREE.TubeGeometry(
       new THREE.CatmullRomCurve3([
         new THREE.Vector3(px, TABLE_Y + 0.01, sz + s.side * 0.05),
-        new THREE.Vector3(px - s.side * 0.01, TABLE_Y + 0.006, sz + s.side * 0.12),
-        new THREE.Vector3(px - s.side * 0.045, TABLE_Y + 0.01, sz + s.side * 0.2),
+        new THREE.Vector3(
+          px - s.side * 0.01,
+          TABLE_Y + 0.006,
+          sz + s.side * 0.12,
+        ),
+        new THREE.Vector3(
+          px - s.side * 0.045,
+          TABLE_Y + 0.01,
+          sz + s.side * 0.2,
+        ),
       ]),
       12,
       0.003,
@@ -273,7 +332,8 @@ export function buildDisplays(layout: Layout): Displays {
     const du = 1 / ATLAS_COLS;
     const dv = 1 / rows;
     const uv = plane.attributes.uv as THREE.BufferAttribute;
-    for (let k = 0; k < uv.count; k++) uv.setXY(k, u0 + uv.getX(k) * du, v1 - dv + uv.getY(k) * dv);
+    for (let k = 0; k < uv.count; k++)
+      uv.setXY(k, u0 + uv.getX(k) * du, v1 - dv + uv.getY(k) * dv);
     const at = new THREE.Matrix4()
       .multiply(m4(s.x, TABLE_Y, sz + s.side * 0.47, ry))
       .multiply(m4(0, 0.066, -0.005, 0, -0.45));

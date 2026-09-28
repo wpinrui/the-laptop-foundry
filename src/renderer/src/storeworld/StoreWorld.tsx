@@ -1,6 +1,14 @@
-import { type Ref, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { SavedCompany } from "../../../preload/store";
-import { Prompts, type Prompt } from "../cafe/Cafe";
+import { type Prompt, Prompts } from "../cafe/Cafe";
 import type { CampaignState } from "../engine/campaign";
 import { Column, Entry } from "../foundry/Menus";
 import { countShort } from "../world/data";
@@ -13,7 +21,7 @@ import "./storeworld.css";
 
 // The Courts store as a place to walk around: the shell and pointer lock,
 // the aim dot, the inspect card with its previous and next, and the pause
-// menu. Walking out through the door calls onLeave.
+// menu. Walking out through the door calls onMap.
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
@@ -26,11 +34,18 @@ export interface StoreWorldProps {
   year?: number;
   sound?: boolean;
   onSound?: (on: boolean) => void;
-  /** Walked out through the door, or Leave from the pause menu. */
-  onLeave: () => void;
+  /** To the world map: out through the door, or Map from the pause menu. */
+  onMap: () => void;
 }
 
-export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }: StoreWorldProps) {
+export function StoreWorld({
+  company,
+  campaign,
+  year,
+  sound,
+  onSound,
+  onMap,
+}: StoreWorldProps) {
   const stock = useOnSale(company, campaign, year);
   const layout = useMemo(() => layoutOf(stock.items), [stock.items]);
   const root = useRef<HTMLDivElement>(null);
@@ -47,8 +62,8 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
   const leave = useCallback(() => {
     if (leaving.current) return;
     leaving.current = true;
-    onLeave();
-  }, [onLeave]);
+    onMap();
+  }, [onMap]);
 
   const pause = useCallback(() => {
     pausedAt.current = performance.now();
@@ -58,9 +73,7 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
   const lock = useCallback(() => {
     const el = root.current;
     if (!el) return;
-    Promise.resolve(el.requestPointerLock()).catch(() => {
-      if (!(window as unknown as Record<string, unknown>).__probe) pause(); // PROBE
-    });
+    Promise.resolve(el.requestPointerLock()).catch(pause);
   }, [pause]);
 
   const unlock = useCallback(() => {
@@ -77,20 +90,19 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
         expectUnlock.current = false;
         return;
       }
-      if (!(window as unknown as Record<string, unknown>).__probe) pause(); // PROBE
+      pause();
     };
     document.addEventListener("pointerlockchange", change);
-    document.addEventListener("pointerlockerror", change); // PROBE
+    document.addEventListener("pointerlockerror", pause);
     return () => {
       document.removeEventListener("pointerlockchange", change);
-      document.removeEventListener("pointerlockerror", change); // PROBE
+      document.removeEventListener("pointerlockerror", pause);
       expectUnlock.current = true;
       if (document.pointerLockElement) document.exitPointerLock();
     };
   }, [lock, pause]);
 
   const n = layout.seats.length;
-  (window as unknown as Record<string, unknown>).__storeSeats = n; // PROBE
   const open = useCallback(
     (i: number) => {
       unlock();
@@ -102,9 +114,12 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
     setInspect(null);
     lock();
   }, [lock]);
-  const step = useCallback((d: number) => setInspect((i) => (i === null || n === 0 ? i : (((i + d) % n) + n) % n)), [n]);
+  const step = useCallback(
+    (d: number) =>
+      setInspect((i) => (i === null || n === 0 ? i : (((i + d) % n) + n) % n)),
+    [n],
+  );
 
-  (window as unknown as Record<string, unknown>).__storeInspect = open; // PROBE
   const resume = useCallback(() => {
     setPaused(false);
     if (inspect === null) lock();
@@ -148,7 +163,10 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
   }, [inspect]);
 
   const seat = inspect !== null ? layout.seats[inspect] : undefined;
-  const prompts: Prompt[] = active && inspect === null && aim !== null ? [{ key: "E", label: "Inspect" }] : [];
+  const prompts: Prompt[] =
+    active && inspect === null && aim !== null
+      ? [{ key: "E", label: "Inspect" }]
+      : [];
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: first-person input goes to the locked pointer
@@ -162,7 +180,15 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
       }}
     >
       <div className={`cafe-world${paused ? " paused" : ""}`}>
-        <Store layout={layout} era={stock.era} active={active} inspect={inspect} shift={inspect !== null ? shift : 0} onAim={setAim} onExit={leave} />
+        <Store
+          layout={layout}
+          era={stock.era}
+          active={active}
+          inspect={inspect}
+          shift={inspect !== null ? shift : 0}
+          onAim={setAim}
+          onExit={leave}
+        />
       </div>
       {active && inspect === null && (
         <>
@@ -170,7 +196,15 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
           <Prompts list={prompts} using={false} />
         </>
       )}
-      {seat && <Card ref={card} item={seat.item} onPrev={() => step(-1)} onNext={() => step(1)} onBack={close} />}
+      {seat && (
+        <Card
+          ref={card}
+          item={seat.item}
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+          onBack={close}
+        />
+      )}
       {paused && (
         <div className="fd fd-over">
           <div className="fd-scrim" />
@@ -180,11 +214,15 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
                 Resume
               </Entry>
               {sound !== undefined && onSound && (
-                <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)}>
+                <Entry
+                  valued
+                  sub={sound ? "On" : "Off"}
+                  onClick={() => onSound(!sound)}
+                >
                   Sound
                 </Entry>
               )}
-              <Entry onClick={leave}>Leave</Entry>
+              <Entry onClick={leave}>Map</Entry>
             </div>
           </Column>
         </div>
@@ -195,13 +233,35 @@ export function StoreWorld({ company, campaign, year, sound, onSound, onLeave }:
 
 function Chevron({ dir }: { dir: -1 | 1 }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <path d={dir < 0 ? "m15 18-6-6 6-6" : "m9 18 6-6-6-6"} />
     </svg>
   );
 }
 
-function Card({ ref, item, onPrev, onNext, onBack }: { ref: Ref<HTMLElement>; item: OnSale; onPrev: () => void; onNext: () => void; onBack: () => void }) {
+function Card({
+  ref,
+  item,
+  onPrev,
+  onNext,
+  onBack,
+}: {
+  ref: Ref<HTMLElement>;
+  item: OnSale;
+  onPrev: () => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
   const s = item.spec;
   const rows: [string, string][] = [
     ["Processor", s.cpu],
@@ -212,10 +272,16 @@ function Card({ ref, item, onPrev, onNext, onBack }: { ref: Ref<HTMLElement>; it
     ["Battery", s.battery],
     ["Weight", item.kg ? `${Math.round(item.kg * 100) / 100} kg` : ""],
   ];
-  if (item.stock !== null) rows.push(["Stock", item.stock.toLocaleString("en-US")]);
+  if (item.stock !== null)
+    rows.push(["Stock", item.stock.toLocaleString("en-US")]);
   const flag = flagOf(item);
   const cells: [string, string, string?][] = [];
-  if (item.review !== null) cells.push(["Score", `${Math.round(item.review)}`, scoreColour(item.review)]);
+  if (item.review !== null)
+    cells.push([
+      "Score",
+      `${Math.round(item.review)}`,
+      scoreColour(item.review),
+    ]);
   if (item.units > 0) cells.push(["Sold", countShort(item.units)]);
   if (item.rank !== null) cells.push(["Rank", `${item.rank}`]);
   return (
@@ -224,7 +290,10 @@ function Card({ ref, item, onPrev, onNext, onBack }: { ref: Ref<HTMLElement>; it
         <div className="sw-mk">
           {item.brand}
           {flag && (
-            <i className="sw-flag" style={{ background: flag.bg, color: flag.fg }}>
+            <i
+              className="sw-flag"
+              style={{ background: flag.bg, color: flag.fg }}
+            >
               {flag.text}
             </i>
           )}
@@ -232,14 +301,19 @@ function Card({ ref, item, onPrev, onNext, onBack }: { ref: Ref<HTMLElement>; it
         <div className="sw-nm">{item.name}</div>
       </div>
       <div className="sw-price">{usd(item.price)}</div>
-      {cells.length > 0 && <div className="sw-cells" style={{ gridTemplateColumns: `repeat(${cells.length}, 1fr)` }}>
-        {cells.map(([k, v, colour]) => (
-          <div key={k}>
-            <span>{k}</span>
-            <b style={colour ? { color: colour } : undefined}>{v}</b>
-          </div>
-        ))}
-      </div>}
+      {cells.length > 0 && (
+        <div
+          className="sw-cells"
+          style={{ gridTemplateColumns: `repeat(${cells.length}, 1fr)` }}
+        >
+          {cells.map(([k, v, colour]) => (
+            <div key={k}>
+              <span>{k}</span>
+              <b style={colour ? { color: colour } : undefined}>{v}</b>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="sw-specs">
         {rows
           .filter(([, v]) => v)
@@ -251,13 +325,23 @@ function Card({ ref, item, onPrev, onNext, onBack }: { ref: Ref<HTMLElement>; it
           ))}
       </div>
       <div className="sw-nav">
-        <button type="button" className="sw-step" aria-label="Previous" onClick={onPrev}>
+        <button
+          type="button"
+          className="sw-step"
+          aria-label="Previous"
+          onClick={onPrev}
+        >
           <Chevron dir={-1} />
         </button>
         <button type="button" className="sw-back" onClick={onBack}>
           Back
         </button>
-        <button type="button" className="sw-step" aria-label="Next" onClick={onNext}>
+        <button
+          type="button"
+          className="sw-step"
+          aria-label="Next"
+          onClick={onNext}
+        >
           <Chevron dir={1} />
         </button>
       </div>

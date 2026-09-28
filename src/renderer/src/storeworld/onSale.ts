@@ -1,7 +1,13 @@
 import { useMemo } from "react";
 import type { SavedCompany } from "../../../preload/store";
 import type { Build } from "../engine";
-import { type CampaignState, campaignOf, type StoreItem, storeListing, yearListing } from "../engine/campaign";
+import {
+  type CampaignState,
+  campaignOf,
+  type StoreItem,
+  storeListing,
+  yearListing,
+} from "../engine/campaign";
 import { rivalsFor } from "../engine/market/field";
 import { FIRST_MARKET_YEAR, useMarket } from "../market/markets";
 import type { Era } from "../review/Charts";
@@ -43,17 +49,30 @@ export interface Stock {
 
 const NO_MODELS: SavedCompany["models"] = [];
 
-export function useOnSale(company: SavedCompany, campaign: CampaignState | null | undefined, year: number | undefined): Stock {
-  const state = useMemo(() => campaign ?? (company.campaign ? campaignOf(company.campaign) : null), [campaign, company.campaign]);
+export function useOnSale(
+  company: SavedCompany,
+  campaign: CampaignState | null | undefined,
+  year: number | undefined,
+): Stock {
+  const state = useMemo(
+    () => campaign ?? (company.campaign ? campaignOf(company.campaign) : null),
+    [campaign, company.campaign],
+  );
   const shelf = state?.shelf[state.shelf.length - 1];
-  const at = state ? (shelf?.quarter.year ?? state.now.year) : Math.max(FIRST_MARKET_YEAR, Math.round(year ?? latestYear(company)));
+  const at = state
+    ? (shelf?.quarter.year ?? state.now.year)
+    : Math.max(FIRST_MARKET_YEAR, Math.round(year ?? latestYear(company)));
   const ready = useMarket(...(at > FIRST_MARKET_YEAR ? [at - 1, at] : [at]));
   const market = useWorldMarket(company.models ?? NO_MODELS);
   const items = useMemo((): OnSale[] => {
     if (!ready) return [];
-    const full = (window as unknown as { __probeFull?: number[] }).__probeFull; // PROBE
-    const list: StoreItem[] = full ? full.flatMap((y) => yearListing(rivalsFor(y))) : state && shelf ? storeListing(state, market, shelf.quarter) : yearListing(rivalsFor(at)); // PROBE
-    const ranked = list.filter((x) => x.units > 0).sort((a, b) => b.units - a.units || a.id.localeCompare(b.id));
+    const list: StoreItem[] =
+      state && shelf
+        ? storeListing(state, market, shelf.quarter)
+        : yearListing(rivalsFor(at));
+    const ranked = list
+      .filter((x) => x.units > 0)
+      .sort((a, b) => b.units - a.units || a.id.localeCompare(b.id));
     return list.flatMap((x): OnSale[] => {
       if (!x.build) return [];
       const r = ranked.indexOf(x);

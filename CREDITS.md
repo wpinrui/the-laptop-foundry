@@ -64,6 +64,10 @@ Textures:
 
 Everything else in the scene was built for this project and falls under the repository's own licence.
 
+## Courts store scene
+
+`src/renderer/src/assets/storeworld/courts-store.glb` is the designer's Courts laptop department, built for this project, and uses no third-party models or textures: the floor, signage, stock boxes and TV screens are drawn in code, and the back-wall logo is the game's own Courts logo. The display tables, maker signs and price tags are rebuilt in the game from the designer's layout, with their text set in Barlow Condensed and IBM Plex Sans (credited under the fonts below). Everything in it falls under the repository's own licence.
+
 ## Short video sets
 
 The four sets in `src/renderer/src/assets/video-sets/` (creator desk, colour sweep, night window, teardown bench) use these third-party assets. Every one is from [Poly Haven](https://polyhaven.com) and is licensed **CC0 1.0** (public domain). Credit isn't required, but it is given here.

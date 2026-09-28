@@ -55,8 +55,13 @@ export interface Layout {
 }
 
 export function layoutOf(items: OnSale[]): Layout {
-  const sorted = [...items].sort((a, b) => (a.brand === b.brand ? a.price - b.price || a.id.localeCompare(b.id) : a.brand.localeCompare(b.brand)));
-  const per = sorted.length <= 20 ? 4 : sorted.length <= SLOTS.length * 6 ? 6 : 8;
+  const sorted = [...items].sort((a, b) =>
+    a.brand === b.brand
+      ? a.price - b.price || a.id.localeCompare(b.id)
+      : a.brand.localeCompare(b.brand),
+  );
+  const per =
+    sorted.length <= 20 ? 4 : sorted.length <= SLOTS.length * 6 ? 6 : 8;
   const shown = sorted.slice(0, SLOTS.length * per);
   const side = per / 2;
   const tables: Table[] = [];
@@ -64,10 +69,20 @@ export function layoutOf(items: OnSale[]): Layout {
   for (let t = 0; t * per < shown.length; t++) {
     const [tx, tz] = SLOTS[t];
     const here = shown.slice(t * per, t * per + per);
-    tables.push({ x: tx, z: tz, makers: [...new Set(here.map((l) => l.brand))] });
+    tables.push({
+      x: tx,
+      z: tz,
+      makers: [...new Set(here.map((l) => l.brand))],
+    });
     here.forEach((item, i) => {
       const s: 1 | -1 = i < side ? 1 : -1;
-      seats.push({ item, table: t, x: tx + ALONG[side][i % side], z: tz + s * 0.2, side: s });
+      seats.push({
+        item,
+        table: t,
+        x: tx + ALONG[side][i % side],
+        z: tz + s * 0.2,
+        side: s,
+      });
     });
   }
   return { tables, seats };

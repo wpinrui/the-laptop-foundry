@@ -1,9 +1,24 @@
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
-import { type RefObject, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import storeUrl from "../assets/storeworld/courts-store.glb?url";
-import { clamp, collideIn, easeOut, FOV_MIN, lookAngles, type Rect, ZOOM_STEP } from "../cafe/World";
+import {
+  clamp,
+  collideIn,
+  easeOut,
+  FOV_MIN,
+  lookAngles,
+  type Rect,
+  ZOOM_STEP,
+} from "../cafe/World";
 import { colourHex, decorOf, solve } from "../engine";
 import { useOsStill } from "../os/useOsScreen";
 import type { Era } from "../review/Charts";
@@ -46,7 +61,12 @@ type V3 = [number, number, number];
 
 const FONTS = ['700 40px "Barlow Condensed"', '500 20px "IBM Plex Sans"'];
 
-const mm = (r: { x0: number; z0: number; x1: number; z1: number }): Rect => ({ x0: r.x0 * M, z0: r.z0 * M, x1: r.x1 * M, z1: r.z1 * M });
+const mm = (r: { x0: number; z0: number; x1: number; z1: number }): Rect => ({
+  x0: r.x0 * M,
+  z0: r.z0 * M,
+  x1: r.x1 * M,
+  z1: r.z1 * M,
+});
 
 /** The fixed furniture the player walks around, from the store's layout. */
 const FIXED: Rect[] = [
@@ -71,7 +91,19 @@ const FIXED: Rect[] = [
 const ROOM_MM: Rect = mm(ROOM);
 
 /** Shell parts that neither cast shadows nor block the overhead light. */
-const NO_CAST = new Set(["floor", "ceiling_panel", "troffers", "wall_back_panel", "wall_left_panel", "wall_right_panel", "wall_front_panel", "door_daylight", "logo", "entrance_mat", "entrance_mat_edge"]);
+const NO_CAST = new Set([
+  "floor",
+  "ceiling_panel",
+  "troffers",
+  "wall_back_panel",
+  "wall_left_panel",
+  "wall_right_panel",
+  "wall_front_panel",
+  "door_daylight",
+  "logo",
+  "entrance_mat",
+  "entrance_mat_edge",
+]);
 
 /** The signage fonts are loaded: canvas text drawn before then falls back to a serif. */
 function useFonts(): boolean {
@@ -97,13 +129,16 @@ function useShell(era: Era, fonts: boolean): THREE.Group {
     scene.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      const mats = Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material];
       const clear = mats.some((m) => m.transparent);
       const unlit = mats.some((m) => m.type === "MeshBasicMaterial");
       mesh.receiveShadow = !unlit;
       let name = mesh.name;
       // A multi-material part loads as a group of meshes under its name.
-      if (!NO_CAST.has(name) && mesh.parent && NO_CAST.has(mesh.parent.name)) name = mesh.parent.name;
+      if (!NO_CAST.has(name) && mesh.parent && NO_CAST.has(mesh.parent.name))
+        name = mesh.parent.name;
       mesh.castShadow = !clear && !unlit && !NO_CAST.has(name);
     });
   }, [scene]);
@@ -116,7 +151,9 @@ function useShell(era: Era, fonts: boolean): THREE.Group {
     sign.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      for (const m of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      for (const m of Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material]) {
         const s = m as THREE.MeshStandardMaterial;
         if (!s.map) continue;
         swapped.push([s, s.map]);
@@ -142,16 +179,25 @@ function Environment() {
   useEffect(() => {
     const s = new THREE.Scene();
     const owned: { dispose(): void }[] = [];
-    const basic = (color: THREE.ColorRepresentation, side: THREE.Side = THREE.BackSide) => {
+    const basic = (
+      color: THREE.ColorRepresentation,
+      side: THREE.Side = THREE.BackSide,
+    ) => {
       const m = new THREE.MeshBasicMaterial({ color, side });
       owned.push(m);
       return m;
     };
-    const room = new THREE.Mesh(new THREE.BoxGeometry(24, 4.2, 20), basic(0xc9ccd0));
+    const room = new THREE.Mesh(
+      new THREE.BoxGeometry(24, 4.2, 20),
+      basic(0xc9ccd0),
+    );
     room.position.y = 2.1;
     s.add(room);
     const panel = new THREE.PlaneGeometry(1.2, 0.6);
-    const lit = basic(new THREE.Color(0xfffdf4).multiplyScalar(5), THREE.DoubleSide);
+    const lit = basic(
+      new THREE.Color(0xfffdf4).multiplyScalar(5),
+      THREE.DoubleSide,
+    );
     for (let x = -10; x <= 10; x += 2.4)
       for (let z = -8; z <= 8; z += 2.4) {
         const p = new THREE.Mesh(panel, lit);
@@ -159,7 +205,10 @@ function Environment() {
         p.rotation.x = Math.PI / 2;
         s.add(p);
       }
-    const band = new THREE.Mesh(new THREE.BoxGeometry(24.2, 0.9, 20.2), basic(0x1d5fbf));
+    const band = new THREE.Mesh(
+      new THREE.BoxGeometry(24.2, 0.9, 20.2),
+      basic(0x1d5fbf),
+    );
     band.position.y = 3.75;
     s.add(band);
     const pmrem = new THREE.PMREMGenerator(gl);
@@ -235,7 +284,17 @@ const noLabel = () => "";
 const noHover = () => {};
 
 /** One laptop model mounted out of sight until it is baked. */
-function Bakery({ item, screen, looks, onDone }: { item: OnSale; screen: THREE.Texture | undefined; looks: Looks; onDone: (id: string, b: Baked | null) => void }) {
+function Bakery({
+  item,
+  screen,
+  looks,
+  onDone,
+}: {
+  item: OnSale;
+  screen: THREE.Texture | undefined;
+  looks: Looks;
+  onDone: (id: string, b: Baked | null) => void;
+}) {
   const root = useRef<THREE.Group>(null);
   const frames = useRef(0);
   const done = useRef(false);
@@ -256,14 +315,24 @@ function Bakery({ item, screen, looks, onDone }: { item: OnSale; screen: THREE.T
         return "#888888";
       }
     };
-    return { floor: hex(build.finish.floor.colour), deck: hex(build.finish.deck.colour), lid: hex(build.finish.lid.colour) };
+    return {
+      floor: hex(build.finish.floor.colour),
+      deck: hex(build.finish.deck.colour),
+      lid: hex(build.finish.lid.colour),
+    };
   }, [build]);
   const surfaces = useMemo(() => surfacesOf(build), [build]);
   useEffect(() => {
     if (!fit) onDone(item.id, null);
   }, [fit, item.id, onDone]);
   useFrame(() => {
-    if (done.current || !fit || ++frames.current < SETTLE_FRAMES || !root.current) return;
+    if (
+      done.current ||
+      !fit ||
+      ++frames.current < SETTLE_FRAMES ||
+      !root.current
+    )
+      return;
     done.current = true;
     let b: Baked | null = null;
     try {
@@ -296,9 +365,11 @@ function Bakery({ item, screen, looks, onDone }: { item: OnSale; screen: THREE.T
 const OWNER = { maker: "Courts", wordmark: "COURTS" };
 
 /** The laptops on the tables: each model mounted, baked and placed in turn. */
-function Laptops({ seats, onBaked }: { seats: Seat[]; onBaked?: (n: number, triangles: number) => void }) {
+function Laptops({ seats }: { seats: Seat[] }) {
   const looks = useMemo(() => new Looks(), []);
-  const [baked, setBaked] = useState<Map<string, Baked | null>>(() => new Map());
+  const [baked, setBaked] = useState<Map<string, Baked | null>>(
+    () => new Map(),
+  );
   const all = useRef(baked);
   all.current = baked;
   const first = seats[0]?.item.build ?? null;
@@ -318,23 +389,32 @@ function Laptops({ seats, onBaked }: { seats: Seat[]; onBaked?: (n: number, tria
   const onDone = useCallback((id: string, b: Baked | null) => {
     setBaked((m) => new Map(m).set(id, b));
   }, []);
-  useEffect(() => {
-    let tris = 0;
-    for (const b of baked.values()) tris += b?.triangles ?? 0;
-    onBaked?.(baked.size, tris);
-    (window as unknown as Record<string, unknown>).__storeBaked = { n: baked.size, triangles: tris }; // PROBE
-  }, [baked, onBaked]);
   const ready = !!screen || waited;
-  const queue = ready ? seats.filter((s) => !baked.has(s.item.id)).slice(0, BATCH) : [];
+  const queue = ready
+    ? seats.filter((s) => !baked.has(s.item.id)).slice(0, BATCH)
+    : [];
   return (
     <>
       {queue.map((s) => (
-        <Bakery key={s.item.id} item={s.item} screen={screen} looks={looks} onDone={onDone} />
+        <Bakery
+          key={s.item.id}
+          item={s.item}
+          screen={screen}
+          looks={looks}
+          onDone={onDone}
+        />
       ))}
       {seats.map((s) => {
         const b = baked.get(s.item.id);
         if (!b) return null;
-        return <primitive key={s.item.id} object={b.object} position={[s.x * M, TABLE_Y * M, s.z * M]} rotation={[0, s.side > 0 ? 0 : Math.PI, 0]} />;
+        return (
+          <primitive
+            key={s.item.id}
+            object={b.object}
+            position={[s.x * M, TABLE_Y * M, s.z * M]}
+            rotation={[0, s.side > 0 ? 0 : Math.PI, 0]}
+          />
+        );
       })}
     </>
   );
@@ -350,7 +430,10 @@ function focusOf(s: Seat): { pos: THREE.Vector3; at: THREE.Vector3 } {
 }
 
 function seatBox(s: Seat): THREE.Box3 {
-  return new THREE.Box3().setFromCenterAndSize(new THREE.Vector3(s.x * M, (TABLE_Y + 0.2) * M, (s.z + s.side * 0.1) * M), new THREE.Vector3(480, 400, 640));
+  return new THREE.Box3().setFromCenterAndSize(
+    new THREE.Vector3(s.x * M, (TABLE_Y + 0.2) * M, (s.z + s.side * 0.1) * M),
+    new THREE.Vector3(480, 400, 640),
+  );
 }
 
 function Player({
@@ -377,13 +460,32 @@ function Player({
   const fov = useRef(FOV);
   const aimed = useRef<number | null>(null);
   const left = useRef(false);
-  const fly = useRef<{ fromPos: THREE.Vector3; fromQ: THREE.Quaternion; toPos: THREE.Vector3; toQ: THREE.Quaternion; t: number } | null>(null);
+  const fly = useRef<{
+    fromPos: THREE.Vector3;
+    fromQ: THREE.Quaternion;
+    toPos: THREE.Vector3;
+    toQ: THREE.Quaternion;
+    t: number;
+  } | null>(null);
   const was = useRef<number | null>(null);
   const live = useRef({ active, inspect });
   live.current = { active, inspect };
   const ray = useMemo(() => new THREE.Raycaster(), []);
   const boxes = useMemo(() => layout.seats.map(seatBox), [layout]);
-  const rects = useMemo(() => [...FIXED, ...layout.tables.map((t) => mm({ x0: t.x - TABLE.w / 2, x1: t.x + TABLE.w / 2, z0: t.z - TABLE.d / 2, z1: t.z + TABLE.d / 2 }))], [layout]);
+  const rects = useMemo(
+    () => [
+      ...FIXED,
+      ...layout.tables.map((t) =>
+        mm({
+          x0: t.x - TABLE.w / 2,
+          x1: t.x + TABLE.w / 2,
+          z0: t.z - TABLE.d / 2,
+          z1: t.z + TABLE.d / 2,
+        }),
+      ),
+    ],
+    [layout],
+  );
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.current.add(e.code);
@@ -392,11 +494,24 @@ function Player({
       if (!document.pointerLockElement || live.current.inspect !== null) return;
       const k = LOOK * (fov.current / FOV);
       look.current.yaw -= e.movementX * k;
-      look.current.pitch = clamp(look.current.pitch - e.movementY * k, -1.45, 1.45);
+      look.current.pitch = clamp(
+        look.current.pitch - e.movementY * k,
+        -1.45,
+        1.45,
+      );
     };
     const wheel = (e: WheelEvent) => {
-      if (!document.pointerLockElement || !live.current.active || live.current.inspect !== null) return;
-      fov.current = clamp(fov.current * Math.exp(e.deltaY * ZOOM_STEP), FOV_MIN, FOV);
+      if (
+        !document.pointerLockElement ||
+        !live.current.active ||
+        live.current.inspect !== null
+      )
+        return;
+      fov.current = clamp(
+        fov.current * Math.exp(e.deltaY * ZOOM_STEP),
+        FOV_MIN,
+        FOV,
+      );
     };
     const blur = () => keys.current.clear();
     window.addEventListener("keydown", down);
@@ -429,27 +544,46 @@ function Player({
         const f = focusOf(seat);
         toPos = f.pos;
         const a = lookAngles(f.pos, f.at);
-        toQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(a.pitch, a.yaw, 0, "YXZ"));
+        toQ = new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(a.pitch, a.yaw, 0, "YXZ"),
+        );
       } else {
         toPos = pos.current.clone();
-        toQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(look.current.pitch, look.current.yaw, 0, "YXZ"));
+        toQ = new THREE.Quaternion().setFromEuler(
+          new THREE.Euler(look.current.pitch, look.current.yaw, 0, "YXZ"),
+        );
       }
-      fly.current = was.current === null && inspect === null ? null : { fromPos, fromQ, toPos, toQ, t: 0 };
+      fly.current =
+        was.current === null && inspect === null
+          ? null
+          : { fromPos, fromQ, toPos, toQ, t: 0 };
       was.current = inspect;
     }
     if (inspect === null && active && !fly.current) {
       const k = keys.current;
-      const f = (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) - (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0);
-      const r = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
+      const f =
+        (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0) -
+        (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0);
+      const r =
+        (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) -
+        (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
       if (f || r) {
         const yaw = look.current.yaw;
         const len = Math.hypot(f, r);
-        const v = SPEED * (k.has("ShiftLeft") || k.has("ShiftRight") ? FAST : 1) * Math.min(dt, 0.1);
+        const v =
+          SPEED *
+          (k.has("ShiftLeft") || k.has("ShiftRight") ? FAST : 1) *
+          Math.min(dt, 0.1);
         pos.current.x += ((-Math.sin(yaw) * f + Math.cos(yaw) * r) / len) * v;
         pos.current.z += ((-Math.cos(yaw) * f - Math.sin(yaw) * r) / len) * v;
         collideIn(pos.current, ROOM_MM, rects, BODY);
         const p = pos.current;
-        if (!left.current && p.z > EXIT_Z && p.x > DOOR.x0 * M && p.x < DOOR.x1 * M) {
+        if (
+          !left.current &&
+          p.z > EXIT_Z &&
+          p.x > DOOR.x0 * M &&
+          p.x < DOOR.x1 * M
+        ) {
           left.current = true;
           onExit();
         }
@@ -468,7 +602,9 @@ function Player({
       const k = easeOut(fl.t);
       if (inspect === null) {
         fl.toPos.copy(pos.current);
-        fl.toQ.setFromEuler(new THREE.Euler(look.current.pitch, look.current.yaw, 0, "YXZ"));
+        fl.toQ.setFromEuler(
+          new THREE.Euler(look.current.pitch, look.current.yaw, 0, "YXZ"),
+        );
       }
       cam.position.lerpVectors(fl.fromPos, fl.toPos, k);
       cam.quaternion.slerpQuaternions(fl.fromQ, fl.toQ, k);
@@ -481,7 +617,14 @@ function Player({
     const off = inspect !== null ? shift : 0;
     const has = cam.view?.enabled && cam.view.offsetX !== 0;
     if (off > 0 && (!has || cam.view?.offsetX !== off)) {
-      cam.setViewOffset(size.width, size.height, off, 0, size.width, size.height);
+      cam.setViewOffset(
+        size.width,
+        size.height,
+        off,
+        0,
+        size.width,
+        size.height,
+      );
       cam.updateProjectionMatrix();
     } else if (off === 0 && has) {
       cam.clearViewOffset();
@@ -520,7 +663,6 @@ function Room({
   shift,
   onAim,
   onExit,
-  onBaked,
 }: {
   layout: Layout;
   era: Era;
@@ -529,11 +671,13 @@ function Room({
   shift: number;
   onAim: (seat: number | null) => void;
   onExit: () => void;
-  onBaked?: (n: number, triangles: number) => void;
 }) {
   const fonts = useFonts();
   const shell = useShell(era, fonts);
-  const displays = useMemo(() => (fonts ? buildDisplays(layout) : null), [layout, fonts]);
+  const displays = useMemo(
+    () => (fonts ? buildDisplays(layout) : null),
+    [layout, fonts],
+  );
   useEffect(() => () => displays?.dispose(), [displays]);
   return (
     <>
@@ -542,8 +686,15 @@ function Room({
         {displays && <primitive object={displays.group} />}
       </group>
       <ShadowWarmup stamp={displays} />
-      <Laptops seats={layout.seats} onBaked={onBaked} />
-      <Player layout={layout} active={active} inspect={inspect} shift={shift} onAim={onAim} onExit={onExit} />
+      <Laptops seats={layout.seats} />
+      <Player
+        layout={layout}
+        active={active}
+        inspect={inspect}
+        shift={shift}
+        onAim={onAim}
+        onExit={onExit}
+      />
     </>
   );
 }
@@ -556,16 +707,18 @@ export function Store(props: {
   shift: number;
   onAim: (seat: number | null) => void;
   onExit: () => void;
-  onBaked?: (n: number, triangles: number) => void;
-  onGl?: RefObject<((s: { gl: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.Camera }) => void) | null>;
 }) {
   return (
     <Canvas
       shadows={{ enabled: true, type: THREE.PCFShadowMap, autoUpdate: false }}
       dpr={[1, 1.5]}
       gl={{ toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 0.92 }}
-      camera={{ fov: FOV, near: 20, far: 60000, position: START.toArray() as V3 }}
-      onCreated={(s) => { props.onGl?.current?.(s); (window as unknown as Record<string, unknown>).__storeGl = s; /* PROBE */ }}
+      camera={{
+        fov: FOV,
+        near: 20,
+        far: 60000,
+        position: START.toArray() as V3,
+      }}
     >
       <color attach="background" args={["#dfe3e8"]} />
       <Environment />
@@ -579,7 +732,6 @@ export function Store(props: {
           shift={props.shift}
           onAim={props.onAim}
           onExit={props.onExit}
-          onBaked={props.onBaked}
         />
       </Suspense>
     </Canvas>

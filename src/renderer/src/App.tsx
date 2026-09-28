@@ -8,6 +8,7 @@ import { emptyBuild, toYear } from "./builder/structure";
 import { WorkshopVisit } from "./builder/Visit";
 import { CafeScreen } from "./cafe/CafeScreen";
 import { WorldMap } from "./map/WorldMap";
+import { StoreWorld } from "./storeworld/StoreWorld";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
 import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, type Quarter, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
@@ -343,16 +344,25 @@ export function App() {
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
     );
+  if (company && where.at === "courts")
+    return (
+      <StoreWorld
+        company={company}
+        onMap={() => toMap(where)}
+        sound={settings.sound}
+        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+      />
+    );
   if (company && where.at === "map")
     return (
       <WorldMap
         key={where.from?.at ?? "menu"}
         company={company}
         from={where.from?.at ?? "menu"}
-        courts={false}
         onGo={(to, m) => {
           if (to === "office") setWhere({ at: "office" });
-          else if (to !== "courts") visit(to, m);
+          else if (to === "courts") setWhere({ at: "courts" });
+          else visit(to, m);
         }}
         onBack={() => {
           if (where.from) setWhere(where.from);

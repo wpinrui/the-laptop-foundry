@@ -1,7 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { Probe } from "./storeworld/Probe"; // PROBE
 import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
@@ -18,6 +17,6 @@ if (!root) throw new Error("Root element #root not found");
 
 createRoot(root).render(
   <StrictMode>
-    {location.hash.startsWith("#storeprobe=") ? <Probe mode={location.hash.slice(12)} /> : <App />}
+    <App />
   </StrictMode>,
 );

@@ -1,4 +1,4 @@
-import { type Content, CONTENT } from "../content";
+import { type Content, CONTENT, LAST_YEAR } from "../content";
 import { panelOf } from "../screen";
 import type { Measurements } from "../sim";
 import { singleAt } from "../sim/curves";
@@ -98,9 +98,13 @@ export const GAMES: Game[] = [
   },
 ];
 
-/** Games re-release every three years from 2005. */
+/**
+ * Games re-release every three years from 2005, the last edition being the
+ * one out by LAST_YEAR: later editions would only get heavier on parts that
+ * no longer improve.
+ */
 export function gameEdition(year: number): number {
-  return 2005 + 3 * Math.max(0, Math.floor((year - 2005) / 3));
+  return 2005 + 3 * Math.max(0, Math.floor((Math.min(year, LAST_YEAR) - 2005) / 3));
 }
 
 /**

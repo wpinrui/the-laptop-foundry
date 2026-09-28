@@ -103,8 +103,6 @@ export function App() {
   }, [company?.id]);
   // The last quarter's best seller as a short video.
   const [short, setShort] = useState<ReadyShort | null>(null);
-  // The company whose finished campaign's end screen was left for its models.
-  const [pastEnd, setPastEnd] = useState<string | null>(null);
 
   useEffect(() => {
     store().companies().then((all) => setCompanies(all.map(migrated)));
@@ -485,13 +483,13 @@ export function App() {
       />
     );
   const current = company?.models.find((m) => m.id === selected);
-  const ended = menu === "list" && !!campaign?.over && (campaign.bankrupt || pastEnd !== company?.id);
+  // Only bankruptcy ends a campaign; otherwise the clock runs on past 2026.
+  const ended = menu === "list" && !!campaign?.over && campaign.bankrupt;
   if (ended && company && campaign)
     screen = (
       <Ending
         name={company.name}
         campaign={campaign}
-        onModels={campaign.bankrupt ? undefined : () => setPastEnd(company.id)}
         onMenu={() => {
           setCompany(null);
           setMenu("start");

@@ -3,12 +3,12 @@ import type { AwardId } from "./awards";
 
 // Campaign constants. Money is in nominal US dollars.
 
-/** The earliest and latest year a campaign can start in. */
+/**
+ * The earliest and latest year a campaign can start in. A campaign has no
+ * last year: past 2026 the content holds at its last year and the clock runs on.
+ */
 export const FIRST_START = 2006;
 export const LAST_START = 2025;
-
-/** A campaign ends after the fourth quarter of this year. */
-export const END_YEAR = 2026;
 
 /**
  * Cash a campaign starts with. A modest first run is about 5,000 midrange

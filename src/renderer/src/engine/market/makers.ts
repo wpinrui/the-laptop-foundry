@@ -1,3 +1,4 @@
+import { contentYear } from "../content/years";
 import type { ClassCell, CpuVendor, HeadlineStat, Line, LineShape, Maker, PriceWaypoint, StatWeights } from "./types";
 import { HEADLINE_STATS } from "./types";
 
@@ -583,8 +584,10 @@ export const LINES: Line[] = [
 
 // ------------------------------------------------------------ lookups
 
+/** Whether the line sells in the year. Past the content's last year, the lines alive in it carry on. */
 export function onSale(line: Line, year: number): boolean {
-  return line.years.some(([a, b]) => year >= a && year <= b);
+  const y = contentYear(year);
+  return line.years.some(([a, b]) => y >= a && y <= b);
 }
 
 /** Every line with a model on sale in the year. */

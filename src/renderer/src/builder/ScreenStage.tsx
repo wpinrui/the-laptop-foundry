@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  available,
   type Build,
   CONTENT,
   commonHz,
@@ -117,8 +118,7 @@ export function ScreenColumn({ build, set }: StageProps) {
   // Which choice made it custom: the refresh when the size and resolution were sold at another rate.
   const soldAt = CONTENT.panels.filter(
     (p) =>
-      p.from <= year &&
-      year <= p.until &&
+      available(p, year) &&
       Math.abs(p.inches - spec.diag) < 0.051 &&
       p.res[0] === spec.res[0] &&
       p.res[1] === spec.res[1] &&

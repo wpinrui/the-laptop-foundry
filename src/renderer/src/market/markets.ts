@@ -18,7 +18,11 @@ import MarketWorker from "./market.worker?worker&inline";
 // time a year is opened, in a worker, then saved with the company.
 
 export const FIRST_MARKET_YEAR = 2006;
-export const LAST_MARKET_YEAR = 2026;
+
+/** A market year: whole, and no earlier than the first. Campaigns run on past 2026 with no last year. */
+function marketYear(year: number): number {
+  return Math.max(FIRST_MARKET_YEAR, Math.round(year));
+}
 
 const pending = new Map<string, Promise<void>>();
 let saving: Promise<unknown> = Promise.resolve();
@@ -60,10 +64,7 @@ export function seedOf(company: string, year: number): number {
 /** Makes sure the open company has the year's market, generating and saving it the first time. */
 export function ensureMarket(year: number): Promise<void> {
   const company = marketOwner();
-  const y = Math.min(
-    LAST_MARKET_YEAR,
-    Math.max(FIRST_MARKET_YEAR, Math.round(year)),
-  );
+  const y = marketYear(year);
   if (!company || hasMarket(y)) return Promise.resolve();
   const key = `${company}:${y}`;
   const hit = pending.get(key);
@@ -100,9 +101,5 @@ export function useMarket(...years: number[]): boolean {
   useEffect(() => {
     for (const y of years) void ensureMarket(y);
   }, [key]);
-  return years.every((y) =>
-    hasMarket(
-      Math.min(LAST_MARKET_YEAR, Math.max(FIRST_MARKET_YEAR, Math.round(y))),
-    ),
-  );
+  return years.every((y) => hasMarket(marketYear(y)));
 }

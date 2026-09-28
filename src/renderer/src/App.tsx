@@ -11,16 +11,11 @@ import { WorldMap } from "./map/WorldMap";
 import { StoreWorld } from "./storeworld/StoreWorld";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
 import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, type Quarter, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
-import { LaptopList, sortedModels } from "./foundry/LaptopList";
+import { sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
-import { BooksTab, StatementView, type StatementTab } from "./foundry/Finance";
+import { StatementView, type StatementTab } from "./foundry/Finance";
 import { Ending } from "./foundry/Ending";
-import { BrandTab } from "./foundry/Marketing";
-import { ModelTab } from "./foundry/Release";
-import { CampaignRail, type RailTab } from "./foundry/CampaignRail";
 import { type MarketTab, MarketScreen } from "./world/MarketScreen";
-import { worldQuarters } from "./engine/campaign/world";
-import { AwardsTab } from "./foundry/Awards";
 import { MAKERS } from "./engine/market/makers";
 import { setHonours } from "./review/honours";
 import { Stage, type StageView } from "./foundry/Stage";
@@ -31,6 +26,7 @@ import { cancelShort, prepareShort, type ReadyShort, shortKey, useShort } from "
 import { VideoScreen } from "./video/VideoScreen";
 import { Office } from "./office/Office";
 import { OFFICE_START, type OfficeAt } from "./office/stations";
+import type { OfficeActions } from "./office/Panels";
 
 const store = () => window.api.store;
 
@@ -94,8 +90,6 @@ export function App() {
   const [naming, setNaming] = useState<Build | null>(null);
   // A year's market is being generated before a screen that needs it opens.
   const [busy, setBusy] = useState(false);
-  // The campaign's right rail tab.
-  const [tab, setTab] = useState<RailTab>("model");
   // The statement view open between the rails, on this tab.
   const [statement, setStatement] = useState<StatementTab | null>(null);
   // The run size picked per model.
@@ -432,21 +426,97 @@ export function App() {
 
   // The Office: the 3D room, its stations' panels and the quarter report over it. Leaving it goes to the map.
   const leaveOffice = () => toMap({ at: "office" });
-  if (company && where.at === "office" && menu === "list" && !(campaign?.over && campaign.bankrupt))
+  const find = (id: string) => company?.models.find((x) => x.id === id);
+  if (company && where.at === "office" && menu === "list" && !(campaign?.over && campaign.bankrupt)) {
+    const actions: OfficeActions = {
+      onNew: () => {
+        setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
+        setMenu("name");
+      },
+      onUse: (id) => {
+        const m = find(id);
+        if (m && !buildBlock(m.build)) visit("cafe", m, true);
+      },
+      onReview: (id) => {
+        const m = find(id);
+        if (m) review(m);
+      },
+      onOpen: setOpen,
+      onDuplicate: duplicate,
+      onDelete: (id) =>
+        store()
+          .deleteModel(company.id, id)
+          .then((c) => {
+            refresh(c);
+            setOfficeAt((a) => ({ ...a, model: null, detail: false }));
+            // A deleted model's line ends and its stock is written off.
+            commit((s) => {
+              if (!s.releases[id]) return null;
+              const { [id]: _, ...releases } = s.releases;
+              return { ...s, releases };
+            });
+          }),
+      units: (id) => runs[id] || DEFAULT_RUN,
+      onUnits: (id, u) => setRuns((r) => ({ ...r, [id]: u })),
+      onPrice: (id, p) => commit((s) => setPrice(s, id, p)),
+      onRelease: (id, units, cost, re) => {
+        const m = find(id);
+        if (m) commit((s) => release(s, id, (m.build as Build).price, cost, units, re));
+      },
+      onReorder: (id, units, cost) => commit((s) => reorder(s, id, cost, units)),
+      onTier: (segment, t) => commit((s) => ({ ...s, brand: setCampaign(s.brand, segment, t) })),
+      onStatement: (t) => {
+        setMarketView(null);
+        setStatement(t);
+      },
+      onMarket: (t, id) => {
+        setStatement(null);
+        setMarketView({ tab: t, model: id });
+      },
+      short:
+        shortId && best
+          ? {
+              quarter: `Q${best.record.quarter.quarter} ${best.record.quarter.year}`,
+              name: company.models.find((m) => m.id === best.id)?.name ?? subjectOf(best.id, [])?.subject.name ?? "",
+              state: shortEntry?.state === "ready" ? "ready" : shortEntry?.state === "busy" ? "busy" : "idle",
+              poster: shortEntry?.state === "ready" ? shortEntry.poster : undefined,
+              onClick: shortAction,
+            }
+          : undefined,
+      newAwards: campaign && seenAwards !== null ? Math.max(0, campaign.awards.length - seenAwards) : 0,
+      onSeenAwards: () => campaign && setSeenAwards(campaign.awards.length),
+    };
     return (
       <>
         <Office
           company={company}
           campaign={campaign}
           at={officeAt}
-          onAt={setOfficeAt}
+          onAt={(next) => {
+            // Opening the cabinet counts its awards as seen.
+            if (campaign && next.station === "trophies" && next.panel) setSeenAwards(campaign.awards.length);
+            setOfficeAt(next);
+          }}
           onMap={leaveOffice}
           onEndQuarter={endQuarter}
           resolving={resolving}
           blocked={!!marketView || !!statement}
+          actions={actions}
         />
+        {campaign && statement && (
+          <div className="fd of-over">
+            <div className="fd-scrim fd-books-scrim" />
+            <StatementView
+              campaign={campaign}
+              models={company.models}
+              tab={statement}
+              onTab={setStatement}
+              onClose={() => setStatement(null)}
+            />
+          </div>
+        )}
         {campaign && marketView && (
-          <div className="fd">
+          <div className="fd of-over">
             <MarketScreen
               key={`${marketView.quarter?.year}-${marketView.quarter?.quarter}-${marketView.model}`}
               campaign={campaign}
@@ -467,8 +537,8 @@ export function App() {
         )}
       </>
     );
+  }
 
-  const find = (id: string) => company?.models.find((x) => x.id === id);
   let screen: ReactNode = null;
   if (menu === "start")
     screen = (
@@ -540,64 +610,13 @@ export function App() {
           save(m).then(() => {
             setNaming(null);
             setSelected(m.id);
+            setOfficeAt((a) => ({ ...a, station: "products", panel: true, model: m.id, detail: true, arrive: false }));
             setMenu("list");
             setOpen(m.id);
           });
         }}
       />
     );
-  else if (company)
-    screen = (
-      <LaptopList
-        company={company}
-        campaign={campaign}
-        onEndQuarter={endQuarter}
-        short={
-          shortId && best
-            ? {
-                quarter: `Q${best.record.quarter.quarter}`,
-                name: company.models.find((m) => m.id === best.id)?.name ?? subjectOf(best.id, [])?.subject.name ?? "",
-                state: shortEntry?.state === "ready" ? "ready" : shortEntry?.state === "busy" ? "busy" : "idle",
-                poster: shortEntry?.state === "ready" ? shortEntry.poster : undefined,
-                onClick: shortAction,
-              }
-            : undefined
-        }
-        resolving={resolving}
-        selected={selected}
-        onSelect={setSelected}
-        onMenu={leaveOffice}
-        onNew={() => {
-          setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
-          setMenu("name");
-        }}
-        onUse={(id) => {
-          const m = find(id);
-          if (m && !buildBlock(m.build)) visit("cafe", m, true);
-        }}
-        onReview={(id) => {
-          const m = find(id);
-          if (m) review(m);
-        }}
-        onOpen={setOpen}
-        onDuplicate={duplicate}
-        onDelete={(id) =>
-          store()
-            .deleteModel(company.id, id)
-            .then((c) => {
-              refresh(c);
-              setSelected(sortedModels(c)[0]?.id ?? null);
-              // A deleted model's line ends and its stock is written off.
-              commit((s) => {
-                if (!s.releases[id]) return null;
-                const { [id]: _, ...releases } = s.releases;
-                return { ...s, releases };
-              });
-            })
-        }
-      />
-    );
-  const current = company?.models.find((m) => m.id === selected);
   // Only bankruptcy ends a campaign; otherwise the clock runs on past 2026.
   const ended = menu === "list" && !!campaign?.over && campaign.bankrupt;
   if (ended && company && campaign)
@@ -610,108 +629,6 @@ export function App() {
           setMenu("start");
         }}
       />
-    );
-  else if (menu === "list" && company && campaign)
-    screen = (
-      <>
-        {screen}
-        {statement && (
-          <>
-            <div className="fd-scrim fd-books-scrim" />
-            <StatementView
-              campaign={campaign}
-              models={company.models}
-              tab={statement}
-              onTab={setStatement}
-              onClose={() => setStatement(null)}
-            />
-          </>
-        )}
-        <CampaignRail
-          tab={tab}
-          onTab={(t) => {
-            setTab(t);
-            if (t === "awards") setSeenAwards(campaign.awards.length);
-          }}
-          onMenu={leaveOffice}
-          onMarket={
-            worldQuarters(campaign).length > 0
-              ? () => {
-                  setStatement(null);
-                  setMarketView({ tab: "quarter", model: current?.id });
-                }
-              : undefined
-          }
-          dot={seenAwards !== null && campaign.awards.length > seenAwards && tab !== "awards" ? ["awards"] : []}
-        >
-          {tab === "model" && !current && (
-            <button
-              type="button"
-              className="fd-secondary cr-new"
-              disabled={campaign.over}
-              onClick={() => {
-                setNaming(toYear(emptyBuild(), campaign.now.year));
-                setMenu("name");
-              }}
-            >
-              New model
-            </button>
-          )}
-          {tab === "model" && current && (
-            <ModelTab
-              key={current.id}
-              campaign={campaign}
-              model={current}
-              models={company.models}
-              units={runs[current.id] || DEFAULT_RUN}
-              onUnits={(u) => setRuns((r) => ({ ...r, [current.id]: u }))}
-              onPrice={(p) => commit((s) => setPrice(s, current.id, p))}
-              onRelease={(units, cost, re) =>
-                commit((s) => release(s, current.id, (current.build as Build).price, cost, units, re))
-              }
-              onReorder={(units, cost) => commit((s) => reorder(s, current.id, cost, units))}
-              onMarket={
-                worldQuarters(campaign).length > 0
-                  ? (t) => {
-                      setStatement(null);
-                      setMarketView({ tab: t, model: current.id });
-                    }
-                  : undefined
-              }
-            />
-          )}
-          {tab === "books" && (
-            <BooksTab
-              campaign={campaign}
-              onOpen={(t) => {
-                setMarketView(null);
-                setStatement(t);
-              }}
-            />
-          )}
-          {tab === "brand" && (
-            <BrandTab
-              campaign={campaign}
-              onTier={(segment, t) => commit((s) => ({ ...s, brand: setCampaign(s.brand, segment, t) }))}
-            />
-          )}
-          {tab === "awards" && <AwardsTab campaign={campaign} models={company.models} />}
-        </CampaignRail>
-        {marketView && (
-          <MarketScreen
-            key={`${marketView.quarter?.year}-${marketView.quarter?.quarter}-${marketView.model}`}
-            campaign={campaign}
-            models={company.models}
-            company={company.name}
-            tab={marketView.tab}
-            onTab={(t) => setMarketView((v) => (v ? { ...v, tab: t } : v))}
-            quarter={marketView.quarter}
-            model={marketView.model}
-            proceed={marketView.proceed}
-            onClose={() => setMarketView(null)}
-          />
-        )}
-      </>
     );
 
   return (

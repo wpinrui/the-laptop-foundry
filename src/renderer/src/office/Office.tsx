@@ -7,6 +7,7 @@ import { type CampaignState, quarterLabel } from "../engine/campaign";
 import { usd, usdShort } from "../foundry/Release";
 import { token } from "../viewer/theme";
 import { Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
+import { buildPanels, type OfficeActions, wallOrder } from "./Panels";
 import { labelOf, type OfficeAt, ringOf, type StationId, stepFrom } from "./stations";
 import "../foundry/foundry.css";
 import "../cafe/cafe.css";
@@ -28,16 +29,14 @@ export interface OfficeProps {
   resolving: { step: number; of: number; name: string } | null;
   /** Something is open over the office (the quarter report, a statement): keys are its. */
   blocked: boolean;
-  /** Each station's panel, when it has one. */
-  panels?: Partial<Record<StationId, ReactNode>>;
+  /** What the stations' panels do; without it the stations have no panels. */
+  actions?: OfficeActions;
   /** What stands in the room: the product wall's laptops and the cabinet's awards. */
   room?: (data: OfficeData) => ReactNode;
   /** Laptops on the wall, for the bays shown and the pointer's picks. */
-  wall?: { count: number; order: string[]; boxes: React.RefObject<{ id: string; box: THREE.Box3 }[]> };
+  wall?: { count: number; boxes: React.RefObject<{ id: string; box: THREE.Box3 }[]> };
   /** A stamp that changes when what stands in the room does: the shadows are redrawn. */
   stamp?: string;
-  /** Opens the product wall's Model panel on a laptop. */
-  onLaptop?: (id: string) => void;
 }
 
 const typing = () => !!(document.activeElement as HTMLElement | null)?.closest?.("input, textarea, [contenteditable='true']");
@@ -53,7 +52,7 @@ export function Office({
   onEndQuarter,
   resolving,
   blocked,
-  panels = {},
+  actions,
   room,
   wall,
   stamp = "",
@@ -68,6 +67,21 @@ export function Office({
   const wrap = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<OfficeData | null>(null);
   const bays = Math.min(5, Math.max(1, Math.ceil((wall?.count ?? 0) / 8)));
+  const order = useMemo(() => wallOrder(company).map((m) => m.id), [company]);
+  const goRef = useRef<(id: StationId, open?: boolean) => void>(() => {});
+  const panels = actions
+    ? buildPanels({
+        company,
+        campaign,
+        at,
+        onAt,
+        go: (id, open) => goRef.current(id, open),
+        close: () => goRef.current(station),
+        onEndQuarter,
+        resolving,
+        actions,
+      })
+    : {};
   const hasPanel = (id: StationId) => !!panels[id];
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the arrival plays once
@@ -84,6 +98,7 @@ export function Office({
     // biome-ignore lint/correctness/useExhaustiveDependencies: panels are read as they are
     [at, onAt, panels],
   );
+  goRef.current = go;
   const openPanel = () => {
     if (station === "door") onMap();
     else if (hasPanel(station)) onAt({ ...at, station, panel: true });
@@ -110,8 +125,8 @@ export function Office({
     wrap.current?.requestPointerLock?.()?.catch?.(() => {});
   };
 
-  const keys = useRef({ station, free, at, blocked, go, openPanel, enterFree, nearest, aim, onMap, ring });
-  keys.current = { station, free, at, blocked, go, openPanel, enterFree, nearest, aim, onMap, ring };
+  const keys = useRef({ station, free, at, blocked, go, openPanel, enterFree, nearest, aim, onMap, ring, order });
+  keys.current = { station, free, at, blocked, go, openPanel, enterFree, nearest, aim, onMap, ring, order };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const k = keys.current;
@@ -144,14 +159,28 @@ export function Office({
         else if (k.station !== "desk") k.go("desk");
         return;
       }
+      if (k.station === "products" && (e.key === "ArrowUp" || e.key === "ArrowDown") && k.order.length > 0) {
+        e.preventDefault();
+        const i = k.at.model ? k.order.indexOf(k.at.model) : -1;
+        const step = e.key === "ArrowDown" ? 1 : -1;
+        const next = i < 0 ? k.order[0] : k.order[(i + step + k.order.length) % k.order.length];
+        onAtRef.current({ ...k.at, model: next });
+        return;
+      }
       if (k.station === "door" && e.code === "KeyE") {
         e.preventDefault();
         k.onMap();
         return;
       }
-      if (e.key === "Enter" && !onControl() && !k.at.panel) {
-        e.preventDefault();
-        k.openPanel();
+      if (e.key === "Enter" && !onControl()) {
+        // On the product wall Enter opens the picked laptop's Model panel.
+        if (k.station === "products" && k.at.model && !k.at.detail) {
+          e.preventDefault();
+          onAtRef.current({ ...k.at, panel: true, detail: true });
+        } else if (!k.at.panel) {
+          e.preventDefault();
+          k.openPanel();
+        }
       }
     };
     const keysDetail = (detail: boolean) => {
@@ -249,7 +278,7 @@ export function Office({
                   {resolving.name}
                 </div>
               ) : (
-                <button type="button" className="fd-primary of-end" onClick={onEndQuarter}>
+                <button type="button" className="fd-primary of-end" onClick={onEndQuarter} disabled={blocked}>
                   End {quarterLabel(campaign.now)}
                 </button>
               ))}
@@ -265,7 +294,7 @@ export function Office({
         target && (
           <>
             {panel ? (
-              <aside key={station} className={`of-panel ${side} fd-in`}>
+              <aside key={station} className={`of-panel cr ${side}${station === "market" ? " wide" : ""} fd-in`}>
                 {panel}
               </aside>
             ) : (

@@ -69,7 +69,7 @@ export const BODIES: Body[] = [
       signature: "drop",
     },
     hinge: { x: 28, y: 12, z: 4 },
-    layouts: ["b", "c"],
+    layouts: ["a", "b", "c"],
   },
   {
     // Rugged: thick walls, corner bumpers proud of the top and bottom, a latched lid.
@@ -345,7 +345,7 @@ export const BODIES: Body[] = [
       signature: "wrap",
     },
     hinge: { x: 28, y: 14, z: 4 },
-    layouts: ["b", "c"],
+    layouts: ["a", "b", "c"],
   },
   {
     // Gem cut: the plan corners cut flat, a bevel under every edge.

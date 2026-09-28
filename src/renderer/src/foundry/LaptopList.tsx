@@ -17,7 +17,7 @@ export function yearOf(m: SavedModel): number | undefined {
 }
 
 /** A reviewed model's overall review score, or null if it cannot be scored. */
-function overallOf(m: SavedModel, company: string): number | null {
+export function overallOf(m: SavedModel, company: string): number | null {
   try {
     return scoresOf({ id: m.id, name: m.name, company, build: m.build as Build }).overall;
   } catch {

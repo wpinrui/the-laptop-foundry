@@ -8,6 +8,7 @@ import type { Rival } from "../market/field";
 import { type Release, releaseOf } from "./release";
 import { launchRivals } from "./rivals";
 import { type SalesRecord, salesRecordOf, simulateSales, wordOfMouth } from "./sales";
+import { type ShelfRecord, shelfRecordOf } from "./shelf";
 
 // Campaign mode: a company plays forward from a start year a quarter at a
 // time, to the end of 2026. The state lives in the company save; the main
@@ -21,6 +22,8 @@ export * from "./finance";
 export * from "./release";
 export * from "./rivals";
 export * from "./sales";
+export * from "./shelf";
+export * from "./world";
 
 export type QuarterOfYear = 1 | 2 | 3 | 4;
 
@@ -51,6 +54,8 @@ export interface CampaignState {
   onSale: string[];
   /** One record per resolved quarter, oldest first, the last SALES_HISTORY kept. */
   sales: SalesRecord[];
+  /** Every resolved quarter's shelf, oldest first, for the market views. Saves from before it start empty. */
+  shelf: ShelfRecord[];
   /** The quarter's buyers' outcomes, from sales to marketing. Empty between quarters. */
   outcomes: SegmentOutcome[];
   /** Published reviews by model or rival id. A laptop with none counts as par with buyers. */
@@ -93,6 +98,7 @@ export function newCampaign(start: number): CampaignState {
     brand: newBrand(),
     onSale: [],
     sales: [],
+    shelf: [],
     outcomes: [],
     reviews: {},
     awards: [],
@@ -124,6 +130,7 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     brand: brandOf(s.brand),
     onSale: Array.isArray(s.onSale) ? s.onSale.filter((x): x is string => typeof x === "string") : [],
     sales: Array.isArray(s.sales) ? s.sales.map(salesRecordOf).filter((r): r is SalesRecord => !!r) : [],
+    shelf: Array.isArray(s.shelf) ? s.shelf.map(shelfRecordOf).filter((r): r is ShelfRecord => !!r) : [],
     outcomes: [],
     reviews: reviewsOf(s.reviews),
     awards: awardsOf(s.awards),

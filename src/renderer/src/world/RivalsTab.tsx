@@ -3,27 +3,12 @@ import type { SavedModel } from "../../../preload/store";
 import { type CampaignState, type ContestLaptop, contestOf, type Quarter, type WorldMarket } from "../engine/campaign";
 import { HEADLINE_STATS, type HeadlineStat } from "../engine/market/types";
 import { usd } from "../foundry/Release";
-import { countShort, makerName } from "./data";
+import { countShort, makerName, STAT_NAME } from "./data";
 import { Score } from "./QuarterTab";
 
 // The Market screen's Rivals tab: a model's chips, the rivals it competes with
 // most by units won, and a stat matrix of the lot, each stat an index on the
 // market's par of 100, with how much the model's buyers weight it.
-
-const ROW_LABEL: Record<HeadlineStat, string> = {
-  app: "App",
-  games: "Games",
-  battery: "Battery",
-  portability: "Portability",
-  display: "Display",
-  chassis: "Build",
-  keyboard: "Keyboard",
-  trackpad: "Trackpad",
-  connectivity: "Connectivity",
-  thermals: "Thermals",
-  audio: "Audio",
-  price: "Price",
-};
 
 /** The index a bar fills at. */
 const BAR_TOP = 160;
@@ -141,7 +126,7 @@ export function RivalsTab({
         ))}
         {HEADLINE_STATS.map((k) => (
           <div key={k} className="mr-line">
-            <span className={c.weights[k] >= 0.5 ? "mr-label strong" : "mr-label"}>{ROW_LABEL[k]}</span>
+            <span className={c.weights[k] >= 0.5 ? "mr-label strong" : "mr-label"}>{STAT_NAME[k]}</span>
             <Pips weight={c.weights[k]} />
             {cols.map((l) => (
               <StatCell key={l.id} l={l} k={k} tone={toneOf(k, l)} cheapest={cheapest} />

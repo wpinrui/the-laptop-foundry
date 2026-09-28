@@ -526,6 +526,42 @@ export function buyersOf(state: CampaignState, modelId: string, quarter?: Quarte
   return { units, quarters: sold, segments };
 }
 
+/** One segment in a quarter: who it bought from and how the company stands there now. */
+export interface SegmentRow {
+  segment: SegmentId;
+  /** Every unit the segment bought in the quarter. */
+  buyers: number;
+  /** The player's share of them, 0 to 1. */
+  won: number;
+  /** Units per player model on the shelf that quarter. */
+  models: Record<string, number>;
+  wants: HeadlineStat[];
+  reach: number;
+  perception: number;
+}
+
+/** Every segment's buyers in a quarter, most first, with the player's models that were on the shelf. */
+export function segmentsOf(state: CampaignState, q: Quarter): { rows: SegmentRow[]; models: { id: string; name: string; units: number }[] } {
+  const shelf = shelfAt(state, q);
+  const ownIds = shelf ? Object.keys(shelf.own) : [];
+  const models = ownIds.map((id) => ({ id, name: shelf?.own[id]?.name ?? "", units: unitsOf(shelf?.units[id]) }));
+  const rows = SEGMENTS.map((s, i): SegmentRow => {
+    const buyers = shelf ? Object.values(shelf.units).reduce((a, u) => a + (u[i] ?? 0), 0) : 0;
+    const per = Object.fromEntries(ownIds.map((id) => [id, shelf?.units[id]?.[i] ?? 0]));
+    const mine = Object.values(per).reduce((a, b) => a + b, 0);
+    return {
+      segment: s.id,
+      buyers,
+      won: shareIn(mine, buyers),
+      models: per,
+      wants: prioritiesOf(s.id),
+      reach: state.brand.reach[s.id],
+      perception: state.brand.perception[s.id],
+    };
+  }).sort((a, b) => b.buyers - a.buyers || b.reach - a.reach);
+  return { rows, models };
+}
+
 // ------------------------------------------------------------------ rivals
 
 /** A laptop in a contest: its units, the units it won from the picked model's buyers, and how it stands. */

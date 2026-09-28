@@ -32,6 +32,22 @@ export const STAT_LABEL: Record<HeadlineStat, string> = {
   price: "Price",
 };
 
+/** The headline stats as the Market screen names them. */
+export const STAT_NAME: Record<HeadlineStat, string> = {
+  app: "App",
+  games: "Games",
+  battery: "Battery",
+  portability: "Portability",
+  display: "Display",
+  chassis: "Build",
+  keyboard: "Keyboard",
+  trackpad: "Trackpad",
+  connectivity: "Connectivity",
+  thermals: "Thermals",
+  audio: "Audio",
+  price: "Price",
+};
+
 export function segmentName(id: SegmentId): string {
   return SEGMENTS.find((s) => s.id === id)?.shortName ?? id;
 }

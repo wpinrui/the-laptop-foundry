@@ -59,6 +59,21 @@ describe("sales", () => {
     expect(outcomeUnits).toBeCloseTo(100, 1);
   });
 
+  it("records demand but no sales for a released model sold out at zero stock, and sends its buyers to the rival", () => {
+    const res = splitDemand([seller("dell"), seller("own", { maker: null, stock: 0 })], [flat()], state, "t");
+    expect(res.demand.own).toBeGreaterThan(0);
+    expect(res.sold.own).toBe(0);
+    expect(res.sold.dell).toBeCloseTo(res.total, 5);
+    expect(res.sold.dell).toBeGreaterThan(allBuyers * 0.99);
+  });
+
+  it("leaves a fully-stocked seller's sales unchanged whether or not a sold-out model is also on sale", () => {
+    const withoutSoldOut = splitDemand([seller("dell"), seller("hp")], [flat()], state, "t");
+    const withSoldOut = splitDemand([seller("dell"), seller("hp"), seller("own", { maker: null, stock: 0 })], [flat()], state, "t");
+    expect(withSoldOut.sold.dell).toBeCloseTo(withoutSoldOut.sold.dell, 5);
+    expect(withSoldOut.sold.hp).toBeCloseTo(withoutSoldOut.sold.hp, 5);
+  });
+
   it("reports outcomes only for the player's models", () => {
     const res = splitDemand([seller("dell"), seller("own", { maker: null })], [flat()], state, "t");
     expect(res.outcomes.length).toBeGreaterThan(0);

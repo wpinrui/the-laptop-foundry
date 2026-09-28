@@ -51,9 +51,11 @@ describe("quotes", () => {
   });
 
   it("steps along the run sizes", () => {
-    expect(stepRun(5_000, 1)).toBe(10_000);
-    expect(stepRun(1_000, -1)).toBe(1_000);
+    expect(stepRun(5_000, 1)).toBe(5_500);
+    expect(stepRun(5_000, -1)).toBe(4_900);
+    expect(stepRun(100, -1)).toBe(100);
     expect(stepRun(100_000, 1)).toBe(100_000);
+    expect(stepRun(20_000, 1)).toBe(21_000);
   });
 });
 

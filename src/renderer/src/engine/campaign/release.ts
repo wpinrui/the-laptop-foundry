@@ -3,7 +3,8 @@ import { solve } from "../solve";
 import type { Build } from "../types";
 import {
   DESIGN_COST,
-  RUN_SIZES,
+  MAX_RUN,
+  MIN_RUN,
   SCALE_FLOOR,
   SCALE_REFERENCE,
   SCALE_SLOPE,
@@ -91,9 +92,16 @@ export function reorderQuote(cost: number, units: number): Quote {
 
 /** The next run size up or down from this one. */
 export function stepRun(units: number, dir: 1 | -1): number {
-  const i = RUN_SIZES.indexOf(units);
-  const at = i < 0 ? RUN_SIZES.findIndex((s) => s >= units) : i;
-  return RUN_SIZES[Math.min(RUN_SIZES.length - 1, Math.max(0, at + dir))];
+  // Fine steps where a run is small, coarser as it grows.
+  const at = dir > 0 ? units : units - 1;
+  const step = at < 5_000 ? 100 : at < 20_000 ? 500 : 1_000;
+  return clampRun(Math.round((units + dir * step) / step) * step);
+}
+
+/** A typed run size kept to whole units within the allowed range. */
+export function clampRun(units: number): number {
+  if (!Number.isFinite(units)) return MIN_RUN;
+  return Math.min(MAX_RUN, Math.max(MIN_RUN, Math.round(units)));
 }
 
 /** The state with the model released, or null when it cannot be: already released, no price, or short of cash. */

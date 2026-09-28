@@ -26,7 +26,8 @@ export const STARTING_CASH = 5_000_000;
  * with a contract manufacturer is a few thousand units; 100,000 is a hit
  * mainstream model's run for a quarter.
  */
-export const RUN_SIZES = [1_000, 2_000, 3_000, 5_000, 10_000, 20_000, 50_000, 100_000];
+export const MIN_RUN = 100;
+export const MAX_RUN = 100_000;
 
 /** The run size the picker starts on: the scale reference, a sensible first order. */
 export const DEFAULT_RUN = 5_000;

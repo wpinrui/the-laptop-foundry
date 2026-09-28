@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReadyShort } from "./shorts";
 import "./video.css";
 
@@ -8,6 +8,14 @@ export function VideoScreen({ video, onBack }: { video: ReadyShort; onBack: () =
   const player = useRef<HTMLVideoElement>(null);
   const [done, setDone] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.code === "Escape") onBack();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [onBack]);
 
   const replay = () => {
     const v = player.current;

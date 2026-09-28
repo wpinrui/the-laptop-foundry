@@ -179,21 +179,37 @@ export function TvShort({ data, url, sound, take }: { data: OfficeData; url: str
 /** The desk computer: an ideal all-in-one, its build only there for the OS's sizes. */
 export const DESK_PC: Build = SAMPLES.find((s) => s.id === "ultrabook-14")?.build ?? SAMPLES[SAMPLES.length - 1].build;
 
-/** The desk monitor's screen in the room, mm: its centre, the way it faces, and its size. */
-function deskScreen(data: OfficeData): { centre: THREE.Vector3; normal: THREE.Vector3; w: number; h: number } | null {
-  const mesh = data.scene.getObjectByName("desk_monitor_screen");
+/** The desk monitor's screen in the room, mm: its centre, the way it faces, its up, and its size, read off the mesh itself. */
+function deskScreen(
+  data: OfficeData,
+): { centre: THREE.Vector3; normal: THREE.Vector3; up: THREE.Vector3; w: number; h: number } | null {
+  const mesh = data.scene.getObjectByName("desk_monitor_screen") as THREE.Mesh | undefined;
   const cam = data.poses.desk;
-  if (!mesh || !cam) return null;
+  if (!mesh?.geometry || !cam) return null;
   data.scene.updateMatrixWorld(true);
-  const inv = data.scene.matrixWorld.clone().invert();
-  const box = new THREE.Box3().setFromObject(mesh).applyMatrix4(inv);
-  box.min.multiplyScalar(M);
-  box.max.multiplyScalar(M);
-  const centre = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
-  // The screen faces the desk's own camera, over the chair.
-  const normal = cam.pos.clone().sub(centre).setY(0).normalize();
-  return { centre, normal, w: Math.max(size.x, size.z), h: size.y };
+  const rel = data.scene.matrixWorld.clone().invert().multiply(mesh.matrixWorld);
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scl = new THREE.Vector3();
+  rel.decompose(pos, quat, scl);
+  mesh.geometry.computeBoundingBox();
+  const lb = mesh.geometry.boundingBox as THREE.Box3;
+  const size = lb.getSize(new THREE.Vector3()).multiply(scl).multiplyScalar(M);
+  const centre = lb.getCenter(new THREE.Vector3()).applyMatrix4(rel).multiplyScalar(M);
+  const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)].map((a) =>
+    a.applyQuaternion(quat),
+  );
+  const len = [size.x, size.y, size.z];
+  // The thinnest axis is the way the screen faces; of the other two, the one nearest world up is its height.
+  const thin = len.indexOf(Math.min(...len));
+  const rest = [0, 1, 2].filter((i) => i !== thin);
+  const upIdx = Math.abs(axes[rest[0]].y) >= Math.abs(axes[rest[1]].y) ? rest[0] : rest[1];
+  const wIdx = rest[0] === upIdx ? rest[1] : rest[0];
+  const normal = axes[thin].clone();
+  if (normal.dot(cam.pos.clone().sub(centre)) < 0) normal.negate();
+  const up = axes[upIdx].clone();
+  if (up.y < 0) up.negate();
+  return { centre, normal, up, w: len[wIdx], h: len[upIdx] };
 }
 
 /** Where the camera leans in to the desk computer: its screen filling most of the view. */
@@ -203,7 +219,7 @@ export function deskLean(data: OfficeData, aspect: number): Pose | null {
   const tanV = Math.tan((fovFor(aspect) * Math.PI) / 360);
   const d = Math.max(s.w / (2 * tanV * aspect), s.h / (2 * tanV)) / USE_FILL;
   const eye = s.centre.clone().add(s.normal.clone().multiplyScalar(d));
-  const quat = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(eye, s.centre, new THREE.Vector3(0, 1, 0)));
+  const quat = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(eye, s.centre, s.up));
   return { pos: eye, quat };
 }
 
@@ -220,9 +236,11 @@ export function DeskScreen({
   const s = useMemo(() => deskScreen(data), [data]);
   if (!s || !page) return null;
   const k = Math.min(s.w / page.width, s.h / page.height);
-  const at = s.centre.clone().add(s.normal.clone().multiplyScalar(3));
+  const at = s.centre.clone().add(s.normal.clone().multiplyScalar(1));
+  const x = new THREE.Vector3().crossVectors(s.up, s.normal).normalize();
+  const face = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, s.up, s.normal));
   return (
-    <group position={at} rotation={[0, Math.atan2(s.normal.x, s.normal.z), 0]}>
+    <group position={at} quaternion={face}>
       <Html transform portal={portal as RefObject<HTMLElement>} distanceFactor={k * 400} zIndexRange={[4, 0]} wrapperClass="lid-screen">
         {page.node}
       </Html>

@@ -3,7 +3,6 @@ import { solve } from "../solve";
 import type { Build } from "../types";
 import {
   DESIGN_COST,
-  MAX_RUN,
   MIN_RUN,
   SCALE_FLOOR,
   SCALE_REFERENCE,
@@ -178,7 +177,7 @@ export function stepRun(units: number, dir: 1 | -1): number {
 /** A typed run size kept to whole units within the allowed range. */
 export function clampRun(units: number): number {
   if (!Number.isFinite(units)) return MIN_RUN;
-  return Math.min(MAX_RUN, Math.max(MIN_RUN, Math.round(units)));
+  return Math.max(MIN_RUN, Math.round(units));
 }
 
 /** The state with the model released, or null when it cannot be: already released, no price, or short of cash. */

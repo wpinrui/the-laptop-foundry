@@ -532,36 +532,79 @@
 }
 
 /* New company: sandbox or campaign, and a campaign's start year. */
-.fd-modes {
+/* New company: name, Sandbox or Campaign, start year and cash, Start. */
+.fd-new {
   display: flex;
-  align-items: center;
-  gap: calc(16 * var(--u));
-  margin-top: calc(32 * var(--u));
+  flex-direction: column;
+  gap: calc(36 * var(--u));
+  width: calc(540 * var(--u));
 }
 
-.fd-modes .fd-secondary.on {
+.fd-new .fd-label {
+  display: none;
+}
+
+.fd-new .fd-actions {
+  margin-top: 0;
+}
+
+.fd-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(12 * var(--u));
+}
+
+.fd-modes button {
+  padding: calc(18 * var(--u)) calc(20 * var(--u)) !important;
+  border: 1px solid var(--line-strong) !important;
+  text-align: left;
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  font-size: calc(26 * var(--u)) !important;
+  line-height: 1 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted) !important;
+}
+
+.fd-modes button:hover,
+.fd-modes button:focus-visible {
+  color: var(--text) !important;
+}
+
+.fd-modes button.on {
   border-color: var(--accent) !important;
+  background: var(--accent-wash) !important;
   color: var(--accent) !important;
 }
 
 .fd-start {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: calc(12 * var(--u));
-  margin-left: calc(12 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-start span {
+  display: flex;
+  align-items: center;
+  gap: calc(18 * var(--u));
 }
 
 .fd-start b {
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
   font-weight: 700;
-  font-size: calc(32 * var(--u));
+  font-size: calc(48 * var(--u));
+  line-height: 1;
   color: var(--text);
+}
+
+.fd-start b.cash {
+  font-size: calc(32 * var(--u));
 }
 
 .fd-start .fd-text {
   font-size: calc(32 * var(--u)) !important;
-  padding: 0 calc(6 * var(--u)) !important;
 }
 
 .fd-start .fd-text:disabled {

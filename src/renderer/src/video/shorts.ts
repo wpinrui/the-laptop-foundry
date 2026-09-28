@@ -15,6 +15,9 @@ export interface ReadyShort {
   blob: Blob;
   /** The file name offered when saving. */
   name: string;
+  /** The quarter it covers and the model it is about. */
+  quarter: Quarter;
+  model: string;
 }
 
 type Entry = { state: "busy" } | ({ state: "ready" } & ReadyShort);
@@ -88,8 +91,9 @@ export function prepareShort(key: string, company: string, quarter: Quarter, ind
     const short = await make();
     if (!short || cancelled) return null;
     const name = saveName(short);
+    const about = { quarter: short.facts.quarter, model: short.facts.subject.name };
     const kept = await window.api.video.kept(company, file).catch(() => null);
-    if (kept) return { blob: new Blob([kept as Uint8Array<ArrayBuffer>], { type: "video/mp4" }), name };
+    if (kept) return { blob: new Blob([kept as Uint8Array<ArrayBuffer>], { type: "video/mp4" }), name, ...about };
     // Two narrators, taking turns by quarter.
     const narrator = index % 2 === 0 ? "michael" : "heart";
     const voice = await window.api.video.say(short.lines.map((l) => l.say), narrator).catch(() => null);
@@ -99,12 +103,12 @@ export function prepareShort(key: string, company: string, quarter: Quarter, ind
       .arrayBuffer()
       .then((b) => window.api.video.keep(company, file, new Uint8Array(b)))
       .catch((e) => console.error("short: could not keep", e));
-    return { blob, name };
+    return { blob, name, ...about };
   })()
     .then(
       (r) => {
         if (cancelled) return;
-        set(key, r ? { state: "ready", blob: r.blob, name: r.name, url: URL.createObjectURL(r.blob) } : null);
+        set(key, r ? { state: "ready", ...r, url: URL.createObjectURL(r.blob) } : null);
       },
       (e) => {
         if (!(e instanceof Cancelled)) console.error("short: could not render", e);

@@ -601,8 +601,9 @@ export function contestOf(state: CampaignState, market: WorldMarket, modelId: st
   const empty = Object.fromEntries(HEADLINE_STATS.map((k) => [k, 0])) as Record<HeadlineStat, number>;
   if (!shelf) return { quarter: q, model: null, laptops: [], weights: empty };
   const onShelf = Object.keys(shelf.units).flatMap((id) => laptopOf(state, market, id, q) ?? []);
-  const rivals = onShelf.filter((l) => !l.own);
   const self = modelId ? (onShelf.find((l) => l.id === modelId) ?? laptopOf(state, market, modelId, q)) : null;
+  // A player model meets the rivals; a rival, as the store compares it, meets everything else.
+  const rivals = onShelf.filter((l) => l.id !== self?.id && (!self?.own || !l.own));
   const measured = [...onShelf, ...(self && !onShelf.includes(self) ? [self] : [])].flatMap((l) => (l.stats ? [l.stats] : []));
   const avg = Object.fromEntries(
     HEADLINE_STATS.map((k) => [k, measured.reduce((a, v) => a + v[k], 0) / Math.max(1, measured.length)]),

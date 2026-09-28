@@ -5,6 +5,7 @@ import { useWorldMarket } from "./data";
 import { QuarterTab } from "./QuarterTab";
 import { RivalsTab } from "./RivalsTab";
 import { BuyersTab } from "./BuyersTab";
+import { MarketStore } from "./MarketStore";
 import "./world.css";
 
 // The Market screen, full screen over the campaign: what happened in any
@@ -12,12 +13,13 @@ import "./world.css";
 // picker driving every tab. Each panel takes a selector's values and lays
 // them out; nothing here computes the market.
 
-export type MarketTab = "quarter" | "rivals" | "buyers";
+export type MarketTab = "quarter" | "rivals" | "buyers" | "store";
 
 const TABS: [MarketTab, string][] = [
   ["quarter", "Quarter"],
   ["rivals", "Rivals"],
   ["buyers", "Buyers"],
+  ["store", "Store"],
 ];
 
 const same = (a: Quarter, b: Quarter) => a.year === b.year && a.quarter === b.quarter;
@@ -121,6 +123,12 @@ export function MarketScreen({
   const choices = pickable(campaign, models);
   const [chosen, setModel] = useState(startModel ?? "");
   const model = choices.some((m) => m.id === chosen) ? chosen : (choices[0]?.id ?? "");
+  if (tab === "store")
+    return (
+      <section className="ms">
+        <MarketStore campaign={campaign} models={models} company={company} onClose={() => onTab("quarter")} />
+      </section>
+    );
   return (
     <section className="ms fd-in">
       <header className="ms-top">

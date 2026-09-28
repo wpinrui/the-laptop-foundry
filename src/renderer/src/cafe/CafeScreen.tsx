@@ -41,7 +41,7 @@ import {
   Toast,
   Win,
 } from "../os/Os";
-import { FoxApp, useFox } from "../os/Fox";
+import { FoxApp, isCourtsUrl, useFox } from "../os/Fox";
 import { type NoteDoc, NoteApp, useNote } from "../os/Note";
 import { SYS_SIZE, SYS_TITLE } from "../os/shots";
 import { sysGroups } from "../os/sys";
@@ -54,11 +54,11 @@ import type { Room } from "../panel/tuning";
 import { eraOf, ReviewIndex, ReviewSite } from "../review/ReviewSite";
 import type { CampaignState } from "../engine/campaign";
 import type { SavedModel } from "../../../preload/store";
-import { StoreSite } from "../store/StoreSite";
+import { StoreSite, type StoreSource } from "../store/StoreSite";
 import { STORE } from "../store/name";
-import { DESK_APPS } from "../os/Os";
 import { useWorldMarket } from "../world/data";
 import { quarterIndex } from "../engine/campaign/rivals";
+import { rivalsFor } from "../engine/market/field";
 import { useMarket, useMarkets } from "../market/markets";
 import { usePhotos } from "../viewer/Photos";
 import { surfacesOf } from "../viewer/Scene";
@@ -342,6 +342,14 @@ export function useLaptopOs({
   const [shopPage, setShopPage] = useState<string | null>(null);
   const shopMarket = useWorldMarket(shop?.models ?? NO_MODELS);
   const shopQuarter = shop?.state.shelf.length ? shop.state.shelf[shop.state.shelf.length - 1].quarter : null;
+  // Its market: the campaign's last finished quarter once there is one, else the laptop's own generated year.
+  const storeSource: StoreSource = useMemo(
+    () =>
+      shop && shopQuarter
+        ? { kind: "quarter", state: shop.state, market: shopMarket, quarter: shopQuarter }
+        : { kind: "year", rivals: rivalsFor(build.year), year: build.year },
+    [shop, shopQuarter, shopMarket, build.year, markets],
+  );
   const fox = useFox(app === "fox", () => setApp(null));
   const note = useNote(notes, onSaveNotes);
   const now = useNow();
@@ -616,7 +624,7 @@ export function useLaptopOs({
         </Browser>
       </Win>
     );
-  else if (app === "shop" && shop && shopQuarter)
+  else if (app === "shop")
     win = (
       <Win app="shop" title={STORE[era].name} w={99999} h={99999} {...winProps}>
         <Browser
@@ -629,11 +637,9 @@ export function useLaptopOs({
           onReload={() => setShopPage((p) => p)}
         >
           <StoreSite
-            key={quarterIndex(shopQuarter)}
-            state={shop.state}
-            market={shopMarket}
-            quarter={shopQuarter}
-            company={shop.company}
+            key={storeSource.kind === "quarter" ? quarterIndex(storeSource.quarter) : storeSource.year}
+            source={storeSource}
+            company={shop?.company ?? subject.company}
             era={era}
             page={shopPage}
             onPage={setShopPage}
@@ -643,8 +649,14 @@ export function useLaptopOs({
     );
   else if (app === "fox")
     win = (
-      <Win app="fox" title={fox.tab.title === "New Tab" ? "Mozilla Firefox" : fox.tab.title} w={99999} h={99999} {...winProps}>
-        <FoxApp fox={fox} />
+      <Win
+        app="fox"
+        title={isCourtsUrl(fox.tab.list[fox.tab.at]) ? STORE[era].name : fox.tab.title === "New Tab" ? "Mozilla Firefox" : fox.tab.title}
+        w={99999}
+        h={99999}
+        {...winProps}
+      >
+        <FoxApp fox={fox} courts={{ source: storeSource, company: shop?.company ?? subject.company, era }} />
       </Win>
     );
   else if (app === "note")
@@ -674,7 +686,7 @@ export function useLaptopOs({
         <Empty />
       ) : (
         <>
-          <Desktop {...bar} wallpaper={wallpaper} apps={shop && shopQuarter ? [...DESK_APPS, "shop"] : DESK_APPS}>
+          <Desktop {...bar} wallpaper={wallpaper}>
             {win}
             {trayOpen && (
               <Flyout

@@ -43,11 +43,11 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe("market views", () => {
-  for (const tab of ["quarter", "store", "competitors", "buyers"] as const)
+  for (const tab of ["quarter", "competitors", "buyers"] as const)
     it(`renders the ${tab} tab`, () => {
       const r = render(<MarketView campaign={s} models={models} company="Acme" tab={tab} onTab={() => {}} onClose={() => {}} />);
-      expect(r.container.textContent).toContain(tab === "store" ? "Courts" : "Q3 2012");
-      if (tab !== "store") expect(r.container.textContent).toContain("Own One");
+      expect(r.container.textContent).toContain("Q3 2012");
+      expect(r.container.textContent).toContain("Own One");
     });
 
   it("renders the rail tab", () => {
@@ -58,7 +58,11 @@ describe("market views", () => {
   for (const era of [2006, 2016, 2026] as const)
     it(`opens a product in the ${era} store`, () => {
       const r = render(
-        <StoreSite state={s} market={{ rivals: [], models }} quarter={s.shelf[2].quarter} company="Acme" era={era} />,
+        <StoreSite
+          source={{ kind: "quarter", state: s, market: { rivals: [], models }, quarter: s.shelf[2].quarter }}
+          company="Acme"
+          era={era}
+        />,
       );
       const card = r.container.querySelector(".st-own");
       expect(card).not.toBeNull();

@@ -454,6 +454,30 @@
   border-radius: 1px;
 }
 
+.osi-shop {
+  background: linear-gradient(160deg, #ff9d5c, #d94f2b);
+}
+
+.osi-shop .handle {
+  left: 30%;
+  right: 30%;
+  top: 18%;
+  height: 26%;
+  border: max(1.2px, calc(var(--s) * 0.06)) solid rgba(255, 255, 255, 0.95);
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+  background: none;
+}
+
+.osi-shop .bag {
+  left: 20%;
+  right: 20%;
+  top: 40%;
+  bottom: 18%;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: calc(var(--s) * 0.06);
+}
+
 .os-batt {
   --bi: calc(var(--s) * 0.0625);
   position: relative;

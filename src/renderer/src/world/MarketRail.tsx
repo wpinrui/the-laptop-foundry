@@ -3,8 +3,6 @@ import type { SavedModel } from "../../../preload/store";
 import { type CampaignState, quarterLabel, quarterSummary, worldQuarters } from "../engine/campaign";
 import { pct } from "../foundry/Finance";
 import { count } from "../foundry/Release";
-import { STORE } from "../store/name";
-import { eraOf } from "../review/ReviewSite";
 import { laptopName, makerName, points, useWorldMarket } from "./data";
 import type { MarketTab } from "./MarketView";
 import "./world.css";
@@ -27,7 +25,6 @@ export function MarketRail({
   const s = useMemo(() => (last ? quarterSummary(campaign, market, last, 5) : null), [campaign, market, last]);
   const links: [MarketTab, string][] = [
     ["quarter", "Quarter"],
-    ["store", STORE[eraOf(campaign.now.year)].name],
     ["competitors", "Competitors"],
     ["buyers", "Buyers"],
   ];

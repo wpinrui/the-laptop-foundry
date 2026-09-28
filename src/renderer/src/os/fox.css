@@ -228,6 +228,13 @@
   background: #fff;
 }
 
+.fx-courts {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: #fff;
+}
+
 /* A site in full screen: its frame covers the laptop's whole screen, over the
    window, the browser's chrome and the taskbar. The boxes between the screen
    and the frame stop holding it in place, so the screen itself contains it. */

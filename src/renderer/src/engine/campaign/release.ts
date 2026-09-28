@@ -1,4 +1,4 @@
-import { costOf } from "../price";
+import { type CostLine, costOf } from "../price";
 import { solve } from "../solve";
 import type { Build } from "../types";
 import {
@@ -8,6 +8,7 @@ import {
   SCALE_FLOOR,
   SCALE_REFERENCE,
   SCALE_SLOPE,
+  RETAILER_CUT,
   TOOLING_COST,
 } from "./constants";
 import type { CampaignState, Quarter } from "./index";
@@ -54,6 +55,11 @@ export function buildCost(build: Build): number {
   return costOf(build, solve(build)).total;
 }
 
+/** A build's per-unit cost by part and process, before scale. */
+export function buildCostLines(build: Build): CostLine[] {
+  return costOf(build, solve(build)).lines;
+}
+
 /** What the shell's tooling depends on: its body, size, materials and port cut-outs. */
 export function chassisKey(b: Build): string {
   return JSON.stringify([
@@ -83,6 +89,57 @@ export function releaseQuote(
   const kind = refresh ? "refresh" : "new";
   const setup = DESIGN_COST[kind] + TOOLING_COST[kind];
   return { unit, setup, total: setup + unit * units };
+}
+
+/** A run's money before it is ordered: per unit, one-off, and the run if it all sells. */
+export interface Economics {
+  /** Per unit, after economies of scale. */
+  unit: number;
+  design: number;
+  tooling: number;
+  price: number;
+  /** The retailers' cut of a unit's price. */
+  retail: number;
+  /** What a unit sold earns after the retailers' cut and its cost. */
+  margin: number;
+  /** Units to sell to pay back the one-off costs, or null when a unit loses money. */
+  breakEven: number | null;
+  /** The run's cost, one-off costs included. */
+  total: number;
+  /** Revenue after the retailers' cut if the whole run sells. */
+  revenue: number;
+  /** Profit if the whole run sells. */
+  profit: number;
+}
+
+/** A run's economics: a release, or a reorder once released. */
+export function economics(
+  cost: number,
+  price: number,
+  units: number,
+  refresh: boolean,
+  released: boolean,
+): Economics {
+  const unit = cost * scaleFactor(units);
+  const kind = refresh ? "refresh" : "new";
+  const design = released ? 0 : DESIGN_COST[kind];
+  const tooling = released ? 0 : TOOLING_COST[kind];
+  const retail = price * RETAILER_CUT;
+  const margin = price - retail - unit;
+  const total = design + tooling + unit * units;
+  const revenue = (price - retail) * units;
+  return {
+    unit,
+    design,
+    tooling,
+    price,
+    retail,
+    margin,
+    breakEven: margin > 0 ? Math.ceil((design + tooling) / margin) : null,
+    total,
+    revenue,
+    profit: revenue - total,
+  };
 }
 
 export function reorderQuote(cost: number, units: number): Quote {

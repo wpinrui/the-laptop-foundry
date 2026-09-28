@@ -15,10 +15,8 @@ import { Ending } from "./foundry/Ending";
 import { BrandTab } from "./foundry/Marketing";
 import { ModelTab } from "./foundry/Release";
 import { CampaignRail, type RailTab } from "./foundry/CampaignRail";
-import { type QuarterReport, ReportModal, reportOf } from "./foundry/Report";
-import { MarketRail } from "./world/MarketRail";
-import { type MarketTab, MarketView } from "./world/MarketView";
-import { allRivals } from "./engine/market/field";
+import { type MarketTab, MarketScreen } from "./world/MarketScreen";
+import { worldQuarters } from "./engine/campaign/world";
 import { AwardsTab } from "./foundry/Awards";
 import { MAKERS } from "./engine/market/makers";
 import { setHonours } from "./review/honours";
@@ -87,14 +85,11 @@ export function App() {
   const [resolving, setResolving] = useState<{ step: number; of: number; name: string } | null>(null);
   // Awards the player has seen on the Awards tab; more than that marks the tab.
   const [seenAwards, setSeenAwards] = useState<number | null>(null);
-  // The report on the quarter just resolved, until Continue.
-  const [report, setReport] = useState<QuarterReport | null>(null);
-  // The market view open between the rails: its tab, and the quarter and model it opened on.
-  const [marketView, setMarketView] = useState<{ tab: MarketTab; quarter?: Quarter; model?: string | null } | null>(null);
+  // The Market screen, when open: its tab, the quarter and model it opened on, and whether End quarter opened it.
+  const [marketView, setMarketView] = useState<{ tab: MarketTab; quarter?: Quarter; model?: string | null; proceed?: boolean } | null>(null);
   // biome-ignore lint/correctness/useExhaustiveDependencies: the statement closes when the screen or company changes
   useEffect(() => {
     setStatement(null);
-    setReport(null);
     setMarketView(null);
   }, [menu, company?.id]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: a loaded company's awards so far count as seen
@@ -263,7 +258,12 @@ export function App() {
           s = step.run(s, ctx);
         }
         const next = advanceClock(s);
-        if (!next.over) setReport(reportOf(s, company.models, { rivals: allRivals(), models: company.models }));
+        // The Market screen opens on the quarter just played, with Continue.
+        const played = s.ledger[s.ledger.length - 1]?.quarter;
+        if (!next.over && played) {
+          setStatement(null);
+          setMarketView({ tab: "quarter", quarter: played, proceed: true });
+        }
         await apply(next);
       })
       .finally(() => {
@@ -512,22 +512,6 @@ export function App() {
             />
           </>
         )}
-        {marketView && (
-          <>
-            <div className="fd-scrim fd-books-scrim" />
-            <MarketView
-              key={`${marketView.quarter?.year}-${marketView.quarter?.quarter}-${marketView.model}`}
-              campaign={campaign}
-              models={company.models}
-              company={company.name}
-              tab={marketView.tab}
-              onTab={(t) => setMarketView((v) => (v ? { ...v, tab: t } : v))}
-              quarter={marketView.quarter}
-              model={marketView.model}
-              onClose={() => setMarketView(null)}
-            />
-          </>
-        )}
         <CampaignRail
           tab={tab}
           onTab={(t) => {
@@ -538,8 +522,29 @@ export function App() {
             setCompany(null);
             setMenu("start");
           }}
+          onMarket={
+            worldQuarters(campaign).length > 0
+              ? () => {
+                  setStatement(null);
+                  setMarketView({ tab: "quarter", model: current?.id });
+                }
+              : undefined
+          }
           dot={seenAwards !== null && campaign.awards.length > seenAwards && tab !== "awards" ? ["awards"] : []}
         >
+          {tab === "model" && !current && (
+            <button
+              type="button"
+              className="fd-secondary cr-new"
+              disabled={campaign.over}
+              onClick={() => {
+                setNaming(toYear(emptyBuild(), campaign.now.year));
+                setMenu("name");
+              }}
+            >
+              New model
+            </button>
+          )}
           {tab === "model" && current && (
             <ModelTab
               key={current.id}
@@ -553,10 +558,14 @@ export function App() {
                 commit((s) => release(s, current.id, (current.build as Build).price, cost, units, re))
               }
               onReorder={(units, cost) => commit((s) => reorder(s, current.id, cost, units))}
-              onMarket={(t) => {
-                setStatement(null);
-                setMarketView({ tab: t, model: current.id });
-              }}
+              onMarket={
+                worldQuarters(campaign).length > 0
+                  ? (t) => {
+                      setStatement(null);
+                      setMarketView({ tab: t, model: current.id });
+                    }
+                  : undefined
+              }
             />
           )}
           {tab === "books" && (
@@ -568,17 +577,6 @@ export function App() {
               }}
             />
           )}
-          {tab === "market" && (
-            <MarketRail
-              campaign={campaign}
-              models={company.models}
-              company={company.name}
-              onOpen={(t) => {
-                setStatement(null);
-                setMarketView({ tab: t, model: current?.id });
-              }}
-            />
-          )}
           {tab === "brand" && (
             <BrandTab
               campaign={campaign}
@@ -587,16 +585,18 @@ export function App() {
           )}
           {tab === "awards" && <AwardsTab campaign={campaign} models={company.models} />}
         </CampaignRail>
-        {report && (
-          <ReportModal
-            report={report}
+        {marketView && (
+          <MarketScreen
+            key={`${marketView.quarter?.year}-${marketView.quarter?.quarter}-${marketView.model}`}
+            campaign={campaign}
+            models={company.models}
             company={company.name}
-            onClose={() => setReport(null)}
-            onMarket={() => {
-              setStatement(null);
-              setMarketView({ tab: "quarter", quarter: report.quarter });
-              setReport(null);
-            }}
+            tab={marketView.tab}
+            onTab={(t) => setMarketView((v) => (v ? { ...v, tab: t } : v))}
+            quarter={marketView.quarter}
+            model={marketView.model}
+            proceed={marketView.proceed}
+            onClose={() => setMarketView(null)}
           />
         )}
       </>

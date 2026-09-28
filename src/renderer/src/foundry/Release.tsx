@@ -185,8 +185,8 @@ export function ModelTab({
   onPrice: (price: number) => void;
   onRelease: (units: number, cost: number, refresh: boolean) => void;
   onReorder: (units: number, cost: number) => void;
-  /** Opens the market view on the model's competitors or buyers. */
-  onMarket?: (tab: "competitors" | "buyers") => void;
+  /** Opens the Market screen on the model's rivals or buyers. */
+  onMarket?: (tab: "rivals" | "buyers") => void;
 }) {
   const [open, setOpen] = useState<Open | null>(null);
   const { released, lines, cost, refresh, price } = useRun(campaign, model, models);
@@ -194,8 +194,8 @@ export function ModelTab({
     <>
       {onMarket && (
         <div className="cr-links">
-          <button type="button" className="fd-text" onClick={() => onMarket("competitors")}>
-            Competitors
+          <button type="button" className="fd-text" onClick={() => onMarket("rivals")}>
+            Rivals
           </button>
           <button type="button" className="fd-text" onClick={() => onMarket("buyers")}>
             Buyers

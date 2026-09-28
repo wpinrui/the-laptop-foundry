@@ -1,25 +1,182 @@
-/* The market view between the rails. It borrows the books view's frame and tables. */
+/* The Market screen: full screen over the campaign, designed at 1440 by 810. */
 
-.mw-picks {
+.ms {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
   display: flex;
-  gap: calc(10 * var(--u));
-  margin-left: auto;
-}
-
-.mw-picks + .fd-books-close {
-  margin-left: calc(12 * var(--u));
-}
-
-.mw-picks select {
-  font: inherit;
-  font-size: calc(15 * var(--u));
-  font-weight: 600;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, color-mix(in srgb, var(--text) 7%, var(--ground)) 0%, var(--ground) 70%);
   color: var(--text);
-  background: var(--ground-deep);
-  border: 1px solid var(--line);
-  padding: calc(3 * var(--u)) calc(6 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: calc(16 * var(--u));
 }
 
+.ms-top {
+  flex: none;
+  height: calc(100 * var(--u));
+  margin: 0 calc(56 * var(--u));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(32 * var(--u));
+  border-bottom: 1px solid var(--line);
+}
+
+.ms-top nav {
+  display: flex;
+  gap: calc(40 * var(--u));
+}
+
+.ms .ms-top nav button {
+  padding: 0 0 calc(18 * var(--u));
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ms .ms-top nav button:hover,
+.ms .ms-top nav button:focus-visible {
+  color: var(--text);
+}
+
+.ms .ms-top nav button.on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.ms-right {
+  display: flex;
+  align-items: center;
+  gap: calc(32 * var(--u));
+  padding-bottom: calc(14 * var(--u));
+}
+
+.ms-pick {
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+}
+
+.ms-pick > b {
+  font-weight: 700;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+}
+
+.ms .ms-step {
+  padding: 0 calc(6 * var(--u));
+  font-weight: 600;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+  color: var(--muted);
+}
+
+.ms .ms-step:not(:disabled):hover,
+.ms .ms-step:focus-visible {
+  color: var(--accent);
+}
+
+.fd .ms-step:disabled {
+  opacity: 0.3;
+}
+
+.ms-cells {
+  display: flex;
+  gap: calc(4 * var(--u));
+  margin-left: calc(8 * var(--u));
+}
+
+.ms .ms-cells button {
+  width: calc(48 * var(--u));
+  height: calc(36 * var(--u));
+  border: 1px solid var(--line-strong);
+  font-weight: 700;
+  font-size: calc(17 * var(--u));
+  line-height: 1;
+}
+
+.ms .ms-cells button:not(:disabled):hover,
+.ms .ms-cells button:focus-visible {
+  border-color: var(--accent);
+}
+
+.ms .ms-cells button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ground);
+}
+
+.fd .ms-cells button:disabled {
+  opacity: 0.3;
+}
+
+.ms-close {
+  font-size: calc(24 * var(--u)) !important;
+}
+
+.ms-go {
+  padding: calc(12 * var(--u)) calc(28 * var(--u)) !important;
+}
+
+.ms-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(20 * var(--u));
+  padding: calc(24 * var(--u)) calc(56 * var(--u)) calc(28 * var(--u));
+}
+
+.ms-chips {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(8 * var(--u));
+}
+
+.ms .ms-chips button {
+  height: calc(42 * var(--u));
+  padding: 0 calc(18 * var(--u));
+  border: 1px solid var(--line-strong);
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ms .ms-chips button:hover,
+.ms .ms-chips button:focus-visible {
+  border-color: var(--accent);
+}
+
+.ms .ms-chips button.on {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.ms .up {
+  color: var(--accent);
+}
+
+.ms .short {
+  color: var(--warning);
+}
+
+.ms .mine {
+  color: var(--accent) !important;
+}
+
+/* The panels' shared tables. */
 .mw-scroll {
   flex: 1;
   min-height: 0;
@@ -27,11 +184,6 @@
   display: flex;
   flex-direction: column;
   gap: calc(20 * var(--u));
-}
-
-.mw-site {
-  display: block;
-  border: 1px solid var(--line);
 }
 
 .mw-cells {
@@ -58,18 +210,6 @@
   font-weight: 700;
   font-size: calc(30 * var(--u));
   line-height: 1;
-}
-
-.mw .up {
-  color: var(--accent);
-}
-
-.mw .short {
-  color: var(--warning);
-}
-
-.mw .mine {
-  color: var(--accent) !important;
 }
 
 .mw-cols {
@@ -122,32 +262,4 @@
   display: block;
   height: 100%;
   background: var(--accent);
-}
-
-/* The Market rail tab. */
-.cr-market-top {
-  display: flex;
-  flex-direction: column;
-  gap: calc(4 * var(--u));
-}
-
-.cr-market-row {
-  display: flex;
-  justify-content: space-between;
-  gap: calc(12 * var(--u));
-  font-size: calc(15 * var(--u));
-}
-
-.cr-market-row span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cr-market-row b {
-  font-variant-numeric: tabular-nums;
-}
-
-.cr-market-row .mine {
-  color: var(--accent);
 }

@@ -6,7 +6,6 @@ import {
   type CampaignState,
   competitorsOf,
   type Quarter,
-  quarterLabel,
   quarterSummary,
   type WorldLaptop,
   type WorldMarket,
@@ -18,20 +17,20 @@ import { pct } from "../foundry/Finance";
 import { cap, inchesLabel, laptopName, makerName, points, STAT_LABEL, segmentName, useWorldMarket } from "./data";
 import "./world.css";
 
-// The market world between the rails: what happened in any kept quarter, a
-// model's closest rivals and its buyers. Each panel takes a selector's values
-// and lays them out; nothing here computes the market. The retailer's site
-// lives on the laptop's own OS, not here.
+// The Market screen, full screen over the campaign: what happened in any
+// played quarter, a model's closest rivals and its buyers, with one quarter
+// picker driving every tab. Each panel takes a selector's values and lays
+// them out; nothing here computes the market.
 
-export type MarketTab = "quarter" | "competitors" | "buyers";
+export type MarketTab = "quarter" | "rivals" | "buyers";
 
 const TABS: [MarketTab, string][] = [
   ["quarter", "Quarter"],
-  ["competitors", "Competitors"],
+  ["rivals", "Rivals"],
   ["buyers", "Buyers"],
 ];
 
-const qKey = (q: Quarter) => `${q.year}-${q.quarter}`;
+const same = (a: Quarter, b: Quarter) => a.year === b.year && a.quarter === b.quarter;
 const sign = (n: number | null) => (n === null ? undefined : n > 0 ? "up" : n < 0 ? "short" : undefined);
 
 function Cell({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -328,13 +327,65 @@ function BuyersPanel({ campaign, quarter, model, scope }: { campaign: CampaignSt
   );
 }
 
-/** The models the Competitors and Buyers tabs can pick: released first, newest first. */
+
+/** The models the Rivals tab can pick: released first, newest first. */
 function pickable(campaign: CampaignState, models: SavedModel[]): SavedModel[] {
   const rel = (m: SavedModel) => campaign.releases[m.id];
   return [...models].sort((a, b) => Number(!!rel(b)) - Number(!!rel(a)) || b.created - a.created);
 }
 
-export function MarketView({
+/** The year between steppers that walk the played quarters, then the year's four quarters. */
+function QuarterPick({ quarters, quarter, onPick }: { quarters: Quarter[]; quarter: Quarter; onPick: (q: Quarter) => void }) {
+  // Played quarters, oldest first.
+  const played = [...quarters].reverse();
+  const at = played.findIndex((q) => same(q, quarter));
+  const prev = at > 0 ? played[at - 1] : null;
+  const next = at >= 0 && at < played.length - 1 ? played[at + 1] : null;
+  return (
+    <div className="ms-pick">
+      <button type="button" className="ms-step" disabled={!prev} aria-label="Previous quarter" onClick={() => prev && onPick(prev)}>
+        ‹
+      </button>
+      <b>{quarter.year}</b>
+      <button type="button" className="ms-step" disabled={!next} aria-label="Next quarter" onClick={() => next && onPick(next)}>
+        ›
+      </button>
+      <span className="ms-cells">
+        {([1, 2, 3, 4] as const).map((n) => {
+          const q = played.find((p) => p.year === quarter.year && p.quarter === n);
+          return (
+            <button
+              key={n}
+              type="button"
+              className={n === quarter.quarter ? "on" : undefined}
+              aria-pressed={n === quarter.quarter}
+              disabled={!q}
+              onClick={() => q && onPick(q)}
+            >
+              {`Q${n}`}
+            </button>
+          );
+        })}
+      </span>
+    </div>
+  );
+}
+
+/** The player's models as chips, the picked one lit. */
+export function ModelChips({ models, model, onPick }: { models: SavedModel[]; model: string; onPick: (id: string) => void }) {
+  if (models.length === 0) return null;
+  return (
+    <div className="ms-chips">
+      {models.map((m) => (
+        <button key={m.id} type="button" className={m.id === model ? "on" : undefined} aria-pressed={m.id === model} onClick={() => onPick(m.id)}>
+          {m.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function MarketScreen({
   campaign,
   models,
   company,
@@ -342,6 +393,7 @@ export function MarketView({
   onTab,
   quarter: startQuarter,
   model: startModel,
+  proceed,
   onClose,
 }: {
   campaign: CampaignState;
@@ -349,74 +401,71 @@ export function MarketView({
   company: string;
   tab: MarketTab;
   onTab: (tab: MarketTab) => void;
+  /** The quarter it opens on; the last played one by default. */
   quarter?: Quarter;
   model?: string | null;
+  /** Opened by End quarter: Continue in place of Close. */
+  proceed?: boolean;
   onClose: () => void;
 }) {
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
-    // Escape closes the view before it reaches the laptop list.
+    // Escape closes the screen before it reaches the laptop list; Enter continues after End quarter.
     const k = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" && !(proceed && e.key === "Enter")) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       close.current();
     };
     window.addEventListener("keydown", k, true);
     return () => window.removeEventListener("keydown", k, true);
-  }, []);
+  }, [proceed]);
   const market = useWorldMarket(models);
   const quarters = useMemo(() => worldQuarters(campaign), [campaign]);
-  const [picked, setPicked] = useState(startQuarter ? qKey(startQuarter) : "");
-  const quarter = quarters.find((q) => qKey(q) === picked) ?? quarters[0];
+  const [picked, setPicked] = useState<Quarter | null>(startQuarter ?? null);
+  const quarter = (picked && quarters.find((q) => same(q, picked))) || quarters[0];
   const choices = pickable(campaign, models);
-  const [model, setModel] = useState(startModel ?? choices[0]?.id ?? "");
-  const [scope, setScope] = useState<"all" | "quarter">("all");
-  const needsModel = tab === "competitors" || tab === "buyers";
+  const [chosen, setModel] = useState(startModel ?? "");
+  const model = choices.some((m) => m.id === chosen) ? chosen : (choices[0]?.id ?? "");
   return (
-    <section className="fd-books mw fd-in">
-      <header>
-        {TABS.map(([t, label]) => (
-          <button key={t} type="button" className={`fd-text${tab === t ? " on" : ""}`} aria-pressed={tab === t} onClick={() => onTab(t)}>
-            {label}
-          </button>
-        ))}
-        <span className="mw-picks">
-          {needsModel && (
-            <select value={model} aria-label="Model" onChange={(e) => setModel(e.target.value)}>
-              {choices.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+    <section className="ms fd-in">
+      <header className="ms-top">
+        <nav>
+          {TABS.map(([t, label]) => (
+            <button key={t} type="button" className={tab === t ? "on" : undefined} aria-pressed={tab === t} onClick={() => onTab(t)}>
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="ms-right">
+          {quarter && <QuarterPick quarters={quarters} quarter={quarter} onPick={setPicked} />}
+          {proceed ? (
+            <button type="button" className="fd-primary ms-go" onClick={onClose}>
+              Continue
+            </button>
+          ) : (
+            <button type="button" className="fd-text ms-close" onClick={onClose}>
+              Close
+            </button>
           )}
-          {tab === "buyers" && (
-            <select value={scope} aria-label="Quarters" onChange={(e) => setScope(e.target.value as "all" | "quarter")}>
-              <option value="all">All quarters</option>
-              <option value="quarter">{quarter ? quarterLabel(quarter) : ""}</option>
-            </select>
-          )}
-          {quarters.length > 0 && (tab !== "buyers" || scope === "quarter") && (
-            <select value={quarter ? qKey(quarter) : ""} aria-label="Quarter" onChange={(e) => setPicked(e.target.value)}>
-              {quarters.map((q) => (
-                <option key={qKey(q)} value={qKey(q)}>
-                  {quarterLabel(q)}
-                </option>
-              ))}
-            </select>
-          )}
-        </span>
-        <button type="button" className="fd-text fd-books-close" onClick={onClose}>
-          Close
-        </button>
+        </div>
       </header>
-      {quarter && tab === "quarter" && <QuarterPanel campaign={campaign} market={market} quarter={quarter} company={company} />}
-      {quarter && tab === "competitors" && model && (
-        <CompetitorsPanel campaign={campaign} market={market} quarter={quarter} model={model} company={company} />
-      )}
-      {quarter && tab === "buyers" && model && <BuyersPanel campaign={campaign} quarter={quarter} model={model} scope={scope} />}
+      <div className="ms-body">
+        {quarter && tab === "quarter" && <QuarterPanel campaign={campaign} market={market} quarter={quarter} company={company} />}
+        {quarter && tab === "rivals" && (
+          <>
+            <ModelChips models={choices} model={model} onPick={setModel} />
+            {model && <CompetitorsPanel campaign={campaign} market={market} quarter={quarter} model={model} company={company} />}
+          </>
+        )}
+        {quarter && tab === "buyers" && (
+          <>
+            <ModelChips models={choices} model={model} onPick={setModel} />
+            {model && <BuyersPanel campaign={campaign} quarter={quarter} model={model} scope="quarter" />}
+          </>
+        )}
+      </div>
     </section>
   );
 }

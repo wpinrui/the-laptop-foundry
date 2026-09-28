@@ -1,6 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { type Dispatch, memo, type RefObject, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { SavedModel } from "../../../preload/store";
 import { type Build, colourHex, decorOf, type Fit, migrateBody, migrateColours, migrateScreen, solve } from "../engine";
 import { PLINTH_H } from "../foundry/Stage";
@@ -30,6 +31,8 @@ const depthAt = (D: number) => Math.min(MID, BACK - 50 - D / 2);
 const FLOOR = PLINTH_H - 950;
 /** Shelved laptops mount a few a frame, so walking in never stalls on solving them all. */
 const MOUNT_PER_FRAME = 2;
+/** Frames a shelved laptop's meshes must hold still before they are baked. */
+const BAKE_AFTER = 2;
 
 const noLabel = () => "";
 const noHover = () => {};
@@ -71,34 +74,97 @@ export const shelfOrder = (models: SavedModel[]) => [...models].sort((a, b) => a
 /** A ray's nearest shelved laptop within reach. */
 export type AimShelf = (ray: THREE.Ray, reach: number) => { id: string; d: number } | null;
 
+const KEEP = ["position", "normal", "uv"];
+
+/** An attribute as plain floats, so parts built different ways merge. */
+function plain(a: THREE.BufferAttribute | THREE.InterleavedBufferAttribute): THREE.BufferAttribute {
+  if (a instanceof THREE.BufferAttribute && a.array instanceof Float32Array && !a.normalized) return a;
+  const out = new Float32Array(a.count * a.itemSize);
+  for (let i = 0; i < a.count; i++) for (let k = 0; k < a.itemSize; k++) out[i * a.itemSize + k] = a.getComponent(i, k);
+  return new THREE.BufferAttribute(out, a.itemSize);
+}
+
+/**
+ * The laptop's meshes merged into one per material, in the shelved group's
+ * space: a few draws instead of hundreds (every key is its own mesh). The
+ * materials stay the laptop's own, so its hidden model is kept mounted.
+ */
+function bake(src: THREE.Object3D, root: THREE.Object3D): THREE.Mesh[] {
+  root.updateWorldMatrix(true, false);
+  src.updateWorldMatrix(false, true);
+  const toRoot = root.matrixWorld.clone().invert();
+  const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  const m = new THREE.Matrix4();
+  src.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh || Array.isArray(mesh.material) || !mesh.geometry.attributes.position) return;
+    // Hidden parts stay hidden: only what the laptop shows is baked.
+    let shown = true;
+    for (let p: THREE.Object3D | null = mesh; p && p !== src; p = p.parent) if (!p.visible) shown = false;
+    if (!shown) return;
+    let geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
+    for (const name of Object.keys(geo.attributes)) {
+      if (!KEEP.includes(name)) geo.deleteAttribute(name);
+      else geo.setAttribute(name, plain(geo.getAttribute(name)));
+    }
+    geo.morphAttributes = {};
+    if (!geo.attributes.normal) geo.computeVertexNormals();
+    geo = geo.applyMatrix4(m.multiplyMatrices(toRoot, mesh.matrixWorld));
+    const list = byMaterial.get(mesh.material) ?? [];
+    list.push(geo);
+    byMaterial.set(mesh.material, list);
+  });
+  const out: THREE.Mesh[] = [];
+  for (const [material, geos] of byMaterial) {
+    // Merged geometry needs the same attributes throughout: uv only where every part has it.
+    if (!geos.every((x) => x.attributes.uv)) for (const x of geos) x.deleteAttribute("uv");
+    const merged = mergeGeometries(geos);
+    for (const x of geos) x.dispose();
+    if (!merged) continue;
+    const mesh = new THREE.Mesh(merged, material);
+    mesh.raycast = noRaycast;
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    out.push(mesh);
+  }
+  return out;
+}
+
 const Shelved = memo(function Shelved({ model, x, y }: { model: SavedModel; x: number; y: number }) {
   const look = lookOf(model);
   const g = useRef<THREE.Group>(null);
-  const seen = useRef(-1);
+  const src = useRef<THREE.Group>(null);
+  const settle = useRef({ n: -1, frames: 0 });
+  const [baked, setBaked] = useState<THREE.Mesh[] | null>(null);
   const surfaces = useMemo(() => (look ? surfacesOf(look.build) : undefined), [look]);
   const decor = useMemo(() => (look ? decorOf(look.build) : undefined), [look]);
   useFrame(() => {
-    const group = g.current;
-    if (!group) return;
-    // The laptop builds its units as it mounts: each new mesh is made cheap once.
+    const s = src.current;
+    const root = g.current;
+    if (baked || !s || !root) return;
+    // The laptop builds its units as it mounts: baked once its meshes stop changing.
     let n = 0;
-    group.traverse(() => {
+    s.traverse((o) => {
       n++;
-    });
-    if (n === seen.current) return;
-    seen.current = n;
-    // Receiving is left as the laptop set it: materials are shared, and a
-    // material drawn both ways would switch programs on every draw.
-    group.traverse((o) => {
-      o.castShadow = false;
       o.raycast = noRaycast;
     });
+    const st = settle.current;
+    if (n !== st.n) {
+      st.n = n;
+      st.frames = 0;
+    } else if (++st.frames >= BAKE_AFTER) setBaked(bake(s, root));
   });
+  useEffect(() => () => baked?.forEach((m) => m.geometry.dispose()), [baked]);
   if (!look || !surfaces) return null;
   const D = look.fit.shell.outer.y;
   return (
     <group ref={g} position={[x, y, depthAt(D)]} rotation-y={Math.PI}>
-      <Model
+      {baked?.map((m) => (
+        <primitive key={m.uuid} object={m} />
+      ))}
+      {/* Never drawn: the source of the baked meshes, and the owner of their materials. */}
+      <group ref={src} visible={false}>
+        <Model
         fit={look.fit}
         year={look.build.year}
         lidAngle={SHELF_LID}
@@ -111,6 +177,7 @@ const Shelved = memo(function Shelved({ model, x, y }: { model: SavedModel; x: n
         problems={false}
         unlit
       />
+      </group>
     </group>
   );
 });

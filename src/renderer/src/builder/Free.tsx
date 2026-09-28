@@ -291,7 +291,6 @@ export function Walker({
   live.current = { using, active };
   const doorAimed = useRef(false);
   const shelfAimed = useRef<string | null>(null);
-  (window as unknown as { __walker: unknown }).__walker = { pos, look }; // PROBE-ONLY
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.current.add(e.code);

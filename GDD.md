@@ -322,6 +322,22 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 - The player plugs in and unplugs with C, aiming at the laptop or the power socket in the table.
 - F shows the screen full screen.
 
+## The world map
+
+The player is always on the world map or in one of four places: the Workshop, the Cafe, the Office and Courts.
+
+- Opening a company from the menu lands on the map, with no current place.
+- The map is a street plan with the four places on street corners. A panel beside it names the selected destination and holds Go.
+- The place the player walked out of is marked as the current place and cannot be picked. A dashed route runs along the streets from it to the destination.
+- The Workshop and the Cafe ask which laptop to bring. None comes first and is the default: the player arrives empty handed.
+- Any laptop can come to the Workshop, drafts included. Only a laptop that works can come to the Cafe.
+- The Workshop opens in free view, through the personnel door, with the laptop brought along on the turntable, or an empty turntable.
+- The Cafe opens through the street entrance, with the laptop brought along on the table. Empty handed, the table is bare and nothing asks for a laptop.
+- Walking out through the Workshop's personnel door or the Cafe's street entrance returns to the map. So does Map in either pause menu.
+- From a place, Stay goes back in. From the menu, Menu goes back to the main menu.
+- The Office is where the player runs the company. Until it has its own room, the models screen with the campaign rails stands in for it. Map there returns to the map.
+- Courts is the store. It shows on the map but cannot be entered until its room is built.
+
 ## Version 0.2
 
 Version 0.2 is built. It came in three parts: a realism audit of the builder, then scoring and the market, then the sales simulation.

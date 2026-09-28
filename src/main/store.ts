@@ -13,6 +13,8 @@ import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, Settings } fro
 
 const dir = () => join(app.getPath("userData"), "companies");
 const fileOf = (id: string) => join(dir(), `${id}.json`);
+/** A company's generated markets, kept apart so a campaign or model save does not rewrite them. */
+const marketsOf = (id: string) => join(dir(), `${id}.markets.json`);
 const settingsFile = () => join(app.getPath("userData"), "settings.json");
 /** The single save used before companies became separate saves. */
 const legacyFile = () => join(app.getPath("userData"), "foundry.json");
@@ -41,8 +43,11 @@ let companies: Map<string, SavedCompany> | null = null;
 let settings: Settings | null = null;
 let queue: Promise<void> = Promise.resolve();
 
-function atomicWrite(path: string, value: unknown): Promise<void> {
-  const text = JSON.stringify(value, null, 2);
+/** Companies whose markets are still inside their main file, from before markets had their own. */
+const unsplit = new Set<string>();
+
+function atomicWrite(path: string, value: unknown, pretty = true): Promise<void> {
+  const text = pretty ? JSON.stringify(value, null, 2) : JSON.stringify(value);
   // A failed write must not stop the ones queued after it.
   queue = queue.catch(() => {}).then(async () => {
     await mkdir(dir(), { recursive: true });
@@ -143,7 +148,15 @@ async function readAll(): Promise<Map<string, SavedCompany>> {
     if (!n.endsWith(".json") || !ID.test(id)) continue;
     try {
       const c = readCompany(JSON.parse(await readFile(fileOf(id), "utf8")), id);
-      if (c) found.set(id, c);
+      if (!c) continue;
+      let markets: unknown;
+      try {
+        markets = JSON.parse(await readFile(marketsOf(id), "utf8"));
+      } catch {}
+      if (markets && typeof markets === "object" && !Array.isArray(markets))
+        c.markets = { ...c.markets, ...(markets as Record<string, unknown>) };
+      else if (c.markets) unsplit.add(id);
+      found.set(id, c);
     } catch {}
   }
   await migrate(found);
@@ -162,9 +175,22 @@ async function company(id: unknown): Promise<SavedCompany> {
   return c;
 }
 
-async function put(c: SavedCompany): Promise<SavedCompany> {
+/** The company without its markets: what the renderer gets back after a save, so the markets are not copied each time. */
+function lean(c: SavedCompany): SavedCompany {
+  const { markets: _, ...rest } = c;
+  return rest;
+}
+
+/** Saves the company. Its markets file is rewritten only when the markets changed. */
+async function put(c: SavedCompany, markets = false): Promise<SavedCompany> {
   (await all()).set(c.id, c);
-  await atomicWrite(fileOf(c.id), c);
+  if (markets || unsplit.has(c.id)) {
+    // The markets land before the main file drops them, so a crash between the two loses nothing.
+    const w = atomicWrite(marketsOf(c.id), c.markets ?? {}, false);
+    unsplit.delete(c.id);
+    await w;
+  }
+  await atomicWrite(fileOf(c.id), lean(c));
   return c;
 }
 
@@ -180,7 +206,7 @@ async function loadSettings(): Promise<Settings> {
 }
 
 export function registerStore(): void {
-  handleTop("store:companies", async () => list(await all()));
+  handleTop("store:companies", async () => list(await all()).map(lean));
   handleTop("store:create-company", async (_e, name: unknown, start: unknown) => {
     if (typeof name !== "string" || !name.trim() || name.trim().length > MAX_NAME)
       throw new Error("company name must be text");
@@ -200,9 +226,10 @@ export function registerStore(): void {
     queue = queue
       .catch(() => {})
       .then(() => unlink(fileOf(c.id)).catch(() => {}))
+      .then(() => unlink(marketsOf(c.id)).catch(() => {}))
       .then(() => rm(shortsDir(c.id), { recursive: true, force: true }).catch(() => {}));
     await queue;
-    return list(map);
+    return list(map).map(lean);
   });
   handleTop("store:save-model", async (_e, id: unknown, model: unknown) => {
     if (!isModel(model)) throw new Error("not a model");
@@ -213,31 +240,31 @@ export function registerStore(): void {
     const models = c.models.some((m) => m.id === model.id)
       ? c.models.map((m) => (m.id === model.id ? lock(m) : m))
       : [...c.models, model];
-    return put({ ...c, models, played: Date.now() });
+    return lean(await put({ ...c, models, played: Date.now() }));
   });
   handleTop("store:save-campaign", async (_e, id: unknown, campaign: unknown) => {
     const c = await company(id);
     const next = readCampaign(campaign);
     // A sandbox never becomes a campaign, and a campaign keeps its start year.
     if (!c.campaign || !next || next.start !== c.campaign.start) throw new Error("bad campaign");
-    return put({ ...c, campaign: next, played: Date.now() });
+    return lean(await put({ ...c, campaign: next, played: Date.now() }));
   });
   handleTop("store:save-market", async (_e, id: unknown, year: unknown, market: unknown) => {
     if (typeof year !== "number" || !Number.isInteger(year) || year < FIRST_START || year > LAST_YEAR)
       throw new Error("bad market year");
     if (!market || typeof market !== "object") throw new Error("bad market");
     const c = await company(id);
-    return put({ ...c, markets: { ...c.markets, [year]: market } });
+    return lean(await put({ ...c, markets: { ...c.markets, [year]: market } }, true));
   });
   handleTop("store:save-notes", async (_e, id: unknown, notes: unknown) => {
     if (!Array.isArray(notes) || !notes.every(isNote)) throw new Error("bad notes");
     const c = await company(id);
-    return put({ ...c, notes });
+    return lean(await put({ ...c, notes }));
   });
   handleTop("store:delete-model",async (_e, id: unknown, modelId: unknown) => {
     if (typeof modelId !== "string") throw new Error("model id must be text");
     const c = await company(id);
-    return put({ ...c, models: c.models.filter((m) => m.id !== modelId), played: Date.now() });
+    return lean(await put({ ...c, models: c.models.filter((m) => m.id !== modelId), played: Date.now() }));
   });
   handleTop("store:settings", () => loadSettings());
   handleTop("store:set-settings", async (_e, next: unknown) => {

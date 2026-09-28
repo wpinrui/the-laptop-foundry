@@ -80,6 +80,8 @@ interface SceneProps {
   /** Extra objects in the base's engine space (mm, z up), such as selection outlines. */
   extra?: ReactNode;
   /** Extra objects in the lid's engine space, closed position; they turn with the lid. */
+  /** No light or halo off the screen: for many laptops at once, where each light would slow every material. */
+  unlit?: boolean;
   lidExtra?: ReactNode;
 }
 
@@ -1159,6 +1161,7 @@ export const Model = memo(function Model({
   extra,
   lidExtra,
   decor,
+  unlit = false,
 }: SceneProps & { portal?: RefObject<HTMLDivElement | null> }) {
   const ctx = useMemo(() => makeCtx(), []);
   // Base and lid report their failed units separately; the scene gets them together.
@@ -1344,7 +1347,7 @@ export const Model = memo(function Model({
                 )}
               </mesh>
             )}
-            {panelBox && (
+            {panelBox && !unlit && (
               // The panel faces down when the lid is shut; its top edge is the one away from the hinge.
               // Mounted with or without a page, so its light never comes and goes (a new light recompiles every material).
               <ScreenView

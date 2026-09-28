@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { SavedModel } from "../../../preload/store";
+import * as THREE from "three";
 import {
   type Box,
   type Build,
@@ -45,7 +46,9 @@ import { MarkHandles, type MarkBrowse, MarksColumn, MarksTray } from "./MarksSta
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
-import { FreeOs, FreeOverlay, type FreeState, freeStart, makeSlot, type PageLook, SlotView } from "./Free";
+import { freshOnTable, useArchive } from "./Archive";
+import { FreeOs, FreeOverlay, type FreeState, freeStart, makeSlot, type PageLook, SlotView, type Stance, Walker } from "./Free";
+import { TableLaptop, type TableOs, useDoorAim } from "./Visit";
 import { SliderField } from "./ui";
 import { type ViewName, viewFor } from "./view";
 import "./builder.css";
@@ -152,6 +155,7 @@ export function Builder({
   onReview,
   onDuplicate,
   library = [],
+  models = [],
   sound = true,
   onSound = () => {},
   yearLocked = false,
@@ -166,6 +170,8 @@ export function Builder({
   yearLocked?: boolean;
   /** The player's reviewed models, for the review site on the laptop's own screen. */
   library?: Subject[];
+  /** Every laptop the company has built, for the workshop's archive shelves. */
+  models?: SavedModel[];
   sound?: boolean;
   onSound?: (on: boolean) => void;
   model: SavedModel;
@@ -405,7 +411,34 @@ export function Builder({
   );
   const freeAim = useCallback((on: boolean) => setFree((s) => (s && s.aim !== on ? { ...s, aim: on } : s)), []);
   const freeSettled = useCallback(() => setFree((s) => (s?.busy ? { ...s, busy: false } : s)), []);
-  const leaveFree = useCallback(() => setFree(null), []);
+  const freeDoor = useDoorAim(setFree);
+  // In free view another laptop off the archive's shelves can stand on the
+  // turntable: undefined while it is the one being built, null when empty.
+  const [swap, setSwap] = useState<SavedModel | null | undefined>(undefined);
+  const stance = useRef<Stance | null>(null);
+  const tableScene = useMemo(makeSlot, []);
+  const portal = useRef<HTMLDivElement | null>(null);
+  const [tableOs, setTableOs] = useState<TableOs>({ canUse: false });
+  const leaveFree = useCallback(() => {
+    setFree(null);
+    setSwap(undefined);
+    stance.current = null;
+  }, []);
+  const takeShelved = useCallback(
+    (m: SavedModel) => {
+      const own = m.id === model.id;
+      setSwap(own ? undefined : m);
+      setFree((s) => (own ? freshOnTable(s, lid > 0 && !flip, flip) : freshOnTable(s)));
+    },
+    [model.id, lid, flip],
+  );
+  const putAway = useCallback(() => {
+    setSwap(null);
+    setFree((s) => freshOnTable(s));
+  }, []);
+  const onTable = swap === undefined ? model.id : (swap?.id ?? null);
+  const shelves = useArchive(models, onTable, setFree, takeShelved, putAway);
+  const swapped = !!free && swap !== undefined;
 
   const labelFor = useCallback((b: Box) => ROLE_NAME[b.role] ?? nameOf(b.part) ?? "", []);
   const pick = useCallback(
@@ -578,6 +611,27 @@ export function Builder({
         flip={flip}
         paused={!!free?.paused}
         freeUsing={!!free?.using && !free.paused}
+        portal={portal}
+        hideLaptop={swapped}
+        room={
+          <>
+            {shelves.archive}
+            {swapped && <SlotView slot={tableScene} />}
+            {free && swap === null && (
+              <Walker
+                laptop={{ current: null }}
+                active={!free.paused && !free.full}
+                using={false}
+                useAt={() => ({ eye: new THREE.Vector3(), at: new THREE.Vector3() })}
+                onAim={freeAim}
+                onDoor={toMap && freeDoor}
+                stance={stance}
+                shelves={shelves.aim}
+                onShelf={shelves.onShelf}
+              />
+            )}
+          </>
+        }
         free={
           free
             ? {
@@ -586,7 +640,10 @@ export function Builder({
                 page: valid && !free.full ? osScreen : undefined,
                 onAim: freeAim,
                 onSettled: freeSettled,
-                onDoor: toMap,
+                onDoor: toMap && freeDoor,
+                stance,
+                shelves: shelves.aim,
+                onShelf: shelves.onShelf,
               }
             : undefined
         }
@@ -599,15 +656,38 @@ export function Builder({
         <FreeOverlay
           state={free}
           set={setFree}
-          canUse={valid && !!osLook}
-          page={osLook ? { node: <SlotView slot={osSlot} />, width: osLook.width, height: osLook.height } : undefined}
+          canUse={swapped ? tableOs.canUse : valid && !!osLook}
+          page={
+            swapped
+              ? tableOs.page
+              : osLook
+                ? { node: <SlotView slot={osSlot} />, width: osLook.width, height: osLook.height }
+                : undefined
+          }
+          archive={shelves.keys}
           onExit={leaveFree}
           onMap={toMap}
           sound={sound}
           onSound={onSound}
         />
       )}
-      {free && valid && (
+      {free && swap && (
+        <TableLaptop
+          key={swap.id}
+          model={swap}
+          lidOpen={false}
+          company={company}
+          library={library}
+          sound={sound}
+          onSound={onSound}
+          state={free}
+          scene={tableScene}
+          portal={portal}
+          drive={{ onAim: freeAim, onSettled: freeSettled, onShelf: shelves.onShelf, shelves: shelves.aim, stance, onDoor: toMap && freeDoor }}
+          onOs={setTableOs}
+        />
+      )}
+      {free && valid && !swapped && (
         <FreeOs subject={subject} library={library} sound={sound} onSound={onSound} slot={osSlot} onLook={setOsLook} />
       )}
       {stage === "chassis" && preview.section && (
@@ -659,6 +739,8 @@ export function Builder({
           <SliderField label="Lid" value={lidAngle} unit="deg" min={0} max={LID_MAX} onChange={setLid} disabled={flip} />
           <button type="button" className="fd-text bd-free" onClick={() => {
               if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+              stance.current = null;
+              setSwap(undefined);
               setFree(freeStart(lid > 0 && !flip, flip));
             }}
           >

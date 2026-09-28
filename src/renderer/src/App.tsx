@@ -9,7 +9,8 @@ import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./en
 import { AWARD_NAMES, type CampaignState, campaignOf, release, reorder, resolveQuarter, savedCampaign, setCampaign } from "./engine/campaign";
 import { LaptopList, sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
-import { Bankrupt, FinancePanel } from "./foundry/Finance";
+import { FinancePanel } from "./foundry/Finance";
+import { Ending } from "./foundry/Ending";
 import { MarketingPanel } from "./foundry/Marketing";
 import { ReleasePanel } from "./foundry/Release";
 import { SalesPanel } from "./foundry/Sales";
@@ -69,6 +70,8 @@ export function App() {
   const [marketing, setMarketing] = useState(false);
   // The last quarter's best seller as a short video.
   const [short, setShort] = useState<ReadyShort | null>(null);
+  // The company whose finished campaign's end screen was left for its models.
+  const [pastEnd, setPastEnd] = useState<string | null>(null);
 
   useEffect(() => {
     store().companies().then((all) => setCompanies(all.map(migrated)));
@@ -406,11 +409,13 @@ export function App() {
       />
     );
   const current = company?.models.find((m) => m.id === selected);
-  if (menu === "list" && company && campaign?.bankrupt)
+  const ended = menu === "list" && !!campaign?.over && (campaign.bankrupt || pastEnd !== company?.id);
+  if (ended && company && campaign)
     screen = (
-      <Bankrupt
+      <Ending
         name={company.name}
         campaign={campaign}
+        onModels={campaign.bankrupt ? undefined : () => setPastEnd(company.id)}
         onMenu={() => {
           setCompany(null);
           setMenu("start");
@@ -456,7 +461,7 @@ export function App() {
         model={staged?.name ?? ""}
         view={VIEWS[menu]}
       />
-      {(menu !== "list" || campaign?.bankrupt) && <div className="fd-scrim" />}
+      {(menu !== "list" || ended) &&<div className="fd-scrim" />}
       <div key={menu}>{screen}</div>
     </div>
   );

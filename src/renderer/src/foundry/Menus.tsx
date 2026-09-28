@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { SavedCompany } from "../../../preload/store";
-import { FIRST_START, LAST_START } from "../engine/campaign/constants";
+import { FIRST_START, LAST_START, STARTING_CASH } from "../engine/campaign/constants";
 import { ASSETS } from "../viewer/reviewScenes";
 import "./foundry.css";
 
@@ -220,6 +220,7 @@ export function NewCompany({
   return (
     <Column onBack={onBack}>
       <form
+        className="fd-new"
         onSubmit={(e) => {
           e.preventDefault();
           if (name.trim()) onStart(name.trim(), campaign ? start : undefined);
@@ -227,45 +228,36 @@ export function NewCompany({
       >
         <NameField label="Company" value={name} onChange={setName} />
         <div className="fd-modes">
-          <button
-            type="button"
-            className={`fd-secondary${campaign ? " muted" : " on"}`}
-            aria-pressed={!campaign}
-            onClick={() => setCampaign(false)}
-          >
+          <button type="button" className={campaign ? undefined : "on"} aria-pressed={!campaign} onClick={() => setCampaign(false)}>
             Sandbox
           </button>
-          <button
-            type="button"
-            className={`fd-secondary${campaign ? " on" : " muted"}`}
-            aria-pressed={campaign}
-            onClick={() => setCampaign(true)}
-          >
+          <button type="button" className={campaign ? "on" : undefined} aria-pressed={campaign} onClick={() => setCampaign(true)}>
             Campaign
           </button>
-          {campaign && (
-            <span className="fd-start">
-              <button
-                type="button"
-                className="fd-text"
-                aria-label="Earlier"
-                disabled={start <= FIRST_START}
-                onClick={() => step(-1)}
-              >
-                ‹
-              </button>
-              <b>{start}</b>
-              <button
-                type="button"
-                className="fd-text"
-                aria-label="Later"
-                disabled={start >= LAST_START}
-                onClick={() => step(1)}
-              >
-                ›
-              </button>
-            </span>
-          )}
+        </div>
+        <div className="fd-start" style={campaign ? undefined : { visibility: "hidden" }}>
+          <span>
+            <button
+              type="button"
+              className="fd-text"
+              aria-label="Earlier"
+              disabled={start <= FIRST_START}
+              onClick={() => step(-1)}
+            >
+              -
+            </button>
+            <b>{start}</b>
+            <button
+              type="button"
+              className="fd-text"
+              aria-label="Later"
+              disabled={start >= LAST_START}
+              onClick={() => step(1)}
+            >
+              +
+            </button>
+          </span>
+          <b className="cash">${STARTING_CASH.toLocaleString("en-US")}</b>
         </div>
         <div className="fd-actions">
           <button type="submit" className="fd-primary" disabled={!name.trim()}>

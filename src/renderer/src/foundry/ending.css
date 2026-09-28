@@ -1,0 +1,67 @@
+/* A campaign's end: bust in warning colours, complete in accent. */
+.fd-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(28 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.fd-end .when {
+  font-weight: 600;
+  font-size: calc(28 * var(--u));
+  color: var(--accent);
+}
+
+.fd-end h1 {
+  margin: 0;
+  font-weight: 700;
+  font-size: calc(116 * var(--u));
+  line-height: 0.86;
+  text-transform: uppercase;
+}
+
+.fd-end .cash {
+  font-weight: 700;
+  font-size: calc(56 * var(--u));
+  line-height: 1;
+}
+
+.fd-end .stats {
+  display: flex;
+  gap: calc(48 * var(--u));
+}
+
+.fd-end .stats span {
+  display: flex;
+  flex-direction: column;
+}
+
+.fd-end .stats b {
+  font-weight: 700;
+  font-size: calc(36 * var(--u));
+}
+
+.fd-end .stats small {
+  font-weight: 500;
+  font-size: calc(18 * var(--u));
+  color: var(--muted);
+}
+
+.fd-end .stats b.won {
+  color: var(--accent);
+}
+
+.fd-end.bust .when,
+.fd-end.bust .cash {
+  color: var(--warning);
+}
+
+.fd-end.bust .stats b.won {
+  color: var(--text);
+}
+
+.fd-end .fd-actions {
+  margin-top: 0;
+}

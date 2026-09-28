@@ -24,12 +24,57 @@
   pointer-events: none;
 }
 
+/* The progress line along the video's bottom edge. */
+.vd-track {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  height: calc(4 * var(--u));
+  width: calc(100vh * 9 / 16);
+  transform: translateX(-50%);
+  background: var(--track);
+  pointer-events: none;
+}
+
+.vd-track div {
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+/* The quarter and the model, bottom left in the black beside the video. */
+.vd-title {
+  position: absolute;
+  left: calc(96 * var(--u));
+  bottom: calc(56 * var(--u));
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--u));
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.vd-title span {
+  font-weight: 600;
+  font-size: calc(22 * var(--u));
+  color: var(--accent);
+}
+
+.vd-title b {
+  font-weight: 700;
+  font-size: calc(72 * var(--u));
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
 .vd-bar {
   position: absolute;
-  right: calc(36 * var(--u));
-  bottom: calc(36 * var(--u));
+  right: calc(56 * var(--u));
+  bottom: calc(56 * var(--u));
   display: flex;
-  gap: calc(24 * var(--u));
+  gap: calc(28 * var(--u));
 }
 
 /* The Shorts button while its video is still being made. */
@@ -47,6 +92,10 @@
 /* The bar sits on black: full text colour, not the muted grey used on the ground. */
 .vd-bar .fd-text {
   color: var(--text) !important;
+}
+
+.vd-bar .fd-text.back {
+  color: var(--muted) !important;
 }
 
 .vd-bar .fd-text:not(:disabled):hover,

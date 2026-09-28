@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { quarterLabel } from "../engine/campaign";
 import type { ReadyShort } from "./shorts";
 import "./video.css";
 
@@ -11,7 +12,7 @@ import "./video.css";
 export function VideoScreen({ video, onBack }: { video: ReadyShort; onBack: () => void }) {
   const player = useRef<HTMLVideoElement>(null);
   const screen = useRef<HTMLCanvasElement>(null);
-  const [done, setDone] = useState(false);
+  const line = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export function VideoScreen({ video, onBack }: { video: ReadyShort; onBack: () =
       frame = requestAnimationFrame(draw);
       const v = player.current;
       const c = screen.current;
+      if (v && line.current && v.duration > 0) line.current.style.transform = `scaleX(${v.currentTime / v.duration})`;
       if (!v || !c || v.readyState < 2 || !v.videoWidth) return;
       if (c.width !== v.videoWidth || c.height !== v.videoHeight) {
         c.width = v.videoWidth;
@@ -43,7 +45,6 @@ export function VideoScreen({ video, onBack }: { video: ReadyShort; onBack: () =
     const v = player.current;
     if (!v) return;
     v.currentTime = 0;
-    setDone(false);
     void v.play();
   };
 
@@ -59,20 +60,23 @@ export function VideoScreen({ video, onBack }: { video: ReadyShort; onBack: () =
   return (
     <div className="fd vd">
       {/* biome-ignore lint/a11y/useMediaCaption: the captions are burnt into the video */}
-      <video ref={player} className="vd-src" src={video.url} autoPlay playsInline onEnded={() => setDone(true)} />
+      <video ref={player} className="vd-src" src={video.url} autoPlay playsInline />
       <canvas ref={screen} className="vd-out" width={1080} height={1920} />
+      <div className="vd-track">
+        <div ref={line} />
+      </div>
+      <div className="vd-title">
+        <span>{quarterLabel(video.quarter)}</span>
+        <b>{video.model}</b>
+      </div>
       <div className="vd-bar">
-        {done && (
-          <>
-            <button type="button" className="fd-text" onClick={replay}>
-              Replay
-            </button>
-            <button type="button" className="fd-text" disabled={saving} onClick={save}>
-              Save
-            </button>
-          </>
-        )}
-        <button type="button" className="fd-text" onClick={onBack}>
+        <button type="button" className="fd-text" onClick={replay}>
+          Replay
+        </button>
+        <button type="button" className="fd-text" disabled={saving} onClick={save}>
+          Save
+        </button>
+        <button type="button" className="fd-text back" onClick={onBack}>
           Back
         </button>
       </div>

@@ -1,169 +1,3 @@
-.fd-finance {
-  border-collapse: collapse;
-  padding: calc(12 * var(--u));
-  background: color-mix(in srgb, var(--ground-deep) 80%, transparent);
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-  font-size: calc(16 * var(--u));
-}
-
-.fd-finance th,
-.fd-finance td {
-  padding: calc(4 * var(--u)) calc(12 * var(--u));
-  text-align: right;
-  white-space: nowrap;
-}
-
-.fd-finance th {
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.fd-finance td {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.fd-finance .short,
-.fd-bust .short {
-  color: var(--warning);
-}
-
-.fd-bust {
-  display: flex;
-  flex-direction: column;
-  gap: calc(8 * var(--u));
-  margin-bottom: calc(24 * var(--u));
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-}
-
-.fd-bust h1 {
-  margin: 0;
-}
-
-.fd-bust b,
-.fd-bust span {
-  font-weight: 700;
-  font-size: calc(32 * var(--u));
-}
-
-/* Marketing: a head with the quarter's campaign cost that opens a table of segments. */
-.fd-marketing {
-  display: flex;
-  flex-direction: column;
-  padding: calc(8 * var(--u)) calc(12 * var(--u));
-  background: color-mix(in srgb, var(--ground-deep) 80%, transparent);
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-}
-
-.fd-marketing-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: calc(24 * var(--u));
-  padding: calc(4 * var(--u)) calc(4 * var(--u));
-  background: none;
-  border: 0;
-  cursor: pointer;
-  font-family: var(--font-display);
-  color: var(--muted);
-  font-weight: 500;
-  font-size: calc(16 * var(--u));
-}
-
-.fd-marketing-head b {
-  font-weight: 700;
-  font-size: calc(18 * var(--u));
-  color: var(--text);
-}
-
-.fd-marketing-head:hover span,
-.fd-marketing-head:focus-visible span {
-  color: var(--accent);
-}
-
-.fd-marketing table {
-  border-collapse: collapse;
-  font-size: calc(13 * var(--u));
-}
-
-.fd-marketing th,
-.fd-marketing td {
-  padding: calc(1 * var(--u)) calc(6 * var(--u));
-  text-align: right;
-  white-space: nowrap;
-}
-
-.fd-marketing th {
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.fd-marketing tbody th {
-  text-align: left;
-}
-
-.fd-marketing td {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.fd-marketing .short,
-.fd-marketing-head .short {
-  color: var(--warning);
-}
-
-.fd-marketing td.up {
-  color: var(--accent);
-}
-
-.fd-marketing-reach {
-  position: relative;
-  width: calc(90 * var(--u));
-}
-
-.fd-marketing-reach i {
-  position: absolute;
-  left: 0;
-  top: 20%;
-  bottom: 20%;
-  background: var(--accent-wash);
-  border-right: 2px solid var(--accent);
-}
-
-.fd-marketing-reach span {
-  position: relative;
-}
-
-.fd-marketing-tier {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: calc(2 * var(--u));
-}
-
-.fd-marketing-tier .fd-text {
-  font-size: calc(16 * var(--u)) !important;
-  padding: 0 calc(6 * var(--u)) !important;
-  line-height: 1;
-}
-
-.fd-marketing-tier .fd-text:disabled {
-  opacity: 0.3;
-}
-
-.fd-marketing-tier b {
-  min-width: calc(28 * var(--u));
-  text-align: center;
-  color: var(--muted);
-}
-
-.fd-marketing-tier b.on {
-  color: var(--accent);
-}
-
 /* The statement: its own view between the rails, over a darkened scene. */
 .fd-books-scrim {
   background: color-mix(in srgb, var(--ground) 70%, transparent);
@@ -872,4 +706,191 @@
 
 .cr-history b {
   font-weight: 600;
+}
+
+/* Brand tab. */
+.cr-brand-cost {
+  margin-top: calc(-6 * var(--u));
+}
+
+.cr-brand-cost b {
+  font-weight: 700;
+  font-size: calc(28 * var(--u));
+}
+
+.cr-brand {
+  display: flex;
+  flex-direction: column;
+  margin-top: calc(-8 * var(--u));
+}
+
+.cr-brand-head,
+.cr-brand-row {
+  display: grid;
+  grid-template-columns: calc(82 * var(--u)) 1fr calc(32 * var(--u)) calc(92 * var(--u));
+  gap: calc(8 * var(--u));
+  align-items: center;
+}
+
+.cr-brand-head {
+  padding-bottom: calc(6 * var(--u));
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cr-brand-head span:nth-child(3),
+.cr-brand-head span:nth-child(4) {
+  text-align: right;
+}
+
+.cr-brand-row {
+  height: calc(26 * var(--u));
+  font-size: calc(16 * var(--u));
+  border-bottom: 1px solid var(--line-row);
+}
+
+.cr-brand-row > span:first-child {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cr-brand-row > span.off {
+  color: var(--muted);
+}
+
+.cr-brand-row .reach {
+  position: relative;
+  height: calc(14 * var(--u));
+  display: flex;
+  align-items: center;
+}
+
+.cr-brand-row .reach i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent-wash);
+  border-right: 2px solid var(--accent);
+}
+
+.cr-brand-row .reach span {
+  position: relative;
+  padding-left: calc(4 * var(--u));
+  font-weight: 600;
+  font-size: calc(14 * var(--u));
+}
+
+.cr-brand-row > b {
+  text-align: right;
+  font-weight: 600;
+}
+
+.cr-brand-row > b.up {
+  color: var(--accent);
+}
+
+.cr-brand-row > b.zero {
+  color: var(--muted);
+}
+
+.cr-brand-row .tier {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: calc(5 * var(--u));
+}
+
+.cr-brand-row .tier button {
+  padding: 0 calc(2 * var(--u)) !important;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(18 * var(--u));
+  line-height: 1;
+  color: var(--muted) !important;
+}
+
+.cr-brand-row .tier button:not(:disabled):hover,
+.cr-brand-row .tier button:focus-visible {
+  color: var(--accent) !important;
+}
+
+.cr-brand-row .tier button:disabled {
+  opacity: 0.3;
+}
+
+.cr-brand-row .tier > span {
+  display: flex;
+  gap: calc(3 * var(--u));
+}
+
+.cr-brand-row .tier i {
+  width: calc(7 * var(--u));
+  height: calc(12 * var(--u));
+  border: 1px solid var(--line-strong);
+}
+
+.cr-brand-row .tier i.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Awards tab. */
+.cr-awards {
+  display: flex;
+  flex-direction: column;
+}
+
+.cr-awards-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: calc(4 * var(--u));
+}
+
+.cr-awards-head b {
+  font-weight: 700;
+  font-size: calc(30 * var(--u));
+  line-height: 1;
+}
+
+.cr-awards-head span {
+  font-weight: 600;
+  font-size: calc(17 * var(--u));
+  color: var(--muted);
+}
+
+.cr-award {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(16 * var(--u));
+  padding: calc(11 * var(--u)) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.cr-award span {
+  flex: none;
+  font-weight: 500;
+  font-size: calc(18 * var(--u));
+  color: var(--muted);
+}
+
+.cr-award b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: calc(20 * var(--u));
+}
+
+.cr-award b.mine {
+  color: var(--accent);
 }

@@ -1,90 +1,80 @@
-import {
-  type CampaignState,
-  marketingCost,
-  maxTier,
-  type Tier,
-} from "../engine/campaign";
+import { type CampaignState, marketingCost, maxTier, tierCost } from "../engine/campaign";
 import { SEGMENTS } from "../engine/market/segments";
 import type { SegmentId } from "../engine/market/types";
-import { usdShort } from "./Finance";
+import { usdShort } from "./Release";
 import "./campaign.css";
 
-// The company's marketing: per segment its reach as a bar, its perception,
-// and the campaign tier that runs from the next quarter end.
+// The Brand tab: the campaigns' cost per quarter, then per segment its reach
+// as a bar, its reputation, and its campaign tier as pips between - and +.
 
-export function MarketingPanel({
+export function BrandTab({
   campaign,
-  open,
-  onToggle,
   onTier,
 }: {
   campaign: CampaignState;
-  open: boolean;
-  onToggle: () => void;
   onTier: (segment: SegmentId, tier: number) => void;
 }) {
   const { brand } = campaign;
-  const cost = marketingCost(brand, campaign.now.year);
-  const short = cost > campaign.cash;
+  const year = campaign.now.year;
+  const cost = marketingCost(brand, year);
   return (
-    <section className="fd-marketing fd-in">
-      <button type="button" className="fd-marketing-head" aria-expanded={open} onClick={onToggle}>
-        <span>Marketing</span>
-        <b className={short ? "short" : undefined}>{usdShort(cost)}</b>
-      </button>
-      {open && (
-        <table>
-          <thead>
-            <tr>
-              <th />
-              <th>Reach</th>
-              <th>Rep</th>
-              <th>Tier</th>
-            </tr>
-          </thead>
-          <tbody>
-            {SEGMENTS.map((s) => {
-              const reach = brand.reach[s.id];
-              const rep = Math.round(brand.perception[s.id]);
-              const tier: number = brand.campaigns[s.id] ?? 0;
-              const top: Tier = maxTier(s.id);
-              return (
-                <tr key={s.id}>
-                  <th>{s.shortName}</th>
-                  <td className="fd-marketing-reach">
-                    <i style={{ width: `${reach * 100}%` }} />
-                    <span>{Math.round(reach * 100)}%</span>
-                  </td>
-                  <td className={rep < 0 ? "short" : rep > 0 ? "up" : undefined}>
-                    {rep > 0 ? `+${rep}` : rep}
-                  </td>
-                  <td className="fd-marketing-tier">
-                    <button
-                      type="button"
-                      className="fd-text"
-                      disabled={campaign.over || tier <= 0}
-                      onClick={() => onTier(s.id, tier - 1)}
-                    >
-                      -
-                    </button>
-                    <b className={tier ? "on" : undefined}>
-                      {tier}/{top}
-                    </b>
-                    <button
-                      type="button"
-                      className="fd-text"
-                      disabled={campaign.over || tier >= top}
-                      onClick={() => onTier(s.id, tier + 1)}
-                    >
-                      +
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-    </section>
+    <>
+      <div className="cr-line cr-brand-cost">
+        <span>Per quarter</span>
+        <b className={cost > campaign.cash ? "short" : undefined}>{usdShort(cost)}</b>
+      </div>
+      <div className="cr-brand">
+        <div className="cr-brand-head">
+          <span />
+          <span>Reach</span>
+          <span>Rep</span>
+          <span>Tier</span>
+        </div>
+        {SEGMENTS.map((s) => {
+          const reach = brand.reach[s.id];
+          const rep = Math.round(brand.perception[s.id]);
+          const tier: number = brand.campaigns[s.id] ?? 0;
+          const top = maxTier(s.id);
+          return (
+            <div key={s.id} className="cr-brand-row">
+              <span className={tier ? undefined : "off"}>{s.shortName}</span>
+              <span className="reach">
+                <i style={{ width: `${reach * 100}%` }} />
+                <span>{Math.round(reach * 100)}%</span>
+              </span>
+              <b className={rep < 0 ? "short" : rep > 0 ? "up" : "zero"}>{rep > 0 ? `+${rep}` : rep}</b>
+              <span className="tier">
+                <button
+                  type="button"
+                  disabled={campaign.over || tier <= 0}
+                  aria-label={`${s.shortName} tier down`}
+                  onClick={() => onTier(s.id, tier - 1)}
+                >
+                  -
+                </button>
+                <span>
+                  {Array.from({ length: top }, (_, i) => (
+                    <i
+                      // biome-ignore lint/suspicious/noArrayIndexKey: pips are positional
+                      key={i}
+                      className={i < tier ? "on" : undefined}
+                      title={usdShort(tierCost((i + 1) as 1 | 2 | 3 | 4 | 5, year))}
+                    />
+                  ))}
+                </span>
+                <button
+                  type="button"
+                  disabled={campaign.over || tier >= top}
+                  aria-label={`${s.shortName} tier up`}
+                  onClick={() => onTier(s.id, tier + 1)}
+                >
+                  +
+                </button>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

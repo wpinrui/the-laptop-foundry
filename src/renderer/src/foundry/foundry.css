@@ -642,3 +642,21 @@
 .fd-clock.over span {
   color: var(--muted);
 }
+
+/* The system menu over a place: the room stays in view behind it. */
+.fd.sm {
+  z-index: 100;
+  background: transparent;
+}
+
+.sm-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--ground) 94%, transparent) 0%,
+    color-mix(in srgb, var(--ground) 72%, transparent) 45%,
+    color-mix(in srgb, var(--ground) 40%, transparent) 100%
+  );
+  backdrop-filter: blur(6px);
+}

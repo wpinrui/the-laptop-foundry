@@ -24,6 +24,7 @@ import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
 import { bestSeller, shortFacts, subjectOf, writeShort } from "./video/script";
 import { cancelShort, prepareShort, type ReadyShort, shortKey, useShort } from "./video/shorts";
 import { VideoScreen } from "./video/VideoScreen";
+import { SystemMenu, useSystemMenu } from "./foundry/SystemMenu";
 import { Office } from "./office/Office";
 import { OFFICE_START, type OfficeAt } from "./office/stations";
 import type { OfficeActions } from "./office/Panels";
@@ -102,6 +103,8 @@ export function App() {
   const [marketView, setMarketView] = useState<{ tab: MarketTab; quarter?: Quarter; model?: string | null; proceed?: boolean } | null>(null);
   // Where the Office stands: its station and panel, kept while the player is in the builder, a review or the cafe.
   const [officeAt, setOfficeAt] = useState<OfficeAt>(OFFICE_START);
+  // The system menu, over wherever the player is while a company is open.
+  const [system, setSystem] = useSystemMenu(!!company && menu === "list");
   // biome-ignore lint/correctness/useExhaustiveDependencies: the statement closes when the screen or company changes
   useEffect(() => {
     setStatement(null);
@@ -220,6 +223,7 @@ export function App() {
   };
 
   if (!companies) return null;
+  const view = (() => {
 
   const name = company?.name ?? "";
   const campaign = company?.campaign ? campaignOf(company.campaign) : null;
@@ -645,5 +649,33 @@ export function App() {
       {(menu !== "list" || ended) &&<div className="fd-scrim" />}
       <div key={menu}>{screen}</div>
     </div>
+  );
+  })();
+
+  // M over any place of an open company: the place stays mounted underneath, so M again returns to it as it was.
+  const leaveCompany = (to: Menu) => {
+    setSystem(false);
+    if (document.pointerLockElement) document.exitPointerLock();
+    setShort(null);
+    setOpen(null);
+    setReviewing(null);
+    setCompany(null);
+    if (to === "load") setPickedSave(companies[0]?.id ?? null);
+    setMenu(to);
+  };
+  return (
+    <>
+      {view}
+      {system && company && (
+        <SystemMenu
+          company={company.name}
+          sound={settings.sound}
+          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          onResume={() => setSystem(false)}
+          onNew={() => leaveCompany("new")}
+          onLoad={() => leaveCompany("load")}
+        />
+      )}
+    </>
   );
 }

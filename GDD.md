@@ -335,11 +335,29 @@ The player is always on the world map or in one of four places: the Workshop, th
 - The Cafe opens through the street entrance, with the laptop brought along on the table. Empty handed, the table is bare and nothing asks for a laptop.
 - Walking out through the Workshop's personnel door returns to the map. In the Cafe and Courts the exit door is a wall to walk into: aiming at it shows E Leave, which returns to the map. So does Map in any pause menu.
 - From a place, Stay goes back in. From the menu, Menu goes back to the main menu.
-- The Office is where the player runs the company. Until it has its own room, the models screen with the campaign rails stands in for it. Map there returns to the map.
+- The Office is where the player runs the company: see The office.
 - Courts is the store, walked in first person. Its display tables hold what is on sale: in a campaign the last played quarter's shelf, rivals and the player's released models; in a sandbox the generated market of the year.
 - Each price tag carries the price and the specs. Courts shows no review scores.
 - Aiming at a laptop, E inspects it: a card with its maker, name, price, sales, specs and when it was released, a quarter such as 2024 Q2 in a campaign and the model's year in a sandbox. Previous and next step along the tables.
 - From the inspect view, E uses the laptop as in the Cafe: its own OS on its screen, a store demo account under the maker's name, or the company's for the player's own models. Clicks and typing go to the OS, the screen and speakers are that laptop's, F shows it full screen and E stops using. Display units run on mains power. A laptop whose build does not work cannot be used.
+
+## The office
+
+The Office is a small loft in the workshop's building, and works as a 3D menu. Its stations run clockwise from the desk: Desk, Finance, Market intel, Marketing, Door, TV, Product wall and Trophy cabinet.
+
+- Each station is a fixed view. Left and Right glide the camera to the next station; Up and Down move within one, such as along the product wall's laptops. Enter or a click opens the station's panel, laid over the calm third of the view. Esc backs out one level: the panel, then the station, back to the Desk.
+- A strip along the top shows the quarter, the cash, last quarter's profit and End quarter at every station and in free roam.
+- Desk: the company at a glance, with the clock, cash, profit trend, alerts for sold out laptops, reviews due, new awards and a ready short, and End quarter. The desk clock and flip calendar also end the quarter. End quarter plays the quarter report, then returns to the Desk.
+- Finance: the Books, with the statement and sales beside them. Marketing: the Brand. Market intel: the Market screen's Quarter, Rivals, Buyers and Store.
+- Product wall: the company's laptops on shelves, newest first, in as many bays as they fill. A draft stands in foam grey, a laptop in stock has its screen lit, and a sold out one is dark with its lid half shut. Its panel lists the models; a pick opens the Model panel (release, order, price, costs, stock, review) with Use, Read review, Open in the workshop, Duplicate and Delete. New model goes to the workshop builder.
+- Trophy cabinet: a cup, obelisk or plaque per award won, and the panel's awards and reviews. TV: the last quarter's short, made and watched.
+- Door: Enter or E leaves to the map. Arriving from the map starts at the door and walks to the Desk.
+- Tab walks the room in first person, with WASD and the mouse. Aiming at a station names it, and a click goes to it; aiming at the door shows E Leave. Walking into the door never leaves.
+- A sandbox company's office has no Finance, Market intel or Marketing in the ring and no End quarter.
+
+## The system menu
+
+M opens the system menu over any place of an open company: Resume, New company, Load company, Sound and Quit. M, Esc or Resume return to exactly where the player was.
 
 ## Version 0.2
 
@@ -475,7 +493,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 #### Market world
 
 - Every quarter the campaign keeps its whole shelf: units sold per laptop per buyer segment, the player's and the rivals', the quarter's launches, the player's prices and demand, and the brand's reach and reputation. It keeps every quarter of the campaign, about 360 KB over 2006 to 2026, and more for every year played past it.
-- The Market screen fills the window: Quarter, Rivals, Buyers and Store tabs, a quarter picker driving every tab but Store, and Close, or Continue after End quarter. End quarter opens it on the quarter just played; Market on the campaign rail opens it on the last played quarter.
+- The Market screen: Quarter, Rivals, Buyers and Store tabs, a quarter picker driving every tab but Store, and Close, or Continue after End quarter. End quarter opens it over the office on the quarter just played; the office's Market intel station holds it on the last played quarter.
 - Quarter: the company's units, revenue, profit, share and rank against the market; every maker's share and movement; the quarter's launches with review scores; the best sellers, with the player's own ranks, and the year's awards in a Q4.
 - Rivals: for a player model, the five rivals it competes with most (buyer overlap times price closeness) by units won, and a stat matrix of indices on the market's par with buyer weights and a market score.
 - Buyers: every segment's buyers, wants, the share the company won, units per player model, and the brand's reach and reputation.

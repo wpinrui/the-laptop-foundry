@@ -31,3 +31,13 @@
     opacity: 0.4;
   }
 }
+
+/* The bar sits on black: full text colour, not the muted grey used on the ground. */
+.vd-bar .fd-text {
+  color: var(--text) !important;
+}
+
+.vd-bar .fd-text:not(:disabled):hover,
+.vd-bar .fd-text:focus-visible {
+  color: var(--accent) !important;
+}

@@ -2,6 +2,7 @@ import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { Loaded } from "../app/Loaded";
 import cafeUrl from "../assets/cafe/laptop-foundry-cafe.glb?url";
 import type { Decor, Fit } from "../engine";
 import { Model, Reflections, type Surfaces } from "../viewer/Scene";
@@ -451,9 +452,12 @@ export function World({
   aimRef,
   atDoor = false,
   onDoor,
+  onReady,
 }: {
   /** None: the table stands empty. */
   laptop?: LaptopLook;
+  /** Once the room and the laptop have loaded, for the travel card over it. */
+  onReady?: () => void;
   /** Arrives through the street entrance. */
   atDoor?: boolean;
   /** Walking out through the street entrance. */
@@ -490,6 +494,7 @@ export function World({
             atDoor={atDoor}
             onDoor={onDoor}
           />
+          {onReady && <Loaded onReady={onReady} />}
         </Suspense>
       </Canvas>
       {/* The on-screen page mounts here, over the canvas. It takes the

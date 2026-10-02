@@ -102,6 +102,7 @@ export function Cafe({
   onLeave,
   onMap,
   atDoor,
+  onReady,
 }: {
   /** None: the player came empty handed. */
   laptop?: LaptopLook;
@@ -117,6 +118,8 @@ export function Cafe({
   onMap: () => void;
   /** Arrives through the street entrance. */
   atDoor?: boolean;
+  /** Once the cafe has loaded. */
+  onReady?: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   // Sitting: seated, pointer locked, looking around. Using: seated with the
@@ -253,6 +256,7 @@ export function Cafe({
           laptop={laptop}
           atDoor={atDoor}
           onDoor={onMap}
+          onReady={onReady}
           screen={page && !full ? page : undefined}
           seated={pose !== "stand"}
           using={using}

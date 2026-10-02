@@ -88,8 +88,13 @@ export function App() {
   const [where, setWhere] = useState<Where>({ at: "map", from: null });
   // The build waiting for the player to name it on the name card before it becomes a model.
   const [naming, setNaming] = useState<Build | null>(null);
-  // On the way to the workshop: the travel card shows over it until the room has loaded.
-  const [going, setGoing] = useState<"loading" | "here" | null>(null);
+  // Arriving in a 3D place, by its key: the travel card shows over it until the place has loaded, then fades.
+  const [arrival, setArrival] = useState<{ key: string | null; stage: "loading" | "here" | "done" }>({
+    key: null,
+    stage: "done",
+  });
+  // A place has loaded. Only the place on screen can call it: the one before has unmounted.
+  const ready = useCallback(() => setArrival((a) => (a.stage === "loading" ? { ...a, stage: "here" } : a)), []);
   // A year's market is being generated before a screen that needs it opens.
   const [busy, setBusy] = useState(false);
   // The statement view open between the rails, on this tab.
@@ -225,6 +230,22 @@ export function App() {
   };
 
   if (!companies) return null;
+
+  // The 3D place on screen, as the view below picks it; a new key is a fresh arrival. Null for 2D screens.
+  const run = company?.campaign ? campaignOf(company.campaign) : null;
+  const placeKey = ((): string | null => {
+    if (!company || short) return null;
+    if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
+    if (where.at === "workshop" && !open) return `workshop:${where.model?.id ?? ""}`;
+    if (where.at === "courts") return "courts";
+    if (where.at === "map" || reviewing) return null;
+    if (open && company.models.some((m) => m.id === open)) return `builder:${open}`;
+    if (where.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";
+    return null;
+  })();
+  if (placeKey !== arrival.key) setArrival({ key: placeKey, stage: placeKey ? "loading" : "done" });
+  const loading = arrival.stage === "loading";
+
   const view = (() => {
 
   const name = company?.name ?? "";
@@ -333,7 +354,6 @@ export function App() {
   const newModel = () => setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
   // From the Office or the store a new model, or a copy, goes to the workshop, the travel card up until the room is in.
   const toWorkshop = (m: SavedModel | null, office = true) => {
-    setGoing("loading");
     setWhere({ at: "workshop", model: m, subject: null, office });
   };
   // The named build becomes a model and opens in the builder; leaving it, a workshop visit has it on the turntable.
@@ -374,6 +394,7 @@ export function App() {
         notes={company.notes ?? []}
         onSaveNotes={saveNotes}
         shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
+        onReady={ready}
       />
     );
   // The builder, opened from the workshop, stands in for it until it is left.
@@ -389,7 +410,7 @@ export function App() {
           company={company.name}
           library={company.models.filter((x) => x.reviewed).map(subject)}
           onMap={() => toMap(at)}
-          onReady={going ? () => setGoing("here") : undefined}
+          onReady={ready}
           held={!!naming}
           onNew={campaign?.over ? undefined : newModel}
           onEdit={(id) => {
@@ -402,8 +423,7 @@ export function App() {
           sound={settings.sound}
           onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
         />
-        {going !== "loading" && nameCard}
-        {going && <Travel to="workshop" here={going === "here"} onDone={() => setGoing(null)} />}
+        {!loading && nameCard}
       </>
     );
   }
@@ -414,6 +434,7 @@ export function App() {
           company={company}
           onMap={() => toMap(where)}
           onClone={campaign?.over ? undefined : (item) => nameCopy(item.build)}
+          onReady={ready}
           sound={settings.sound}
           onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
         />
@@ -468,7 +489,7 @@ export function App() {
         model={model}
         company={name}
         onSave={(m) => save(m)}
-        onReady={going ? () => setGoing("here") : undefined}
+        onReady={ready}
         onMap={() => toMap({ at: "workshop", model, subject: null })}
         onReview={review}
         onDuplicate={() => duplicate(model.id)}
@@ -481,8 +502,7 @@ export function App() {
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
-      {nameCard}
-      {going && <Travel to="workshop" here={going === "here"} onDone={() => setGoing(null)} />}
+      {!loading && nameCard}
       </>
     );
 
@@ -577,6 +597,7 @@ export function App() {
             if (document.pointerLockElement) document.exitPointerLock();
             setSystem(true);
           }}
+          onReady={ready}
         />
         {campaign && statement && (
           <div className="fd of-over">
@@ -715,6 +736,14 @@ export function App() {
   return (
     <SystemActions.Provider value={company ? { onNew: () => leaveCompany("new"), onLoad: () => leaveCompany("load") } : null}>
       {view}
+      {arrival.key && arrival.stage !== "done" && (
+        <Travel
+          key={arrival.key}
+          to={placeName(arrival.key)}
+          here={arrival.stage === "here"}
+          onDone={() => setArrival((a) => ({ ...a, stage: "done" }))}
+        />
+      )}
       {system && company && (
         <SystemMenu
           company={company.name}
@@ -738,17 +767,34 @@ export function App() {
   );
 }
 
+/** What the travel card calls a place, by its arrival key. The builder is in the workshop. */
+function placeName(key: string): string {
+  const at = key.split(":")[0];
+  if (at === "builder") return "workshop";
+  if (at === "courts") return "Courts";
+  return at;
+}
+
+/** However long a place takes, the travel card lifts after this: a missed ready signal never leaves it up. */
+const TRAVEL_MAX_MS = 15000;
+
 /** A full-screen card naming where the player is headed, faded out once the place underneath is `here`. */
 function Travel({ to, here, onDone }: { to: string; here: boolean; onDone: () => void }) {
   const done = useRef(onDone);
   done.current = onDone;
+  const [late, setLate] = useState(false);
   useEffect(() => {
-    if (!here) return;
+    const t = setTimeout(() => setLate(true), TRAVEL_MAX_MS);
+    return () => clearTimeout(t);
+  }, []);
+  const out = here || late;
+  useEffect(() => {
+    if (!out) return;
     const end = setTimeout(() => done.current(), 400);
     return () => clearTimeout(end);
-  }, [here]);
+  }, [out]);
   return (
-    <div className={`fd fd-travel${here ? " out" : ""}`}>
+    <div className={`fd fd-travel${out ? " out" : ""}`}>
       <b>Going to the {to}</b>
     </div>
   );

@@ -2,6 +2,7 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { SavedCompany } from "../../../preload/store";
+import { Loaded } from "../app/Loaded";
 import { FreeOs, makeSlot, type PageLook, SlotView } from "../builder/Free";
 import { blurField, FullPage, type Prompt, Prompts } from "../cafe/Cafe";
 import type { Subject } from "../engine";
@@ -11,7 +12,7 @@ import { token } from "../viewer/theme";
 import { Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
 import { buildPanels, type OfficeActions, statusOfModel, wallOrder } from "./Panels";
 import { buildOf, DESK_PC, DeskScreen, deskLean, fitOf, leanFor, TvShort, UsedLaptop } from "./Use";
-import { Trophies, Wall } from "./Wall";
+import { Trophies, Wall, SETTLE as WALL_SETTLE } from "./Wall";
 import { labelOf, type OfficeAt, ringOf, type StationId, stepFrom } from "./stations";
 import "../foundry/foundry.css";
 import "../cafe/cafe.css";
@@ -42,6 +43,8 @@ export interface OfficeProps {
   onSound: (on: boolean) => void;
   /** Opens the system menu. */
   onSystem: () => void;
+  /** Once the room and its wall have loaded, for the travel card over it. */
+  onReady?: () => void;
 }
 
 const typing = () => !!(document.activeElement as HTMLElement | null)?.closest?.("input, textarea, [contenteditable='true']");
@@ -77,6 +80,7 @@ export function Office({
   sound,
   onSound,
   onSystem,
+  onReady,
 }: OfficeProps) {
   const ring = useMemo(() => ringOf(!!campaign), [campaign]);
   const station: StationId = ring.includes(at.station) ? at.station : "desk";
@@ -393,6 +397,8 @@ export function Office({
                   {tv && <TvShort data={d} url={tv} sound={sound} take={take} />}
                   <Trophies data={d} awards={mine} />
                   <ShadowRefresh stamp={`${stamp}:${bays}`} />
+                  {/* After the wall's laptops are baked and the held shadows redrawn over them. */}
+                  {onReady && <Loaded onReady={onReady} frames={WALL_SETTLE + 4} />}
                 </>
               )}
             </OfficeScene>

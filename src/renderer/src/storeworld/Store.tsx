@@ -11,6 +11,7 @@ import {
 } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { Loaded } from "../app/Loaded";
 import storeUrl from "../assets/storeworld/courts-store.glb?url";
 import {
   clamp,
@@ -463,11 +464,14 @@ function Laptops({
   live,
   page,
   portal,
+  onReady,
 }: {
   seats: Seat[];
   live: number | null;
   page?: StoreScreen;
   portal: RefObject<HTMLDivElement | null>;
+  /** Once every laptop is baked and on its table. */
+  onReady?: () => void;
 }) {
   const looks = useMemo(() => new Looks(), []);
   const [baked, setBaked] = useState<Map<string, Baked | null>>(
@@ -496,8 +500,10 @@ function Laptops({
   const queue = ready
     ? seats.filter((s) => !baked.has(s.item.id)).slice(0, BATCH)
     : [];
+  const done = seats.every((s) => baked.has(s.item.id));
   return (
     <>
+      {onReady && done && <Loaded onReady={onReady} />}
       {queue.map((s) => (
         <Bakery
           key={s.item.id}
@@ -774,6 +780,7 @@ function Room({
   portal,
   shift,
   onAim,
+  onReady,
 }: {
   layout: Layout;
   era: Era;
@@ -784,6 +791,7 @@ function Room({
   portal: RefObject<HTMLDivElement | null>;
   shift: number;
   onAim: (aim: StoreAim) => void;
+  onReady?: () => void;
 }) {
   const fonts = useFonts();
   const shell = useShell(era, fonts);
@@ -804,6 +812,8 @@ function Room({
         live={using ? inspect : null}
         page={screen}
         portal={portal}
+        // The signs are drawn once their fonts are in.
+        onReady={fonts ? onReady : undefined}
       />
       <Player
         layout={layout}
@@ -827,6 +837,8 @@ export function Store(props: {
   screen?: StoreScreen;
   shift: number;
   onAim: (aim: StoreAim) => void;
+  /** Once the shell, the signs and every laptop are in, for the travel card over it. */
+  onReady?: () => void;
 }) {
   const overlay = useRef<HTMLDivElement | null>(null);
   return (
@@ -856,6 +868,7 @@ export function Store(props: {
           portal={overlay}
           shift={props.shift}
           onAim={props.onAim}
+          onReady={props.onReady}
         />
       </Suspense>
     </Canvas>

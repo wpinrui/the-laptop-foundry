@@ -2242,3 +2242,19 @@
   height: calc(16 * var(--u));
   color: var(--muted);
 }
+
+/* The empty turntable's list of laptops to put on it: the map's bring rows. */
+.bd-put {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(640 * var(--u));
+  padding-inline: 0;
+}
+
+.bd-put .wm-list {
+  min-height: 0;
+}
+
+.bd-put .fd-actions {
+  padding-inline: calc(48 * var(--u));
+}

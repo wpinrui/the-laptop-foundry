@@ -90,6 +90,27 @@
   text-shadow: 0 1px 6px color-mix(in srgb, var(--ground) 70%, transparent);
 }
 
+.cafe-prompt-title {
+  display: flex;
+  align-items: baseline;
+  gap: calc(10 * var(--u));
+  font-family: var(--font-display);
+  font-size: calc(30 * var(--u));
+  letter-spacing: 0.02em;
+  color: var(--text);
+  text-shadow: 0 1px 6px color-mix(in srgb, var(--ground) 70%, transparent);
+}
+
+.cafe-prompt-title b {
+  font-weight: 700;
+}
+
+.cafe-prompt-title small {
+  font-size: calc(20 * var(--u));
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .cafe-key {
   display: grid;
   place-items: center;

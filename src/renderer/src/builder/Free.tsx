@@ -15,7 +15,7 @@ import {
 } from "react";
 import * as THREE from "three";
 import { type OsPage, useLaptopOs } from "../cafe/CafeScreen";
-import { blurField, FullPage, type Prompt, Prompts, typing } from "../cafe/Cafe";
+import { blurField, FullPage, type Prompt, type PromptTitle, Prompts, typing } from "../cafe/Cafe";
 import { clamp, collideIn, easeOut, FOV_MIN, lookAngles, type Rect, ZOOM_STEP } from "../cafe/World";
 import type { Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
@@ -73,8 +73,8 @@ const RECTS: Rect[] = [
 ];
 /** The personnel door in the left wall, from the designer's workshop: looking at it offers leaving. */
 const DOOR = new THREE.Box3(new THREE.Vector3(ROOM.x0 - 250, FLOOR, 2700), new THREE.Vector3(ROOM.x0 + 60, FLOOR + 2300, 3700));
-/** Arriving on a visit: where the player stands, in front of the turntable. */
-const TABLE_START = new THREE.Vector3(0, EYE, 1100);
+/** Where the player stands in free roam, arriving or back from the builder: in front of the turntable. */
+export const TABLE_START = new THREE.Vector3(0, EYE, 1100);
 /** The empty turntable's top: looking at it offers a new laptop. */
 const TABLE_TOP = new THREE.Box3(
   new THREE.Vector3(-TURNTABLE_R, PLINTH_H - 80, -TURNTABLE_R),
@@ -256,7 +256,6 @@ export function Walker({
   using,
   useAt,
   onAim,
-  onFoot = false,
   onDoor,
   stance,
   shelves,
@@ -269,8 +268,6 @@ export function Walker({
   /** Where the player stands to use the laptop, and what they look at. */
   useAt: (aspect: number) => Pose;
   onAim: (on: boolean) => void;
-  /** Arrives standing in front of the turntable rather than from the builder's camera. */
-  onFoot?: boolean;
   /** Whether the aim dot is on the personnel door; without it the door is not offered. */
   onDoor?: (on: boolean) => void;
   /** Where the player stood before a swap on the turntable remounted this. */
@@ -285,7 +282,7 @@ export function Walker({
   const size = useThree((s) => s.size);
   const pos = useRef(new THREE.Vector3(0, EYE, 0));
   const look = useRef({ yaw: 0, pitch: 0 });
-  // From the builder's camera to standing: where it started, and when.
+  // From wherever the camera was (the builder's view, or arriving) to standing: where it started, and when.
   const enter = useRef<CamFrom | null>(null);
   const started = useRef(false);
   const keys = useRef(new Set<string>());
@@ -361,17 +358,13 @@ export function Walker({
       camera.updateProjectionMatrix();
     }
     if (!started.current) {
-      // Stand where the builder's camera is, out of the island, facing the laptop.
+      // Stand in front of the turntable, facing the laptop, the camera easing there from where it was.
       started.current = true;
-      const p = onFoot ? TABLE_START.clone() : new THREE.Vector3(camera.position.x, EYE, camera.position.z);
+      const p = TABLE_START.clone();
       collideIn(p, ROOM, RECTS, BODY);
       pos.current.copy(p);
       look.current = lookAngles(p, new THREE.Vector3(0, PLINTH_H + 60, 0));
-      if (onFoot) {
-        camera.fov = FOV;
-        camera.clearViewOffset();
-        camera.updateProjectionMatrix();
-      } else enter.current = camFrom(camera, clock.current);
+      enter.current = camFrom(camera, clock.current);
     }
     if (wasUsing.current !== using) {
       wasUsing.current = using;
@@ -505,8 +498,6 @@ export interface FreeDrive {
   page?: ScreenPage;
   onAim: (on: boolean) => void;
   onSettled: () => void;
-  /** Arrives standing in front of the turntable. */
-  onFoot?: boolean;
   /** Whether the aim dot is on the personnel door, which leaves to the map. */
   onDoor?: (on: boolean) => void;
   stance?: RefObject<Stance | null>;
@@ -689,7 +680,6 @@ export function WorkshopLaptop({
           using={free.state.using}
           useAt={useAt}
           onAim={free.onAim}
-          onFoot={free.onFoot}
           onDoor={free.onDoor}
           stance={free.stance}
           shelves={free.shelves}
@@ -709,32 +699,33 @@ export function FreeOverlay({
   set,
   canUse,
   page,
-  onExit,
   onMap,
-  onLeave,
   sound,
   onSound,
   archive,
   models,
+  named,
   held = false,
 }: {
   state: FreeState;
   set: Dispatch<SetStateAction<FreeState | null>>;
   /** The archive's keys: a shelved laptop onto the turntable, the turntable's back, the next shelf load. */
   archive?: { take: (id: string) => void; putAway?: () => void; more?: () => void };
-  /** A visit's model keys: a new laptop on the empty turntable, the turntable's laptop into the builder or copied. */
-  models?: { make?: () => void; edit?: () => void; copy?: () => void };
+  /**
+   * The workshop's model keys: on the empty turntable a new laptop or one put
+   * there from the list; the turntable's laptop into the builder or copied.
+   */
+  models?: { make?: () => void; put?: () => void; edit?: () => void; copy?: () => void };
+  /** The laptops the prompts are about, named over them: a shelved one by id, and the turntable's. */
+  named?: { shelf: (id: string) => PromptTitle | undefined; table?: PromptTitle };
   /** A card is up over the scene: the pointer is free and the keys are the card's. */
   held?: boolean;
   /** The laptop runs: it can be used. */
   canUse: boolean;
   /** The OS page, for full screen. */
   page?: { node: ReactNode; width: number; height: number };
-  /** Back to the builder; absent on a visit from the map. */
-  onExit?: () => void;
+  /** To the world map: through the door, or the pause menu's Map. */
   onMap?: () => void;
-  /** Back where the visit came from, through the door or the pause menu, rather than to the map. */
-  onLeave?: () => void;
   sound: boolean;
   onSound: (on: boolean) => void;
 }) {
@@ -795,8 +786,8 @@ export function FreeOverlay({
     else if (!state.paused && !state.using && !state.full) lock();
   }, [held, lock, unlock, state.paused, state.using, state.full]);
 
-  const live = useRef({ state, canUse, resume, archive, onMap: onLeave ?? onMap, models, held });
-  live.current = { state, canUse, resume, archive, onMap: onLeave ?? onMap, models, held };
+  const live = useRef({ state, canUse, resume, archive, onMap, models, held });
+  live.current = { state, canUse, resume, archive, onMap, models, held };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const { state: s, canUse: runs, resume: back, archive: shelves, onMap: leave, models: made } = live.current;
@@ -842,6 +833,9 @@ export function FreeOverlay({
         if (e.code === "KeyE" && made?.make) {
           e.preventDefault();
           made.make();
+        } else if (e.code === "KeyQ" && made?.put) {
+          unlock();
+          made.put();
         }
         return;
       }
@@ -870,13 +864,18 @@ export function FreeOverlay({
   const active = !state.paused && !state.full && !held;
   const screen = { key: "F", label: "Full screen" };
   let prompts: Prompt[] = [];
+  let title: PromptTitle | undefined;
   if (active && state.using) prompts = [{ key: "E", label: "Stop using" }, screen];
-  else if (active && state.door && (onLeave || onMap)) prompts.push({ key: "E", label: "Leave" });
+  else if (active && state.door && onMap) prompts.push({ key: "E", label: "Leave" });
   else if (active && state.shelf && archive && !state.busy) {
-    prompts.push({ key: "E", label: "Put on turntable" });
+    title = named?.shelf(state.shelf);
+    prompts.push({ key: "E", label: "Work on laptop build" });
     if (archive.more) prompts.push({ key: "N", label: "Next shelf" });
-  } else if (active && state.table && models?.make) prompts.push({ key: "E", label: "New laptop" });
-  else if (active && state.aim && !state.busy) {
+  } else if (active && state.table) {
+    if (models?.make) prompts.push({ key: "E", label: "New laptop" });
+    if (models?.put) prompts.push({ key: "Q", label: "Put laptop" });
+  } else if (active && state.aim && !state.busy) {
+    title = named?.table;
     if (!state.flipped) {
       if (state.lidOpen && canUse) prompts.push({ key: "E", label: "Use" }, screen);
       prompts.push({ key: "L", label: state.lidOpen ? "Shut lid" : "Open lid" });
@@ -910,7 +909,7 @@ export function FreeOverlay({
       {active && (
         <>
           {!state.using && <i className="cafe-dot" />}
-          <Prompts list={prompts} using={state.using} />
+          <Prompts list={prompts} using={state.using} title={title} />
         </>
       )}
       {state.paused && (
@@ -925,19 +924,12 @@ export function FreeOverlay({
               <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)}>
                 Sound
               </Entry>
-              {onExit && <Entry onClick={onExit}>Leave free view</Entry>}
-              {onLeave && <Entry onClick={onLeave}>Leave</Entry>}
+              {models?.edit && <Entry onClick={models.edit}>Build</Entry>}
               {onMap && <Entry onClick={onMap}>Map</Entry>}
               <SystemEntries />
             </div>
           </Column>
         </div>
-      )}
-      {/* The builder's Free view button, pressed: while the pointer is free, it leaves. */}
-      {onExit && (state.paused || (state.using && !state.full)) && (
-        <button type="button" className="fd-text bd-free on" onClick={onExit}>
-          Free view
-        </button>
       )}
     </div>
   );

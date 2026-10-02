@@ -28,12 +28,26 @@ function MouseGlyph() {
   );
 }
 
-export function Prompts({ list, using }: { list: Prompt[]; using: boolean }) {
+/** The laptop a group of prompts is about: its name, and its year beside it. */
+export interface PromptTitle {
+  name: string;
+  year?: number;
+}
+
+export function Prompts({ list, using, title }: { list: Prompt[]; using: boolean; title?: PromptTitle }) {
   // The last prompts stay drawn while they fade out.
   const [shown, setShown] = useState(list);
+  const [named, setNamed] = useState(title);
   if (list.length > 0 && list !== shown && JSON.stringify(list) !== JSON.stringify(shown)) setShown(list);
+  if (list.length > 0 && JSON.stringify(title) !== JSON.stringify(named)) setNamed(title);
   return (
     <div className={`cafe-prompts${list.length > 0 ? " on" : ""}${using ? " using" : ""}`}>
+      {named && (
+        <div className="cafe-prompt-title">
+          <b>{named.name}</b>
+          {named.year !== undefined && <small>{named.year}</small>}
+        </div>
+      )}
       {shown.map((p) => (
         <div key={p.label} className="cafe-prompt">
           <span className="cafe-key">{p.key === "mouse" ? <MouseGlyph /> : p.key}</span>

@@ -22,6 +22,27 @@ const PLACEHOLDER = /^front_(finish_|label$)/;
 /** The left wall's pilaster that stood across the personnel door: z from, to, and the wall face it is flattened onto (metres). */
 const DOOR_PILASTER = { z0: 2.85, z1: 3.43, face: -9 };
 
+/** The cream cabinet by the 3D printers stands on a black plinth of the same footprint (metres). */
+const CABINET = { x0: -3.76, x1: -2.84, z0: -6.46, z1: -5.59, plinth: 0.1 };
+
+/** Starts the cabinet's body on top of its plinth rather than inside it, where the two faces fought. */
+function seatCabinet(scene: THREE.Group) {
+  scene.getObjectByName("interior_enamel_cream")?.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const p = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+    const c = CABINET;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i);
+      const z = p.getZ(i);
+      if (p.getY(i) < 0.001 && x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1) p.setY(i, c.plinth);
+    }
+    p.needsUpdate = true;
+    mesh.geometry.computeBoundingBox();
+    mesh.geometry.computeBoundingSphere();
+  });
+}
+
 /** Pushes the pilaster in front of the door back into the wall, so the door stands clear. */
 function clearDoor(scene: THREE.Group) {
   scene.getObjectByName("wall_left_brick_whitewashed")?.traverse((o) => {
@@ -43,6 +64,7 @@ function useWorkshop(): { scene: THREE.Group; casters: THREE.Mesh[]; lift: numbe
   return useMemo(() => {
     const scene = gltf.scene;
     clearDoor(scene);
+    seatCabinet(scene);
     scene.updateMatrixWorld(true);
     // Relative to the scene itself: the loader caches the scene, so on a
     // remount it can still hang under the old mm-scaled group.

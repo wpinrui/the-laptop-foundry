@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { SavedCompany, SavedModel, SavedNote, Settings } from "../../preload/store";
+import type { SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "../../preload/store";
 import { campaignSaved, queueCampaignSave } from "./app/campaignSaves";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
@@ -160,7 +160,17 @@ export function App() {
           refresh(c);
           setSelected(latestModel(c)?.id ?? null);
           setOfficeAt(OFFICE_START);
-          setWhere({ at: "office" });
+          // Back where the company was left; the office when that is gone or unknown.
+          const p = c.place;
+          const m = p?.model ? (c.models.find((x) => x.id === p.model) ?? null) : null;
+          if (p?.at === "map") setWhere({ at: "map", from: null });
+          else if (p?.at === "courts") setWhere({ at: "courts" });
+          else if (p?.at === "workshop") setWhere({ at: "workshop", model: m, subject: null });
+          else if (p?.at === "cafe" && m && !buildBlock(m.build)) {
+            const s: Subject = { id: m.id, name: m.name, company: c.name, build: m.build as Build };
+            setWhere({ at: "office" });
+            void ensureMarket(m.build.year).then(() => setWhere({ at: "cafe", model: m, subject: s }));
+          } else setWhere({ at: "office" });
           setMenu("list");
           // The year the company is in opens with it.
           const year = c.campaign ? campaignOf(c.campaign).now.year : (latestModel(c)?.build as Build | undefined)?.year;
@@ -245,6 +255,25 @@ export function App() {
   })();
   if (placeKey !== arrival.key) setArrival({ key: placeKey, stage: placeKey ? "loading" : "done" });
   const loading = arrival.stage === "loading";
+
+  // Wherever the player goes, the company remembers it for the next time it opens.
+  const placeSaved = useRef("");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: saved when the place changes, not the company's contents
+  useEffect(() => {
+    if (!company) return;
+    const p: SavedPlace = open
+      ? { at: "workshop", model: open }
+      : where.at === "map" || where.at === "office" || where.at === "courts"
+        ? { at: where.at }
+        : where.model
+          ? { at: where.at, model: where.model.id }
+          : { at: where.at };
+    const key = `${company.id}:${p.at}:${p.model ?? ""}`;
+    const had = company.place ? `${company.id}:${company.place.at}:${company.place.model ?? ""}` : "";
+    if (key === placeSaved.current || (!placeSaved.current && key === had)) return;
+    placeSaved.current = key;
+    void store().savePlace(company.id, p);
+  }, [company?.id, where, open]);
 
   const view = (() => {
 

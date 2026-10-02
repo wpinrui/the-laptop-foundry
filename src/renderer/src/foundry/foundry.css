@@ -680,13 +680,33 @@
   animation: fd-in 200ms ease-out both;
 }
 
-.fd-modal-panel > b {
-  display: block;
+.fd-modal-panel {
+  max-width: calc(620 * var(--u));
+}
+
+.fd-modal-panel h2 {
+  margin: 0;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: calc(48 * var(--u));
-  line-height: 1;
+  font-size: calc(40 * var(--u));
+  line-height: 1.05;
   text-transform: uppercase;
+}
+
+.fd-modal-panel h2 b {
+  font-weight: inherit;
+  color: var(--accent);
+}
+
+.fd-modal-panel p {
+  margin: calc(16 * var(--u)) 0 0;
+  font-size: calc(18 * var(--u));
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.fd-modal-panel .fd-actions {
+  margin-top: calc(32 * var(--u));
 }
 
 .fd-modal-panel .fd-text:focus {

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { type Layout, ROOM, type Table, TABLE, TABLE_Y } from "./layout";
+import { type DepartmentName, type Layout, ROOM, type Table, TABLE, TABLE_Y } from "./layout";
 import type { OnSale } from "./onSale";
 
 // The display tables, their maker signs and each laptop's price tag, security
@@ -12,32 +12,22 @@ import type { OnSale } from "./onSale";
 export const BLUE = "#1d5fbf";
 export const YEL = "#f7c600";
 export const BLUE_D = "#123a80";
-/** Each department's colour, on its tables' edges and its overhead sign's trim, by class. */
-export const DEPT: Record<string, string> = {
-  Consumer: "#00a6a6",
+/** Each department's colour, on its tables' edges and its overhead sign's trim. Kept off blue so the trim shows on the signs. */
+export const DEPT: Record<DepartmentName, string> = {
+  MacBook: "#8a8d93",
+  Gaming: "#e2231a",
   Budget: "#2e9e4f",
-  Student: "#f28c28",
-  "K-12": "#ff6f61",
-  Writer: "#8d6e63",
-  Nomad: "#c0ca33",
-  Corporate: "#455a64",
-  "Biz Pro": "#3949ab",
-  Field: "#6d7a2b",
-  Developer: "#0097d6",
-  Creative: "#d81b60",
-  "Video Ed.": "#c62828",
-  "3D Artist": "#8e24aa",
-  "Music Prod.": "#7cb342",
-  "Tech Enth.": "#263238",
-  Gamer: "#ff3d00",
-  Esports: "#f50057",
-  Streamer: "#7e57c2",
+  Creator: "#d81b60",
+  Business: "#455a64",
+  "Thin and Light": "#00a6a6",
+  Everyday: "#f28c28",
 };
-/** A class without a colour of its own. */
+/** A label without a colour of its own. */
 const DEPT_OTHER = "#9a9a96";
 /** The player's own table: the store's yellow. */
 const DEPT_OWN = YEL;
-const deptColour = (label: string, own: boolean) => (own ? DEPT_OWN : (DEPT[label] ?? DEPT_OTHER));
+const deptColour = (label: string, own: boolean) =>
+  own ? DEPT_OWN : ((DEPT as Record<string, string>)[label] ?? DEPT_OTHER);
 
 const TAG_W = 512;
 const TAG_H = 360;
@@ -139,7 +129,7 @@ function canvasTexture(
   return t;
 }
 
-/** A table's sign: its class, or the company on the player's own, its price range and its makers. */
+/** A table's sign: its department, or the company on the player's own, its price range and its makers. */
 function drawHeader(g: CanvasRenderingContext2D, w: number, h: number, t: Table) {
   g.fillStyle = BLUE;
   g.fillRect(0, 0, w, h);
@@ -165,7 +155,7 @@ function drawHeader(g: CanvasRenderingContext2D, w: number, h: number, t: Table)
   }
 }
 
-/** The overhead sign over a department: its class, or the company's name, the trim in its colour. */
+/** The overhead sign over a department: its name, or the company's, the trim in its colour. */
 function drawOverhead(g: CanvasRenderingContext2D, w: number, h: number, label: string, colour: string) {
   g.fillStyle = BLUE;
   g.fillRect(0, 0, w, h);

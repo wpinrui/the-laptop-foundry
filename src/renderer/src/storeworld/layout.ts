@@ -1,4 +1,4 @@
-import { solve } from "../engine";
+import { factsOf, solve } from "../engine";
 import type { OnSale } from "./onSale";
 
 // The floor plan, in metres as the designer's store is: y up, the entrance
@@ -41,33 +41,56 @@ const SPARE: [number, number][] = [
   [-8.2, -5.5],
 ];
 
+/** The departments, in the order they fill the floor from the entrance in. */
+const DEPARTMENTS = ["MacBook", "Gaming", "Budget", "Creator", "Business", "Thin and Light", "Everyday"] as const;
+export type DepartmentName = (typeof DEPARTMENTS)[number];
+
+const GAMER = new Set(["Gamer", "Esports", "Streamer"]);
+const CREATOR = new Set(["Creative", "Video Ed.", "3D Artist", "Music Prod.", "Developer"]);
+const BUSINESS = new Set(["Corporate", "Biz Pro", "Field"]);
+/** Under this a laptop goes to Thin and Light, kg. */
+const LIGHT_KG = 1.4;
+
+/** A discrete graphics chip strong enough that the game classes the laptop as gaming for its year. */
+function strongGpu(i: OnSale): boolean {
+  if (!(i.build.parts.graphics ?? []).length) return false;
+  try {
+    return factsOf({ id: i.id, name: i.name, company: i.brand, build: i.build }).cls.performance === "gaming";
+  } catch {
+    return false;
+  }
+}
+
 /**
- * The departments, in the order they fill the floor from the entrance in:
- * everyday buyers, then work, then creative, then performance. Classes are
- * the buyer segments' short names.
+ * Each rival laptop's department, the first that fits: Apple's, then gaming
+ * by its graphics or its buyers, the cheapest quarter of the store, creators',
+ * business, the light ones, and everything else.
  */
-const DEPARTMENTS = [
-  "Consumer",
-  "Budget",
-  "Student",
-  "K-12",
-  "Writer",
-  "Nomad",
-  "Corporate",
-  "Biz Pro",
-  "Field",
-  "Developer",
-  "Creative",
-  "Video Ed.",
-  "3D Artist",
-  "Music Prod.",
-  "Tech Enth.",
-  "Gamer",
-  "Esports",
-  "Streamer",
-];
-/** A laptop whose class could not be worked out. */
-const OTHER = "Other";
+function departmentsOf(items: OnSale[], classOf: Map<string, string>): Map<string, DepartmentName> {
+  const prices = items.map((i) => i.price).sort((a, b) => a - b);
+  // The dearest price still in the cheapest quarter.
+  const cheap = prices.length ? prices[Math.max(0, Math.ceil(prices.length / 4) - 1)] : 0;
+  const out = new Map<string, DepartmentName>();
+  for (const i of items) {
+    const c = classOf.get(i.id) ?? "";
+    const d: DepartmentName =
+      i.maker === "apple"
+        ? "MacBook"
+        : strongGpu(i) || GAMER.has(c)
+          ? "Gaming"
+          : i.price <= cheap
+            ? "Budget"
+            : CREATOR.has(c)
+              ? "Creator"
+              : BUSINESS.has(c)
+                ? "Business"
+                : i.kg !== null && i.kg < LIGHT_KG
+                  ? "Thin and Light"
+                  : "Everyday";
+    out.set(i.id, d);
+  }
+  return out;
+}
 
 /** Places along one side of a table, by how many a side holds. */
 const ALONG: Record<number, number[]> = {
@@ -80,7 +103,7 @@ const ALONG: Record<number, number[]> = {
 export interface Table {
   x: number;
   z: number;
-  /** Its department's class, or the company's name on the player's own table. */
+  /** Its department, or the company's name on the player's own table. */
   label: string;
   own: boolean;
   /** Its department, by index into the layout's departments. */
@@ -91,7 +114,7 @@ export interface Table {
   high: number;
 }
 
-/** A department: one class, or the player's own laptops, on one or more tables. */
+/** A department, or the player's own laptops, on one or more tables. */
 export interface Department {
   label: string;
   own: boolean;
@@ -133,7 +156,7 @@ const PER_TABLE = [4, 6, 8];
 
 /**
  * Tables by department: the player's own on the table nearest the entrance,
- * then one class to a table in department order, a big class taking several
+ * then one department to a table in department order, a big one taking several
  * tables side by side. Each department runs cheapest first, left to right
  * along each side as a shopper faces it. Tables hold fewer laptops the
  * fewer there are, and more when the departments would not fit otherwise.
@@ -143,18 +166,12 @@ export function layoutOf(items: OnSale[], classOf: Map<string, string>, company:
   const groups: { label: string; own: boolean; items: OnSale[] }[] = [];
   const own = items.filter((i) => i.own).sort(byPrice);
   if (own.length) groups.push({ label: company, own: true, items: own });
-  const rank = (c: string) => {
-    const i = DEPARTMENTS.indexOf(c);
-    return i < 0 ? DEPARTMENTS.length : i;
-  };
-  const byClass = new Map<string, OnSale[]>();
-  for (const i of items) {
-    if (i.own) continue;
-    const c = classOf.get(i.id) ?? OTHER;
-    byClass.set(c, [...(byClass.get(c) ?? []), i]);
+  const rivals = items.filter((i) => !i.own);
+  const dept = departmentsOf(rivals, classOf);
+  for (const d of DEPARTMENTS) {
+    const here = rivals.filter((i) => dept.get(i.id) === d).sort(byPrice);
+    if (here.length) groups.push({ label: d, own: false, items: here });
   }
-  for (const c of [...byClass.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)))
-    groups.push({ label: c, own: false, items: (byClass.get(c) ?? []).sort(byPrice) });
 
   // Without own laptops the slot by the entrance stands empty.
   const slots = [...SLOTS, ...SPARE].slice(own.length ? 0 : 1);

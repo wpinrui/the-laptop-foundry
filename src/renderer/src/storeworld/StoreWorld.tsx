@@ -190,7 +190,8 @@ export function StoreWorld({
   const lock = useCallback(() => {
     const el = root.current;
     if (!el) return;
-    Promise.resolve(el.requestPointerLock()).catch(pause);
+    // Refused (as just after Escape): the next click takes the pointer, the menu stays shut.
+    Promise.resolve(el.requestPointerLock()).catch(() => {});
   }, [pause]);
 
   const unlock = useCallback(() => {
@@ -210,10 +211,8 @@ export function StoreWorld({
       pause();
     };
     document.addEventListener("pointerlockchange", change);
-    document.addEventListener("pointerlockerror", pause);
     return () => {
       document.removeEventListener("pointerlockchange", change);
-      document.removeEventListener("pointerlockerror", pause);
       expectUnlock.current = true;
       if (document.pointerLockElement) document.exitPointerLock();
     };

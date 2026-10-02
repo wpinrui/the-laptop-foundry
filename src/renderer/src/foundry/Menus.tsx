@@ -353,33 +353,43 @@ export function LoadCompany({
       </div>
       {doomed && (
         <ConfirmDelete
-          company={doomed}
+          name={doomed.name}
+          what="company"
           onConfirm={() => {
             setDoomed(null);
             onDelete(doomed.id);
           }}
           onCancel={() => setDoomed(null)}
-        />
+        >
+          {doomed.models.length > 0
+            ? `Its ${laptopCount(doomed.models.length)} and all its progress go with it.`
+            : "All its progress goes with it."}
+        </ConfirmDelete>
       )}
     </Column>
   );
 }
 
 /**
- * Asks before a save is deleted, over the whole menu. Cancel takes focus, the
- * arrows move between the two, Escape or a click on the scrim cancels; the
- * menu underneath hears none of the keys.
+ * Asks before something is deleted, over the whole screen. Keep it takes
+ * focus, the arrows move between the two, Escape or a click on the scrim
+ * keeps it; the screen underneath hears none of the keys.
  */
-function ConfirmDelete({
-  company,
+export function ConfirmDelete({
+  name,
+  what,
+  children,
   onConfirm,
   onCancel,
 }: {
-  company: SavedCompany;
+  name: string;
+  /** The kind of thing, for the button: "company", "model". */
+  what: string;
+  /** What goes with it. */
+  children: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const n = company.models.length;
   const cancel = useRef<HTMLButtonElement>(null);
   const confirm = useRef<HTMLButtonElement>(null);
   const done = useRef(onCancel);
@@ -387,7 +397,7 @@ function ConfirmDelete({
   useEffect(() => {
     cancel.current?.focus();
     const key = (e: KeyboardEvent) => {
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       if (e.key === "Escape") {
         e.preventDefault();
         done.current();
@@ -396,22 +406,24 @@ function ConfirmDelete({
         (document.activeElement === cancel.current ? confirm : cancel).current?.focus();
       }
     };
+    const up = (e: KeyboardEvent) => e.stopImmediatePropagation();
     window.addEventListener("keydown", key, true);
-    return () => window.removeEventListener("keydown", key, true);
+    window.addEventListener("keyup", up, true);
+    return () => {
+      window.removeEventListener("keydown", key, true);
+      window.removeEventListener("keyup", up, true);
+    };
   }, []);
   return createPortal(
-    <div className="fd-modal" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+    <div className="fd fd-modal" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
       <div className="fd-modal-panel" role="alertdialog" aria-modal aria-labelledby="fd-modal-title">
         <h2 id="fd-modal-title">
-          Delete <b>{company.name}</b>?
+          Delete <b>{name}</b>?
         </h2>
-        <p>
-          {n > 0 ? `Its ${laptopCount(n)} and all its progress go with it.` : "All its progress goes with it."} This can't be
-          undone.
-        </p>
+        <p>{children} This can't be undone.</p>
         <div className="fd-actions">
-          <button ref={confirm} type="button" className="fd-primary" onClick={onConfirm}>
-            Delete company
+          <button ref={confirm} type="button" className="fd-primary fd-danger" onClick={onConfirm}>
+            Delete {what}
           </button>
           <button ref={cancel} type="button" className="fd-text" onClick={onCancel}>
             Keep it
@@ -419,7 +431,7 @@ function ConfirmDelete({
         </div>
       </div>
     </div>,
-    document.querySelector(".fd") ?? document.body,
+    document.body,
   );
 }
 

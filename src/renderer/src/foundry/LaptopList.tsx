@@ -3,6 +3,7 @@ import type { SavedCompany, SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
 import { type Build, scoresOf } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
+import { ConfirmDelete } from "./Menus";
 import { statusOf, usdShort } from "./Release";
 import "./foundry.css";
 
@@ -70,7 +71,7 @@ export function LaptopList({
     () => sortedModels(company).map((m) => ({ m, block: buildBlock(m.build), score: m.reviewed ? overallOf(m, company.name) : null })),
     [company.models, company.name],
   );
-  const [armed, setArmed] = useState<string | null>(null);
+  const [doomed, setDoomed] = useState<SavedModel | null>(null);
   // A finished campaign keeps its models but makes no new ones.
   const over = !!campaign?.over;
   const rows = useRef<HTMLDivElement>(null);
@@ -91,7 +92,6 @@ export function LaptopList({
       const step = e.key === "ArrowDown" || e.code === "KeyS" ? 1 : e.key === "ArrowUp" || e.code === "KeyW" ? -1 : 0;
       if (step && k.models.length > 0) {
         e.preventDefault();
-        setArmed(null);
         k.onSelect(k.models[(k.i + step + k.models.length) % k.models.length].m.id);
         requestAnimationFrame(() =>
           rows.current?.querySelector<HTMLElement>(".selected")?.scrollIntoView({ block: "nearest" }),
@@ -147,10 +147,7 @@ export function LaptopList({
               key={m.id}
               type="button"
               className={`fd-row${m.id === selected ? " selected" : ""}`}
-              onClick={() => {
-                onSelect(m.id);
-                setArmed(null);
-              }}
+              onClick={() => onSelect(m.id)}
               onDoubleClick={() => onOpen(m.id)}
             >
               <span>
@@ -221,18 +218,25 @@ export function LaptopList({
             <button
               type="button"
               className="fd-secondary muted"
-              onBlur={() => setArmed(null)}
-              onClick={() => {
-                if (armed === current.m.id) {
-                  setArmed(null);
-                  onDelete(current.m.id);
-                } else setArmed(current.m.id);
-              }}
+              onClick={() => setDoomed(current.m)}
             >
-              {armed === current.m.id ? "Confirm" : "Delete"}
+              Delete
             </button>
           </div>
         </section>
+      )}
+      {doomed && (
+        <ConfirmDelete
+          name={doomed.name}
+          what="model"
+          onConfirm={() => {
+            setDoomed(null);
+            onDelete(doomed.id);
+          }}
+          onCancel={() => setDoomed(null)}
+        >
+          {doomed.reviewed ? "Its build and its review go with it." : "Its build goes with it."}
+        </ConfirmDelete>
       )}
     </>
   );

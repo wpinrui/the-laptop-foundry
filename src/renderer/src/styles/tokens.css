@@ -217,6 +217,7 @@
   --accent: oklch(0.76 0.16 55);
   --accent-wash: rgba(232, 137, 74, 0.12);
   --warning: oklch(0.82 0.14 85);
+  --danger: oklch(0.6 0.2 27);
   --line: rgba(239, 230, 220, 0.14);
   --line-strong: rgba(239, 230, 220, 0.3);
   --font-display: "Barlow Condensed", system-ui, sans-serif;

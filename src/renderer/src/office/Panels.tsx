@@ -7,6 +7,7 @@ import { AwardsTab } from "../foundry/Awards";
 import { BooksTab, type StatementTab } from "../foundry/Finance";
 import { overallOf, yearOf } from "../foundry/LaptopList";
 import { BrandTab } from "../foundry/Marketing";
+import { ConfirmDelete } from "../foundry/Menus";
 import { ModelTab, statusOf, usd, usdShort } from "../foundry/Release";
 import { type MarketTab, MarketScreen } from "../world/MarketScreen";
 import { labelOf, type OfficeAt, type StationId } from "./stations";
@@ -343,7 +344,7 @@ function Detail({
   score: number | null;
   actions: OfficeActions;
 }) {
-  const [armed, setArmed] = useState(false);
+  const [doomed, setDoomed] = useState(false);
   const block = buildBlock(model.build);
   const over = !!campaign?.over;
   return (
@@ -377,17 +378,24 @@ function Detail({
         <button
           type="button"
           className="fd-secondary muted"
-          onBlur={() => setArmed(false)}
-          onClick={() => {
-            if (armed) {
-              setArmed(false);
-              actions.onDelete(model.id);
-            } else setArmed(true);
-          }}
+          onClick={() => setDoomed(true)}
         >
-          {armed ? "Confirm" : "Delete"}
+          Delete
         </button>
       </div>
+      {doomed && (
+        <ConfirmDelete
+          name={model.name}
+          what="model"
+          onConfirm={() => {
+            setDoomed(false);
+            actions.onDelete(model.id);
+          }}
+          onCancel={() => setDoomed(false)}
+        >
+          {model.reviewed ? "Its build and its review go with it." : "Its build goes with it."}
+        </ConfirmDelete>
+      )}
       {block && <div className="cr-short">{block}</div>}
       {campaign && (
         <div className="of-model-tab">

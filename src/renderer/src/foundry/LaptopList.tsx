@@ -228,15 +228,12 @@ export function LaptopList({
       {doomed && (
         <ConfirmDelete
           name={doomed.name}
-          what="model"
           onConfirm={() => {
             setDoomed(null);
             onDelete(doomed.id);
           }}
           onCancel={() => setDoomed(null)}
-        >
-          {doomed.reviewed ? "Its build and its review go with it." : "Its build goes with it."}
-        </ConfirmDelete>
+        />
       )}
     </>
   );

@@ -354,16 +354,14 @@ export function LoadCompany({
       {doomed && (
         <ConfirmDelete
           name={doomed.name}
-          what="company"
           onConfirm={() => {
             setDoomed(null);
             onDelete(doomed.id);
           }}
           onCancel={() => setDoomed(null)}
         >
-          {doomed.models.length > 0
-            ? `Its ${laptopCount(doomed.models.length)} and all its progress go with it.`
-            : "All its progress goes with it."}
+          {doomed.models.length > 0 &&
+            `Its ${laptopCount(doomed.models.length)} will be deleted too.`}
         </ConfirmDelete>
       )}
     </Column>
@@ -371,22 +369,19 @@ export function LoadCompany({
 }
 
 /**
- * Asks before something is deleted, over the whole screen. Keep it takes
+ * Asks before something is deleted, over the whole screen. Cancel takes
  * focus, the arrows move between the two, Escape or a click on the scrim
- * keeps it; the screen underneath hears none of the keys.
+ * cancels; the screen underneath hears none of the keys.
  */
 export function ConfirmDelete({
   name,
-  what,
   children,
   onConfirm,
   onCancel,
 }: {
   name: string;
-  /** The kind of thing, for the button: "company", "model". */
-  what: string;
-  /** What goes with it. */
-  children: ReactNode;
+  /** What else is deleted along with it, if anything. */
+  children?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -420,13 +415,16 @@ export function ConfirmDelete({
         <h2 id="fd-modal-title">
           Delete <b>{name}</b>?
         </h2>
-        <p>{children} This can't be undone.</p>
+        <p>
+          {children}
+          {children && " "}You can't undo this.
+        </p>
         <div className="fd-actions">
           <button ref={confirm} type="button" className="fd-primary fd-danger" onClick={onConfirm}>
-            Delete {what}
+            Delete
           </button>
           <button ref={cancel} type="button" className="fd-text" onClick={onCancel}>
-            Keep it
+            Cancel
           </button>
         </div>
       </div>

@@ -56,7 +56,7 @@ const DOOR_BOX = new THREE.Box3(
 /** In use, the screen fills this much of the view. */
 const USE_FILL = 0.74;
 /** Beyond this distance a laptop draws its simpler copy. */
-const FAR = 2800;
+const FAR = 6000;
 /** Laptop models mounted for baking at once. */
 const BATCH = 2;
 /** Frames a model is mounted before it is baked: its units build in effects. */

@@ -101,7 +101,7 @@ export function SystemMenu({
           <br />
           Foundry
         </h1>
-        {[entries.slice(0, 3), entries.slice(3)].map((group, g) => (
+        {[entries.filter((e) => !e.secondary), entries.filter((e) => e.secondary)].map((group, g) => (
           <div key={g === 0 ? "main" : "more"} className="fd-entries">
             {group.map((e) => {
               const i = entries.indexOf(e);

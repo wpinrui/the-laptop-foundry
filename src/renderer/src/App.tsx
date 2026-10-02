@@ -728,7 +728,8 @@ export function App() {
               ? undefined
               : () => {
                   setSystem(false);
-                  toMap(where);
+                  setOpen(null);
+                  setWhere({ at: "map", from: where });
                 }
           }
         />

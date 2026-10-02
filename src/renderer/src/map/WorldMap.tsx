@@ -45,10 +45,10 @@ const ICON: Record<Place, ReactNode> = {
 
 /** Each place on its street corner, design px on the 1040 by 810 map. */
 const PLACES: { id: Place; name: string; tip: string; x: number; y: number; bring: boolean }[] = [
-  { id: "workshop", name: "Workshop", tip: "Build and edit your laptops.", x: 180, y: 470, bring: true },
-  { id: "cafe", name: "Cafe", tip: "Use one of your laptops.", x: 470, y: 210, bring: true },
-  { id: "office", name: "Office", tip: "Run the company.", x: 800, y: 210, bring: false },
-  { id: "courts", name: "Courts", tip: "See the laptops on sale.", x: 800, y: 690, bring: false },
+  { id: "workshop", name: "Workshop", tip: "Build and edit your laptops", x: 180, y: 470, bring: true },
+  { id: "cafe", name: "Cafe", tip: "Use one of your laptops", x: 470, y: 210, bring: true },
+  { id: "office", name: "Office", tip: "Run the company", x: 800, y: 210, bring: false },
+  { id: "courts", name: "Courts", tip: "See the laptops on sale", x: 800, y: 690, bring: false },
 ];
 const STREETS_Y = [201, 461, 681];
 const STREETS_X = [171, 461, 791];

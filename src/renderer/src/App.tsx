@@ -582,7 +582,11 @@ export function App() {
             .then((c) => {
               refresh(c);
               setSelected(null);
-              setWhere({ at: "map", from: null });
+              if (start === undefined) setWhere({ at: "map", from: null });
+              else {
+                setOfficeAt(OFFICE_START);
+                setWhere({ at: "office" });
+              }
               setMenu("list");
             })
         }

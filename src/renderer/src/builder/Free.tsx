@@ -838,13 +838,20 @@ export function FreeOverlay({
         return;
       }
       if (s.table && !s.using) {
-        if (e.code === "KeyE") made?.make?.();
+        // The key that opens the name card must not type into its field.
+        if (e.code === "KeyE" && made?.make) {
+          e.preventDefault();
+          made.make();
+        }
         return;
       }
       if (!s.aim || s.using) return;
       if (e.code === "KeyP" && shelves?.putAway) shelves.putAway();
       else if (e.code === "KeyB" && made?.edit) made.edit();
-      else if (e.code === "KeyC" && made?.copy) made.copy();
+      else if (e.code === "KeyC" && made?.copy) {
+        e.preventDefault();
+        made.copy();
+      }
       else if (e.code === "KeyE" && !s.flipped && s.lidOpen && runs) {
         unlock();
         patch({ using: true });

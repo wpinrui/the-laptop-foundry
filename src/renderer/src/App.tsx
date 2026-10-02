@@ -468,7 +468,6 @@ export function App() {
         model={model}
         company={name}
         onSave={(m) => save(m)}
-        onBack={() => setOpen(null)}
         onReady={going ? () => setGoing("here") : undefined}
         onMap={() => toMap({ at: "workshop", model, subject: null })}
         onReview={review}

@@ -142,3 +142,12 @@
 .sw-step {
   width: calc(48 * var(--u));
 }
+
+/* Create clone: the width of Back, directly above it. */
+.sw-clone {
+  padding-inline: calc(56 * var(--u));
+}
+
+.sw-clone + .sw-nav {
+  margin-top: calc(-12 * var(--u));
+}

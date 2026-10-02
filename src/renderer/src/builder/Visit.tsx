@@ -36,8 +36,8 @@ import {
 import { Workshop } from "./Workshop";
 import "./builder.css";
 
-// A visit to the workshop from the world map: in through the personnel door,
-// straight into free view, with the chosen laptop on the turntable or none.
+// A visit to the workshop: standing in front of the turntable, straight into
+// free view, with the chosen laptop on the turntable or none.
 // Any laptop off the archive's shelves can be put on the turntable. Out
 // through the door, or the pause menu's Map, goes back to the map.
 
@@ -97,7 +97,7 @@ export interface TableDrive {
   onShelf: (id: string | null) => void;
   shelves: RefObject<AimShelf | null>;
   stance: RefObject<Stance | null>;
-  atDoor?: boolean;
+  onFoot?: boolean;
   onDoor?: (on: boolean) => void;
 }
 
@@ -261,7 +261,7 @@ export function WorkshopVisit({
   };
   // Behind a card the scene stands still, as behind the pause menu.
   const shown = held ? { ...state, paused: true } : state;
-  const drive: TableDrive = { onAim, onSettled, onShelf, shelves: aim, stance, atDoor: true, onDoor };
+  const drive: TableDrive = { onAim, onSettled, onShelf, shelves: aim, stance, onFoot: true, onDoor };
 
   return (
     <div className="fd bd free">

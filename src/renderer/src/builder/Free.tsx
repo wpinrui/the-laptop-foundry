@@ -73,8 +73,8 @@ const RECTS: Rect[] = [
 ];
 /** The personnel door in the left wall, from the designer's workshop: looking at it offers leaving. */
 const DOOR = new THREE.Box3(new THREE.Vector3(ROOM.x0 - 250, FLOOR, 2700), new THREE.Vector3(ROOM.x0 + 60, FLOOR + 2300, 3700));
-/** Arriving through the door: where the player stands. */
-const DOOR_START = new THREE.Vector3(ROOM.x0 + 900, EYE, 2700);
+/** Arriving on a visit: where the player stands, in front of the turntable. */
+const TABLE_START = new THREE.Vector3(0, EYE, 1100);
 /** The empty turntable's top: looking at it offers a new laptop. */
 const TABLE_TOP = new THREE.Box3(
   new THREE.Vector3(-TURNTABLE_R, PLINTH_H - 80, -TURNTABLE_R),
@@ -256,7 +256,7 @@ export function Walker({
   using,
   useAt,
   onAim,
-  atDoor = false,
+  onFoot = false,
   onDoor,
   stance,
   shelves,
@@ -269,8 +269,8 @@ export function Walker({
   /** Where the player stands to use the laptop, and what they look at. */
   useAt: (aspect: number) => Pose;
   onAim: (on: boolean) => void;
-  /** Arrives through the personnel door rather than from the builder's camera. */
-  atDoor?: boolean;
+  /** Arrives standing in front of the turntable rather than from the builder's camera. */
+  onFoot?: boolean;
   /** Whether the aim dot is on the personnel door; without it the door is not offered. */
   onDoor?: (on: boolean) => void;
   /** Where the player stood before a swap on the turntable remounted this. */
@@ -363,11 +363,11 @@ export function Walker({
     if (!started.current) {
       // Stand where the builder's camera is, out of the island, facing the laptop.
       started.current = true;
-      const p = atDoor ? DOOR_START.clone() : new THREE.Vector3(camera.position.x, EYE, camera.position.z);
+      const p = onFoot ? TABLE_START.clone() : new THREE.Vector3(camera.position.x, EYE, camera.position.z);
       collideIn(p, ROOM, RECTS, BODY);
       pos.current.copy(p);
       look.current = lookAngles(p, new THREE.Vector3(0, PLINTH_H + 60, 0));
-      if (atDoor) {
+      if (onFoot) {
         camera.fov = FOV;
         camera.clearViewOffset();
         camera.updateProjectionMatrix();
@@ -505,8 +505,8 @@ export interface FreeDrive {
   page?: ScreenPage;
   onAim: (on: boolean) => void;
   onSettled: () => void;
-  /** Arrives through the personnel door. */
-  atDoor?: boolean;
+  /** Arrives standing in front of the turntable. */
+  onFoot?: boolean;
   /** Whether the aim dot is on the personnel door, which leaves to the map. */
   onDoor?: (on: boolean) => void;
   stance?: RefObject<Stance | null>;
@@ -689,7 +689,7 @@ export function WorkshopLaptop({
           using={free.state.using}
           useAt={useAt}
           onAim={free.onAim}
-          atDoor={free.atDoor}
+          onFoot={free.onFoot}
           onDoor={free.onDoor}
           stance={free.stance}
           shelves={free.shelves}

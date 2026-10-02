@@ -319,21 +319,25 @@ export function App() {
     else setWhere({ at: place, model: m, subject: null, office });
   };
 
+  // A copy of a build to name. In a campaign every new model, a copy too, is built for the current year.
+  const nameCopy = (build: Build) => {
+    const b = structuredClone(build);
+    setNaming(campaign ? toYear(b, campaign.now.year) : b);
+  };
   const duplicate = (id: string) => {
     const src = company?.models.find((m) => m.id === id);
     if (!src || campaign?.over) return null;
-    const b = structuredClone(src.build) as Build;
-    // In a campaign every new model, a duplicate too, is built for the current year.
-    setNaming(campaign ? toYear(b, campaign.now.year) : b);
+    nameCopy(src.build as Build);
     return src;
   };
   const newModel = () => setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
-  // From the Office a new model, or a copy, is made in the workshop, the travel card up until the room is in.
-  const toWorkshop = (m: SavedModel | null) => {
+  // From the Office or the store a new model, or a copy, goes to the workshop, the travel card up until the room is in.
+  const toWorkshop = (m: SavedModel | null, office = true) => {
     setGoing("loading");
-    setWhere({ at: "workshop", model: m, subject: null, office: true });
+    setWhere({ at: "workshop", model: m, subject: null, office });
   };
   // The named build becomes a model and opens in the builder; leaving it, a workshop visit has it on the turntable.
+  // A clone named in the store goes to the workshop's turntable instead.
   const nameCard = naming && (
     <NameCard
       roll={() => randomName(naming.year, inchesOf(naming))}
@@ -345,6 +349,10 @@ export function App() {
           setNaming(null);
           setSelected(m.id);
           setOfficeAt((a) => ({ ...a, station: "desk", model: m.id, arrive: false }));
+          if (where.at === "courts") {
+            toWorkshop(m, false);
+            return;
+          }
           setWhere((w) => (w.at === "workshop" ? { ...w, model: m } : w));
           setOpen(m.id);
         });
@@ -403,12 +411,16 @@ export function App() {
   }
   if (company && where.at === "courts")
     return (
-      <StoreWorld
-        company={company}
-        onMap={() => toMap(where)}
-        sound={settings.sound}
-        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
-      />
+      <>
+        <StoreWorld
+          company={company}
+          onMap={() => toMap(where)}
+          onClone={campaign?.over ? undefined : (item) => nameCopy(item.build)}
+          sound={settings.sound}
+          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+        />
+        {nameCard}
+      </>
     );
   if (company && where.at === "map")
     return (

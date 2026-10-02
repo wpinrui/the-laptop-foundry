@@ -1,8 +1,5 @@
 import { type ReactNode, useMemo, useRef, useState } from "react";
 import { factsOf, laptopKind, type Review, scoresOf, type Subject } from "../engine";
-import { marketScore } from "../engine/market/score";
-import { segmentById } from "../engine/market/segments";
-import { type HeadlineValues, headlineStats } from "../engine/market/stats";
 import { type Era, num } from "./Charts";
 import {
   band,
@@ -19,6 +16,7 @@ import {
   useCurrent,
 } from "./blocks";
 import { useHonours } from "./honours";
+import { bestSegments } from "./segments";
 import "./review.css";
 
 // The in-game review site, Notebookcheck (GDD: it publishes the reviews). Its
@@ -131,34 +129,6 @@ export interface IndexEntry {
   subject: Subject;
   /** The player's own model. */
   own: boolean;
-}
-
-/**
- * Each laptop's best buyer segment and its market score, against the laptops
- * listed for its year: that year's market and the player's own.
- */
-function bestSegments(subjects: Subject[]): Map<string, { segment: string; score: number }> {
-  const stats = new Map<string, HeadlineValues>();
-  for (const s of subjects) {
-    try {
-      const f = factsOf(s);
-      stats.set(s.id, headlineStats(s.build, f.fit, f.m, f.r));
-    } catch {}
-  }
-  const byYear = new Map<number, HeadlineValues[]>();
-  for (const s of subjects) {
-    const v = stats.get(s.id);
-    if (v) byYear.set(s.build.year, [...(byYear.get(s.build.year) ?? []), v]);
-  }
-  const out = new Map<string, { segment: string; score: number }>();
-  for (const s of subjects) {
-    const v = stats.get(s.id);
-    if (!v) continue;
-    const segs = Object.values(marketScore({ id: s.id, stats: v }, byYear.get(s.build.year) ?? []).segments);
-    const best = segs.reduce((a, b) => (b.score > a.score || (b.score === a.score && b.base > a.base) ? b : a));
-    out.set(s.id, { segment: segmentById(best.segment).shortName, score: best.score });
-  }
-  return out;
 }
 
 const BODIES = ["thin and light", "medium", "large"] as const;

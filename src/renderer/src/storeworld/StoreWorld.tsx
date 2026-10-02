@@ -17,6 +17,7 @@ import type { CampaignState } from "../engine/campaign";
 import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
 import { lookOf as screenLook } from "../review/look";
+import { bestSegments } from "../review/segments";
 import { countShort } from "../world/data";
 import { flagOf } from "./displays";
 import { layoutOf } from "./layout";
@@ -128,6 +129,8 @@ export interface StoreWorldProps {
   onSound?: (on: boolean) => void;
   /** To the world map: out through the door, or Map from the pause menu. */
   onMap: () => void;
+  /** Names a copy of the inspected laptop as the company's own; absent when no more can be made. */
+  onClone?: (item: OnSale) => void;
 }
 
 export function StoreWorld({
@@ -137,8 +140,26 @@ export function StoreWorld({
   sound,
   onSound,
   onMap,
+  onClone,
 }: StoreWorldProps) {
   const stock = useOnSale(company, campaign, year);
+  // Each laptop's best buyer segment, and its share of the units sold by everything on sale in that class.
+  const classes = useMemo(() => {
+    const best = bestSegments(stock.items.map((i) => ({ id: i.id, name: i.name, company: i.brand, build: i.build })));
+    const sold = new Map<string, number>();
+    for (const i of stock.items) {
+      const c = best.get(i.id)?.segment;
+      if (c) sold.set(c, (sold.get(c) ?? 0) + i.units);
+    }
+    const out = new Map<string, { name: string; share: number | null }>();
+    for (const i of stock.items) {
+      const c = best.get(i.id)?.segment;
+      if (!c) continue;
+      const all = sold.get(c) ?? 0;
+      out.set(i.id, { name: c, share: i.units > 0 && all > 0 ? Math.round((i.units / all) * 100) : null });
+    }
+    return out;
+  }, [stock.items]);
   const layout = useMemo(() => layoutOf(stock.items), [stock.items]);
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLElement>(null);
@@ -333,6 +354,8 @@ export function StoreWorld({
         <Card
           ref={card}
           item={seat.item}
+          cls={classes.get(seat.item.id)}
+          onClone={onClone && (() => onClone(seat.item))}
           onPrev={() => step(-1)}
           onNext={() => step(1)}
           onBack={close}
@@ -386,12 +409,17 @@ function Chevron({ dir }: { dir: -1 | 1 }) {
 function Card({
   ref,
   item,
+  cls,
+  onClone,
   onPrev,
   onNext,
   onBack,
 }: {
   ref: Ref<HTMLElement>;
   item: OnSale;
+  /** Its best buyer segment, and its share of that class's units. */
+  cls?: { name: string; share: number | null };
+  onClone?: () => void;
   onPrev: () => void;
   onNext: () => void;
   onBack: () => void;
@@ -413,6 +441,8 @@ function Card({
   const cells: [string, string, string?][] = [];
   if (item.units > 0) cells.push(["Sold", countShort(item.units)]);
   if (item.rank !== null) cells.push(["Rank", `${item.rank}`]);
+  if (cls) cells.push(["Class", cls.name]);
+  if (cls?.share != null) cells.push(["Class share", `${cls.share}%`]);
   return (
     <aside ref={ref} className="sw-card">
       <div>
@@ -453,6 +483,13 @@ function Card({
             </div>
           ))}
       </div>
+      {onClone && (
+        <div className="sw-nav sw-clone">
+          <button type="button" className="sw-back" onClick={onClone}>
+            Create clone
+          </button>
+        </div>
+      )}
       <div className="sw-nav">
         <button
           type="button"

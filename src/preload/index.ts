@@ -28,6 +28,8 @@ function listen<T>(channel: string, cb: (m: T) => void): () => void {
 /** The typed surface exposed to the renderer as `window.api`. Keep it minimal. */
 const api = {
   versions: process.versions,
+  /** Escape in the game, held back from the browser so it never drops the pointer lock. */
+  onEscape: (cb: () => void) => listen("game:escape", cb),
   store: {
     /** Every save, most recently played first. */
     companies: (): Promise<SavedCompany[]> => ipcRenderer.invoke("store:companies"),

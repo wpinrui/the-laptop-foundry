@@ -151,7 +151,10 @@ export function BuilderScene({
   room,
   hideLaptop = false,
   portal,
+  onReady,
 }: {
+  /** The workshop has loaded and drawn. */
+  onReady?: () => void;
   /** More of the workshop in the canvas: the archive's shelves, a laptop swapped onto the turntable. */
   room?: ReactNode;
   /** Free view has another laptop, or none, on the turntable. */
@@ -242,7 +245,7 @@ export function BuilderScene({
           if (!free && moved.current < 4 && !arrowDrag.on && performance.now() >= arrowDrag.until) onMiss?.();
         }}
       >
-        <Workshop />
+        <Workshop onReady={onReady} />
         <Reflections intensity={0.5} />
         <Lights dim={0.45} />
         <directionalLight position={[200, 1200, 1600]} color={token("stage-key")} intensity={0.3} />

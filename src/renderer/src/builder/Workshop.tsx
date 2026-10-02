@@ -19,8 +19,12 @@ const SHADOW_FRAMES = 3;
 const NO_CAST = ["roof", "clerestory", "lights"];
 const noRaycast = () => {};
 const PLACEHOLDER = /^front_(finish_|label$)/;
-/** Top of the side walls' green brick dado, metres: the front and back walls' white brick already starts here. */
-const DADO_TOP = 1.4;
+/** The side walls' green brick dados, which shared the white brick's face: brought this far into the room (metres). */
+const DADOS = [
+  { name: "wall_left_brick_painted_green", side: 1 },
+  { name: "wall_right_brick_painted_green", side: -1 },
+];
+const DADO_PROUD = 0.002;
 /** The side walls' inner faces, x in metres: anything proud of them is a brick pilaster. */
 const WALL_FACES = [
   { name: "wall_left_brick_whitewashed", face: -9, side: 1 },
@@ -62,12 +66,24 @@ function removePilasters(scene: THREE.Group) {
       for (let t = 0; t + 2 < idx.length; t += 3)
         if (!proud(idx[t]) && !proud(idx[t + 1]) && !proud(idx[t + 2])) kept.push(idx[t], idx[t + 1], idx[t + 2]);
       g.setIndex(kept);
-      // The green brick dado covers the wall to DADO_TOP: the white brick starts above it, not on the same face.
-      for (let i = 0; i < p.count; i++) if (p.getY(i) < DADO_TOP) p.setY(i, DADO_TOP);
-      p.needsUpdate = true;
       g.clearGroups();
       g.computeBoundingBox();
       g.computeBoundingSphere();
+    });
+}
+
+/** Brings each side wall's dado face just proud of the white brick behind it, so the two no longer fight. */
+function liftDados(scene: THREE.Group) {
+  for (const d of DADOS)
+    scene.getObjectByName(d.name)?.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const p = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+      const face = d.side > 0 ? -9 : 9;
+      for (let i = 0; i < p.count; i++) if (Math.abs(p.getX(i) - face) < 0.0005) p.setX(i, face + d.side * DADO_PROUD);
+      p.needsUpdate = true;
+      mesh.geometry.computeBoundingBox();
+      mesh.geometry.computeBoundingSphere();
     });
 }
 
@@ -76,6 +92,7 @@ function useWorkshop(): { scene: THREE.Group; casters: THREE.Mesh[]; lift: numbe
   return useMemo(() => {
     const scene = gltf.scene;
     removePilasters(scene);
+    liftDados(scene);
     seatCabinet(scene);
     scene.updateMatrixWorld(true);
     // Relative to the scene itself: the loader caches the scene, so on a

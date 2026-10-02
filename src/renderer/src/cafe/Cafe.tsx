@@ -198,7 +198,10 @@ export function Cafe({
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
-        } else if (s.full || s.using) pause();
+        } else {
+          unlock();
+          pause();
+        }
         return;
       }
       if (e.repeat || s.paused || typing(e)) return;

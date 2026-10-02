@@ -261,8 +261,11 @@ export function StoreWorld({
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
-        } else if (s.full || s.using) pause();
-        else if (s.inspect !== null) s.close();
+        } else if (s.inspect !== null && !s.full && !s.using) s.close();
+        else {
+          unlock();
+          pause();
+        }
         return;
       }
       if (s.paused || e.repeat || typing(e)) return;

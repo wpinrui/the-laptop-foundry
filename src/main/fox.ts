@@ -352,6 +352,14 @@ export function registerFox(
       }
       return;
     }
-    if (isSiteFrame(win, wc.focusedFrame)) send("fox:escape", null);
+    if (isSiteFrame(win, wc.focusedFrame)) {
+      send("fox:escape", null);
+      return;
+    }
+    // In the game itself the browser never sees Escape, so it never takes the
+    // pointer away: the game pauses on it and frees the pointer itself, and
+    // can take it back again without a click.
+    e.preventDefault();
+    send("game:escape", null);
   });
 }

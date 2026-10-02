@@ -795,7 +795,10 @@ export function FreeOverlay({
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) back();
-        } else if (s.using || s.full) pause();
+        } else {
+          unlock();
+          pause();
+        }
         return;
       }
       if (e.repeat || s.paused || s.busy || typing(e)) return;

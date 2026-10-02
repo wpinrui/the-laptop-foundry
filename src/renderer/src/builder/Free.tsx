@@ -35,9 +35,11 @@ import { lidPoint } from "./view";
 const FLOOR = PLINTH_H - 950;
 const EYE = FLOOR + 1620;
 const FOV = 62;
-const SPEED = 1500;
+const SPEED = 1800;
 const LOOK = 0.0022;
 const REACH = 2000;
+/** How far away the door can be aimed at to leave, mm. */
+const DOOR_REACH = 4000;
 const SETTLE_MS = 600;
 const BODY = 260;
 /** How long the camera takes between the builder's pose and standing, either way. */
@@ -465,7 +467,7 @@ export function Walker({
         d = s.d;
       }
       const hit = new THREE.Vector3();
-      if (onDoor && ray.ray.intersectBox(DOOR, hit) && hit.distanceTo(ray.ray.origin) < Math.min(d, REACH)) {
+      if (onDoor && ray.ray.intersectBox(DOOR, hit) && hit.distanceTo(ray.ray.origin) < Math.min(d, DOOR_REACH)) {
         on = false;
         table = false;
         shelf = null;

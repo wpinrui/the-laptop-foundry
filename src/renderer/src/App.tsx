@@ -367,9 +367,8 @@ export function App() {
         key={where.model?.id ?? "empty"}
         subject={where.subject}
         library={company.models.filter((x) => x.reviewed).map(subject)}
-        onBack={where.office ? () => setWhere({ at: "office" }) : undefined}
         onMap={() => toMap(where)}
-        atDoor={!where.office}
+        atDoor
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
         notes={company.notes ?? []}

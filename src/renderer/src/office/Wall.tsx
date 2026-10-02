@@ -20,7 +20,7 @@ const noHover = () => {};
 /** A picked laptop slides out of its slot toward the room. */
 const PULL = 70;
 /** Frames a laptop is left to settle before it is baked. */
-const SETTLE = 6;
+export const SETTLE = 6;
 
 /**
  * Merges a settled laptop's plain meshes into one mesh per material, under

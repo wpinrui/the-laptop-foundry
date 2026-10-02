@@ -3,6 +3,7 @@ import { memo, type RefObject, Suspense, useLayoutEffect, useMemo, useRef } from
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import workshopUrl from "../assets/workshop/laptop-foundry-workshop.glb?url";
+import { Loaded } from "../app/Loaded";
 import { PLINTH_H } from "../foundry/Stage";
 import { token } from "../viewer/theme";
 
@@ -90,16 +91,6 @@ function Room({ roof }: { roof: RefObject<THREE.DirectionalLight | null> }) {
   );
 }
 
-/** Calls `onReady` once, a couple of frames after everything in its Suspense boundary has loaded. */
-function Ready({ onReady }: { onReady: () => void }) {
-  const frames = useRef(0);
-  useFrame(() => {
-    frames.current += 1;
-    if (frames.current === 3) onReady();
-  });
-  return null;
-}
-
 export const Workshop = memo(function Workshop({ onReady }: { onReady?: () => void }) {
   const roof = useRef<THREE.DirectionalLight>(null);
   return (
@@ -125,7 +116,7 @@ export const Workshop = memo(function Workshop({ onReady }: { onReady?: () => vo
       />
       <Suspense fallback={null}>
         <Room roof={roof} />
-        {onReady && <Ready onReady={onReady} />}
+        {onReady && <Loaded onReady={onReady} />}
       </Suspense>
     </>
   );

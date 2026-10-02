@@ -131,6 +131,8 @@ export interface StoreWorldProps {
   onMap: () => void;
   /** Names a copy of the inspected laptop as the company's own; absent when no more can be made. */
   onClone?: (item: OnSale) => void;
+  /** Once the store has loaded with its stock on the tables, for the travel card over it. */
+  onReady?: () => void;
 }
 
 export function StoreWorld({
@@ -141,6 +143,7 @@ export function StoreWorld({
   onSound,
   onMap,
   onClone,
+  onReady,
 }: StoreWorldProps) {
   const stock = useOnSale(company, campaign, year);
   // Each laptop's best buyer segment, and its share of the units sold by everything on sale in that class.
@@ -334,6 +337,8 @@ export function StoreWorld({
           screen={page && !full ? page : undefined}
           shift={inspect !== null && !using ? shift : 0}
           onAim={setAim}
+          // Only the market's own stock: before it loads the tables stand empty.
+          onReady={stock.ready ? onReady : undefined}
         />
         {full && page && <FullPage page={page} />}
       </div>

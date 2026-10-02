@@ -46,7 +46,7 @@ import { MarkHandles, type MarkBrowse, MarksColumn, MarksTray } from "./MarksSta
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
-import { freshOnTable, useArchive } from "./Archive";
+import { freshOnTable, useArchive, useWorkshopReady } from "./Archive";
 import { FreeOs, FreeOverlay, type FreeState, freeStart, makeSlot, type PageLook, SlotView, type Stance, Walker } from "./Free";
 import { TableLaptop, type TableOs, useDoorAim } from "./Visit";
 import { SliderField } from "./ui";
@@ -444,6 +444,7 @@ export function Builder({
   }, []);
   const onTable = swap === undefined ? model.id : (swap?.id ?? null);
   const shelves = useArchive(models, onTable, setFree, takeShelved, putAway);
+  const roomIn = useWorkshopReady(shelves.ready, onReady);
   const swapped = !!free && swap !== undefined;
   toFree.current = () => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
@@ -588,7 +589,7 @@ export function Builder({
     // In free view the menus fade out over the same scene, and back in after.
     <div className={`fd bd${free ? " free" : ""}`}>
       <BuilderScene
-        onReady={onReady}
+        onReady={roomIn}
         fit={previewFit}
         year={build.year}
         view={view}

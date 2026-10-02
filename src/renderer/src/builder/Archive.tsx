@@ -130,8 +130,23 @@ function bake(src: THREE.Object3D, root: THREE.Object3D): THREE.Mesh[] {
   return out;
 }
 
-const Shelved = memo(function Shelved({ model, x, y }: { model: SavedModel; x: number; y: number }) {
+const Shelved = memo(function Shelved({
+  model,
+  x,
+  y,
+  onBaked,
+}: {
+  model: SavedModel;
+  x: number;
+  y: number;
+  /** Once it shows: baked, or never, when it cannot be solved. */
+  onBaked: (id: string) => void;
+}) {
   const look = lookOf(model);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, on mount
+  useEffect(() => {
+    if (!look) onBaked(model.id);
+  }, []);
   const g = useRef<THREE.Group>(null);
   const src = useRef<THREE.Group>(null);
   const settle = useRef({ n: -1, frames: 0 });
@@ -152,7 +167,10 @@ const Shelved = memo(function Shelved({ model, x, y }: { model: SavedModel; x: n
     if (n !== st.n) {
       st.n = n;
       st.frames = 0;
-    } else if (++st.frames >= BAKE_AFTER) setBaked(bake(s, root));
+    } else if (++st.frames >= BAKE_AFTER) {
+      setBaked(bake(s, root));
+      onBaked(model.id);
+    }
   });
   useEffect(() => () => baked?.forEach((m) => m.geometry.dispose()), [baked]);
   if (!look || !surfaces) return null;
@@ -188,12 +206,15 @@ export function Archive({
   page,
   onTable,
   aim,
+  onReady,
 }: {
   /** In shelf order. */
   models: SavedModel[];
   page: number;
   onTable: string | null;
   aim: RefObject<AimShelf | null>;
+  /** Once every laptop on the page shows. */
+  onReady: () => void;
 }) {
   const slots = useMemo(
     () =>
@@ -210,6 +231,18 @@ export function Archive({
   useFrame(() => {
     if (shown < slots.length) setShown((n) => Math.min(slots.length, n + MOUNT_PER_FRAME));
   });
+  // The laptops shown so far: the page is in once every one but the turntable's is.
+  const done = useRef(new Set<string>());
+  const [, setDone] = useState(0);
+  const onBaked = useCallback((id: string) => {
+    if (done.current.has(id)) return;
+    done.current.add(id);
+    setDone((n) => n + 1);
+  }, []);
+  const all = slots.every(({ m }) => m.id === onTable || done.current.has(m.id));
+  useEffect(() => {
+    if (all) onReady();
+  }, [all, onReady]);
 
   const boxes = useMemo(
     () =>
@@ -245,7 +278,7 @@ export function Archive({
 
   return (
     <>
-      {slots.slice(0, shown).map(({ m, x, y }) => (m.id === onTable ? null : <Shelved key={m.id} model={m} x={x} y={y} />))}
+      {slots.slice(0, shown).map(({ m, x, y }) => (m.id === onTable ? null : <Shelved key={m.id} model={m} x={x} y={y} onBaked={onBaked} />))}
     </>
   );
 }
@@ -283,8 +316,26 @@ export function useArchive(
     putAway: onTable ? putAway : undefined,
     more: pages > 1 ? () => setPage((p) => (p + 1) % pages) : undefined,
   };
-  const archive = <Archive models={order} page={shown} onTable={onTable} aim={aim} />;
-  return { archive, aim, onShelf, keys };
+  // The first page's laptops all show: the workshop has finished loading.
+  const [ready, setReady] = useState(false);
+  const shelved = useCallback(() => setReady(true), []);
+  const archive = <Archive models={order} page={shown} onTable={onTable} aim={aim} onReady={shelved} />;
+  return { archive, aim, onShelf, keys, ready };
+}
+
+/**
+ * Calls `onReady` once both the workshop room and the archive's shelves are
+ * in. Returns what the room calls when it has loaded.
+ */
+export function useWorkshopReady(shelved: boolean, onReady?: () => void) {
+  const [room, setRoom] = useState(false);
+  const fired = useRef(false);
+  useEffect(() => {
+    if (!room || !shelved || fired.current) return;
+    fired.current = true;
+    onReady?.();
+  }, [room, shelved, onReady]);
+  return useCallback(() => setRoom(true), []);
 }
 
 /** Free view's state for a laptop just put on the turntable: shut, as it lay on the shelf. */

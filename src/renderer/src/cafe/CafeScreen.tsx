@@ -212,11 +212,13 @@ export function CafeScreen(props: {
   onSaveNotes?: (docs: NoteDoc[]) => void;
   /** In a campaign, the retailer's site the laptop can browse. */
   shop?: Shop;
+  /** Once the cafe has loaded, for the travel card over it. */
+  onReady?: () => void;
 }) {
   const { subject } = props;
   if (!subject)
     return (
-      <Cafe shoot={null} plugged={false} onPlug={noop} sound={props.sound} onSound={props.onSound} onLeave={props.onBack} onMap={props.onMap} atDoor={props.atDoor} />
+      <Cafe shoot={null} plugged={false} onPlug={noop} sound={props.sound} onSound={props.onSound} onLeave={props.onBack} onMap={props.onMap} atDoor={props.atDoor} onReady={props.onReady} />
     );
   return <OsCafeScreen {...props} subject={subject} />;
 }
@@ -241,6 +243,7 @@ function OsCafeScreen({
   notes,
   onSaveNotes,
   shop,
+  onReady,
 }: {
   subject: Subject;
   library?: Subject[];
@@ -252,6 +255,7 @@ function OsCafeScreen({
   notes?: NoteDoc[];
   onSaveNotes?: (docs: NoteDoc[]) => void;
   shop?: Shop;
+  onReady?: () => void;
 }) {
   const { build, fit, page, shoot, plugged, plug } = useLaptopOs({ subject, library, sound, onSound, notes, onSaveNotes, shop });
   const colour = (id: string) => colourHex(id);
@@ -276,6 +280,7 @@ function OsCafeScreen({
       onLeave={onBack}
       onMap={onMap}
       atDoor={atDoor}
+      onReady={onReady}
     />
   );
 }

@@ -19,7 +19,7 @@ import { ownerOf } from "../os/types";
 import { useBootingScreen } from "../os/useOsScreen";
 import { Reflections, surfacesOf } from "../viewer/Scene";
 import { token } from "../viewer/theme";
-import { type AimShelf, freshOnTable, useArchive } from "./Archive";
+import { type AimShelf, freshOnTable, useArchive, useWorkshopReady } from "./Archive";
 import {
   FreeOs,
   FreeOverlay,
@@ -250,7 +250,8 @@ export function WorkshopVisit({
     setOnTable(null);
     setFree((s) => freshOnTable(s));
   }, []);
-  const { archive, aim, onShelf, keys } = useArchive(models, onTable?.m.id ?? null, setFree, take, putAway);
+  const { archive, aim, onShelf, keys, ready } = useArchive(models, onTable?.m.id ?? null, setFree, take, putAway);
+  const roomIn = useWorkshopReady(ready, onReady);
   const onDoor = useDoorAim(setFree);
   const onTableAim = useCallback((on: boolean) => setFree((s) => (s && s.table !== on ? { ...s, table: on } : s)), []);
   const id = onTable?.m.id;
@@ -265,7 +266,7 @@ export function WorkshopVisit({
 
   return (
     <div className="fd bd free">
-      <Room paused={shown.paused} using={state.using && !shown.paused} overlay={overlay} onReady={onReady}>
+      <Room paused={shown.paused} using={state.using && !shown.paused} overlay={overlay} onReady={roomIn}>
         {archive}
         <SlotView slot={scene} />
         {!onTable && (

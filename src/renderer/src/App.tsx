@@ -155,11 +155,8 @@ export function App() {
           if (live.current?.id !== c.id) live.current = null;
           refresh(c);
           setSelected(latestModel(c)?.id ?? null);
-          // A campaign opens in the office; a sandbox on the map.
-          if (c.campaign) {
-            setOfficeAt(OFFICE_START);
-            setWhere({ at: "office" });
-          } else setWhere({ at: "map", from: null });
+          setOfficeAt(OFFICE_START);
+          setWhere({ at: "office" });
           setMenu("list");
           // The year the company is in opens with it.
           const year = c.campaign ? campaignOf(c.campaign).now.year : (latestModel(c)?.build as Build | undefined)?.year;
@@ -592,11 +589,8 @@ export function App() {
             .then((c) => {
               refresh(c);
               setSelected(null);
-              if (start === undefined) setWhere({ at: "map", from: null });
-              else {
-                setOfficeAt(OFFICE_START);
-                setWhere({ at: "office" });
-              }
+              setOfficeAt(OFFICE_START);
+              setWhere({ at: "office" });
               setMenu("list");
             })
         }

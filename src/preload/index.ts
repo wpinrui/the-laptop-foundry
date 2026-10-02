@@ -1,5 +1,5 @@
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
-import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, Settings } from "./store";
+import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "./store";
 
 export interface FoxNav {
   frame: number;
@@ -45,6 +45,9 @@ const api = {
     saveMarket: (company: string, year: number, market: unknown): Promise<SavedCompany> =>
       ipcRenderer.invoke("store:save-market", company, year, market),
     /** Saves the Notepad's documents with the company. */
+    /** Remembers where the player is in the company, for the next time it opens. */
+    savePlace: (company: string, place: SavedPlace): Promise<SavedCompany> =>
+      ipcRenderer.invoke("store:save-place", company, place),
     saveNotes: (company: string, notes: SavedNote[]): Promise<SavedCompany> =>
       ipcRenderer.invoke("store:save-notes", company, notes),
     deleteModel: (company: string, id: string): Promise<SavedCompany> =>

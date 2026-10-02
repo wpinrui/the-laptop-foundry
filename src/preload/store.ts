@@ -32,6 +32,12 @@ export interface SavedCampaign {
   state?: unknown;
 }
 
+/** Where the player last was in a company: the place, and the laptop brought along, if any. */
+export interface SavedPlace {
+  at: "map" | "office" | "workshop" | "cafe" | "courts";
+  model?: string;
+}
+
 /** One company: one save. */
 export interface SavedCompany {
   version: 1;
@@ -47,6 +53,8 @@ export interface SavedCompany {
   markets?: Record<string, unknown>;
   /** The in-game Notepad's documents. Absent for a company saved before it persisted them. */
   notes?: SavedNote[];
+  /** Where the company was left; absent opens the office. */
+  place?: SavedPlace;
 }
 
 export interface Settings {

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { app } from "electron";
 import { handleTop } from "./ipc";
 import { shortsDir } from "./video";
-import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, Settings } from "../preload/store";
+import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "../preload/store";
 
 // Each company is one save: one JSON file in the companies folder of the user
 // data folder. Settings live in their own file. Writes go to a temporary file
@@ -84,6 +84,13 @@ function isModel(m: unknown): m is SavedModel {
   );
 }
 
+const PLACES = ["map", "office", "workshop", "cafe", "courts"];
+function readPlace(raw: unknown): SavedPlace | undefined {
+  const x = raw as Partial<SavedPlace> | null | undefined;
+  if (!x || typeof x.at !== "string" || !PLACES.includes(x.at)) return undefined;
+  return typeof x.model === "string" ? { at: x.at, model: x.model } : { at: x.at };
+}
+
 function readCompany(raw: unknown, id: string): SavedCompany | null {
   const x = raw as Partial<SavedCompany> | null;
   if (!x || typeof x.name !== "string" || !x.name.trim()) return null;
@@ -98,6 +105,7 @@ function readCompany(raw: unknown, id: string): SavedCompany | null {
     campaign: readCampaign(x.campaign),
     markets: x.markets && typeof x.markets === "object" && !Array.isArray(x.markets) ? x.markets : undefined,
     notes: Array.isArray(x.notes) ? x.notes.filter(isNote) : undefined,
+    place: readPlace(x.place),
   };
 }
 
@@ -262,6 +270,12 @@ export function registerStore(): void {
     if (!market || typeof market !== "object") throw new Error("bad market");
     const c = await company(id);
     return lean(await put({ ...c, markets: { ...c.markets, [year]: market } }, true));
+  });
+  handleTop("store:save-place", async (_e, id: unknown, place: unknown) => {
+    const p = readPlace(place);
+    if (!p) throw new Error("bad place");
+    const c = await company(id);
+    return lean(await put({ ...c, place: p }));
   });
   handleTop("store:save-notes", async (_e, id: unknown, notes: unknown) => {
     if (!Array.isArray(notes) || !notes.every(isNote)) throw new Error("bad notes");

@@ -390,7 +390,6 @@ export function App() {
           company={company.name}
           library={company.models.filter((x) => x.reviewed).map(subject)}
           onMap={() => toMap(at)}
-          onLeave={at.office ? () => setWhere({ at: "office" }) : undefined}
           onReady={going ? () => setGoing("here") : undefined}
           held={!!naming}
           onNew={campaign?.over ? undefined : newModel}

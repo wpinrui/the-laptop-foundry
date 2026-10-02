@@ -239,23 +239,6 @@ export function App() {
     );
   };
 
-  if (!companies) return null;
-
-  // The 3D place on screen, as the view below picks it; a new key is a fresh arrival. Null for 2D screens.
-  const run = company?.campaign ? campaignOf(company.campaign) : null;
-  const placeKey = ((): string | null => {
-    if (!company || short) return null;
-    if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
-    if (where.at === "workshop" && !open) return `workshop:${where.model?.id ?? ""}`;
-    if (where.at === "courts") return "courts";
-    if (where.at === "map" || reviewing) return null;
-    if (open && company.models.some((m) => m.id === open)) return `builder:${open}`;
-    if (where.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";
-    return null;
-  })();
-  if (placeKey !== arrival.key) setArrival({ key: placeKey, stage: placeKey ? "loading" : "done" });
-  const loading = arrival.stage === "loading";
-
   // Wherever the player goes, the company remembers it for the next time it opens.
   const placeSaved = useRef("");
   // biome-ignore lint/correctness/useExhaustiveDependencies: saved when the place changes, not the company's contents
@@ -274,6 +257,24 @@ export function App() {
     placeSaved.current = key;
     void store().savePlace(company.id, p);
   }, [company?.id, where, open]);
+
+  if (!companies) return null;
+
+  // The 3D place on screen, as the view below picks it; a new key is a fresh arrival. Null for 2D screens.
+  const run = company?.campaign ? campaignOf(company.campaign) : null;
+  const placeKey = ((): string | null => {
+    if (!company || short) return null;
+    if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
+    if (where.at === "workshop" && !open) return `workshop:${where.model?.id ?? ""}`;
+    if (where.at === "courts") return "courts";
+    if (where.at === "map" || reviewing) return null;
+    if (open && company.models.some((m) => m.id === open)) return `builder:${open}`;
+    if (where.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";
+    return null;
+  })();
+  if (placeKey !== arrival.key) setArrival({ key: placeKey, stage: placeKey ? "loading" : "done" });
+  const loading = arrival.stage === "loading";
+
 
   const view = (() => {
 

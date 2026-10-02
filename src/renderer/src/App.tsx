@@ -169,7 +169,7 @@ export function App() {
           else if (p?.at === "cafe" && m && !buildBlock(m.build)) {
             const s: Subject = { id: m.id, name: m.name, company: c.name, build: m.build as Build };
             setWhere({ at: "office" });
-            void ensureMarket(m.build.year).then(() => setWhere({ at: "cafe", model: m, subject: s }));
+            void ensureMarket((m.build as Build).year).then(() => setWhere({ at: "cafe", model: m, subject: s }));
           } else setWhere({ at: "office" });
           setMenu("list");
           // The year the company is in opens with it.

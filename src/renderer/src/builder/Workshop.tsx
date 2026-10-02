@@ -19,6 +19,8 @@ const SHADOW_FRAMES = 3;
 const NO_CAST = ["roof", "clerestory", "lights"];
 const noRaycast = () => {};
 const PLACEHOLDER = /^front_(finish_|label$)/;
+/** Top of the side walls' green brick dado, metres: the front and back walls' white brick already starts here. */
+const DADO_TOP = 1.4;
 /** The side walls' inner faces, x in metres: anything proud of them is a brick pilaster. */
 const WALL_FACES = [
   { name: "wall_left_brick_whitewashed", face: -9, side: 1 },
@@ -60,6 +62,9 @@ function removePilasters(scene: THREE.Group) {
       for (let t = 0; t + 2 < idx.length; t += 3)
         if (!proud(idx[t]) && !proud(idx[t + 1]) && !proud(idx[t + 2])) kept.push(idx[t], idx[t + 1], idx[t + 2]);
       g.setIndex(kept);
+      // The green brick dado covers the wall to DADO_TOP: the white brick starts above it, not on the same face.
+      for (let i = 0; i < p.count; i++) if (p.getY(i) < DADO_TOP) p.setY(i, DADO_TOP);
+      p.needsUpdate = true;
       g.clearGroups();
       g.computeBoundingBox();
       g.computeBoundingSphere();

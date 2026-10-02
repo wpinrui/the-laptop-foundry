@@ -155,6 +155,8 @@ export function Builder({
   onReview,
   onDuplicate,
   onOpen,
+  onNew,
+  held = false,
   library = [],
   models = [],
   sound = true,
@@ -182,6 +184,10 @@ export function Builder({
   onDuplicate: () => void;
   /** Opens the builder on another of the company's laptops. */
   onOpen?: (id: string) => void;
+  /** A new laptop off the empty turntable in free view: names it first. */
+  onNew?: () => void;
+  /** A card is up over free view (naming a laptop): the pointer is free and the keys are its. */
+  held?: boolean;
   onSave: (m: SavedModel) => void;
   /** The workshop has loaded and drawn. */
   onReady?: () => void;
@@ -416,6 +422,7 @@ export function Builder({
     [model.id, shownName, company, build],
   );
   const freeAim = useCallback((on: boolean) => setFree((s) => (s && s.aim !== on ? { ...s, aim: on } : s)), []);
+  const freeTable = useCallback((on: boolean) => setFree((s) => (s && s.table !== on ? { ...s, table: on } : s)), []);
   const freeSettled = useCallback(() => setFree((s) => (s?.busy ? { ...s, busy: false } : s)), []);
   const freeDoor = useDoorAim(setFree);
   // In free view another laptop off the archive's shelves can stand on the
@@ -639,6 +646,7 @@ export function Builder({
                 useAt={() => ({ eye: new THREE.Vector3(), at: new THREE.Vector3() })}
                 onAim={freeAim}
                 onDoor={toMap && freeDoor}
+                onTable={freeTable}
                 stance={stance}
                 shelves={shelves.aim}
                 onShelf={shelves.onShelf}
@@ -680,9 +688,11 @@ export function Builder({
           }
           archive={shelves.keys}
           models={{
+            make: swap === null ? onNew : undefined,
             // Build: back to building the laptop on the turntable, whichever it is.
             edit: swap === undefined ? leaveFree : swap && onOpen ? () => onOpen(swap.id) : undefined,
           }}
+          held={held}
           onExit={leaveFree}
           onMap={toMap}
           sound={sound}

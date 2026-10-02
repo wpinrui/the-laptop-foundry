@@ -34,6 +34,7 @@ const OUTSIDE = new Set([
 ]);
 /** Units the far copy keeps. */
 const FAR_UNITS = new Set([
+  "keys",
   "pad",
   "hinge",
   "hinge-strip",

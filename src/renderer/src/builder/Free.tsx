@@ -35,11 +35,11 @@ import { lidPoint } from "./view";
 const FLOOR = PLINTH_H - 950;
 const EYE = FLOOR + 1620;
 const FOV = 62;
-const SPEED = 1800;
+const SPEED = 2000;
 const LOOK = 0.0022;
 const REACH = 2000;
 /** How far away the door can be aimed at to leave, mm. */
-const DOOR_REACH = 4000;
+const DOOR_REACH = 6000;
 const SETTLE_MS = 600;
 const BODY = 260;
 /** How long the camera takes between the builder's pose and standing, either way. */

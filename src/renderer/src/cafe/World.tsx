@@ -26,11 +26,11 @@ export interface LaptopLook {
 const M = 1000;
 const ROOM = { x0: -7000, x1: 7000, z0: -3400, z1: 6600 };
 const EYE = 1620;
-const SPEED = 1800;
+const SPEED = 2000;
 const LOOK = 0.0022;
 const REACH = 2000;
 /** How far away the door can be aimed at to leave, mm. */
-const DOOR_REACH = 4000;
+const DOOR_REACH = 6000;
 const SETTLE_MS = 600;
 /** Seated zoom: the camera's field of view, in degrees. */
 const FOV = 62;

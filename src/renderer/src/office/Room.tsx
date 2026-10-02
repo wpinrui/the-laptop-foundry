@@ -15,7 +15,7 @@ import type { StationId } from "./stations";
 export const M = 1000;
 const EYE = 1620;
 const BODY = 260;
-const SPEED = 1800;
+const SPEED = 2000;
 const LOOK = 0.0022;
 /** Vertical field of view at 16:9; narrower windows widen it so the sides stay in view. */
 const FOV = 50;

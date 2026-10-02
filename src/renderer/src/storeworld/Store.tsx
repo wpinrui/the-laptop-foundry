@@ -37,14 +37,14 @@ import type { OnSale } from "./onSale";
 
 const M = 1000;
 const EYE = 1620;
-const SPEED = 1800;
+const SPEED = 2000;
 const FAST = 2.2;
 const LOOK = 0.0022;
 const FOV = 60;
 const BODY = 280;
 const REACH = 2600;
 /** How far away the door can be aimed at to leave, mm. */
-const DOOR_REACH = 5200;
+const DOOR_REACH = 6000;
 const FLY_MS = 700;
 /** Where the player comes in: just inside the door, facing the logo. */
 const START = new THREE.Vector3(0, EYE, 8000);

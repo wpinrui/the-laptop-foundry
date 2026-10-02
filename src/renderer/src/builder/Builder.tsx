@@ -155,6 +155,7 @@ export function Builder({
   reroll,
   onReview,
   onDuplicate,
+  onOpen,
   library = [],
   models = [],
   sound = true,
@@ -180,6 +181,8 @@ export function Builder({
   company?: string;
   onReview: (m: SavedModel) => void;
   onDuplicate: () => void;
+  /** Opens the builder on another of the company's laptops. */
+  onOpen?: (id: string) => void;
   onSave: (m: SavedModel) => void;
   /** The workshop has loaded and drawn. */
   onReady?: () => void;
@@ -669,6 +672,10 @@ export function Builder({
                 : undefined
           }
           archive={shelves.keys}
+          models={{
+            // Build: back to building the laptop on the turntable, whichever it is.
+            edit: swap === undefined ? leaveFree : swap && onOpen ? () => onOpen(swap.id) : undefined,
+          }}
           onExit={leaveFree}
           onMap={toMap}
           sound={sound}

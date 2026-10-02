@@ -473,6 +473,7 @@ export function App() {
         onMap={() => toMap({ at: "workshop", model, subject: null })}
         onReview={review}
         onDuplicate={() => duplicate(model.id)}
+        onOpen={setOpen}
         yearLocked={!!campaign}
         released={!!campaign?.releases[model.id]}
         reroll={(b) => randomName(b.year, inchesOf(b))}

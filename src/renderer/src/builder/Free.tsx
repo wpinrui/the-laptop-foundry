@@ -879,7 +879,7 @@ export function FreeOverlay({
       if (!state.coverOff) prompts.push({ key: "R", label: "Turn upright" });
     }
     if (archive?.putAway) prompts.push({ key: "P", label: "Put away" });
-    if (models?.edit) prompts.push({ key: "B", label: "Edit" });
+    if (models?.edit) prompts.push({ key: "B", label: "Build" });
     if (models?.copy) prompts.push({ key: "C", label: "Duplicate" });
   }
 

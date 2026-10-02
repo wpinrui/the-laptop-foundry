@@ -309,7 +309,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: calc(18 * var(--u)) 0 !important;
+  padding: calc(18 * var(--u)) calc(20 * var(--u)) !important;
   border-bottom: 1px solid var(--line) !important;
   text-align: left;
 }

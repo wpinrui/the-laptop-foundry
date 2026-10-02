@@ -110,7 +110,10 @@ export function WorldMap({
   const here = PLACES.find((p) => p.id === from);
   const to = PLACES.find((p) => p.id === dest) ?? PLACES[0];
   const canBring = to.bring && laptops.length > 0;
-  const chosen = canBring ? (laptops.find((m) => m.id === bring) ?? null) : null;
+  // The cafe always takes a laptop: with none picked, the first one goes.
+  const needs = dest === "cafe";
+  const picked = canBring ? (laptops.find((m) => m.id === bring) ?? null) : null;
+  const chosen = needs && !picked ? (laptops[0] ?? null) : picked;
 
   const live = useRef({ go: () => {}, onBack });
   live.current = { go: () => onGo(dest, chosen), onBack };
@@ -200,7 +203,7 @@ export function WorldMap({
               <span>{laptops.length}</span>
             </div>
             <div className="wm-list">
-              {[null, ...laptops].map((m) => {
+              {(needs ? laptops : [null, ...laptops]).map((m) => {
                 const score = m ? scores.get(m.id) : null;
                 return (
                   <button

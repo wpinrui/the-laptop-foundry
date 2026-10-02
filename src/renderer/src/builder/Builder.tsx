@@ -1,6 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { SavedModel } from "../../../preload/store";
-import * as THREE from "three";
 import {
   type Box,
   type Build,
@@ -11,7 +10,6 @@ import {
   decorOf,
   type Mark,
   type MarkSurface,
-  type Subject,
   migrateBody,
   migrateColours,
   migratePad,
@@ -46,17 +44,15 @@ import { MarkHandles, type MarkBrowse, MarksColumn, MarksTray } from "./MarksSta
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
-import { freshOnTable, useArchive, useWorkshopReady } from "./Archive";
-import { FreeOs, FreeOverlay, type FreeState, freeStart, makeSlot, type PageLook, SlotView, type Stance, Walker } from "./Free";
-import { TableLaptop, type TableOs, useDoorAim } from "./Visit";
 import { SliderField } from "./ui";
 import { type ViewName, viewFor } from "./view";
+import type { WorkshopCanvas } from "./WorkshopPlace";
 import "./builder.css";
 
-// The builder: a fixed line of stages over the laptop on the Foundry plinth.
-// Year first, price last; stats appear once the laptop is valid and has
-// powered on. Every change saves shortly after it is made, and leaving saves
-// at once. A reviewed model is locked.
+// The builder: a fixed line of stages over the laptop on the workshop's
+// turntable, a mode over the workshop's own scene. Year first, price last;
+// stats appear once the laptop is valid. Every change saves shortly after it
+// is made, and leaving saves at once. A reviewed model is locked.
 
 // ------------------------------------------------------------------ hover
 
@@ -147,50 +143,31 @@ const LID_MAX = 180;
 // ------------------------------------------------------------------ builder
 
 export function Builder({
+  canvas,
   model,
   company = "",
   onSave,
-  onReady,
+  onExit,
   reroll,
   onReview,
   onDuplicate,
-  onOpen,
-  onNew,
-  held = false,
-  library = [],
-  models = [],
-  sound = true,
-  onSound = () => {},
   yearLocked = false,
   released = false,
-  onMap,
 }: {
-  /** To the world map, from free view's pause menu or through the workshop's door. */
-  onMap?: () => void;
+  /** The workshop's canvas the builder draws its laptop, camera and overlays into. */
+  canvas: WorkshopCanvas;
   /** A campaign model released to market is locked like a reviewed one. */
   released?: boolean;
   /** A campaign model keeps the year it was made in. */
   yearLocked?: boolean;
-  /** The player's reviewed models, for the review site on the laptop's own screen. */
-  library?: Subject[];
-  /** Every laptop the company has built, for the workshop's archive shelves. */
-  models?: SavedModel[];
-  sound?: boolean;
-  onSound?: (on: boolean) => void;
   model: SavedModel;
   /** The company's name, which the laptop's own OS shows as its maker. */
   company?: string;
   onReview: (m: SavedModel) => void;
   onDuplicate: () => void;
-  /** Opens the builder on another of the company's laptops. */
-  onOpen?: (id: string) => void;
-  /** A new laptop off the empty turntable in free view: names it first. */
-  onNew?: () => void;
-  /** A card is up over free view (naming a laptop): the pointer is free and the keys are its. */
-  held?: boolean;
   onSave: (m: SavedModel) => void;
-  /** The workshop has loaded and drawn. */
-  onReady?: () => void;
+  /** Back to free roam in the workshop: the laptop's lid, whether it lies turned over, and the laptop as just built. */
+  onExit: (lid: number, flip: boolean, built: SavedModel) => void;
   reroll: (b: Build) => string;
 }) {
   // Older saves picked a panel row; the builder edits a screen spec.
@@ -223,30 +200,14 @@ export function Builder({
     const t = setTimeout(flush, 400);
     return () => clearTimeout(t);
   }, [build, name, locked]);
-  // Leaving the builder (Back, Done, Escape) lands in free view in the same workshop.
+  // Leaving the builder (Back, Done, Escape, Free view) lands in free roam in the same workshop.
   const toFree = useRef<() => void>(() => {});
   const leave = useCallback(() => {
     pending.current?.();
     toFree.current();
   }, []);
-  const toMap = useMemo(
-    () =>
-      onMap
-        ? () => {
-            pending.current?.();
-            onMap();
-          }
-        : undefined,
-    [onMap],
-  );
-  // Free view: walking the workshop in first person. Null in the builder.
-  const [free, setFree] = useState<FreeState | null>(null);
-  const freeOn = useRef(false);
-  freeOn.current = free !== null;
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      // In free view Escape pauses, as in the cafe.
-      if (freeOn.current) return;
       if (e.key === "Escape" && !(e.target instanceof HTMLInputElement)) leave();
     };
     window.addEventListener("keydown", key);
@@ -410,54 +371,10 @@ export function Builder({
   const booted = useBootingScreen(!grid && valid, build, owner, `${company} ${shownName}`.trim(), ratio);
   const screen = grid ? gridTexture : booted;
 
-  // Free view runs the laptop's own OS, whose page its screen shows.
-  const osSlot = useMemo(makeSlot, []);
-  const [osLook, setOsLook] = useState<PageLook | null>(null);
-  const osScreen = useMemo(
-    () => (osLook ? { node: <SlotView slot={osSlot} />, width: osLook.width, mm: osLook.mm } : undefined),
-    [osLook, osSlot],
-  );
-  const subject = useMemo<Subject>(
-    () => ({ id: model.id, name: shownName, company, build }),
-    [model.id, shownName, company, build],
-  );
-  const freeAim = useCallback((on: boolean) => setFree((s) => (s && s.aim !== on ? { ...s, aim: on } : s)), []);
-  const freeTable = useCallback((on: boolean) => setFree((s) => (s && s.table !== on ? { ...s, table: on } : s)), []);
-  const freeSettled = useCallback(() => setFree((s) => (s?.busy ? { ...s, busy: false } : s)), []);
-  const freeDoor = useDoorAim(setFree);
-  // In free view another laptop off the archive's shelves can stand on the
-  // turntable: undefined while it is the one being built, null when empty.
-  const [swap, setSwap] = useState<SavedModel | null | undefined>(undefined);
-  const stance = useRef<Stance | null>(null);
-  const tableScene = useMemo(makeSlot, []);
-  const portal = useRef<HTMLDivElement | null>(null);
-  const [tableOs, setTableOs] = useState<TableOs>({ canUse: false });
-  const leaveFree = useCallback(() => {
-    setFree(null);
-    setSwap(undefined);
-    stance.current = null;
-  }, []);
-  const takeShelved = useCallback(
-    (m: SavedModel) => {
-      const own = m.id === model.id;
-      setSwap(own ? undefined : m);
-      setFree((s) => (own ? freshOnTable(s, lid > 0 && !flip, flip) : freshOnTable(s)));
-    },
-    [model.id, lid, flip],
-  );
-  const putAway = useCallback(() => {
-    setSwap(null);
-    setFree((s) => freshOnTable(s));
-  }, []);
-  const onTable = swap === undefined ? model.id : (swap?.id ?? null);
-  const shelves = useArchive(models, onTable, setFree, takeShelved, putAway);
-  const roomIn = useWorkshopReady(shelves.ready, onReady);
-  const swapped = !!free && swap !== undefined;
+  // Out to free roam: the laptop stays as the builder left it, its lid and whether it lies turned over.
   toFree.current = () => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    stance.current = null;
-    setSwap(undefined);
-    setFree(freeStart(lid > 0 && !flip, flip));
+    onExit(lid, flip, { ...model, name: shownName, build, updated: Date.now() });
   };
 
   const labelFor = useCallback((b: Box) => ROLE_NAME[b.role] ?? nameOf(b.part) ?? "", []);
@@ -593,10 +510,10 @@ export function Builder({
   }
 
   return (
-    // In free view the menus fade out over the same scene, and back in after.
-    <div className={`fd bd${free ? " free" : ""}`}>
+    <>
       <BuilderScene
-        onReady={roomIn}
+        canvas={canvas}
+        modelId={model.id}
         fit={previewFit}
         year={build.year}
         view={view}
@@ -630,94 +547,11 @@ export function Builder({
         }
         decor={decor}
         flip={flip}
-        paused={!!free?.paused}
-        freeUsing={!!free?.using && !free.paused}
-        portal={portal}
-        hideLaptop={swapped}
-        room={
-          <>
-            {shelves.archive}
-            {swapped && <SlotView slot={tableScene} />}
-            {free && swap === null && (
-              <Walker
-                laptop={{ current: null }}
-                active={!free.paused && !free.full}
-                using={false}
-                useAt={() => ({ eye: new THREE.Vector3(), at: new THREE.Vector3() })}
-                onAim={freeAim}
-                onDoor={toMap && freeDoor}
-                onTable={freeTable}
-                stance={stance}
-                shelves={shelves.aim}
-                onShelf={shelves.onShelf}
-              />
-            )}
-          </>
-        }
-        free={
-          free
-            ? {
-                state: free,
-                openAngle: lid > 0 ? lid : LID_OPEN,
-                page: valid && !free.full ? osScreen : undefined,
-                onAim: freeAim,
-                onSettled: freeSettled,
-                onDoor: toMap && freeDoor,
-                stance,
-                shelves: shelves.aim,
-                onShelf: shelves.onShelf,
-              }
-            : undefined
-        }
         labelFor={labelFor}
         onHover={inside ? hoverStore.set : () => {}}
         onPick={inside ? pick : surface ? pickSurface : marking ? deselectMark : undefined}
         onMiss={marking ? deselectMark : undefined}
       />
-      {free && (
-        <FreeOverlay
-          state={free}
-          set={setFree}
-          canUse={swapped ? tableOs.canUse : valid && !!osLook}
-          page={
-            swapped
-              ? tableOs.page
-              : osLook
-                ? { node: <SlotView slot={osSlot} />, width: osLook.width, height: osLook.height }
-                : undefined
-          }
-          archive={shelves.keys}
-          models={{
-            make: swap === null ? onNew : undefined,
-            // Build: back to building the laptop on the turntable, whichever it is.
-            edit: swap === undefined ? leaveFree : swap && onOpen ? () => onOpen(swap.id) : undefined,
-          }}
-          held={held}
-          onExit={leaveFree}
-          onMap={toMap}
-          sound={sound}
-          onSound={onSound}
-        />
-      )}
-      {free && swap && (
-        <TableLaptop
-          key={swap.id}
-          model={swap}
-          lidOpen={false}
-          company={company}
-          library={library}
-          sound={sound}
-          onSound={onSound}
-          state={free}
-          scene={tableScene}
-          portal={portal}
-          drive={{ onAim: freeAim, onSettled: freeSettled, onShelf: shelves.onShelf, shelves: shelves.aim, stance, onDoor: toMap && freeDoor }}
-          onOs={setTableOs}
-        />
-      )}
-      {free && valid && !swapped && (
-        <FreeOs subject={subject} library={library} sound={sound} onSound={onSound} slot={osSlot} onLook={setOsLook} />
-      )}
       {stage === "chassis" && preview.section && (
         <div className="bd-section">
           <SectionView fit={fit} />
@@ -821,7 +655,7 @@ export function Builder({
           <Measurements m={measured} build={build} fit={fit} set={set} locked={locked} />
         </div>
       )}
-      {inside && !free && <HoverLabel />}
-    </div>
+      {inside && <HoverLabel />}
+    </>
   );
 }

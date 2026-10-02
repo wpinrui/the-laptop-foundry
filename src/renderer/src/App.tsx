@@ -5,7 +5,7 @@ import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
 import { buildBlock } from "./builder/problems";
 import { emptyBuild, toYear } from "./builder/structure";
-import { WorkshopVisit } from "./builder/Visit";
+import { WorkshopPlace } from "./builder/WorkshopPlace";
 import { CafeScreen } from "./cafe/CafeScreen";
 import { WorldMap } from "./map/WorldMap";
 import { StoreWorld } from "./storeworld/StoreWorld";
@@ -265,11 +265,10 @@ export function App() {
   const placeKey = ((): string | null => {
     if (!company || short) return null;
     if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
-    // The workshop and its builder are one place: going between them is no arrival.
-    if (where.at === "workshop" && !open) return "workshop";
     if (where.at === "courts") return "courts";
     if (where.at === "map" || reviewing) return null;
-    if (open && company.models.some((m) => m.id === open)) return "workshop";
+    // The workshop and its builder are one place: going between them is no arrival.
+    if (where.at === "workshop") return "workshop";
     if (where.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";
     return null;
   })();
@@ -387,6 +386,11 @@ export function App() {
   const toWorkshop = (m: SavedModel | null, office = true) => {
     setWhere({ at: "workshop", model: m, subject: null, office });
   };
+  // The builder on a laptop: on the workshop's turntable, wherever the player was.
+  const build = (m: SavedModel) => {
+    setWhere((w) => (w.at === "workshop" ? { ...w, model: m } : { at: "workshop", model: m, subject: null, office: w.at === "office" }));
+    setOpen(m.id);
+  };
   // The named build becomes a model and opens in the builder; leaving it, a workshop visit has it on the turntable.
   // A clone named in the store goes to the workshop's turntable instead.
   const nameCard = naming && (
@@ -404,8 +408,7 @@ export function App() {
             toWorkshop(m, false);
             return;
           }
-          setWhere((w) => (w.at === "workshop" ? { ...w, model: m } : w));
-          setOpen(m.id);
+          build(m);
         });
       }}
     />
@@ -428,36 +431,6 @@ export function App() {
         onReady={ready}
       />
     );
-  // The builder, opened from the workshop, stands in for it until it is left.
-  if (company && where.at === "workshop" && !open) {
-    const at = where;
-    return (
-      <>
-        <WorkshopVisit
-          key={at.model?.id ?? "empty"}
-          // As saved now: it may have changed in the builder since it was brought along.
-          model={at.model && (company.models.find((x) => x.id === at.model?.id) ?? null)}
-          models={company.models}
-          company={company.name}
-          library={company.models.filter((x) => x.reviewed).map(subject)}
-          onMap={() => toMap(at)}
-          onReady={ready}
-          held={!!naming}
-          onNew={campaign?.over ? undefined : newModel}
-          onEdit={(id) => {
-            const m = company.models.find((x) => x.id === id);
-            if (!m) return;
-            setWhere({ ...at, model: m });
-            setOpen(id);
-          }}
-          onDuplicate={campaign?.over ? undefined : duplicate}
-          sound={settings.sound}
-          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
-        />
-        {!loading && nameCard}
-      </>
-    );
-  }
   if (company && where.at === "courts")
     return (
       <>
@@ -511,33 +484,51 @@ export function App() {
     );
   }
 
-  const model = open ? company?.models.find((m) => m.id === open) : undefined;
-  if (model)
+  // The workshop: free roam round the turntable's laptop, and the builder on it in the same scene.
+  if (company && where.at === "workshop") {
+    const at = where;
+    // As saved now: it may have changed in the builder since it was brought along.
+    const onTable = at.model && (company.models.find((x) => x.id === at.model?.id) ?? null);
     return (
       <>
-      <Builder
-        key={model.id}
-        model={model}
-        company={name}
-        onSave={(m) => save(m)}
-        onReady={ready}
-        onMap={() => toMap({ at: "workshop", model, subject: null })}
-        onReview={review}
-        onDuplicate={() => duplicate(model.id)}
-        onOpen={setOpen}
-        onNew={campaign?.over ? undefined : newModel}
-        held={!!naming}
-        yearLocked={!!campaign}
-        released={!!campaign?.releases[model.id]}
-        reroll={(b) => randomName(b.year, inchesOf(b))}
-        models={company?.models ?? []}
-        library={(company?.models ?? []).filter((x) => x.reviewed).map(subject)}
-        sound={settings.sound}
-        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
-      />
-      {!loading && nameCard}
+        <WorkshopPlace
+          model={onTable}
+          models={company.models}
+          company={company.name}
+          library={company.models.filter((x) => x.reviewed).map(subject)}
+          onMap={() => toMap(at)}
+          onReady={ready}
+          held={!!naming}
+          building={!!onTable && open === onTable.id}
+          onTable={(m) => setWhere({ ...at, model: m })}
+          onBuild={build}
+          onLeaveBuild={() => setOpen(null)}
+          onNew={campaign?.over ? undefined : newModel}
+          onDuplicate={campaign?.over ? undefined : duplicate}
+          sound={settings.sound}
+          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          builder={(canvas, exit) =>
+            onTable && (
+              <Builder
+                key={onTable.id}
+                canvas={canvas}
+                model={onTable}
+                company={name}
+                onSave={(m) => save(m)}
+                onExit={exit}
+                onReview={review}
+                onDuplicate={() => duplicate(onTable.id)}
+                yearLocked={!!campaign}
+                released={!!campaign?.releases[onTable.id]}
+                reroll={(b) => randomName(b.year, inchesOf(b))}
+              />
+            )
+          }
+        />
+        {!loading && nameCard}
       </>
     );
+  }
 
   // The Office: the 3D room, its stations' panels and the quarter report over it. Leaving it goes to the map.
   const leaveOffice = () => toMap({ at: "office" });
@@ -553,7 +544,10 @@ export function App() {
         const m = find(id);
         if (m) review(m);
       },
-      onOpen: setOpen,
+      onOpen: (id) => {
+        const m = find(id);
+        if (m) build(m);
+      },
       onDuplicate: (id) => {
         const src = duplicate(id);
         if (src) toWorkshop(src);

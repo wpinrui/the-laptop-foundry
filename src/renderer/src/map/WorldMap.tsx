@@ -62,7 +62,7 @@ function carried(models: SavedModel[], place: Place): SavedModel[] {
 }
 
 /** The laptop from above: its lid in its own colour, at its real footprint. */
-function Thumb({ model }: { model: SavedModel | null }) {
+export function Thumb({ model }: { model: SavedModel | null }) {
   const look = useMemo(() => {
     if (!model) return null;
     const b = model.build as Build;

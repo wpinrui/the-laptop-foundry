@@ -19,12 +19,6 @@ const SHADOW_FRAMES = 3;
 const NO_CAST = ["roof", "clerestory", "lights"];
 const noRaycast = () => {};
 const PLACEHOLDER = /^front_(finish_|label$)/;
-/** The side walls' green brick dados, which shared the white brick's face: brought this far into the room (metres). */
-const DADOS = [
-  { name: "wall_left_brick_painted_green", side: 1 },
-  { name: "wall_right_brick_painted_green", side: -1 },
-];
-const DADO_PROUD = 0.002;
 /** The side walls' inner faces, x in metres: anything proud of them is a brick pilaster. */
 const WALL_FACES = [
   { name: "wall_left_brick_whitewashed", face: -9, side: 1 },
@@ -62,28 +56,27 @@ function removePilasters(scene: THREE.Group) {
       const p = g.getAttribute("position") as THREE.BufferAttribute;
       const proud = (i: number) => (p.getX(i) - w.face) * w.side > 0.001;
       const idx = g.index ? Array.from(g.index.array) : Array.from({ length: p.count }, (_, i) => i);
+      const on = (i: number) => Math.abs(p.getX(i) - w.face) < 0.001;
+      const a = new THREE.Vector3();
+      const b = new THREE.Vector3();
+      const c = new THREE.Vector3();
       const kept: number[] = [];
-      for (let t = 0; t + 2 < idx.length; t += 3)
-        if (!proud(idx[t]) && !proud(idx[t + 1]) && !proud(idx[t + 2])) kept.push(idx[t], idx[t + 1], idx[t + 2]);
+      for (let t = 0; t + 2 < idx.length; t += 3) {
+        const [i, j, k] = [idx[t], idx[t + 1], idx[t + 2]];
+        if (proud(i) || proud(j) || proud(k)) continue;
+        // A pilaster's back lies on the wall face but looks into the wall: it would fight the face.
+        if (on(i) && on(j) && on(k)) {
+          a.fromBufferAttribute(p, i);
+          b.fromBufferAttribute(p, j).sub(a);
+          c.fromBufferAttribute(p, k).sub(a);
+          if (b.cross(c).x * w.side < 0) continue;
+        }
+        kept.push(i, j, k);
+      }
       g.setIndex(kept);
       g.clearGroups();
       g.computeBoundingBox();
       g.computeBoundingSphere();
-    });
-}
-
-/** Brings each side wall's dado face just proud of the white brick behind it, so the two no longer fight. */
-function liftDados(scene: THREE.Group) {
-  for (const d of DADOS)
-    scene.getObjectByName(d.name)?.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      const p = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
-      const face = d.side > 0 ? -9 : 9;
-      for (let i = 0; i < p.count; i++) if (Math.abs(p.getX(i) - face) < 0.0005) p.setX(i, face + d.side * DADO_PROUD);
-      p.needsUpdate = true;
-      mesh.geometry.computeBoundingBox();
-      mesh.geometry.computeBoundingSphere();
     });
 }
 
@@ -92,7 +85,6 @@ function useWorkshop(): { scene: THREE.Group; casters: THREE.Mesh[]; lift: numbe
   return useMemo(() => {
     const scene = gltf.scene;
     removePilasters(scene);
-    liftDados(scene);
     seatCabinet(scene);
     scene.updateMatrixWorld(true);
     // Relative to the scene itself: the loader caches the scene, so on a

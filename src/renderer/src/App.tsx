@@ -770,9 +770,9 @@ export function App() {
 /** What the travel card calls a place, by its arrival key. The builder is in the workshop. */
 function placeName(key: string): string {
   const at = key.split(":")[0];
-  if (at === "builder") return "workshop";
+  if (at === "builder") return "the workshop";
   if (at === "courts") return "Courts";
-  return at;
+  return `the ${at}`;
 }
 
 /** However long a place takes, the travel card lifts after this: a missed ready signal never leaves it up. */
@@ -795,7 +795,7 @@ function Travel({ to, here, onDone }: { to: string; here: boolean; onDone: () =>
   }, [out]);
   return (
     <div className={`fd fd-travel${out ? " out" : ""}`}>
-      <b>Going to the {to}</b>
+      <b>Going to {to}</b>
     </div>
   );
 }

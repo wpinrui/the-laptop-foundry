@@ -26,6 +26,8 @@ export interface OnSale {
   own: boolean;
   /** The maker's name as the store prints it; the company's for the player's own. */
   brand: string;
+  /** The maker's id; null for the player's own. */
+  maker: string | null;
   name: string;
   price: number;
   review: number | null;
@@ -97,6 +99,7 @@ export function useOnSale(
           id: x.id,
           own: x.own,
           brand: makerName(x.maker, company.name),
+          maker: x.maker,
           name: x.name,
           price: x.price,
           review: x.review,

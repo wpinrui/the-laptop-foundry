@@ -163,7 +163,7 @@ export function StoreWorld({
     }
     return out;
   }, [stock.items]);
-  // Laid out by department, each laptop's class as its card shows it.
+  // Laid out by retail department, worked out partly from each laptop's class as its card shows it.
   const layout = useMemo(
     () => layoutOf(stock.items, new Map([...classes].map(([id, c]) => [id, c.name])), company.name),
     [stock.items, classes, company.name],

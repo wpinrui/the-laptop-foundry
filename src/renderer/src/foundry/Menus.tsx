@@ -353,7 +353,7 @@ export function LoadCompany({
       </div>
       {doomed && (
         <ConfirmDelete
-          name={doomed.name}
+          company={doomed}
           onConfirm={() => {
             setDoomed(null);
             onDelete(doomed.id);
@@ -370,7 +370,16 @@ export function LoadCompany({
  * arrows move between the two, Escape or a click on the scrim cancels; the
  * menu underneath hears none of the keys.
  */
-function ConfirmDelete({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
+function ConfirmDelete({
+  company,
+  onConfirm,
+  onCancel,
+}: {
+  company: SavedCompany;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const n = company.models.length;
   const cancel = useRef<HTMLButtonElement>(null);
   const confirm = useRef<HTMLButtonElement>(null);
   const done = useRef(onCancel);
@@ -392,14 +401,20 @@ function ConfirmDelete({ name, onConfirm, onCancel }: { name: string; onConfirm:
   }, []);
   return createPortal(
     <div className="fd-modal" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
-      <div className="fd-modal-panel" role="alertdialog" aria-modal aria-label={`Delete ${name}`}>
-        <b>{name}</b>
+      <div className="fd-modal-panel" role="alertdialog" aria-modal aria-labelledby="fd-modal-title">
+        <h2 id="fd-modal-title">
+          Delete <b>{company.name}</b>?
+        </h2>
+        <p>
+          {n > 0 ? `Its ${laptopCount(n)} and all its progress go with it.` : "All its progress goes with it."} This can't be
+          undone.
+        </p>
         <div className="fd-actions">
           <button ref={confirm} type="button" className="fd-primary" onClick={onConfirm}>
-            Delete
+            Delete company
           </button>
           <button ref={cancel} type="button" className="fd-text" onClick={onCancel}>
-            Cancel
+            Keep it
           </button>
         </div>
       </div>

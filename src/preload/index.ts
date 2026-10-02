@@ -31,9 +31,9 @@ const api = {
   store: {
     /** Every save, most recently played first. */
     companies: (): Promise<SavedCompany[]> => ipcRenderer.invoke("store:companies"),
-    /** A start year makes a campaign company; none makes a sandbox. */
-    createCompany: (name: string, start?: number): Promise<SavedCompany> =>
-      ipcRenderer.invoke("store:create-company", name, start ?? null),
+    /** A start year makes a campaign company, starting with `cash`; none makes a sandbox. */
+    createCompany: (name: string, start?: number, cash?: number): Promise<SavedCompany> =>
+      ipcRenderer.invoke("store:create-company", name, start ?? null, cash ?? null),
     openCompany: (id: string): Promise<SavedCompany> => ipcRenderer.invoke("store:open-company", id),
     deleteCompany: (id: string): Promise<SavedCompany[]> =>
       ipcRenderer.invoke("store:delete-company", id),

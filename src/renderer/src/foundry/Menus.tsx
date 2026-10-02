@@ -211,12 +211,14 @@ export function NewCompany({
   onBack,
 }: {
   /** No start year makes a sandbox. */
-  onStart: (name: string, start?: number) => void;
+  onStart: (name: string, start?: number, cash?: number) => void;
   onBack: () => void;
 }) {
   const [name, setName] = useState("");
   const [campaign, setCampaign] = useState(true);
   const [start, setStart] = useState(FIRST_START);
+  const [cash, setCash] = useState(STARTING_CASH);
+  const ready = !!name.trim() && (!campaign || cash > 0);
   const step = (d: number) => setStart((y) => Math.min(LAST_START, Math.max(FIRST_START, y + d)));
   return (
     <Column onBack={onBack}>
@@ -224,20 +226,22 @@ export function NewCompany({
         className="fd-new"
         onSubmit={(e) => {
           e.preventDefault();
-          if (name.trim()) onStart(name.trim(), campaign ? start : undefined);
+          if (ready) onStart(name.trim(), campaign ? start : undefined, campaign ? cash : undefined);
         }}
       >
-        <NameField label="Company" value={name} onChange={setName} />
+        <NameField label="Company name" value={name} onChange={setName} />
         <div className="fd-modes">
-          <button type="button" className={campaign ? undefined : "on"} aria-pressed={!campaign} onClick={() => setCampaign(false)}>
-            Sandbox
-          </button>
           <button type="button" className={campaign ? "on" : undefined} aria-pressed={campaign} onClick={() => setCampaign(true)}>
             Campaign
           </button>
+          <button type="button" className={campaign ? undefined : "on"} aria-pressed={!campaign} onClick={() => setCampaign(false)}>
+            Sandbox
+          </button>
         </div>
         <div className="fd-start" style={campaign ? undefined : { visibility: "hidden" }}>
-          <span>
+          <div>
+            <span className="fd-label">Start year</span>
+            <span>
             <button
               type="button"
               className="fd-text"
@@ -257,11 +261,20 @@ export function NewCompany({
             >
               +
             </button>
-          </span>
-          <b className="cash">${STARTING_CASH.toLocaleString("en-US")}</b>
+            </span>
+          </div>
+          <label>
+            <span className="fd-label">Starting cash</span>
+            <input
+              className="cash"
+              inputMode="numeric"
+              value={`$${cash.toLocaleString("en-US")}`}
+              onChange={(e) => setCash(Number(e.target.value.replace(/\D/g, "").slice(0, 12)))}
+            />
+          </label>
         </div>
         <div className="fd-actions">
-          <button type="submit" className="fd-primary" disabled={!name.trim()}>
+          <button type="submit" className="fd-primary" disabled={!ready}>
             Start
           </button>
           <button type="button" className="fd-text" onClick={onBack}>

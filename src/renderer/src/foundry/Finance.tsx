@@ -30,7 +30,7 @@ function gaps(campaign: CampaignState): number[] {
   const { ledger } = campaign;
   const first = ledger[0];
   const opening =
-    first && first.quarter.year === campaign.start && first.quarter.quarter === 1 ? STARTING_CASH : null;
+    first && first.quarter.year === campaign.start && first.quarter.quarter === 1 ? campaign.startCash : null;
   return ledger.map((e, i) => {
     const before = i === 0 ? opening : ledger[i - 1].cash;
     if (before === null) return 0;

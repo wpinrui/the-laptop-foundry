@@ -272,6 +272,8 @@ export function buildDisplays(layout: Layout): Displays {
   layout.seats.forEach((s, i) => {
     const ry = s.side > 0 ? 0 : Math.PI;
     const sz = s.z - s.side * 0.2;
+    // The tag stands at the table's edge, wherever the laptop sits.
+    const tz = layout.tables[s.table].z;
     // The puck and its cable beside the laptop, on the aisle side.
     const px = s.x + s.side * 0.2;
     put(parts, puckM, puck, m4(px, TABLE_Y + 0.006, sz + s.side * 0.05));
@@ -296,7 +298,7 @@ export function buildDisplays(layout: Layout): Displays {
     put(parts, cableM, cable, new THREE.Matrix4());
     cable.dispose();
     // The tag on its acrylic stand at the aisle edge.
-    put(parts, acrylicM, acr, m4(s.x, TABLE_Y + 0.002, sz + s.side * 0.47, ry));
+    put(parts, acrylicM, acr, m4(s.x, TABLE_Y + 0.002, tz + s.side * 0.47, ry));
     const plane = new THREE.PlaneGeometry(0.2, 0.14);
     const u0 = (i % ATLAS_COLS) / ATLAS_COLS;
     const v1 = 1 - Math.floor(i / ATLAS_COLS) / rows;
@@ -306,7 +308,7 @@ export function buildDisplays(layout: Layout): Displays {
     for (let k = 0; k < uv.count; k++)
       uv.setXY(k, u0 + uv.getX(k) * du, v1 - dv + uv.getY(k) * dv);
     const at = new THREE.Matrix4()
-      .multiply(m4(s.x, TABLE_Y, sz + s.side * 0.47, ry))
+      .multiply(m4(s.x, TABLE_Y, tz + s.side * 0.47, ry))
       .multiply(m4(0, 0.066, -0.005, 0, -0.45));
     tagGeos.push(plane.applyMatrix4(at));
   });

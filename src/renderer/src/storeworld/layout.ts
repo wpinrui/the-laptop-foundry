@@ -1,3 +1,4 @@
+import { solve } from "../engine";
 import type { OnSale } from "./onSale";
 
 // The floor plan, in metres as the designer's store is: y up, the entrance
@@ -7,6 +8,8 @@ import type { OnSale } from "./onSale";
 export const ROOM = { x0: -12, x1: 12, z0: -10, z1: 10, h: 4.2 };
 export const TABLE_Y = 0.9;
 export const TABLE = { w: 2.6, d: 1.1 };
+/** How far the display laptops' lids stand open, degrees. */
+export const LID = 110;
 
 /** The doorway in the front wall: walking into it leaves the store. */
 export const DOOR = { x0: -0.65, x1: 0.65 };
@@ -54,6 +57,20 @@ export interface Layout {
   seats: Seat[];
 }
 
+/**
+ * How far a laptop's centre sits from the table's middle: far enough that its
+ * lid, leaning back past upright, stops short of the middle, so laptops on
+ * the two sides never meet. Metres.
+ */
+function offsetOf(item: OnSale): number {
+  let depth = 0.3;
+  try {
+    depth = solve(item.build).shell.outer.y / 1000;
+  } catch {}
+  const lean = Math.max(0, -Math.cos((LID * Math.PI) / 180));
+  return Math.max(0.2, depth / 2 + depth * lean + 0.015);
+}
+
 export function layoutOf(items: OnSale[]): Layout {
   const sorted = [...items].sort((a, b) =>
     a.brand === b.brand
@@ -80,7 +97,7 @@ export function layoutOf(items: OnSale[]): Layout {
         item,
         table: t,
         x: tx + ALONG[side][i % side],
-        z: tz + s * 0.2,
+        z: tz + s * offsetOf(item),
         side: s,
       });
     });

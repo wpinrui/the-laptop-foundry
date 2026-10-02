@@ -27,7 +27,7 @@ import type { Era } from "../review/Charts";
 import { Model, surfacesOf } from "../viewer/Scene";
 import { type Baked, bake, Looks } from "./bake";
 import { buildDisplays, signTexture } from "./displays";
-import { DOOR, type Layout, ROOM, type Seat, TABLE, TABLE_Y } from "./layout";
+import { DOOR, type Layout, LID, ROOM, type Seat, TABLE, TABLE_Y } from "./layout";
 import type { OnSale } from "./onSale";
 
 // The Courts store in first person: the designer's shell (metres, under a
@@ -51,7 +51,6 @@ const DOOR_BOX = new THREE.Box3(
   new THREE.Vector3(DOOR.x0 * M, 0, ROOM.z1 * M - 150),
   new THREE.Vector3(DOOR.x1 * M, 2300, ROOM.z1 * M + 50),
 );
-const LID = 110;
 /** In use, the screen fills this much of the view. */
 const USE_FILL = 0.74;
 /** Beyond this distance a laptop draws its simpler copy. */

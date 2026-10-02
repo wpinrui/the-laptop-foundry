@@ -580,3 +580,44 @@ export function NameStep({
     </Column>
   );
 }
+
+/**
+ * The name step as a card over wherever the player is: the workshop or the
+ * builder. The screen underneath hears none of the keys, so the field takes
+ * typing and Enter; Escape cancels.
+ */
+export function NameCard({
+  roll,
+  onCreate,
+  onCancel,
+}: {
+  roll: () => string;
+  onCreate: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const done = useRef(onCancel);
+  done.current = onCancel;
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      e.stopImmediatePropagation();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        done.current();
+      }
+    };
+    const up = (e: KeyboardEvent) => e.stopImmediatePropagation();
+    window.addEventListener("keydown", key, true);
+    window.addEventListener("keyup", up, true);
+    return () => {
+      window.removeEventListener("keydown", key, true);
+      window.removeEventListener("keyup", up, true);
+    };
+  }, []);
+  return createPortal(
+    <div className="fd fd-over" style={{ zIndex: 999 }}>
+      <div className="fd-scrim" />
+      <NameStep roll={roll} onCreate={onCreate} onCancel={onCancel} />
+    </div>,
+    document.body,
+  );
+}

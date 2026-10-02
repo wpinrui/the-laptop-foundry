@@ -215,7 +215,7 @@ export function NewCompany({
   onBack: () => void;
 }) {
   const [name, setName] = useState("");
-  const [campaign, setCampaign] = useState(false);
+  const [campaign, setCampaign] = useState(true);
   const [start, setStart] = useState(FIRST_START);
   const step = (d: number) => setStart((y) => Math.min(LAST_START, Math.max(FIRST_START, y + d)));
   return (

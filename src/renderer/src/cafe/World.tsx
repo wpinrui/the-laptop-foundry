@@ -26,9 +26,11 @@ export interface LaptopLook {
 const M = 1000;
 const ROOM = { x0: -7000, x1: 7000, z0: -3400, z1: 6600 };
 const EYE = 1620;
-const SPEED = 1500;
+const SPEED = 1800;
 const LOOK = 0.0022;
 const REACH = 2000;
+/** How far away the door can be aimed at to leave, mm. */
+const DOOR_REACH = 4000;
 const SETTLE_MS = 600;
 /** Seated zoom: the camera's field of view, in degrees. */
 const FOV = 62;
@@ -376,7 +378,7 @@ function Player({
     // With no laptop on the table the socket has nothing to charge.
     if (lap && ray.ray.intersectBox(socket, hit) && hit.distanceTo(origin) < best) next = "power";
     // Standing, the street entrance: E leaves through it.
-    if (door.current && !seated && ray.ray.intersectBox(DOOR_BOX, hit) && hit.distanceTo(origin) < best) next = "door";
+    if (door.current && !seated && ray.ray.intersectBox(DOOR_BOX, hit) && hit.distanceTo(origin) < (next ? best : DOOR_REACH)) next = "door";
     if (next !== aimed.current) {
       aimed.current = next;
       onClickAim.current = next;

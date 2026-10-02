@@ -37,12 +37,14 @@ import type { OnSale } from "./onSale";
 
 const M = 1000;
 const EYE = 1620;
-const SPEED = 1500;
+const SPEED = 1800;
 const FAST = 2.2;
 const LOOK = 0.0022;
 const FOV = 60;
 const BODY = 280;
 const REACH = 2600;
+/** How far away the door can be aimed at to leave, mm. */
+const DOOR_REACH = 5200;
 const FLY_MS = 700;
 /** Where the player comes in: just inside the door, facing the logo. */
 const START = new THREE.Vector3(0, EYE, 8000);
@@ -751,7 +753,7 @@ function Player({
         }
       });
       if (ray.ray.intersectBox(DOOR_BOX, hit)) {
-        if (hit.distanceTo(ray.ray.origin) < best) next = "door";
+        if (hit.distanceTo(ray.ray.origin) < (next === null ? DOOR_REACH : best)) next = "door";
       }
     }
     if (next !== aimed.current) {

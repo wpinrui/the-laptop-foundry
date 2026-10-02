@@ -15,7 +15,7 @@ import type { StationId } from "./stations";
 export const M = 1000;
 const EYE = 1620;
 const BODY = 260;
-const SPEED = 1500;
+const SPEED = 1800;
 const LOOK = 0.0022;
 /** Vertical field of view at 16:9; narrower windows widen it so the sides stay in view. */
 const FOV = 50;
@@ -512,7 +512,7 @@ export function Picker({
     for (const l of laptops.current ?? [])
       if (ray.ray.intersectBox(l.box, hit) && hit.distanceTo(ray.ray.origin) < reach) return { kind: "laptop", id: l.id };
     let best: Pick | null = null;
-    let near = reach;
+    let near = Number.POSITIVE_INFINITY;
     const n = live.current.bays;
     const wall = new THREE.Box3(
       new THREE.Vector3(data.room.x0, 0, data.bay.z0 - n * data.bay.pitch),
@@ -521,7 +521,9 @@ export function Picker({
     for (const b of [...data.boxes, { pick: { kind: "station", id: "products" } as Pick, box: wall }]) {
       if (!ray.ray.intersectBox(b.box, hit)) continue;
       const d = hit.distanceTo(ray.ray.origin);
-      if (d < near) {
+      // The door can be aimed at from further off than the rest.
+      const far = b.pick.kind === "station" && b.pick.id === "door" ? 6000 : reach;
+      if (d < near && d < far) {
         near = d;
         best = b.pick;
       }

@@ -540,10 +540,6 @@
   width: calc(540 * var(--u));
 }
 
-.fd-new .fd-label {
-  display: none;
-}
-
 .fd-new .fd-actions {
   margin-top: 0;
 }
@@ -581,12 +577,21 @@
 .fd-start {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
 }
 
-.fd-start span {
+.fd-start > * {
+  display: flex;
+  flex-direction: column;
+}
+
+.fd-start > label {
+  align-items: flex-end;
+}
+
+.fd-start span:not(.fd-label) {
   display: flex;
   align-items: center;
   gap: calc(18 * var(--u));
@@ -599,8 +604,20 @@
   color: var(--text);
 }
 
-.fd-start b.cash {
+.fd-start input.cash {
+  width: calc(240 * var(--u));
+  height: calc(48 * var(--u));
+  border-bottom: calc(2 * var(--u)) solid var(--line-strong);
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
   font-size: calc(32 * var(--u));
+  text-align: right;
+  color: var(--text);
+}
+
+.fd-start input.cash:focus {
+  border-bottom-color: var(--accent);
 }
 
 .fd-start .fd-text {

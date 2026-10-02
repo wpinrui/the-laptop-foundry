@@ -29,12 +29,17 @@ function isStart(y: unknown): y is number {
   return typeof y === "number" && Number.isInteger(y) && y >= FIRST_START && y <= LAST_START;
 }
 
+function isCash(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n > 0 && n <= 1e12;
+}
+
 /** A saved campaign, or undefined for a sandbox company. */
 function readCampaign(raw: unknown): SavedCampaign | undefined {
   const x = raw as Partial<SavedCampaign> | null | undefined;
   if (!x || !isStart(x.start)) return undefined;
   const state = x.state;
-  return state && typeof state === "object" ? { start: x.start, state } : { start: x.start };
+  const base: SavedCampaign = isCash(x.cash) ? { start: x.start, cash: x.cash } : { start: x.start };
+  return state && typeof state === "object" ? { ...base, state } : base;
 }
 
 let companies: Map<string, SavedCompany> | null = null;
@@ -205,13 +210,14 @@ async function loadSettings(): Promise<Settings> {
 
 export function registerStore(): void {
   handleTop("store:companies", async () => list(await all()).map(lean));
-  handleTop("store:create-company", async (_e, name: unknown, start: unknown) => {
+  handleTop("store:create-company", async (_e, name: unknown, start: unknown, cash: unknown) => {
     if (typeof name !== "string" || !name.trim() || name.trim().length > MAX_NAME)
       throw new Error("company name must be text");
     if (start !== null && start !== undefined && !isStart(start)) throw new Error("bad campaign start");
+    if (cash !== null && cash !== undefined && !isCash(cash)) throw new Error("bad starting cash");
     const now = Date.now();
     const c: SavedCompany = { version: 1, id: randomUUID(), name: name.trim(), created: now, played: now, models: [] };
-    return put(isStart(start) ? { ...c, campaign: { start } } : c);
+    return put(isStart(start) ? { ...c, campaign: isCash(cash) ? { start, cash } : { start } } : c);
   });
   handleTop("store:open-company", async (_e, id: unknown) => {
     const c = await company(id);
@@ -245,7 +251,10 @@ export function registerStore(): void {
     const next = readCampaign(campaign);
     // A sandbox never becomes a campaign, and a campaign keeps its start year.
     if (!c.campaign || !next || next.start !== c.campaign.start) throw new Error("bad campaign");
-    return lean(await put({ ...c, campaign: next, played: Date.now() }));
+    // The starting cash is set once, when the company is made.
+    const { cash: _, ...rest } = next;
+    const kept = c.campaign.cash === undefined ? rest : { ...rest, cash: c.campaign.cash };
+    return lean(await put({ ...c, campaign: kept, played: Date.now() }));
   });
   handleTop("store:save-market", async (_e, id: unknown, year: unknown, market: unknown) => {
     if (typeof year !== "number" || !Number.isInteger(year) || year < FIRST_START)

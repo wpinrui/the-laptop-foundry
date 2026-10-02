@@ -36,6 +36,8 @@ export interface Quarter {
 
 export interface CampaignState {
   start: number;
+  /** The cash the campaign started with. */
+  startCash: number;
   /** The quarter being played. */
   now: Quarter;
   cash: number;
@@ -85,9 +87,9 @@ export function nextQuarter(q: Quarter): Quarter {
   return q.quarter === 4 ? { year: q.year + 1, quarter: 1 } : { year: q.year, quarter: (q.quarter + 1) as QuarterOfYear };
 }
 
-export function newCampaign(start: number): CampaignState {
+export function newCampaign(start: number, startCash = STARTING_CASH): CampaignState {
   const year = Math.min(LAST_START, Math.max(FIRST_START, Math.round(start)));
-  return { start: year, now: { year, quarter: 1 }, cash: STARTING_CASH, over: false,
+  return { start: year, startCash, now: { year, quarter: 1 }, cash: startCash, over: false,
     releases: {},
     spent: { ...NO_SPEND },
     ledger: [],
@@ -104,7 +106,7 @@ export function newCampaign(start: number): CampaignState {
 
 /** A saved campaign's state, with anything missing or broken filled from a fresh start. */
 export function campaignOf(saved: SavedCampaign): CampaignState {
-  const fresh = newCampaign(saved.start);
+  const fresh = newCampaign(saved.start, saved.cash);
   const s = (saved.state ?? {}) as Partial<CampaignState>;
   const n = s.now;
   const at =
@@ -118,6 +120,7 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
   const now = finished ? nextQuarter(at) : at;
   return {
     start: fresh.start,
+    startCash: fresh.startCash,
     now,
     cash: typeof s.cash === "number" && Number.isFinite(s.cash) ? s.cash : fresh.cash,
     over: bankrupt,
@@ -146,8 +149,8 @@ function releasesOf(x: unknown): Record<string, Release> {
 }
 
 export function savedCampaign(state: CampaignState): SavedCampaign {
-  const { start, ...rest } = state;
-  return { start, state: rest };
+  const { start, startCash, ...rest } = state;
+  return { start, cash: startCash, state: rest };
 }
 
 // ------------------------------------------------------------------ quarter steps

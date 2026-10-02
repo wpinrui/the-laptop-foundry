@@ -25,6 +25,8 @@ export interface SavedNote {
 export interface SavedCampaign {
   /** The year the campaign started in, 2006 to 2025. */
   start: number;
+  /** The cash the campaign started with. Absent on saves from before it was chosen: STARTING_CASH. */
+  cash?: number;
   /** The clock, cash and everything the quarters change. Opaque here, like
    * the build: the renderer owns its shape, and fills it in when absent. */
   state?: unknown;

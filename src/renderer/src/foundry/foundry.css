@@ -740,3 +740,26 @@
     opacity: 0;
   }
 }
+
+/* Travel card: where the player is headed, over the place while it loads. */
+.fd.fd-travel {
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  transition: opacity 400ms ease-out;
+}
+
+.fd-travel.out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fd-travel b {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(40 * var(--u));
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  animation: fd-in 300ms ease-out both;
+}

@@ -89,6 +89,8 @@ export function App() {
   const [where, setWhere] = useState<Where>({ at: "map", from: null });
   // The build waiting for the player to name it before it becomes a model.
   const [naming, setNaming] = useState<Build | null>(null);
+  // A new model is on its way to the workshop: the travel card shows over the builder.
+  const [going, setGoing] = useState(false);
   // A year's market is being generated before a screen that needs it opens.
   const [busy, setBusy] = useState(false);
   // The statement view open between the rails, on this tab.
@@ -408,6 +410,7 @@ export function App() {
   const model = open ? company?.models.find((m) => m.id === open) : undefined;
   if (model)
     return (
+      <>
       <Builder
         key={model.id}
         model={model}
@@ -428,6 +431,8 @@ export function App() {
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
+      {going && <Travel to="workshop" onDone={() => setGoing(false)} />}
+      </>
     );
 
   // The Office: the 3D room, its stations' panels and the quarter report over it. Leaving it goes to the map.
@@ -635,6 +640,7 @@ export function App() {
             setSelected(m.id);
             setOfficeAt((a) => ({ ...a, station: "desk", model: m.id, arrive: false }));
             setMenu("list");
+            setGoing(true);
             setOpen(m.id);
           });
         }}
@@ -694,5 +700,25 @@ export function App() {
         />
       )}
     </SystemActions.Provider>
+  );
+}
+
+/** A full-screen card naming where the player is headed, faded out once the place underneath has had time to load. */
+function Travel({ to, onDone }: { to: string; onDone: () => void }) {
+  const [out, setOut] = useState(false);
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    const fade = setTimeout(() => setOut(true), 1100);
+    const end = setTimeout(() => done.current(), 1500);
+    return () => {
+      clearTimeout(fade);
+      clearTimeout(end);
+    };
+  }, []);
+  return (
+    <div className={`fd fd-travel${out ? " out" : ""}`}>
+      <b>Going to the {to}</b>
+    </div>
   );
 }

@@ -19,11 +19,30 @@ const SHADOW_FRAMES = 3;
 const NO_CAST = ["roof", "clerestory", "lights"];
 const noRaycast = () => {};
 const PLACEHOLDER = /^front_(finish_|label$)/;
+/** The left wall's pilaster that stood across the personnel door: z from, to, and the wall face it is flattened onto (metres). */
+const DOOR_PILASTER = { z0: 2.85, z1: 3.43, face: -9 };
+
+/** Pushes the pilaster in front of the door back into the wall, so the door stands clear. */
+function clearDoor(scene: THREE.Group) {
+  scene.getObjectByName("wall_left_brick_whitewashed")?.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const p = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+    for (let i = 0; i < p.count; i++) {
+      const z = p.getZ(i);
+      if (p.getX(i) > DOOR_PILASTER.face + 0.01 && z > DOOR_PILASTER.z0 && z < DOOR_PILASTER.z1) p.setX(i, DOOR_PILASTER.face);
+    }
+    p.needsUpdate = true;
+    mesh.geometry.computeBoundingBox();
+    mesh.geometry.computeBoundingSphere();
+  });
+}
 
 function useWorkshop(): { scene: THREE.Group; casters: THREE.Mesh[]; lift: number } {
   const gltf = useLoader(GLTFLoader, workshopUrl);
   return useMemo(() => {
     const scene = gltf.scene;
+    clearDoor(scene);
     scene.updateMatrixWorld(true);
     // Relative to the scene itself: the loader caches the scene, so on a
     // remount it can still hang under the old mm-scaled group.

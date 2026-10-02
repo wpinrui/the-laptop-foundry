@@ -265,10 +265,11 @@ export function App() {
   const placeKey = ((): string | null => {
     if (!company || short) return null;
     if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
-    if (where.at === "workshop" && !open) return `workshop:${where.model?.id ?? ""}`;
+    // The workshop and its builder are one place: going between them is no arrival.
+    if (where.at === "workshop" && !open) return "workshop";
     if (where.at === "courts") return "courts";
     if (where.at === "map" || reviewing) return null;
-    if (open && company.models.some((m) => m.id === open)) return `builder:${open}`;
+    if (open && company.models.some((m) => m.id === open)) return "workshop";
     if (where.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";
     return null;
   })();
@@ -524,6 +525,8 @@ export function App() {
         onReview={review}
         onDuplicate={() => duplicate(model.id)}
         onOpen={setOpen}
+        onNew={campaign?.over ? undefined : newModel}
+        held={!!naming}
         yearLocked={!!campaign}
         released={!!campaign?.releases[model.id]}
         reroll={(b) => randomName(b.year, inchesOf(b))}

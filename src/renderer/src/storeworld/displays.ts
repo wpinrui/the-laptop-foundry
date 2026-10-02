@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { type Layout, TABLE, TABLE_Y } from "./layout";
+import { type Layout, ROOM, type Table, TABLE, TABLE_Y } from "./layout";
 import type { OnSale } from "./onSale";
 
 // The display tables, their maker signs and each laptop's price tag, security
@@ -12,12 +12,41 @@ import type { OnSale } from "./onSale";
 export const BLUE = "#1d5fbf";
 export const YEL = "#f7c600";
 export const BLUE_D = "#123a80";
+/** Each department's colour, on its tables' edges and its overhead sign's trim, by class. */
+export const DEPT: Record<string, string> = {
+  Consumer: "#00a6a6",
+  Budget: "#2e9e4f",
+  Student: "#f28c28",
+  "K-12": "#ff6f61",
+  Writer: "#8d6e63",
+  Nomad: "#c0ca33",
+  Corporate: "#455a64",
+  "Biz Pro": "#3949ab",
+  Field: "#6d7a2b",
+  Developer: "#0097d6",
+  Creative: "#d81b60",
+  "Video Ed.": "#c62828",
+  "3D Artist": "#8e24aa",
+  "Music Prod.": "#7cb342",
+  "Tech Enth.": "#263238",
+  Gamer: "#ff3d00",
+  Esports: "#f50057",
+  Streamer: "#7e57c2",
+};
+/** A class without a colour of its own. */
+const DEPT_OTHER = "#9a9a96";
+/** The player's own table: the store's yellow. */
+const DEPT_OWN = YEL;
+const deptColour = (label: string, own: boolean) => (own ? DEPT_OWN : (DEPT[label] ?? DEPT_OTHER));
 
 const TAG_W = 512;
 const TAG_H = 360;
 const ATLAS_COLS = 8;
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+/** "$499 to $1,299", or the one price when they match. */
+const range = (low: number, high: number) =>
+  Math.round(low) === Math.round(high) ? usd(low) : `${usd(low)} to ${usd(high)}`;
 
 /** The tag's flag, if any: sold out, a top three seller, or launched this quarter. */
 export function flagOf(
@@ -110,13 +139,8 @@ function canvasTexture(
   return t;
 }
 
-/** A sign's face: the makers on a table, or the department's name. */
-function drawHeader(
-  g: CanvasRenderingContext2D,
-  w: number,
-  h: number,
-  makers: string[],
-) {
+/** A table's sign: its class, or the company on the player's own, its price range and its makers. */
+function drawHeader(g: CanvasRenderingContext2D, w: number, h: number, t: Table) {
   g.fillStyle = BLUE;
   g.fillRect(0, 0, w, h);
   g.fillStyle = YEL;
@@ -124,32 +148,36 @@ function drawHeader(
   g.fillStyle = "#fff";
   g.textAlign = "center";
   g.textBaseline = "middle";
-  const shown = makers.slice(0, 3);
-  const fs = shown.length > 2 ? 58 : shown.length > 1 ? 76 : 88;
-  g.font = `700 ${fs}px "Barlow Condensed"`;
-  shown.forEach((m, i, a) => {
-    g.fillText(
-      m.toUpperCase(),
-      w / 2,
-      h / 2 - 6 + (i - (a.length - 1) / 2) * fs * 0.95,
-      w - 40,
-    );
-  });
+  const lines: [string, number, string][] = [
+    [t.label.toUpperCase(), 64, '700 64px "Barlow Condensed"'],
+    [range(t.low, t.high), 40, '700 40px "Barlow Condensed"'],
+  ];
+  if (!t.own) {
+    const shown = t.makers.slice(0, 3).join(", ");
+    lines.push([t.makers.length > 3 ? `${shown} +${t.makers.length - 3}` : shown, 26, '500 26px "IBM Plex Sans"']);
+  }
+  const gap = 10;
+  let y = (h - 12 - (lines.reduce((n, [, size]) => n + size, 0) + gap * (lines.length - 1))) / 2;
+  for (const [text, size, font] of lines) {
+    g.font = font;
+    g.fillText(text, w / 2, y + size / 2, w - 40);
+    y += size + gap;
+  }
 }
 
-/** The hanging department sign's face. */
-export function signTexture(label: string): THREE.CanvasTexture {
-  return canvasTexture(1050, 200, (g) => {
-    g.fillStyle = BLUE;
-    g.fillRect(0, 0, 1050, 200);
-    g.fillStyle = YEL;
-    g.fillRect(0, 184, 1050, 16);
-    g.fillStyle = "#fff";
-    g.font = '700 118px "Barlow Condensed"';
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    g.fillText(label, 525, 96);
-  });
+/** The overhead sign over a department: its class, or the company's name, the trim in its colour. */
+function drawOverhead(g: CanvasRenderingContext2D, w: number, h: number, label: string, colour: string) {
+  g.fillStyle = BLUE;
+  g.fillRect(0, 0, w, h);
+  g.fillStyle = YEL;
+  g.fillRect(0, h - 34, w, 6);
+  g.fillStyle = colour;
+  g.fillRect(0, h - 28, w, 28);
+  g.fillStyle = "#fff";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = '700 170px "Barlow Condensed"';
+  g.fillText(label.toUpperCase(), w / 2, (h - 34) / 2 + 8, w - 60);
 }
 
 type Parts = Map<THREE.Material, THREE.BufferGeometry[]>;
@@ -203,7 +231,16 @@ export function buildDisplays(layout: Layout): Displays {
   const topM = std("#fbfbf9", 0.35);
   const bodyM = std("#e4e4e1", 0.7);
   const plinthM = std("#9a9a96", 0.6);
-  const edgeM = std(BLUE, 0.5);
+  // One edge material per department colour.
+  const edges = new Map<string, THREE.Material>();
+  const edgeOf = (c: string) => {
+    let m = edges.get(c);
+    if (!m) {
+      m = std(c, 0.5);
+      edges.set(c, m);
+    }
+    return m;
+  };
   const stripeM = std(YEL, 0.5);
   const postM = std("#b8bcc2", 0.3, 0.8);
   const puckM = std("#2a2b2e", 0.4, 0.5);
@@ -233,11 +270,11 @@ export function buildDisplays(layout: Layout): Displays {
     put(shadowParts, bodyM, body, m4(t.x, (TABLE_Y - 0.1) / 2 + 0.06, t.z));
     put(shadowParts, plinthM, plinth, m4(t.x, 0.03, t.z));
     for (const s of [-1, 1]) {
-      put(parts, edgeM, edge, m4(t.x, TABLE_Y - 0.025, t.z + s * 0.556));
+      put(parts, edgeOf(deptColour(t.label, t.own)), edge, m4(t.x, TABLE_Y - 0.025, t.z + s * 0.556));
       put(parts, stripeM, stripe, m4(t.x, TABLE_Y - 0.2, t.z + s * 0.455));
     }
     const hdr = canvasTexture(600, 200, (g) =>
-      drawHeader(g, 600, 200, t.makers),
+      drawHeader(g, 600, 200, t),
     );
     owned.push(hdr);
     const hm = std("#ffffff", 0.4, 0, { map: hdr });
@@ -250,6 +287,25 @@ export function buildDisplays(layout: Layout): Displays {
       group.add(c);
     }
   });
+
+  // One sign over each department, centred over its tables and hung from the
+  // ceiling. Read from the entrance, so each row back hangs a little higher.
+  const SIGN = { w: 2.4, h: 0.55, d: 0.04 };
+  const sign = box(SIGN.w, SIGN.h, SIGN.d);
+  for (const d of layout.departments) {
+    const at = d.tables.map((i) => layout.tables[i]);
+    const x = at.reduce((n, t) => n + t.x, 0) / at.length;
+    const z = at.reduce((n, t) => n + t.z, 0) / at.length;
+    const y = Math.min(ROOM.h - 0.15 - SIGN.h / 2, 2.95 + (4.1 - z) * 0.09);
+    const face = canvasTexture(1200, 275, (g) => drawOverhead(g, 1200, 275, d.label, deptColour(d.label, d.own)));
+    owned.push(face);
+    const fm = std("#ffffff", 0.4, 0, { map: face, emissive: "#ffffff", emissiveMap: face, emissiveIntensity: 0.25 });
+    const s = new THREE.Mesh(sign, [bodyM, bodyM, bodyM, bodyM, fm, fm]);
+    s.position.set(x, y, z);
+    group.add(s);
+    const wire = box(0.008, ROOM.h - y - SIGN.h / 2, 0.008);
+    for (const end of [-1, 1]) put(parts, postM, wire, m4(x + end * (SIGN.w / 2 - 0.15), (ROOM.h + y + SIGN.h / 2) / 2, z));
+  }
 
   // One atlas for every price tag.
   const n = layout.seats.length;

@@ -163,7 +163,11 @@ export function StoreWorld({
     }
     return out;
   }, [stock.items]);
-  const layout = useMemo(() => layoutOf(stock.items), [stock.items]);
+  // Laid out by department, each laptop's class as its card shows it.
+  const layout = useMemo(
+    () => layoutOf(stock.items, new Map([...classes].map(([id, c]) => [id, c.name])), company.name),
+    [stock.items, classes, company.name],
+  );
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLElement>(null);
   const [paused, setPaused] = useState(false);
@@ -330,7 +334,6 @@ export function StoreWorld({
       <div className={`cafe-world${paused ? " paused" : ""}`}>
         <Store
           layout={layout}
-          era={stock.era}
           active={active}
           inspect={inspect}
           using={using}

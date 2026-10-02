@@ -24,10 +24,9 @@ import {
 } from "../cafe/World";
 import { type Build, colourHex, decorOf, type Fit, solve } from "../engine";
 import { useOsStill } from "../os/useOsScreen";
-import type { Era } from "../review/Charts";
 import { Model, surfacesOf } from "../viewer/Scene";
 import { type Baked, bake, Looks } from "./bake";
-import { buildDisplays, signTexture } from "./displays";
+import { buildDisplays } from "./displays";
 import { DOOR, type Layout, LID, ROOM, type Seat, TABLE, TABLE_Y } from "./layout";
 import type { OnSale } from "./onSale";
 
@@ -131,7 +130,7 @@ function useFonts(): boolean {
   return ready;
 }
 
-function useShell(era: Era, fonts: boolean): THREE.Group {
+function useShell(): THREE.Group {
   const gltf = useLoader(GLTFLoader, storeUrl);
   const scene = gltf.scene;
   useMemo(() => {
@@ -151,33 +150,11 @@ function useShell(era: Era, fonts: boolean): THREE.Group {
       mesh.castShadow = !clear && !unlit && !NO_CAST.has(name);
     });
   }, [scene]);
-  // The hanging sign reads NOTEBOOKS in the 2006 era, LAPTOPS after.
+  // The shell's one hanging sign gives way to the departments' own, over their tables.
   useEffect(() => {
-    const sign = scene.getObjectByName("department_sign");
-    if (!sign || !fonts) return;
-    const tex = signTexture(era === 2006 ? "NOTEBOOKS" : "LAPTOPS");
-    const swapped: [THREE.MeshStandardMaterial, THREE.Texture | null][] = [];
-    sign.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      for (const m of Array.isArray(mesh.material)
-        ? mesh.material
-        : [mesh.material]) {
-        const s = m as THREE.MeshStandardMaterial;
-        if (!s.map) continue;
-        swapped.push([s, s.map]);
-        s.map = tex;
-        s.needsUpdate = true;
-      }
-    });
-    return () => {
-      for (const [s, was] of swapped) {
-        s.map = was;
-        s.needsUpdate = true;
-      }
-      tex.dispose();
-    };
-  }, [scene, era, fonts]);
+    const sign = scene.getObjectByName("sign");
+    if (sign) sign.visible = false;
+  }, [scene]);
   return scene;
 }
 
@@ -772,7 +749,6 @@ function Player({
 
 function Room({
   layout,
-  era,
   active,
   inspect,
   using,
@@ -783,7 +759,6 @@ function Room({
   onReady,
 }: {
   layout: Layout;
-  era: Era;
   active: boolean;
   inspect: number | null;
   using: boolean;
@@ -794,7 +769,7 @@ function Room({
   onReady?: () => void;
 }) {
   const fonts = useFonts();
-  const shell = useShell(era, fonts);
+  const shell = useShell();
   const displays = useMemo(
     () => (fonts ? buildDisplays(layout) : null),
     [layout, fonts],
@@ -829,7 +804,6 @@ function Room({
 
 export function Store(props: {
   layout: Layout;
-  era: Era;
   active: boolean;
   inspect: number | null;
   /** The inspected laptop is in use: live, its OS on the screen. */
@@ -860,7 +834,6 @@ export function Store(props: {
       <Suspense fallback={null}>
         <Room
           layout={props.layout}
-          era={props.era}
           active={props.active}
           inspect={props.inspect}
           using={props.using}

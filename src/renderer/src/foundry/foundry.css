@@ -660,3 +660,41 @@
   );
   backdrop-filter: blur(6px);
 }
+
+/* Delete confirmation: a panel over the dimmed menu. */
+.fd-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--ground-deep) 72%, transparent);
+  animation: fd-fade 140ms ease-out both;
+}
+
+.fd-modal-panel {
+  min-width: calc(520 * var(--u));
+  padding: calc(40 * var(--u)) calc(48 * var(--u));
+  background: var(--ground);
+  border: 1px solid var(--line-strong);
+  animation: fd-in 200ms ease-out both;
+}
+
+.fd-modal-panel > b {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(48 * var(--u));
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.fd-modal-panel .fd-text:focus {
+  color: var(--accent) !important;
+}
+
+@keyframes fd-fade {
+  from {
+    opacity: 0;
+  }
+}

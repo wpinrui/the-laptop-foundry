@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { SavedCompany } from "../../../preload/store";
 import { FIRST_START, LAST_START, STARTING_CASH } from "../engine/campaign/constants";
 import { ASSETS } from "../viewer/reviewScenes";
@@ -287,7 +288,7 @@ export function LoadCompany({
   onDelete: (id: string) => void;
   onBack: () => void;
 }) {
-  const [armed, setArmed] = useState<string | null>(null);
+  const [doomed, setDoomed] = useState<SavedCompany | null>(null);
   const rows = useRef<HTMLDivElement>(null);
   const i = companies.findIndex((c) => c.id === selected);
   const keys = useRef({ companies, i, selected, onSelect, onLoad });
@@ -299,7 +300,6 @@ export function LoadCompany({
       const step = e.key === "ArrowDown" || e.code === "KeyS" ? 1 : e.key === "ArrowUp" || e.code === "KeyW" ? -1 : 0;
       if (step && k.companies.length > 0) {
         e.preventDefault();
-        setArmed(null);
         const next = k.companies[(k.i + step + k.companies.length) % k.companies.length];
         k.onSelect(next.id);
         return;
@@ -323,10 +323,7 @@ export function LoadCompany({
             className={`fd-save${c.id === selected ? " selected" : ""}`}
             onClick={() => {
               if (c.id === selected) onLoad(c.id);
-              else {
-                onSelect(c.id);
-                setArmed(null);
-              }
+              else onSelect(c.id);
             }}
           >
             <b>{c.name}</b>
@@ -346,22 +343,68 @@ export function LoadCompany({
           type="button"
           className="fd-text"
           disabled={!selected}
-          onBlur={() => setArmed(null)}
-          onClick={() => {
-            if (!selected) return;
-            if (armed === selected) {
-              setArmed(null);
-              onDelete(selected);
-            } else setArmed(selected);
-          }}
+          onClick={() => setDoomed(companies.find((c) => c.id === selected) ?? null)}
         >
-          {armed === selected ? "Confirm" : "Delete"}
+          Delete
         </button>
         <button type="button" className="fd-text" onClick={onBack}>
           Back
         </button>
       </div>
+      {doomed && (
+        <ConfirmDelete
+          name={doomed.name}
+          onConfirm={() => {
+            setDoomed(null);
+            onDelete(doomed.id);
+          }}
+          onCancel={() => setDoomed(null)}
+        />
+      )}
     </Column>
+  );
+}
+
+/**
+ * Asks before a save is deleted, over the whole menu. Cancel takes focus, the
+ * arrows move between the two, Escape or a click on the scrim cancels; the
+ * menu underneath hears none of the keys.
+ */
+function ConfirmDelete({ name, onConfirm, onCancel }: { name: string; onConfirm: () => void; onCancel: () => void }) {
+  const cancel = useRef<HTMLButtonElement>(null);
+  const confirm = useRef<HTMLButtonElement>(null);
+  const done = useRef(onCancel);
+  done.current = onCancel;
+  useEffect(() => {
+    cancel.current?.focus();
+    const key = (e: KeyboardEvent) => {
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        done.current();
+      } else if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Tab"].includes(e.key)) {
+        e.preventDefault();
+        (document.activeElement === cancel.current ? confirm : cancel).current?.focus();
+      }
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, []);
+  return createPortal(
+    <div className="fd-modal" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+      <div className="fd-modal-panel" role="alertdialog" aria-modal aria-label={`Delete ${name}`}>
+        <b>{name}</b>
+        <div className="fd-actions">
+          <button ref={confirm} type="button" className="fd-primary" onClick={onConfirm}>
+            Delete
+          </button>
+          <button ref={cancel} type="button" className="fd-text" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.querySelector(".fd") ?? document.body,
   );
 }
 

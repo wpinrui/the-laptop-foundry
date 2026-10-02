@@ -51,11 +51,14 @@ function Room({
   paused,
   using,
   overlay,
+  onReady,
   children,
 }: {
   paused: boolean;
   using: boolean;
   overlay: RefObject<HTMLDivElement | null>;
+  /** Once the room has loaded, for the travel card over it. */
+  onReady?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -66,7 +69,7 @@ function Room({
         gl={{ toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 0.9 }}
         camera={{ fov: 62, near: 10, far: 40000 }}
       >
-        <Workshop />
+        <Workshop onReady={onReady} />
         <Reflections intensity={0.5} />
         <Lights dim={0.45} />
         <directionalLight position={[200, 1200, 1600]} color={token("stage-key")} intensity={0.3} />
@@ -203,6 +206,12 @@ export function WorkshopVisit({
   sound,
   onSound,
   onMap,
+  onLeave,
+  onReady,
+  held = false,
+  onNew,
+  onEdit,
+  onDuplicate,
 }: {
   model: SavedModel | null;
   /** Every laptop the company has built, for the archive's shelves. */
@@ -212,6 +221,17 @@ export function WorkshopVisit({
   sound: boolean;
   onSound: (on: boolean) => void;
   onMap: () => void;
+  /** Back to where the visit came from, through the door, rather than to the map. */
+  onLeave?: () => void;
+  onReady?: () => void;
+  /** A card is up over the workshop: the scene pauses behind it. */
+  held?: boolean;
+  /** A new laptop, from the empty turntable; absent when no more can be made. */
+  onNew?: () => void;
+  /** The turntable's laptop into the builder. */
+  onEdit?: (id: string) => void;
+  /** A copy of the turntable's laptop; absent when no more can be made. */
+  onDuplicate?: (id: string) => void;
 }) {
   const [onTable, setOnTable] = useState<{ m: SavedModel; open: boolean } | null>(model ? { m: model, open: true } : null);
   const [free, setFree] = useState<FreeState | null>(() => freeStart(!!model));
@@ -232,14 +252,25 @@ export function WorkshopVisit({
   }, []);
   const { archive, aim, onShelf, keys } = useArchive(models, onTable?.m.id ?? null, setFree, take, putAway);
   const onDoor = useDoorAim(setFree);
+  const onTableAim = useCallback((on: boolean) => setFree((s) => (s && s.table !== on ? { ...s, table: on } : s)), []);
+  const id = onTable?.m.id;
+  const laptops = {
+    make: onTable ? undefined : onNew,
+    edit: id && onEdit ? () => onEdit(id) : undefined,
+    copy: id && onDuplicate ? () => onDuplicate(id) : undefined,
+  };
+  // Behind a card the scene stands still, as behind the pause menu.
+  const shown = held ? { ...state, paused: true } : state;
   const drive: TableDrive = { onAim, onSettled, onShelf, shelves: aim, stance, atDoor: true, onDoor };
 
   return (
     <div className="fd bd free">
-      <Room paused={state.paused} using={state.using && !state.paused} overlay={overlay}>
+      <Room paused={shown.paused} using={state.using && !shown.paused} overlay={overlay} onReady={onReady}>
         {archive}
         <SlotView slot={scene} />
-        {!onTable && <Walker laptop={{ current: null }} active={!state.paused} using={false} useAt={noAt} {...drive} />}
+        {!onTable && (
+          <Walker laptop={{ current: null }} active={!shown.paused} using={false} useAt={noAt} onTable={onTableAim} {...drive} />
+        )}
       </Room>
       <FreeOverlay
         state={state}
@@ -247,9 +278,12 @@ export function WorkshopVisit({
         canUse={os.canUse}
         page={os.page}
         onMap={onMap}
+        onLeave={onLeave}
         sound={sound}
         onSound={onSound}
         archive={keys}
+        models={laptops}
+        held={held}
       />
       {onTable && (
         <TableLaptop
@@ -260,7 +294,7 @@ export function WorkshopVisit({
           library={library}
           sound={sound}
           onSound={onSound}
-          state={state}
+          state={shown}
           scene={scene}
           portal={overlay}
           drive={drive}

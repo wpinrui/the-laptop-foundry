@@ -12,7 +12,7 @@ import { StoreWorld } from "./storeworld/StoreWorld";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
 import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, type Quarter, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
 import { sortedModels } from "./foundry/LaptopList";
-import { LoadCompany, NameStep, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
+import { LoadCompany, NameCard, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { StatementView, type StatementTab } from "./foundry/Finance";
 import { Ending } from "./foundry/Ending";
 import { type MarketTab, MarketScreen } from "./world/MarketScreen";
@@ -40,7 +40,7 @@ function migrated(c: SavedCompany): SavedCompany {
   return { ...c, models: c.models.map((m) => ({ ...m, build: migrateBody(m.build as Build) })) };
 }
 
-type Menu = "start" | "new" | "load" | "settings" | "list" | "name";
+type Menu = "start" | "new" | "load" | "settings" | "list";
 
 /** Camera view per menu screen. The start menu orbits; the list sways. */
 const VIEWS: Record<Menu, StageView> = {
@@ -49,7 +49,6 @@ const VIEWS: Record<Menu, StageView> = {
   new: { azimuth: 0.75, distance: 700, shift: 0.24, mode: "orbit" },
   load: { azimuth: -0.45, distance: 820, shift: 0.18, mode: "orbit" },
   list: { azimuth: 0, distance: 820, shift: 0.17, mode: "sway" },
-  name: { azimuth: 0.6, distance: 720, shift: 0.22, mode: "sway" },
 };
 
 /** A campaign's list: the laptop further back and between the rail and the side column. */
@@ -59,8 +58,8 @@ const CAMPAIGN_VIEW: StageView = { azimuth: 0, distance: 1300, shift: 0.014, mod
  * Where the player is while a company is open: on the world map or in one of
  * its four places. The map remembers the place it was walked out of, which
  * Stay goes back into; null when it opened from the menu. The workshop and the
- * cafe hold the laptop brought along, if any; a cafe visit made from the
- * Office's Use goes back to the Office on Leave.
+ * cafe hold the laptop brought along, if any; a visit made from the Office
+ * goes back to the Office on Leave.
  */
 type InPlace =
   | { at: "office" }
@@ -87,9 +86,9 @@ export function App() {
   const [reviewing, setReviewing] = useState<Subject | null>(null);
   // Where the player is: the one place, or the map, that every screen of an open company hangs off.
   const [where, setWhere] = useState<Where>({ at: "map", from: null });
-  // The build waiting for the player to name it before it becomes a model.
+  // The build waiting for the player to name it on the name card before it becomes a model.
   const [naming, setNaming] = useState<Build | null>(null);
-  // A new model is on its way to the workshop: the travel card shows over the builder.
+  // On the way to the workshop: the travel card shows over it until the room has loaded.
   const [going, setGoing] = useState<"loading" | "here" | null>(null);
   // A year's market is being generated before a screen that needs it opens.
   const [busy, setBusy] = useState(false);
@@ -167,12 +166,12 @@ export function App() {
 
   // What the stage shows: the laptop that belongs to the screen.
   const stagedCompany = useMemo((): SavedCompany | null => {
-    if (menu === "list" || menu === "name") return company;
+    if (menu === "list") return company;
     if (menu === "load") return companies?.find((c) => c.id === pickedSave) ?? null;
     return companies?.[0] ?? null;
   }, [menu, company, companies, pickedSave]);
   const staged = useMemo((): SavedModel | null => {
-    if (menu === "list" || menu === "name")
+    if (menu === "list")
       return company?.models.find((m) => m.id === selected) ?? null;
     return latestModel(stagedCompany);
   }, [menu, company, selected, stagedCompany]);
@@ -320,6 +319,39 @@ export function App() {
     else setWhere({ at: place, model: m, subject: null, office });
   };
 
+  const duplicate = (id: string) => {
+    const src = company?.models.find((m) => m.id === id);
+    if (!src || campaign?.over) return null;
+    const b = structuredClone(src.build) as Build;
+    // In a campaign every new model, a duplicate too, is built for the current year.
+    setNaming(campaign ? toYear(b, campaign.now.year) : b);
+    return src;
+  };
+  const newModel = () => setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
+  // From the Office a new model, or a copy, is made in the workshop, the travel card up until the room is in.
+  const toWorkshop = (m: SavedModel | null) => {
+    setGoing("loading");
+    setWhere({ at: "workshop", model: m, subject: null, office: true });
+  };
+  // The named build becomes a model and opens in the builder; leaving it, a workshop visit has it on the turntable.
+  const nameCard = naming && (
+    <NameCard
+      roll={() => randomName(naming.year, inchesOf(naming))}
+      onCancel={() => setNaming(null)}
+      onCreate={(n) => {
+        const now = Date.now();
+        const m: SavedModel = { id: crypto.randomUUID(), name: n, build: naming, created: now, updated: now };
+        save(m).then(() => {
+          setNaming(null);
+          setSelected(m.id);
+          setOfficeAt((a) => ({ ...a, station: "desk", model: m.id, arrive: false }));
+          setWhere((w) => (w.at === "workshop" ? { ...w, model: m } : w));
+          setOpen(m.id);
+        });
+      }}
+    />
+  );
+
   if (short) return <VideoScreen key={short.url} video={short} onBack={() => setShort(null)} />;
   if (company && where.at === "cafe")
     return (
@@ -337,19 +369,38 @@ export function App() {
         shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
       />
     );
-  if (company && where.at === "workshop")
+  // The builder, opened from the workshop, stands in for it until it is left.
+  if (company && where.at === "workshop" && !open) {
+    const at = where;
     return (
-      <WorkshopVisit
-        key={where.model?.id ?? "empty"}
-        model={where.model}
-        models={company.models}
-        company={company.name}
-        library={company.models.filter((x) => x.reviewed).map(subject)}
-        onMap={() => toMap(where)}
-        sound={settings.sound}
-        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
-      />
+      <>
+        <WorkshopVisit
+          key={at.model?.id ?? "empty"}
+          // As saved now: it may have changed in the builder since it was brought along.
+          model={at.model && (company.models.find((x) => x.id === at.model?.id) ?? null)}
+          models={company.models}
+          company={company.name}
+          library={company.models.filter((x) => x.reviewed).map(subject)}
+          onMap={() => toMap(at)}
+          onLeave={at.office ? () => setWhere({ at: "office" }) : undefined}
+          onReady={going ? () => setGoing("here") : undefined}
+          held={!!naming}
+          onNew={campaign?.over ? undefined : newModel}
+          onEdit={(id) => {
+            const m = company.models.find((x) => x.id === id);
+            if (!m) return;
+            setWhere({ ...at, model: m });
+            setOpen(id);
+          }}
+          onDuplicate={campaign?.over ? undefined : duplicate}
+          sound={settings.sound}
+          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+        />
+        {going !== "loading" && nameCard}
+        {going && <Travel to="workshop" here={going === "here"} onDone={() => setGoing(null)} />}
+      </>
     );
+  }
   if (company && where.at === "courts")
     return (
       <StoreWorld
@@ -398,16 +449,6 @@ export function App() {
     );
   }
 
-  const duplicate = (id: string) => {
-    const src = company?.models.find((m) => m.id === id);
-    if (src && !campaign?.over) {
-      const b = structuredClone(src.build) as Build;
-      // In a campaign every new model, a duplicate too, is built for the current year.
-      setNaming(campaign ? toYear(b, campaign.now.year) : b);
-      setMenu("name");
-    }
-  };
-
   const model = open ? company?.models.find((m) => m.id === open) : undefined;
   if (model)
     return (
@@ -421,10 +462,7 @@ export function App() {
         onReady={going ? () => setGoing("here") : undefined}
         onMap={() => toMap({ at: "workshop", model, subject: null })}
         onReview={review}
-        onDuplicate={() => {
-          setOpen(null);
-          duplicate(model.id);
-        }}
+        onDuplicate={() => duplicate(model.id)}
         yearLocked={!!campaign}
         released={!!campaign?.releases[model.id]}
         reroll={(b) => randomName(b.year, inchesOf(b))}
@@ -433,6 +471,7 @@ export function App() {
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
+      {nameCard}
       {going && <Travel to="workshop" here={going === "here"} onDone={() => setGoing(null)} />}
       </>
     );
@@ -442,10 +481,7 @@ export function App() {
   const find = (id: string) => company?.models.find((x) => x.id === id);
   if (company && where.at === "office" && menu === "list" && !(campaign?.over && campaign.bankrupt)) {
     const actions: OfficeActions = {
-      onNew: () => {
-        setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
-        setMenu("name");
-      },
+      onNew: () => toWorkshop(null),
       onUse: (id) => {
         const m = find(id);
         if (m && !buildBlock(m.build)) visit("cafe", m, true);
@@ -455,7 +491,10 @@ export function App() {
         if (m) review(m);
       },
       onOpen: setOpen,
-      onDuplicate: duplicate,
+      onDuplicate: (id) => {
+        const src = duplicate(id);
+        if (src) toWorkshop(src);
+      },
       onDelete: (id) =>
         store()
           .deleteModel(company.id, id)
@@ -621,28 +660,6 @@ export function App() {
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
         onBack={() => setMenu("start")}
-      />
-    );
-  else if (menu === "name" && naming)
-    screen = (
-      <NameStep
-        roll={() => randomName(naming.year, inchesOf(naming))}
-        onCancel={() => {
-          setNaming(null);
-          setMenu("list");
-        }}
-        onCreate={(n) => {
-          const now = Date.now();
-          const m: SavedModel = { id: crypto.randomUUID(), name: n, build: naming, created: now, updated: now };
-          save(m).then(() => {
-            setNaming(null);
-            setSelected(m.id);
-            setOfficeAt((a) => ({ ...a, station: "desk", model: m.id, arrive: false }));
-            setMenu("list");
-            setGoing("loading");
-            setOpen(m.id);
-          });
-        }}
       />
     );
   // Only bankruptcy ends a campaign; otherwise the clock runs on past 2026.

@@ -386,15 +386,12 @@ function Detail({
       {doomed && (
         <ConfirmDelete
           name={model.name}
-          what="model"
           onConfirm={() => {
             setDoomed(false);
             actions.onDelete(model.id);
           }}
           onCancel={() => setDoomed(false)}
-        >
-          {model.reviewed ? "Its build and its review go with it." : "Its build goes with it."}
-        </ConfirmDelete>
+        />
       )}
       {block && <div className="cr-short">{block}</div>}
       {campaign && (

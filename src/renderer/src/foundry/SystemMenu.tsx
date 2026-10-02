@@ -41,8 +41,11 @@ export function SystemMenu({
   onResume,
   onNew,
   onLoad,
+  onMap,
 }: {
   company: string;
+  /** Out to the world map; absent when already on it. */
+  onMap?: () => void;
   sound: boolean;
   onSound: (on: boolean) => void;
   onResume: () => void;
@@ -53,6 +56,7 @@ export function SystemMenu({
   const [at, setAt] = useState(0);
   const entries: { label: string; value?: string; run: () => void; secondary?: boolean }[] = [
     { label: "Resume", value: company, run: onResume },
+    ...(onMap ? [{ label: "Map", run: onMap }] : []),
     { label: "New company", run: onNew },
     { label: "Load company", run: onLoad },
     { label: "Sound", value: sound ? "On" : "Off", run: () => onSound(!sound), secondary: true },

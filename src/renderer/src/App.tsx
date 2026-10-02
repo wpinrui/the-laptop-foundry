@@ -723,6 +723,14 @@ export function App() {
           onResume={() => setSystem(false)}
           onNew={() => leaveCompany("new")}
           onLoad={() => leaveCompany("load")}
+          onMap={
+            where.at === "map"
+              ? undefined
+              : () => {
+                  setSystem(false);
+                  toMap(where);
+                }
+          }
         />
       )}
     </SystemActions.Provider>

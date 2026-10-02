@@ -151,6 +151,7 @@ export function Builder({
   company = "",
   onSave,
   onBack,
+  onReady,
   reroll,
   onReview,
   onDuplicate,
@@ -180,6 +181,8 @@ export function Builder({
   onReview: (m: SavedModel) => void;
   onDuplicate: () => void;
   onSave: (m: SavedModel) => void;
+  /** The workshop has loaded and drawn. */
+  onReady?: () => void;
   onBack: () => void;
   reroll: (b: Build) => string;
 }) {
@@ -576,6 +579,7 @@ export function Builder({
     // In free view the menus fade out over the same scene, and back in after.
     <div className={`fd bd${free ? " free" : ""}`}>
       <BuilderScene
+        onReady={onReady}
         fit={previewFit}
         year={build.year}
         view={view}

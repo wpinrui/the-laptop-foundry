@@ -90,7 +90,7 @@ export function App() {
   // The build waiting for the player to name it before it becomes a model.
   const [naming, setNaming] = useState<Build | null>(null);
   // A new model is on its way to the workshop: the travel card shows over the builder.
-  const [going, setGoing] = useState(false);
+  const [going, setGoing] = useState<"loading" | "here" | null>(null);
   // A year's market is being generated before a screen that needs it opens.
   const [busy, setBusy] = useState(false);
   // The statement view open between the rails, on this tab.
@@ -417,6 +417,7 @@ export function App() {
         company={name}
         onSave={(m) => save(m)}
         onBack={() => setOpen(null)}
+        onReady={going ? () => setGoing("here") : undefined}
         onMap={() => toMap({ at: "workshop", model, subject: null })}
         onReview={review}
         onDuplicate={() => {
@@ -431,7 +432,7 @@ export function App() {
         sound={settings.sound}
         onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
       />
-      {going && <Travel to="workshop" onDone={() => setGoing(false)} />}
+      {going && <Travel to="workshop" here={going === "here"} onDone={() => setGoing(null)} />}
       </>
     );
 
@@ -640,7 +641,7 @@ export function App() {
             setSelected(m.id);
             setOfficeAt((a) => ({ ...a, station: "desk", model: m.id, arrive: false }));
             setMenu("list");
-            setGoing(true);
+            setGoing("loading");
             setOpen(m.id);
           });
         }}
@@ -703,21 +704,17 @@ export function App() {
   );
 }
 
-/** A full-screen card naming where the player is headed, faded out once the place underneath has had time to load. */
-function Travel({ to, onDone }: { to: string; onDone: () => void }) {
-  const [out, setOut] = useState(false);
+/** A full-screen card naming where the player is headed, faded out once the place underneath is `here`. */
+function Travel({ to, here, onDone }: { to: string; here: boolean; onDone: () => void }) {
   const done = useRef(onDone);
   done.current = onDone;
   useEffect(() => {
-    const fade = setTimeout(() => setOut(true), 1100);
-    const end = setTimeout(() => done.current(), 1500);
-    return () => {
-      clearTimeout(fade);
-      clearTimeout(end);
-    };
-  }, []);
+    if (!here) return;
+    const end = setTimeout(() => done.current(), 400);
+    return () => clearTimeout(end);
+  }, [here]);
   return (
-    <div className={`fd fd-travel${out ? " out" : ""}`}>
+    <div className={`fd fd-travel${here ? " out" : ""}`}>
       <b>Going to the {to}</b>
     </div>
   );

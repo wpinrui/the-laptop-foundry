@@ -90,7 +90,17 @@ function Room({ roof }: { roof: RefObject<THREE.DirectionalLight | null> }) {
   );
 }
 
-export const Workshop = memo(function Workshop() {
+/** Calls `onReady` once, a couple of frames after everything in its Suspense boundary has loaded. */
+function Ready({ onReady }: { onReady: () => void }) {
+  const frames = useRef(0);
+  useFrame(() => {
+    frames.current += 1;
+    if (frames.current === 3) onReady();
+  });
+  return null;
+}
+
+export const Workshop = memo(function Workshop({ onReady }: { onReady?: () => void }) {
   const roof = useRef<THREE.DirectionalLight>(null);
   return (
     <>
@@ -115,6 +125,7 @@ export const Workshop = memo(function Workshop() {
       />
       <Suspense fallback={null}>
         <Room roof={roof} />
+        {onReady && <Ready onReady={onReady} />}
       </Suspense>
     </>
   );

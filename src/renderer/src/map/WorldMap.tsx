@@ -96,10 +96,11 @@ export function WorldMap({
   /** Stay from a place, Menu from the menu. */
   onBack: () => void;
 }) {
-  const open = (p: Place) => p !== from;
+  const all = useMemo(() => sortedModels(company), [company]);
+  // The cafe opens once there is a working laptop to bring.
+  const open = (p: Place) => p !== from && (p !== "cafe" || carried(all, "cafe").length > 0);
   const [dest, setDest] = useState<Place>(() => PLACES.find((p) => open(p.id))?.id ?? "workshop");
   const [bring, setBring] = useState<string | null>(null);
-  const all = useMemo(() => sortedModels(company), [company]);
   const laptops = useMemo(() => carried(all, dest), [all, dest]);
   // Scores only for reviewed laptops, as on the models screen.
   const scores = useMemo(

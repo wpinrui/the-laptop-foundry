@@ -150,7 +150,6 @@ export function Builder({
   model,
   company = "",
   onSave,
-  onBack,
   onReady,
   reroll,
   onReview,
@@ -186,7 +185,6 @@ export function Builder({
   onSave: (m: SavedModel) => void;
   /** The workshop has loaded and drawn. */
   onReady?: () => void;
-  onBack: () => void;
   reroll: (b: Build) => string;
 }) {
   // Older saves picked a panel row; the builder edits a screen spec.
@@ -219,10 +217,12 @@ export function Builder({
     const t = setTimeout(flush, 400);
     return () => clearTimeout(t);
   }, [build, name, locked]);
+  // Leaving the builder (Back, Done, Escape) lands in free view in the same workshop.
+  const toFree = useRef<() => void>(() => {});
   const leave = useCallback(() => {
     pending.current?.();
-    onBack();
-  }, [onBack]);
+    toFree.current();
+  }, []);
   const toMap = useMemo(
     () =>
       onMap
@@ -445,6 +445,12 @@ export function Builder({
   const onTable = swap === undefined ? model.id : (swap?.id ?? null);
   const shelves = useArchive(models, onTable, setFree, takeShelved, putAway);
   const swapped = !!free && swap !== undefined;
+  toFree.current = () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    stance.current = null;
+    setSwap(undefined);
+    setFree(freeStart(lid > 0 && !flip, flip));
+  };
 
   const labelFor = useCallback((b: Box) => ROLE_NAME[b.role] ?? nameOf(b.part) ?? "", []);
   const pick = useCallback(
@@ -748,13 +754,7 @@ export function Builder({
         )}
         <div className="bd-view">
           <SliderField label="Lid" value={lidAngle} unit="deg" min={0} max={LID_MAX} onChange={setLid} disabled={flip} />
-          <button type="button" className="fd-text bd-free" onClick={() => {
-              if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-              stance.current = null;
-              setSwap(undefined);
-              setFree(freeStart(lid > 0 && !flip, flip));
-            }}
-          >
+          <button type="button" className="fd-text bd-free" onClick={() => toFree.current()}>
             Free view
           </button>
         </div>

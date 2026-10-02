@@ -19,7 +19,7 @@ const SHADOW_FRAMES = 3;
 const NO_CAST = ["roof", "clerestory", "lights"];
 const noRaycast = () => {};
 const PLACEHOLDER = /^front_(finish_|label$)/;
-/** The side walls' inner faces, x in metres: their brick pilasters are flattened back onto them. */
+/** The side walls' inner faces, x in metres: anything proud of them is a brick pilaster. */
 const WALL_FACES = [
   { name: "wall_left_brick_whitewashed", face: -9, side: 1 },
   { name: "wall_right_brick_whitewashed", face: 9, side: -1 },
@@ -46,17 +46,23 @@ function seatCabinet(scene: THREE.Group) {
   });
 }
 
-/** Pushes the side walls' pilasters back into the walls: they stood across the door and clashed with the stairs and pipes. */
-function flattenPilasters(scene: THREE.Group) {
+/** Takes the side walls' pilasters out: they stood across the door and clashed with the stairs and pipes. The wall face runs on behind them. */
+function removePilasters(scene: THREE.Group) {
   for (const w of WALL_FACES)
     scene.getObjectByName(w.name)?.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
-      const p = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
-      for (let i = 0; i < p.count; i++) if ((p.getX(i) - w.face) * w.side > 0) p.setX(i, w.face);
-      p.needsUpdate = true;
-      mesh.geometry.computeBoundingBox();
-      mesh.geometry.computeBoundingSphere();
+      const g = mesh.geometry;
+      const p = g.getAttribute("position") as THREE.BufferAttribute;
+      const proud = (i: number) => (p.getX(i) - w.face) * w.side > 0.001;
+      const idx = g.index ? Array.from(g.index.array) : Array.from({ length: p.count }, (_, i) => i);
+      const kept: number[] = [];
+      for (let t = 0; t + 2 < idx.length; t += 3)
+        if (!proud(idx[t]) && !proud(idx[t + 1]) && !proud(idx[t + 2])) kept.push(idx[t], idx[t + 1], idx[t + 2]);
+      g.setIndex(kept);
+      g.clearGroups();
+      g.computeBoundingBox();
+      g.computeBoundingSphere();
     });
 }
 
@@ -64,7 +70,7 @@ function useWorkshop(): { scene: THREE.Group; casters: THREE.Mesh[]; lift: numbe
   const gltf = useLoader(GLTFLoader, workshopUrl);
   return useMemo(() => {
     const scene = gltf.scene;
-    flattenPilasters(scene);
+    removePilasters(scene);
     seatCabinet(scene);
     scene.updateMatrixWorld(true);
     // Relative to the scene itself: the loader caches the scene, so on a

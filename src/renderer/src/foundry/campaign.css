@@ -470,6 +470,21 @@
   font-size: calc(26 * var(--u));
 }
 
+.cr-life {
+  margin-top: calc(-6 * var(--u));
+  text-align: right;
+  font-weight: 600;
+  font-size: calc(16 * var(--u));
+}
+
+.cr-life.up {
+  color: var(--accent);
+}
+
+.cr-life.short {
+  color: var(--warning);
+}
+
 .cr-cells {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -341,3 +341,22 @@ export function outlook(
     breakEven: net > 0 ? Math.ceil(spend / net) : null,
   };
 }
+
+/**
+ * A released model's own profit over every settled quarter: what its units
+ * earned after the retailers' cut at each quarter's price, less its runs and
+ * its design and tooling. Overhead and marketing are the company's, not its.
+ */
+export function lifetimeProfit(state: CampaignState, id: string): number | null {
+  const r = state.releases[id];
+  if (!r) return null;
+  const at = (a: Quarter, b: Quarter) => a.year === b.year && a.quarter === b.quarter;
+  let revenue = 0;
+  for (const p of r.prices) {
+    const shelf = state.shelf.find((s) => at(s.quarter, p.quarter));
+    const units = shelf?.units[id] ? unitsOf(shelf.units[id]) : (state.sales.find((s) => at(s.quarter, p.quarter))?.units[id] ?? 0);
+    revenue += units * p.price * (1 - RETAILER_CUT);
+  }
+  const kind = r.refresh ? "refresh" : "new";
+  return revenue - r.made * r.unitCost - DESIGN_COST[kind] - TOOLING_COST[kind];
+}

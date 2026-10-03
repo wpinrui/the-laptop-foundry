@@ -8,6 +8,7 @@ import {
   clampRun,
   economics,
   isRefresh,
+  lifetimeProfit,
   marketingCost,
   outlook,
   MIN_RUN,
@@ -199,6 +200,7 @@ export function ModelTab({
 }) {
   const [open, setOpen] = useState<Open | null>(null);
   const { released, lines, cost, refresh, price } = useRun(campaign, model, models);
+  const life = released ? lifetimeProfit(campaign, model.id) : null;
   const head = (
     <>
       {onMarket && (
@@ -215,6 +217,9 @@ export function ModelTab({
         <b>{model.name}</b>
         {price > 0 && <b>{usd(price)}</b>}
       </div>
+      {life !== null && (
+        <div className={`cr-life ${life < 0 ? "short" : "up"}`}>{`${life > 0 ? "+" : ""}${usdShort(life)}`}</div>
+      )}
     </>
   );
   if (lines === null || cost === null) return head;

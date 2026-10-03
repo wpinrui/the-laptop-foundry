@@ -1017,7 +1017,7 @@
 
 .bd-rung {
   display: grid;
-  grid-template-columns: calc(28 * var(--u)) minmax(0, 1fr) auto calc(40 * var(--u));
+  grid-template-columns: calc(28 * var(--u)) minmax(0, 1fr) auto;
   gap: calc(10 * var(--u));
   align-items: baseline;
   padding: calc(9 * var(--u)) 0;

@@ -28,9 +28,18 @@ export interface TvVideo {
   poster?: string;
 }
 
+/** A commercial still being made: its progress while it renders, null while it waits its turn. */
+export interface TvPending {
+  file: string;
+  name: string;
+  progress: number | null;
+}
+
 /** The company's finished videos, newest first, and the one loaded on the TV. */
 export interface TvCard {
   videos: TvVideo[];
+  /** Commercials not finished yet, in the order they will be. */
+  pending: TvPending[];
   /** The file loaded for the TV, once it has loaded. */
   playing: string | null;
   url?: string;
@@ -129,7 +138,7 @@ export function buildPanels(c: Ctx): Partial<Record<StationId, ReactNode>> {
     );
     if (worldQuarters(campaign).length > 0) out.market = <Market {...c} campaign={campaign} />;
   }
-  if (c.actions.tv && c.actions.tv.videos.length > 0)
+  if (c.actions.tv && (c.actions.tv.videos.length > 0 || c.actions.tv.pending.length > 0))
     out.tv = (
       <Frame title={labelOf("tv")}>
         <Videos card={c.actions.tv} playing={c.playing} onWatch={c.onWatch} />
@@ -444,6 +453,18 @@ function Market({ company, campaign }: Ctx & { campaign: CampaignState }) {
 function Videos({ card, playing, onWatch }: { card: TvCard; playing: boolean; onWatch: (file: string) => void }) {
   return (
     <div className="of-videos">
+      {card.pending.map((p) => (
+        <div key={p.file} className="of-short pending">
+          <span>
+            <small>Commercial</small>
+            <b>{p.name}</b>
+            <span className="of-render">
+              <i style={{ width: `${Math.round((p.progress ?? 0) * 100)}%` }} />
+            </span>
+          </span>
+          <em>{p.progress === null ? "Queued" : `${Math.round(p.progress * 100)}%`}</em>
+        </div>
+      ))}
       {card.videos.map((v) => {
         const on = playing && card.playing === v.file;
         return (

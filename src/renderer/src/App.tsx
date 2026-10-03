@@ -23,7 +23,7 @@ import { ReviewScreen } from "./review/ReviewScreen";
 import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
 import { adFacts, bestSeller, shortFacts, subjectOf, writeShort } from "./video/script";
 import type { Commercial } from "./video/commercial";
-import { adOfFile, loadVideo, offerShort, quarterOfFile, queueAd, usePosters, useVideos } from "./video/queue";
+import { adFile, adOfFile, loadVideo, offerShort, quarterOfFile, queueAd, useAdRender, usePosters, useVideos } from "./video/queue";
 import { type PlayingVideo, VideoScreen } from "./video/VideoScreen";
 import { adSubject, eligibleModels } from "./studio/eligible";
 import { StudioPlace } from "./studio/StudioPlace";
@@ -286,6 +286,18 @@ export function App() {
     }
     return out.sort((a, b) => b.time - a.time).map(({ time: _, ...v }) => v);
   }, [company, kept]);
+  // Commercials not finished yet, for the TV to show as coming: the one rendering with its progress.
+  const adRender = useAdRender(company?.id ?? null);
+  const tvPending = useMemo(() => {
+    if (!company || !kept) return [];
+    return (company.commercials ?? [])
+      .filter((c) => !kept.has(adFile(c.id)))
+      .map((c) => ({
+        file: adFile(c.id),
+        name: company.models.find((m) => m.id === c.model)?.name ?? "",
+        progress: adRender?.file === adFile(c.id) ? adRender.progress : null,
+      }));
+  }, [company, kept, adRender]);
   const posters = usePosters(company?.id ?? null, tvVideos.map((v) => v.file));
   const newest = tvVideos[0];
   const newestTime = newest ? (kept?.get(newest.file) ?? 0) : 0;
@@ -716,6 +728,7 @@ export function App() {
       },
       tv: {
         videos: tvVideos.map((v) => ({ ...v, poster: posters[v.file] })),
+        pending: tvPending,
         playing: tv?.file ?? null,
         url: tv?.url,
         fresh: newest && newestTime > SESSION_START && !watched.has(newest.file) ? newest.name || newest.label : undefined,

@@ -752,3 +752,27 @@
 .of-boost.down {
   color: var(--muted);
 }
+
+/* A commercial still being made: no picture yet, its progress under its name. */
+.of-short.pending {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.of-short.pending em {
+  color: var(--muted);
+}
+
+.of-render {
+  display: block;
+  height: calc(4 * var(--u));
+  margin-top: calc(8 * var(--u));
+  background: var(--line);
+}
+
+.of-render i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 300ms linear;
+}

@@ -569,6 +569,7 @@
 .cr-line b {
   font-weight: 600;
   font-size: calc(20 * var(--u));
+  white-space: nowrap;
 }
 
 .cr-stepper {

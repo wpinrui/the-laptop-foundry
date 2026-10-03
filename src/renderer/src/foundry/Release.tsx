@@ -337,19 +337,19 @@ export function ModelTab({
     <>
       {head}
       {released && (
-        <div className="cr-cells">
-          <div>
+        <>
+          <div className="cr-line">
             <span>Stock</span>
             <b className={warn(released.stock <= 0)}>
               <Short value={released.stock} />
             </b>
           </div>
-          <div>
+          <div className="cr-line">
             <span>Sold {lastQ ? `Q${lastQ.quarter}` : ""}</span>
             <b>{sales ? <Short value={sales.sold} /> : "0"}</b>
           </div>
           {estimate && (
-            <div>
+            <div className="cr-line">
               <span>Next quarter</span>
               <b className={warn(estimate.want.high > estimate.high)}>
                 {estimate.low === estimate.high ? (
@@ -362,7 +362,7 @@ export function ModelTab({
               </b>
             </div>
           )}
-        </div>
+        </>
       )}
       <div className="cr-line">
         <span>Review</span>

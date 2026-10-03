@@ -1340,24 +1340,42 @@
   top: calc(616 * var(--u));
 }
 
-/* The laptop's spec sheet, under Specs in the bar. */
-.st-menu.left {
-  left: 0;
-  right: auto;
+/* Preview or Specs, over the right of the page: the one shown in the text colour. */
+.st-tabs {
+  display: flex;
+  gap: calc(22 * var(--u));
 }
 
-.st-specs {
-  width: calc(560 * var(--u));
-  padding: calc(10 * var(--u)) calc(18 * var(--u));
+.st-tabs button {
+  padding: 0 !important;
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  font-size: calc(13 * var(--u)) !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted) !important;
+  cursor: pointer;
+}
+
+.st-tabs button.on,
+.st-tabs button:hover {
+  color: var(--text) !important;
+}
+
+/* The laptop's spec sheet, in the preview's place. */
+.st-view.st-specs {
+  display: block;
+  overflow-y: auto;
+  padding: 0 calc(8 * var(--u));
 }
 
 .st-spec {
   display: grid;
-  grid-template-columns: calc(150 * var(--u)) minmax(0, 1fr);
-  gap: calc(16 * var(--u));
-  padding: calc(8 * var(--u)) 0;
+  grid-template-columns: calc(190 * var(--u)) minmax(0, 1fr);
+  gap: calc(18 * var(--u));
+  padding: calc(9 * var(--u)) 0;
   border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-  font-size: calc(15 * var(--u));
+  font-size: calc(16 * var(--u));
   line-height: 1.35;
 }
 

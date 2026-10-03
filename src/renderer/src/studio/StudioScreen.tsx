@@ -76,14 +76,12 @@ async function hear(voice: string, line: string): Promise<void> {
 }
 
 /** A dropdown in the editor's bar: the button, and its menu under it while open. */
-function Drop({ open, onOpen, button, children, wide = false, left = false }: {
+function Drop({ open, onOpen, button, children, wide = false }: {
   open: boolean;
   onOpen: (on: boolean) => void;
   button: ReactNode;
   children: ReactNode;
   wide?: boolean;
-  /** Opens under the button's left edge rather than its right. */
-  left?: boolean;
 }) {
   return (
     <div className="st-drop-wrap">
@@ -93,7 +91,7 @@ function Drop({ open, onOpen, button, children, wide = false, left = false }: {
           <Icon d={ICON.down} size={14} width={2.5} />
         </span>
       </button>
-      {open && <div className={`st-menu st-in${wide ? " wide" : ""}${left ? " left" : ""}`}>{children}</div>}
+      {open && <div className={`st-menu st-in${wide ? " wide" : ""}`}>{children}</div>}
     </div>
   );
 }
@@ -158,7 +156,9 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
   const [brollSet, setBrollSet] = useState<SetId>(defaults.set);
   const [voices, setVoices] = useState<string[]>([]);
   const [voice, setVoice] = useState<string | null>(null);
-  const [menu, setMenu] = useState<"voice" | "set" | "broll" | "specs" | null>(null);
+  const [menu, setMenu] = useState<"voice" | "set" | "broll" | null>(null);
+  // The right of the page shows the video, or the laptop's spec sheet to write from.
+  const [side, setSide] = useState<"preview" | "specs">("preview");
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -410,18 +410,6 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             <i style={{ background: lidColour(model) }} />
             <b>{model.name}</b>
           </div>
-          {specs.length > 0 && (
-            <Drop open={menu === "specs"} onOpen={(o) => setMenu(o ? "specs" : null)} left button={<em className="st-label">Specs</em>}>
-              <div className="st-specs">
-                {specs.map(([k, v]) => (
-                  <div key={k} className="st-spec">
-                    <span>{k}</span>
-                    <b>{v}</b>
-                  </div>
-                ))}
-              </div>
-            </Drop>
-          )}
           <div className="st-fill" />
           <Drop
             open={menu === "set"}
@@ -567,8 +555,27 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             )
           }
         />
-        <em className="st-label st-at-view">Preview</em>
-        <div className="st-view">
+        <div className="st-at-view st-tabs">
+          <button type="button" className={`st-label${side === "preview" ? " on" : ""}`} onClick={() => setSide("preview")}>
+            Preview
+          </button>
+          {specs.length > 0 && (
+            <button type="button" className={`st-label${side === "specs" ? " on" : ""}`} onClick={() => setSide("specs")}>
+              Specs
+            </button>
+          )}
+        </div>
+        {side === "specs" && (
+          <div className="st-view st-specs">
+            {specs.map(([k, v]) => (
+              <div key={k} className="st-spec">
+                <span>{k}</span>
+                <b>{v}</b>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="st-view" style={side === "specs" ? { visibility: "hidden" } : undefined}>
           <div className="st-view-box">
             {program ? (
               <Preview program={program} time={time} playing={playing} onEnd={() => setPlaying(false)} />

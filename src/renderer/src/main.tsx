@@ -24,8 +24,18 @@ const escape = () => {
   for (const type of ["keydown", "keyup"])
     at.dispatchEvent(new KeyboardEvent(type, { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));
 };
-Object.assign(window, { __gameEscape: escape });
 window.api.onEscape(escape);
+// The main process sends Escape on as F24, a real key press with user activation.
+window.addEventListener(
+  "keydown",
+  (e) => {
+    if (e.key !== "F24") return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    escape();
+  },
+  true,
+);
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element #root not found");

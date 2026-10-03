@@ -25,10 +25,18 @@ const WORDS: Record<string, string> = {
  */
 const spare: THREE.MeshBasicMaterial[] = [];
 const SPARE = 4;
+/**
+ * Each legends mesh's own material. The mesh may be wearing another by the
+ * time it goes (the office wall's foam, the builder's selection paint), and
+ * recycling that one put an opaque plane over the next keyboard.
+ */
+const owned = new WeakMap<THREE.Object3D, THREE.MeshBasicMaterial>();
 
 /** Frees a legends mesh's texture and keeps its material for the next keyboard. */
 export function releaseLegends(mesh: THREE.Mesh): void {
-  const m = mesh.material as THREE.MeshBasicMaterial;
+  const m = owned.get(mesh);
+  if (!m) return;
+  owned.delete(mesh);
   m.map?.dispose();
   if (spare.length < SPARE && !spare.includes(m)) spare.push(m);
   else m.dispose();
@@ -114,7 +122,9 @@ export function attachLegends(obj: THREE.Object3D, opts: Record<string, OptionVa
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   const top = Math.max(...spots.map((s) => s.y)) + 0.02;
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, D), legendMaterial(tex));
+  const mat = legendMaterial(tex);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, D), mat);
+  owned.set(mesh, mat);
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set((box.min.x + box.max.x) / 2, top, (box.min.z + box.max.z) / 2);
   mesh.name = "legends";

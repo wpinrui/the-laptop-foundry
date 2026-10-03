@@ -9,7 +9,7 @@ import type { Shop } from "../cafe/CafeScreen";
 import { yearOf } from "../foundry/LaptopList";
 import type { Subject } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
-import { usd, usdShort } from "../foundry/Release";
+import { Short } from "../ui/Short";
 import { token } from "../viewer/theme";
 import { DESK_PC_ID, Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
 import { buildPanels, type OfficeActions, statusOfModel, wallOrder } from "./Panels";
@@ -443,8 +443,14 @@ export function Office({
         {campaign && !campaign.bankrupt && (
           <div className="of-clock">
             <b>{quarterLabel(campaign.now)}</b>
-            <b>{usd(campaign.cash)}</b>
-            {last && <small className={last.profit < 0 ? "short" : "up"}>{usdShort(last.profit)}</small>}
+            <b>
+              <Short value={campaign.cash} money />
+            </b>
+            {last && (
+              <small className={last.profit < 0 ? "short" : "up"}>
+                <Short value={last.profit} money />
+              </small>
+            )}
             {!campaign.over &&
               (resolving ? (
                 <div className="of-resolving">

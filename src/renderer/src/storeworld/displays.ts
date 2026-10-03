@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { type DepartmentName, type Layout, ROOM, type Table, TABLE, TABLE_Y } from "./layout";
 import type { OnSale } from "./onSale";
+import { full } from "../ui/number";
 
 // The display tables, their maker signs and each laptop's price tag, security
 // puck and cable, built from the designer's buildDisplays in metres. The
@@ -33,7 +34,7 @@ const TAG_W = 512;
 const TAG_H = 360;
 const ATLAS_COLS = 8;
 
-const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+const usd = (n: number) => full(n, true);
 /** "$499 to $1,299", or the one price when they match. */
 const range = (low: number, high: number) =>
   Math.round(low) === Math.round(high) ? usd(low) : `${usd(low)} to ${usd(high)}`;

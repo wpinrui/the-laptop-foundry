@@ -5,6 +5,7 @@ import type { StageProps } from "./Stages";
 import { Dropdown } from "./Dropdown";
 import { fontOptions, snapWeight, WEIGHT_NAME, weightsOf } from "./fonts";
 import { Chip, Chips, Label, SliderField, Toggle } from "./ui";
+import { Tooltip } from "../ui/Tooltip";
 
 // The keycaps, on the Keyboard stage: keycap shape, three colour groups (letters, modifiers, and
 // the accent keys Esc and Enter) and the legends' colour, font, alignment,
@@ -102,22 +103,22 @@ export function KeysColumn({
         <Label>Shape</Label>
         <Chips>
           {SHAPES.map(([shape, name]) => (
-            <button
-              type="button"
-              key={shape}
-              title={name}
-              aria-label={name}
-              className={k.shape === shape ? "bd-chip bd-visual on" : "bd-chip bd-visual"}
-              onClick={() => set((b) => withKeys(b, (x) => ({ ...x, shape })))}
-            >
-              <span className="bd-keycaps">
-                {[0, 1, 2].map((i) => (
-                  <i key={i}>
-                    <CapIcon shape={shape} />
-                  </i>
-                ))}
-              </span>
-            </button>
+            <Tooltip key={shape} tip={name}>
+              <button
+                type="button"
+                aria-label={name}
+                className={k.shape === shape ? "bd-chip bd-visual on" : "bd-chip bd-visual"}
+                onClick={() => set((b) => withKeys(b, (x) => ({ ...x, shape })))}
+              >
+                <span className="bd-keycaps">
+                  {[0, 1, 2].map((i) => (
+                    <i key={i}>
+                      <CapIcon shape={shape} />
+                    </i>
+                  ))}
+                </span>
+              </button>
+            </Tooltip>
           ))}
         </Chips>
       </div>
@@ -138,18 +139,18 @@ export function KeysColumn({
             <Label>Align</Label>
             <Chips>
               {(["c", "tl", "bl"] as const).map((a) => (
-                <button
-                  type="button"
-                  key={a}
-                  aria-label={ALIGN_NAME[a]}
-                  title={ALIGN_NAME[a]}
-                  className={k.legend.align === a ? "bd-chip bd-visual on" : "bd-chip bd-visual"}
-                  onClick={() => set((b) => withKeys(b, (x) => ({ ...x, legend: { ...x.legend, align: a } })))}
-                >
-                  <span className="bd-aligns">
-                    <i className={k.legend.align === a ? `${a} on` : a} />
-                  </span>
-                </button>
+                <Tooltip key={a} tip={ALIGN_NAME[a]}>
+                  <button
+                    type="button"
+                    aria-label={ALIGN_NAME[a]}
+                    className={k.legend.align === a ? "bd-chip bd-visual on" : "bd-chip bd-visual"}
+                    onClick={() => set((b) => withKeys(b, (x) => ({ ...x, legend: { ...x.legend, align: a } })))}
+                  >
+                    <span className="bd-aligns">
+                      <i className={k.legend.align === a ? `${a} on` : a} />
+                    </span>
+                  </button>
+                </Tooltip>
               ))}
             </Chips>
           </div>

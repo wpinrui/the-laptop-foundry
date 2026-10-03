@@ -51,6 +51,7 @@ import { Optimise } from "./Optimise";
 import { type ViewName, viewFor } from "./view";
 import type { WorkshopCanvas } from "./WorkshopPlace";
 import "./builder.css";
+import { Tooltip } from "../ui/Tooltip";
 
 // The builder: a fixed line of stages over the laptop on the workshop's
 // turntable, a mode over the workshop's own scene. Year first, price last;
@@ -738,26 +739,28 @@ export function Builder({
         <div className="bd-view">
           {!locked && (
             <div className="bd-undo">
-              <button
-                type="button"
-                className="fd-text"
-                aria-label="Undo"
-                title="Undo"
-                disabled={history.current.past.length === 0}
-                onClick={() => step(true)}
-              >
-                <UndoIcon />
-              </button>
-              <button
-                type="button"
-                className="fd-text"
-                aria-label="Redo"
-                title="Redo"
-                disabled={history.current.future.length === 0}
-                onClick={() => step(false)}
-              >
-                <UndoIcon redo />
-              </button>
+              <Tooltip tip="Undo">
+                <button
+                  type="button"
+                  className="fd-text"
+                  aria-label="Undo"
+                  disabled={history.current.past.length === 0}
+                  onClick={() => step(true)}
+                >
+                  <UndoIcon />
+                </button>
+              </Tooltip>
+              <Tooltip tip="Redo">
+                <button
+                  type="button"
+                  className="fd-text"
+                  aria-label="Redo"
+                  disabled={history.current.future.length === 0}
+                  onClick={() => step(false)}
+                >
+                  <UndoIcon redo />
+                </button>
+              </Tooltip>
             </div>
           )}
           <SliderField label="Lid" value={lidAngle} unit="deg" min={0} max={LID_MAX} onChange={setLid} disabled={flip} />

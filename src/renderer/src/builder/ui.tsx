@@ -1,4 +1,6 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import { full } from "../ui/number";
+import { Tooltip } from "../ui/Tooltip";
 
 // The builder's small Foundry controls: labels, values, sliders, chips, tray
 // cards and list rows. Styles live in builder.css under the bd- prefix.
@@ -81,13 +83,15 @@ export function Slider({
 /** A small warning-tinted icon button that grows a dimension to its smallest fitting value. */
 export function FitButton({ title, warn, onClick }: { title: string; warn?: boolean; onClick: () => void }) {
   return (
-    <button type="button" className={warn ? "bd-fit warn" : "bd-fit"} title={title} aria-label={title} onClick={onClick}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M17 12H3" />
-        <path d="m11 18 6-6-6-6" />
-        <path d="M21 5v14" />
-      </svg>
-    </button>
+    <Tooltip tip={title}>
+      <button type="button" className={warn ? "bd-fit warn" : "bd-fit"} aria-label={title} onClick={onClick}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M17 12H3" />
+          <path d="m11 18 6-6-6-6" />
+          <path d="M21 5v14" />
+        </svg>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -171,16 +175,17 @@ export function Chip({
   style?: CSSProperties;
 }) {
   return (
-    <button
-      type="button"
-      title={title}
-      disabled={disabled}
-      style={style}
-      className={["bd-chip", on ? "on" : "", warn ? "warn" : "", dashed ? "dashed" : "", caps ? "caps" : ""].join(" ")}
-      onClick={onClick}
-    >
-      {children}
-    </button>
+    <Tooltip tip={title}>
+      <button
+        type="button"
+        disabled={disabled}
+        style={style}
+        className={["bd-chip", on ? "on" : "", warn ? "warn" : "", dashed ? "dashed" : "", caps ? "caps" : ""].join(" ")}
+        onClick={onClick}
+      >
+        {children}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -199,10 +204,12 @@ export function Toggle({
   disabled?: boolean;
 }) {
   return (
-    <button type="button" title={title} disabled={disabled} aria-pressed={on} className={on ? "bd-chip caps bd-toggle on" : "bd-chip caps bd-toggle"} onClick={onClick}>
-      <i className="bd-check" />
-      {children}
-    </button>
+    <Tooltip tip={title}>
+      <button type="button" disabled={disabled} aria-pressed={on} className={on ? "bd-chip caps bd-toggle on" : "bd-chip caps bd-toggle"} onClick={onClick}>
+        <i className="bd-check" />
+        {children}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -236,28 +243,29 @@ export function Card({
   onHover?: (on: boolean) => void;
 }) {
   return (
-    <button
-      type="button"
-      title={title}
-      className={["bd-card", on ? "on" : "", off ? "off" : "", dashed ? "dashed" : ""].join(" ")}
-      style={width ? ({ "--w": width } as CSSProperties) : undefined}
-      onClick={onClick}
-      // A pointer sweeping past with a button held is panning the view, not hovering.
-      onPointerEnter={onHover && ((e) => e.buttons === 0 && onHover(true))}
-      onPointerLeave={onHover && (() => onHover(false))}
-    >
-      {dashed ? (
-        <b className="bd-card-centre">{name}</b>
-      ) : (
-        <>
-          <span className="bd-card-top">{top}</span>
-          <span className="bd-card-foot">
-            <b>{name}</b>
-            {aside !== undefined && <small>{aside}</small>}
-          </span>
-        </>
-      )}
-    </button>
+    <Tooltip tip={title}>
+      <button
+        type="button"
+        className={["bd-card", on ? "on" : "", off ? "off" : "", dashed ? "dashed" : ""].join(" ")}
+        style={width ? ({ "--w": width } as CSSProperties) : undefined}
+        onClick={onClick}
+        // A pointer sweeping past with a button held is panning the view, not hovering.
+        onPointerEnter={onHover && ((e) => e.buttons === 0 && onHover(true))}
+        onPointerLeave={onHover && (() => onHover(false))}
+      >
+        {dashed ? (
+          <b className="bd-card-centre">{name}</b>
+        ) : (
+          <>
+            <span className="bd-card-top">{top}</span>
+            <span className="bd-card-foot">
+              <b>{name}</b>
+              {aside !== undefined && <small>{aside}</small>}
+            </span>
+          </>
+        )}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -265,4 +273,4 @@ export function TraySep() {
   return <i className="bd-tray-sep" />;
 }
 
-export const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+export const money = (n: number) => full(n, true);

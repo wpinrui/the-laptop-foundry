@@ -16,10 +16,11 @@ import {
 } from "../engine";
 import { formatOption } from "./format";
 import { PROFILE_NAME } from "./Power";
+import { full } from "../ui/number";
 
 // Raw measurements only, each shown once it can be computed. No ratings.
 
-const int = (n: number) => Math.round(n).toLocaleString("en-US");
+const int = (n: number) => full(n);
 const one = (n: number) => n.toFixed(1);
 
 function time(s: number): string {

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { type Build, classify, costOf, type Fit, type Measurements, results, weightOf } from "../engine";
 import { hotSkin } from "../engine/review/scales";
 import { Label } from "./ui";
+import { Tooltip } from "../ui/Tooltip";
 
 // Raw measurements only: weight, thickness, battery, a benchmark figure,
 // chip and surface temperatures and fan noise. A chip temperature warns when
@@ -107,13 +108,15 @@ function Icon({ k }: { k: Stat["key"] }) {
 export function StatStrip({ stats, onOpen }: { stats: Stat[]; onOpen: () => void }) {
   const shown = stats.filter((s) => ["weight", "battery", "bench", "skin", "cost"].includes(s.key));
   return (
-    <button type="button" className="bd-strip" onClick={onOpen} title="Measurements">
+    <button type="button" className="bd-strip" onClick={onOpen} aria-label="Measurements">
       {shown.map((s) => (
-        <span key={s.key} className={s.warn ? "warn" : ""} title={s.label}>
-          <Icon k={s.key} />
-          <b>{s.value}</b>
-          {s.unit && ` ${s.unit}`}
-        </span>
+        <Tooltip key={s.key} tip={s.label}>
+          <span className={s.warn ? "warn" : ""}>
+            <Icon k={s.key} />
+            <b>{s.value}</b>
+            {s.unit && ` ${s.unit}`}
+          </span>
+        </Tooltip>
       ))}
     </button>
   );

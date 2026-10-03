@@ -1,4 +1,5 @@
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import { Tooltip } from "../ui/Tooltip";
 
 // A full colour picker: a saturation and value square, a hue strip, the hex
 // value (editable) and the colours used most recently. Any colour is allowed.
@@ -139,18 +140,19 @@ export function ColourPicker({
       {recent.length > 0 && (
         <div className="bd-swatches">
           {recent.map((c) => (
-            <button
-              type="button"
-              key={c}
-              title={c}
-              className="bd-swatch big"
-              style={{ background: c }}
-              onClick={() => {
-                own.current = c;
-                setHsv(rgbToHsv(hexToRgb(c)));
-                onChange(c);
-              }}
-            />
+            <Tooltip key={c} tip={c}>
+              <button
+                type="button"
+                aria-label={c}
+                className="bd-swatch big"
+                style={{ background: c }}
+                onClick={() => {
+                  own.current = c;
+                  setHsv(rgbToHsv(hexToRgb(c)));
+                  onChange(c);
+                }}
+              />
+            </Tooltip>
           ))}
         </div>
       )}

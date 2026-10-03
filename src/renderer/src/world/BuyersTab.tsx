@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 import { useMemo } from "react";
 import { type CampaignState, type Quarter, segmentsOf } from "../engine/campaign";
 import { pct } from "../foundry/Finance";
-import { countShort, segmentName, STAT_NAME } from "./data";
+import { Short } from "../ui/Short";
+import { segmentName, STAT_NAME } from "./data";
 
 // The Market screen's Buyers tab: every segment in the quarter, most buyers
 // first: what it wants, how many bought, the share the company won, each of
@@ -36,7 +37,7 @@ export function BuyersTab({ campaign, quarter, hidden }: { campaign: CampaignSta
         {models.map((m) => (
           <span key={m.id} className="mb-model">
             <b>{m.name}</b>
-            <small>{countShort(m.units)}</small>
+            <small><Short value={m.units} /></small>
           </span>
         ))}
         <span />
@@ -55,7 +56,7 @@ export function BuyersTab({ campaign, quarter, hidden }: { campaign: CampaignSta
                   <i key={k}>{STAT_NAME[k]}</i>
                 ))}
               </span>
-              <b className="num">{countShort(r.buyers)}</b>
+              <b className="num"><Short value={r.buyers} /></b>
               <span className="mb-won">
                 <i>
                   <i className={r.won >= STRONG ? "on" : undefined} style={{ width: `${Math.min(1, r.won / 0.3) * 100}%` }} />
@@ -72,7 +73,7 @@ export function BuyersTab({ campaign, quarter, hidden }: { campaign: CampaignSta
                         className={heat > 0.6 ? "hot" : undefined}
                         style={{ background: `color-mix(in srgb, var(--accent) ${Math.round(18 + 82 * heat)}%, transparent)` }}
                       >
-                        {countShort(u)}
+                        <Short value={u} />
                       </i>
                     )}
                   </span>

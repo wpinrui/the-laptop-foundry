@@ -3,7 +3,8 @@ import type { SavedModel } from "../../../preload/store";
 import { type CampaignState, type ContestLaptop, contestOf, type Quarter, type WorldMarket } from "../engine/campaign";
 import { HEADLINE_STATS, type HeadlineStat } from "../engine/market/types";
 import { usd } from "../foundry/Release";
-import { countShort, makerName, STAT_NAME } from "./data";
+import { Short } from "../ui/Short";
+import { makerName, STAT_NAME } from "./data";
 import { Score } from "./QuarterTab";
 
 // The Market screen's Rivals tab: a model's chips, the rivals it competes with
@@ -107,7 +108,7 @@ export function RivalsTab({
             <Score score={l.review} />
             {hasModel && <u>{l.overlap === null ? "" : `${Math.round(l.overlap * 100)}%`}</u>}
             <div className="mr-won">
-              <b>{countShort(l.won)}</b>
+              <b><Short value={l.won} /></b>
               <i>
                 <i style={{ width: `${(l.won / mostWon) * 100}%` }} />
               </i>

@@ -12,6 +12,7 @@ import { downscaleImage, sanitiseSvg } from "./svg";
 import { Dropdown } from "./Dropdown";
 import { fontOptions, snapWeight, WEIGHT_NAME, weightsOf } from "./fonts";
 import { Card, Chip, Chips, Label, Slider, TraySep } from "./ui";
+import { Tooltip } from "../ui/Tooltip";
 
 // The Marks stage (Decals to the player): text, imported SVG or raster image, preset and emoji marks on the lid, palm rest, bottom
 // and bezel, each with its font, size, tracking, weight, colour, fill or
@@ -215,16 +216,19 @@ function EmojiBrowser({
       <div className="bd-line">
         <Label>Skin tone</Label>
         <div className="bd-swatches">
-          <button type="button" className={tone === null ? "bd-swatch on" : "bd-swatch"} style={{ background: "#FFCC4D" }} title="Default" onClick={() => setTone(null)} />
+          <Tooltip tip="Default">
+            <button type="button" className={tone === null ? "bd-swatch on" : "bd-swatch"} style={{ background: "#FFCC4D" }} aria-label="Default" onClick={() => setTone(null)} />
+          </Tooltip>
           {SKIN_TONES.map((t) => (
-            <button
-              type="button"
-              key={t.code}
-              className={tone === t.code ? "bd-swatch on" : "bd-swatch"}
-              style={{ background: t.colour }}
-              title={t.label}
-              onClick={() => setTone(t.code)}
-            />
+            <Tooltip key={t.code} tip={t.label}>
+              <button
+                type="button"
+                className={tone === t.code ? "bd-swatch on" : "bd-swatch"}
+                style={{ background: t.colour }}
+                aria-label={t.label}
+                onClick={() => setTone(t.code)}
+              />
+            </Tooltip>
           ))}
         </div>
       </div>
@@ -232,21 +236,22 @@ function EmojiBrowser({
         {list.length === 0 && <span className="bd-note">No emoji match that</span>}
         <div className="bd-emoji-grid">
           {list.map((e) => (
-            <button
-              type="button"
-              key={e.code}
-              title={e.name}
-              className="bd-emoji"
-              onMouseEnter={(ev) => ev.buttons === 0 && ghostOf(e)}
-              onMouseLeave={() => {
-                hover.current++;
-                onGhost(null);
-              }}
-              onClick={() => pick(e)}
-            >
-              <EmojiImg code={e.code} alt={e.name} />
-              {placed.has(e.char) && <i className="bd-preset-dot" />}
-            </button>
+            <Tooltip key={e.code} tip={e.name}>
+              <button
+                type="button"
+                aria-label={e.name}
+                className="bd-emoji"
+                onMouseEnter={(ev) => ev.buttons === 0 && ghostOf(e)}
+                onMouseLeave={() => {
+                  hover.current++;
+                  onGhost(null);
+                }}
+                onClick={() => pick(e)}
+              >
+                <EmojiImg code={e.code} alt={e.name} />
+                {placed.has(e.char) && <i className="bd-preset-dot" />}
+              </button>
+            </Tooltip>
           ))}
         </div>
       </div>
@@ -417,12 +422,14 @@ export function MarksColumn({
     </>
   );
   const position = m && (
-    <button type="button" className="bd-field bd-cell" title="Centre" onClick={() => edit((x) => ({ ...x, x: 0 }))}>
-      <Label>Position</Label>
-      <span className="bd-value">
-        <span className={m.x === 0 ? "accent" : ""}>{r1(m.x)}</span> <span className={m.y === 0 ? "accent" : ""}>{r1(m.y)}</span>
-      </span>
-    </button>
+    <Tooltip tip="Centre">
+      <button type="button" className="bd-field bd-cell" onClick={() => edit((x) => ({ ...x, x: 0 }))}>
+        <Label>Position</Label>
+        <span className="bd-value">
+          <span className={m.x === 0 ? "accent" : ""}>{r1(m.x)}</span> <span className={m.y === 0 ? "accent" : ""}>{r1(m.y)}</span>
+        </span>
+      </button>
+    </Tooltip>
   );
   return (
     <>

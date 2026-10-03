@@ -1,5 +1,5 @@
 import { Info } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import type { SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
 import type { Build } from "../engine";
@@ -22,20 +22,14 @@ import {
   stepRun,
 } from "../engine/campaign";
 import type { CostLine } from "../engine/price";
+import { full } from "../ui/number";
+import { Short } from "../ui/Short";
+import { Tooltip } from "../ui/Tooltip";
 import "./campaign.css";
 
-export const usd = (n: number) => `${n < 0 ? "-" : ""}$${Math.round(Math.abs(n)).toLocaleString("en-US")}`;
+export const usd = (n: number) => full(n, true);
 
-export const count = (n: number) => Math.round(n).toLocaleString("en-US");
-
-/** Money in a few characters: $1.24M, $450k, $900. */
-export function usdShort(n: number): string {
-  const a = Math.abs(n);
-  const sign = n < 0 ? "-" : "";
-  if (a >= 1e6) return `${sign}$${(a / 1e6).toFixed(2)}M`;
-  if (a >= 1e4) return `${sign}$${Math.round(a / 1e3)}k`;
-  return `${sign}$${Math.round(a).toLocaleString("en-US")}`;
-}
+export const count = (n: number) => full(n);
 
 /** A model's run as the campaign sees it: its cost lines, whether it is a refresh, its release. */
 export function useRun(campaign: CampaignState, model: SavedModel, models: SavedModel[]) {
@@ -72,11 +66,18 @@ export function lastSales(campaign: CampaignState, id: string): { sold: number; 
 }
 
 /** A model's status beside its year: Draft, Sold out, or its stock. */
-export function statusOf(campaign: CampaignState, id: string): { text: string; warn: boolean } {
+export function statusOf(campaign: CampaignState, id: string): { text: ReactNode; warn: boolean } {
   const r = campaign.releases[id];
   if (!r) return { text: "Draft", warn: false };
   if (r.stock <= 0) return { text: "Sold out", warn: true };
-  return { text: `${count(r.stock)} in stock`, warn: false };
+  return {
+    text: (
+      <>
+        <Short value={r.stock} /> in stock
+      </>
+    ),
+    warn: false,
+  };
 }
 
 export const PART_NAMES: Record<CostLine["what"], string> = {
@@ -178,17 +179,23 @@ function ResultRows({ result, span }: { result: ModelResult; span: "Lifetime" | 
   return (
     <>
       <span className="cr-label">{`${span} sales`}</span>
-      <b>{count(result.sold)}</b>
+      <b>
+        <Short value={result.sold} />
+      </b>
       {span === "Last quarter" && (
         <>
           <span className="cr-label">{loss ? "Last quarter loss" : "Last quarter profit"}</span>
-          <b className={tone}>{usdShort(Math.abs(result.profit))}</b>
+          <b className={tone}>
+            <Short value={Math.abs(result.profit)} money />
+          </b>
         </>
       )}
       {span === "Lifetime" && result.sold > 0 && (
         <>
           <span className="cr-label">{loss ? "Loss per unit" : "Profit per unit"}</span>
-          <b className={tone}>{usd(Math.abs(result.profit / result.sold))}</b>
+          <b className={tone}>
+            <Short value={Math.abs(result.profit / result.sold)} money />
+          </b>
         </>
       )}
     </>
@@ -248,16 +255,24 @@ export function ModelTab({
       {life !== null && (
         <div className="cr-life">
           <span className="cr-label">{life.profit < 0 ? "Lifetime loss" : "Lifetime profit"}</span>
-          <b className={life.profit < 0 ? "short" : "up"}>{usdShort(Math.abs(life.profit))}</b>
-          <span className="cr-info">
-            <button type="button" aria-label="Lifetime details">
-              <Info strokeWidth={2} aria-hidden />
-            </button>
-            <span className="cr-info-card" role="tooltip">
-              <ResultRows result={life} span="Lifetime" />
-              {recent && <ResultRows result={recent} span="Last quarter" />}
+          <b className={life.profit < 0 ? "short" : "up"}>
+            <Short value={Math.abs(life.profit)} money />
+          </b>
+          <Tooltip
+            className="cr-info-card"
+            tip={
+              <>
+                <ResultRows result={life} span="Lifetime" />
+                {recent && <ResultRows result={recent} span="Last quarter" />}
+              </>
+            }
+          >
+            <span className="cr-info">
+              <button type="button" aria-label="Lifetime details">
+                <Info strokeWidth={2} aria-hidden />
+              </button>
             </span>
-          </span>
+          </Tooltip>
         </div>
       )}
     </>
@@ -301,15 +316,17 @@ export function ModelTab({
         <div className="cr-cells">
           <div>
             <span>Stock</span>
-            <b className={warn(released.stock <= 0)}>{count(released.stock)}</b>
+            <b className={warn(released.stock <= 0)}>
+              <Short value={released.stock} />
+            </b>
           </div>
           <div>
             <span>Sold {lastQ ? `Q${lastQ.quarter}` : ""}</span>
-            <b>{sales ? count(sales.sold) : "0"}</b>
+            <b>{sales ? <Short value={sales.sold} /> : "0"}</b>
           </div>
           <div>
             <span>Wanted {lastQ ? `Q${lastQ.quarter}` : ""}</span>
-            <b className={warn(!!sales && sales.demand > sales.sold)}>{sales ? count(sales.demand) : "0"}</b>
+            <b className={warn(!!sales && sales.demand > sales.sold)}>{sales ? <Short value={sales.demand} /> : "0"}</b>
           </div>
         </div>
       )}
@@ -362,7 +379,14 @@ export function ModelTab({
                 {lines.map((l) => (
                   <Sub key={l.what} label={PART_NAMES[l.what]} value={usd(l.usd)} />
                 ))}
-                <Sub label={`Run size ${count(units)}`} value={`${e.unit >= cost ? "+" : ""}${usd(e.unit - cost)}`} />
+                <Sub
+                  label={
+                    <>
+                      Run size <Short value={units} />
+                    </>
+                  }
+                  value={`${e.unit >= cost ? "+" : ""}${usd(e.unit - cost)}`}
+                />
               </>
             )}
             {priced && (
@@ -376,58 +400,78 @@ export function ModelTab({
             <dt className="head">Run</dt>
             <dd className="head" />
             <dt>Production</dt>
-            <dd>{usd(units * e.unit)}</dd>
+            <dd>
+              <Short value={units * e.unit} money />
+            </dd>
             {setup > 0 && (
               <>
                 {more("setup", refresh ? "Setup, refresh" : "Setup")}
-                <dd>{usd(setup)}</dd>
+                <dd>
+              <Short value={setup} money />
+            </dd>
                 {open === "setup" && (
                   <>
-                    <Sub label="Design and certification" value={usd(e.design)} />
-                    <Sub label="Tooling" value={usd(e.tooling)} />
+                    <Sub label="Design and certification" value={<Short value={e.design} money />} />
+                    <Sub label="Tooling" value={<Short value={e.tooling} money />} />
                   </>
                 )}
               </>
             )}
             <dt className="total">Total</dt>
-            <dd className={`total${short ? " short" : ""}`}>{usd(e.total)}</dd>
+            <dd className={`total${short ? " short" : ""}`}>
+              <Short value={e.total} money />
+            </dd>
             <dt className="head">Quarter</dt>
             <dd className="head" />
             {more("overhead", "Overhead")}
-            <dd>{usd(-overhead)}</dd>
+            <dd>
+              <Short value={-overhead} money />
+            </dd>
             {open === "overhead" && (
               <>
-                <Sub label="Company" value={usd(-o.overheadBase)} />
-                <Sub label="This model" value={usd(-o.overheadModel)} />
+                <Sub label="Company" value={<Short value={-o.overheadBase} money />} />
+                <Sub label="This model" value={<Short value={-o.overheadModel} money />} />
               </>
             )}
             <dt>Marketing</dt>
-            <dd>{usd(-o.marketing)}</dd>
+            <dd>
+              <Short value={-o.marketing} money />
+            </dd>
             {o.atDemand && (
               <>
                 <dt>Holding, at demand</dt>
-                <dd>{usd(-o.atDemand.holding)}</dd>
+                <dd>
+              <Short value={-o.atDemand.holding} money />
+            </dd>
               </>
             )}
             {priced && (
               <>
                 <dt className="total">Profit, sold out</dt>
-                <dd className={`total${o.profitSoldOut < 0 ? " short" : ""}`}>{usdShort(o.profitSoldOut)}</dd>
+                <dd className={`total${o.profitSoldOut < 0 ? " short" : ""}`}>
+                  <Short value={o.profitSoldOut} money />
+                </dd>
                 {o.atDemand && (
                   <>
-                    <dt>{`Profit, ${count(o.atDemand.sold)} sold`}</dt>
-                    <dd className={warn(o.atDemand.profit < 0)}>{usdShort(o.atDemand.profit)}</dd>
+                    <dt>
+                      Profit, <Short value={o.atDemand.sold} /> sold
+                    </dt>
+                    <dd className={warn(o.atDemand.profit < 0)}>
+                      <Short value={o.atDemand.profit} money />
+                    </dd>
                   </>
                 )}
                 <dt>Break-even</dt>
                 <dd className={warn(o.breakEven === null || o.breakEven > o.available)}>
-                  {o.breakEven === null ? "Never" : count(o.breakEven)}
+                  {o.breakEven === null ? "Never" : <Short value={o.breakEven} />}
                 </dd>
               </>
             )}
           </dl>
           {short ? (
-            <div className="cr-short">Short {usdShort(e.total - campaign.cash)}</div>
+            <div className="cr-short">
+              Short <Short value={e.total - campaign.cash} money />
+            </div>
           ) : (
             <button
               type="button"
@@ -444,7 +488,7 @@ export function ModelTab({
   );
 }
 
-function Sub({ label, value }: { label: string; value: string }) {
+function Sub({ label, value }: { label: ReactNode; value: ReactNode }) {
   return (
     <>
       <dt className="sub">{label}</dt>

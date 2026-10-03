@@ -102,6 +102,7 @@ Still on, because none of it is code quality:
 - Keep `README.md` current in the same PR when a change is reader-facing. Not for internal refactors or test tweaks.
 - List options with letters, not numbers.
 - Confirm risky actions (force-push, history rewrite, deleting an unmerged or shared branch, data loss) before executing.
+- Never use the native `title` attribute for tooltips. Always use the app's custom tooltip component.
 
 ## Tooling
 - Package manager: **yarn**.

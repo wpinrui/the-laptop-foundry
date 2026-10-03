@@ -12,8 +12,8 @@ import type { Award, OfficeData } from "./Room";
 
 // What grows in the office: the company's laptops on the product wall, open
 // and facing the room, and its awards in the trophy cabinet. Status shows on
-// the laptop itself: a draft in foam grey, a laptop in stock with its screen
-// lit, a sold out one dark with its lid half shut.
+// the laptop itself: a laptop in stock with its screen lit, a sold out one
+// dark with its lid half shut, a draft as it was built.
 
 const noLabel = () => "";
 const noHover = () => {};
@@ -54,13 +54,11 @@ const Laptop = memo(function Laptop({
   model,
   status,
   lit,
-  foam,
 }: {
   shelf: Shelf;
   model: SavedModel;
   status: Status;
   lit: THREE.Texture;
-  foam: THREE.Material;
 }) {
   const build = model.build as Build;
   const look = useMemo(() => {
@@ -80,23 +78,16 @@ const Laptop = memo(function Laptop({
     }
   }, [build]);
   const group = useRef<THREE.Group>(null);
-  const foamed = status === "draft" || status === "block";
-  // A draft is a foam study: every surface in the same grey, laid over once the parts have mounted.
   const frames = useRef(0);
   useEffect(() => {
     frames.current = 0;
     if (group.current) freeze(group.current, false);
-  }, [foamed, look]);
+  }, [look]);
   useFrame(() => {
     if (frames.current > SETTLE) return;
     frames.current++;
     const g = group.current;
     if (!g) return;
-    if (foamed)
-      g.traverse((o) => {
-        const m = o as THREE.Mesh;
-        if (m.isMesh && m.material !== foam) m.material = foam;
-      });
     if (frames.current === SETTLE) {
       // The wall draws the laptop from here on; the model stays, hidden and still, as the owner of its marks.
       shelf.set(model.id, bakeLaptop(g, shelf.root));
@@ -144,12 +135,6 @@ export function Wall({
   boxes: RefObject<{ id: string; box: THREE.Box3 }[]>;
 }) {
   const lit = useLit();
-  // Both sides: the shell's faces are drawn from either side, and one-sided foam left the bezel see-through.
-  const foam = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: token("office-foam"), roughness: 0.95, metalness: 0, side: THREE.DoubleSide }),
-    [],
-  );
-  useEffect(() => () => foam.dispose(), [foam]);
   const shelf = useShelf(true);
   const shown = useMemo(() => items.slice(0, data.slots.length), [items, data]);
   // The pointer picks laptops by their slot's box.
@@ -184,7 +169,6 @@ export function Wall({
               model={it.model}
               status={it.status}
               lit={lit}
-              foam={foam}
             />
           </group>
         );

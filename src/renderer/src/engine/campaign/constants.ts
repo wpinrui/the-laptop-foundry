@@ -100,6 +100,9 @@ export const REACH_PEAK_FLOOR = 0.5;
 /** The share of a quarter's laptop units, all segments, the company must win for Courts to list its models. */
 export const COURTS_LISTING_SHARE = 0.01;
 
+/** The same share for the Courts site in every laptop's OS, which lists the company's models sooner than the store. */
+export const COURTS_SITE_SHARE = 0.001;
+
 /**
  * Cost per quarter of each campaign tier in 2000 dollars, Tycoon's numbers.
  * Index 0 is no campaign; 1 to 5 are grassroots, targeted digital,

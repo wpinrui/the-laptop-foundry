@@ -342,10 +342,16 @@ function filteredListing(items: StoreItem[], f: StoreFilters): StoreItem[] {
 
 /**
  * Every laptop on sale in the quarter, filtered and sorted. Courts lists the
- * player's models only once the company won COURTS_LISTING_SHARE of all the
+ * player's models only once the company won `share` of all the
  * quarter's laptop units.
  */
-export function storeListing(state: CampaignState, market: WorldMarket, q: Quarter, filters: StoreFilters = {}): StoreItem[] {
+export function storeListing(
+  state: CampaignState,
+  market: WorldMarket,
+  q: Quarter,
+  filters: StoreFilters = {},
+  share = COURTS_LISTING_SHARE,
+): StoreItem[] {
   const shelf = shelfAt(state, q);
   if (!shelf) return [];
   let total = 0;
@@ -354,7 +360,7 @@ export function storeListing(state: CampaignState, market: WorldMarket, q: Quart
     total += unitsOf(u);
     if (shelf.own[id]) ours += unitsOf(u);
   }
-  const listsOwn = total > 0 && ours / total >= COURTS_LISTING_SHARE;
+  const listsOwn = total > 0 && ours / total >= share;
   const items = Object.entries(shelf.units).flatMap(([id, u]): StoreItem[] => {
     if (shelf.own[id] && !listsOwn) return [];
     const l = laptopOf(state, market, id, q);

@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import logo from "../assets/store/courts-logo.png";
 import { colourHex } from "../engine";
-import { type CampaignState, contestOf, type Quarter, type StoreItem, storeListing, type WorldMarket, yearListing } from "../engine/campaign";
+import { COURTS_SITE_SHARE, type CampaignState, contestOf, type Quarter, type StoreItem, storeListing, type WorldMarket, yearListing } from "../engine/campaign";
 import type { Rival } from "../engine/market/field";
 import type { BodyClass, Budget, PerfClass } from "../engine/price";
 import { factsOf, reviewOf } from "../engine/review";
@@ -182,7 +182,7 @@ function inGroup(values: string[], v: string): boolean {
 /** The listing, the filters and the product's similar laptops, from whichever source. */
 function useCourts(source: StoreSource, company: string) {
   const items = useMemo((): Product[] => {
-    const list = source.kind === "quarter" ? storeListing(source.state, source.market, source.quarter) : yearListing(source.rivals);
+    const list = source.kind === "quarter" ? storeListing(source.state, source.market, source.quarter, {}, COURTS_SITE_SHARE) : yearListing(source.rivals);
     const ranked = [...list].filter((x) => x.units > 0).sort((a, b) => b.units - a.units || a.id.localeCompare(b.id));
     return list.map((x) => {
       const r = ranked.indexOf(x);

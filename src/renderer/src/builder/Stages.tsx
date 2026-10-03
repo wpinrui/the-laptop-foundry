@@ -702,10 +702,13 @@ interface Rung {
   own: boolean;
 }
 
+/** How far either side of the build's price a rival still counts as competing with it. */
+const PRICE_RANGE = 0.25;
+
 /**
- * Where the price leaves the build in its best class: its rank by market
- * score among that year's rivals in the same class, and the laptops ranked
- * either side of it.
+ * Where the price leaves the build among that year's laptops in its price
+ * range: its rank by market score (value to its best buyers), and the
+ * laptops ranked either side of it.
  */
 function ClassLadder({ cls, rank, of, rungs }: { cls: string; rank: number; of: number; rungs: Rung[] }) {
   return (
@@ -774,9 +777,12 @@ export function PriceColumn({
     const best = bestSegments([mine, ...field]);
     const own = best.get(MINE);
     if (!own) return null;
-    // The class, best first; at the same score the cheaper ranks higher.
+    // The laptops in its price range, best first; at the same score the cheaper ranks higher.
+    const lo = price * (1 - PRICE_RANGE);
+    const hi = price * (1 + PRICE_RANGE);
     const ranked = [mine, ...field]
-      .filter((x) => best.get(x.id)?.segment === own.segment)
+      .filter((x) => x.id === MINE || ((x.build.price ?? 0) >= lo && (x.build.price ?? 0) <= hi))
+      .filter((x) => best.has(x.id))
       .map((x) => ({ x, score: best.get(x.id)?.score ?? 0, price: x.build.price ?? 0 }))
       .sort((a, b) => b.score - a.score || a.price - b.price || a.x.id.localeCompare(b.x.id));
     const at = ranked.findIndex((r) => r.x.id === MINE);
@@ -789,7 +795,8 @@ export function PriceColumn({
       score: r.score,
       own: r.x.id === MINE,
     }));
-    return { cls: own.segment, rank: at + 1, of: ranked.length, rungs };
+    const range = `${money(snapPrice(lo))} to ${money(snapPrice(hi))}`;
+    return { cls: range, rank: at + 1, of: ranked.length, rungs };
   }, [priced, opened, shownBuild, cost, valid, name]);
   const lo = Math.max(1, Math.round(cost * 0.5));
   const hi = Math.max(lo + 10, Math.round(cost * 3));

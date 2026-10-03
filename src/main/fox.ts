@@ -343,7 +343,16 @@ export function registerFox(
   // Escape leaves a site's full screen and goes no further. Otherwise, inside
   // a site it hands the keys back to the game, which steps back on the next one.
   wc.on("before-input-event", (e, input) => {
-    if (input.type !== "keyDown" || input.key !== "Escape") return;
+    if (input.key !== "Escape") return;
+    // The release too: Chromium drops the pointer lock on an Escape key up as
+    // well, so one press that takes the pointer back (a station into free roam,
+    // up from a seat) would lose it again on release and pause the game.
+    // main.tsx replays the key up with the key down.
+    if (input.type === "keyUp") {
+      if (!full.size && !isSiteFrame(win, wc.focusedFrame)) e.preventDefault();
+      return;
+    }
+    if (input.type !== "keyDown") return;
     if (full.size) {
       e.preventDefault();
       for (const f of [...full.values()]) {

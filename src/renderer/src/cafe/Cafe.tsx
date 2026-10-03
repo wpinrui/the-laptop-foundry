@@ -1,3 +1,4 @@
+import { isRecentEscape } from "../app/escape";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
@@ -179,6 +180,8 @@ export function Cafe({
         expectUnlock.current = false;
         return;
       }
+      // The release of an Escape already handled, not a pause.
+      if (isRecentEscape()) return;
       pause();
     };
     document.addEventListener("pointerlockchange", change);

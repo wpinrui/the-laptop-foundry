@@ -1,3 +1,4 @@
+import { isRecentEscape } from "../app/escape";
 import {
   type ReactNode,
   type Ref,
@@ -223,6 +224,8 @@ export function StoreWorld({
         expectUnlock.current = false;
         return;
       }
+      // The release of an Escape already handled, not a pause.
+      if (isRecentEscape()) return;
       pause();
     };
     document.addEventListener("pointerlockchange", change);

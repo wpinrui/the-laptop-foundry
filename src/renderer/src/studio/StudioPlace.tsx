@@ -1,3 +1,4 @@
+import { useStills } from "./Stills";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -64,6 +65,9 @@ export function StudioPlace({
 }) {
   const root = useRef<HTMLDivElement>(null);
   const at = useRef<ScreenAt | null>(null);
+  // The pick cards' stills are taken while the studio loads: the travel card waits for the last one.
+  const { stills, shoot } = useStills(models, company.name);
+  const shot = models.every((m) => m.id in stills);
   const [paused, setPaused] = useState(false);
   const [goal, setGoal] = useState<Goal>("walk");
   const [ui, setUi] = useState<"screen" | "wheel" | null>(null);
@@ -245,10 +249,11 @@ export function StudioPlace({
               onAim={setAim}
               at={at}
             />
-            {onReady && <Loaded onReady={onReady} />}
+            {onReady && shot && <Loaded onReady={onReady} />}
           </Suspense>
         </Canvas>
       </div>
+      {shoot}
       {active && <i className="cafe-dot" />}
       {active && <Prompts list={prompts} using={false} />}
       {ui === "screen" && (
@@ -256,6 +261,7 @@ export function StudioPlace({
           company={company}
           campaign={campaign}
           models={models}
+          stills={stills}
           zoomed={zoomed}
           origin={origin}
           onLeave={stand}

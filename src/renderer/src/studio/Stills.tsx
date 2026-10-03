@@ -73,7 +73,7 @@ function Shot({ model, company, onShot }: { model: SavedModel; company: string; 
     if (frames.current === 3) done.current(gl.domElement.toDataURL("image/png"));
   });
   if (!fit) return null;
-  return <StagedLaptop build={build} fit={fit} maker={company} model={model.name} lidAngle={106} onLock={() => setLocked(true)} />;
+  return <StagedLaptop build={build} fit={fit} maker={company} model={model.name} lidAngle={106} unlit onLock={() => setLocked(true)} />;
 }
 
 /** Stills of the laptops, by model id, once taken; and the hidden shoot to render until they all are. */
@@ -82,7 +82,8 @@ export function useStills(models: SavedModel[], company: string): { stills: Reco
   const stills: Record<string, string> = {};
   for (const m of models) {
     const s = cache.get(keyOf(m));
-    if (s) stills[m.id] = s;
+    // An empty still is a laptop that cannot be drawn: taken, with nothing to show.
+    if (s !== undefined) stills[m.id] = s;
   }
   const next = models.find((m) => !cache.has(keyOf(m)));
   const shoot = next ? (

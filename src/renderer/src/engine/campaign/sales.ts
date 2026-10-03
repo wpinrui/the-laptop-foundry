@@ -1,7 +1,7 @@
 import type { Rival } from "../market/field";
 import { marketScore } from "../market/score";
 import { NOVELTY_DECAY_BASE, NOVELTY_LAUNCH_BONUS, population, priceCeiling, quarterlyBuyers, SEGMENTS, screenFit } from "../market/segments";
-import { profileOf, rivalProfile } from "../market/profile";
+import { type Pack, packAverage, profileOf, rivalProfile } from "../market/profile";
 import type { HeadlineValues } from "../market/stats";
 import { HEADLINE_STATS, type Segment, type SegmentId } from "../market/types";
 import { rng } from "../review";
@@ -13,6 +13,10 @@ import {
   MARKET_PAR,
   MAX_REACH,
   OVER_CEILING_STEEPNESS,
+  PACK_BASE,
+  PACK_MAX,
+  PACK_MIN,
+  PACK_PER_WEIGHT,
   PRICE_KNEE,
   REVIEW_PAR,
   REVIEW_SPAN,
@@ -56,6 +60,8 @@ export interface Seller {
   stock: number;
   /** A commercial's multiplier on the units its buyers want, before stock; 1 when absent. */
   boost?: number;
+  /** Weight, thickness and screen-to-body; absent counts as the market's average. */
+  pack?: Pack;
 }
 
 /** One quarter's sales, kept compactly for display. */
@@ -106,6 +112,13 @@ export function priceFactor(price: number, ceiling: number): number {
   return x <= 1 ? under : under * Math.exp(-OVER_CEILING_STEEPNESS * (x - 1));
 }
 
+/** Packaging against the market's average, stronger for segments that weigh portability. 1 at the average. */
+export function packFactor(p: Pack | undefined, avg: Pack | null, s: Segment): number {
+  if (!p || !avg || !(p.kg > 0 && p.mm > 0 && avg.stb > 0)) return 1;
+  const r = Math.cbrt((avg.kg / p.kg) * (avg.mm / p.mm) * (p.stb / avg.stb));
+  return clamp(r, PACK_MIN, PACK_MAX) ** (PACK_BASE + PACK_PER_WEIGHT * s.weights.portability);
+}
+
 /** The critics' pull from the review score. */
 export function criticsFactor(review: number): number {
   return Math.exp((CRITICS_STRENGTH * (clamp(review, 0, 100) - REVIEW_PAR)) / REVIEW_SPAN);
@@ -135,7 +148,8 @@ function valueOf(ratios: Record<string, number>, s: Segment): number {
 
 /**
  * Splits every segment's buyers among the sellers. `basis` is the year's
- * market the stats are measured against. `seed` fixes the quarter's noise.
+ * market the stats are measured against, `packs` the packaging it is
+ * measured against. `seed` fixes the quarter's noise.
  */
 export function splitDemand(
   sellers: Seller[],
@@ -143,8 +157,10 @@ export function splitDemand(
   state: CampaignState,
   seed: string,
   segments: Segment[] = SEGMENTS,
+  packs: Pack[] = sellers.flatMap((x) => (x.pack ? [x.pack] : [])),
 ): SalesResult {
   const now = state.now;
+  const packAvg = packAverage(packs);
   const at = quarterIndex(now);
   const scores = new Map(sellers.map((x) => [x.id, marketScore({ id: x.id, stats: x.stats }, basis, segments)]));
   const luck = new Map(sellers.map((x) => [x.id, 1 + (rng(`${seed}:${x.id}`)() * 2 - 1) * SALES_NOISE]));
@@ -169,6 +185,7 @@ export function splitDemand(
         scoreFactor(score) *
         priceFactor(x.price, ceiling) *
         screenFit(s, x.inches) *
+        packFactor(x.pack, packAvg, s) *
         noveltyFactor(at - x.launch, s) *
         criticsFactor(x.review) *
         awardFactor(state, x.id, s.id) *
@@ -262,10 +279,11 @@ export const simulateSales: QuarterStep = (state, ctx) => {
   const rivals = ctx.rivals ?? [];
   const company = ctx.company ?? "";
   const sellers = sellersOf(state, ctx.models, rivals, company);
-  const year = rivals.filter((r) => r.build.year === state.now.year).map((r) => rivalProfile(r).stats);
-  const own = sellers.filter((x) => x.maker === null).map((x) => x.stats);
-  const basis = year.length > 0 ? [...year, ...own] : sellers.map((x) => x.stats);
-  const res = splitDemand(sellers, basis, state, `sales:${company}:${state.now.year}:${state.now.quarter}`);
+  const year = rivals.filter((r) => r.build.year === state.now.year).map((r) => rivalProfile(r));
+  const own = sellers.filter((x) => x.maker === null);
+  const basis = year.length > 0 ? [...year, ...own].map((x) => x.stats) : sellers.map((x) => x.stats);
+  const packs = (year.length > 0 ? [...year, ...own] : sellers).flatMap((x) => (x.pack ? [x.pack] : []));
+  const res = splitDemand(sellers, basis, state, `sales:${company}:${state.now.year}:${state.now.quarter}`, SEGMENTS, packs);
   const releases = { ...state.releases };
   const units: Record<string, number> = {};
   const demand: Record<string, number> = {};

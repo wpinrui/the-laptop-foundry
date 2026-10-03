@@ -14,6 +14,26 @@ export interface Board {
 }
 
 const ROW2_ORDER = ["chipset", "mem", "m2", "wlan", "bt", "tb"];
+/** Sockets real boards lay along the board edge, long side across: SO-DIMMs and Mini PCIe cards. */
+const LIE_FLAT = new Set(["mem"]);
+
+/**
+ * Row two's socketed cards turned long side across while that makes the row
+ * shallower: a SO-DIMM or Mini PCIe card standing front to back set a board
+ * far deeper than real ones, which lay them along the edge. A row whose depth
+ * something else sets (an M.2 drive) keeps them as they are.
+ */
+function turnFlat(row: Block[]): Block[] {
+  const out = row.map((b) => ({ ...b, size: { ...b.size } }));
+  for (let k = 0; k < out.length; k++) {
+    const deep = out.reduce((m, b) => (b.size.y > m.size.y ? b : m), out[0]);
+    if (!deep || !LIE_FLAT.has(deep.role) || deep.size.x >= deep.size.y) break;
+    const rest = out.filter((b) => b !== deep).reduce((m, b) => Math.max(m, b.size.y), 0);
+    if (Math.max(rest, deep.size.x) >= deep.size.y) break;
+    deep.size = { x: deep.size.y, y: deep.size.x, z: deep.size.z };
+  }
+  return out;
+}
 
 /**
  * The mainboard is derived, not chosen. Two rows:
@@ -43,8 +63,7 @@ export function buildBoard(
       });
     }
   }
-  const row2 = blocks
-    .filter((b) => b.row === 2)
+  const row2 = turnFlat(blocks.filter((b) => b.row === 2))
     .map((b, i) => ({ b, i }))
     .sort(
       (p, q) =>

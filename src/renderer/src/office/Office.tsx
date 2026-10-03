@@ -19,11 +19,12 @@ import "../cafe/cafe.css";
 import "./office.css";
 
 // The Office: the company's loft as a 3D menu. The arrow keys step round its
-// stations, each a fixed view with its panel open on the view's calm side. M
+// stations, each a fixed view with its panel open on the view's calm side. Tab
 // walks the room in first person, where the laptops on the product wall can
-// be used as in the cafe, and M again comes back to the nearest station.
-// Escape opens the system menu. A strip along the top carries the quarter,
-// the cash, last quarter's profit and End quarter wherever the player is.
+// be used as in the cafe, and Tab again comes back to the nearest station.
+// M opens the world map over the office. Escape opens the system menu. A
+// strip along the top carries the quarter, the cash, last quarter's profit
+// and End quarter wherever the player is.
 
 export interface OfficeProps {
   company: SavedCompany;
@@ -33,7 +34,7 @@ export interface OfficeProps {
   onMap: () => void;
   onEndQuarter: () => void;
   resolving: { step: number; of: number; name: string } | null;
-  /** Something is open over the office (the quarter report, a statement, the system menu): keys are its. */
+  /** Something is open over the office (the quarter report, a statement, the system menu, the map): keys are its. */
   blocked: boolean;
   /** What the stations' panels do; without it the stations have no panels. */
   actions?: OfficeActions;
@@ -228,11 +229,19 @@ export function Office({
         return;
       }
       if (typing()) return;
+      if (e.key === "Tab") {
+        if (k.used) return;
+        // Tab toggles free roam here; it never moves the focus.
+        e.preventDefault();
+        if (e.repeat) return;
+        if (k.free) k.go(k.nearest());
+        else k.enterFree();
+        return;
+      }
       if (e.code === "KeyM") {
         if (e.repeat || k.used) return;
         e.preventDefault();
-        if (k.free) k.go(k.nearest());
-        else k.enterFree();
+        k.onMap();
         return;
       }
       if (k.free) {
@@ -348,7 +357,7 @@ export function Office({
   ];
   if ((station === "desk" || station === "products") && order.length > 1) stationKeys.push({ key: "↑↓", label: "Laptops" });
   if (station === "door") stationKeys.push({ key: "E", label: "Leave" });
-  stationKeys.push({ key: "M", label: "Free roam" });
+  stationKeys.push({ key: "Tab", label: "Free roam" });
   const osPage = look && usedSubject ? { node: <SlotView slot={slot} />, width: look.width, height: look.height, mm: look.mm } : null;
 
   return (
@@ -436,7 +445,7 @@ export function Office({
         <>
           {!used && <div className="cafe-dot" />}
           <Prompts list={prompts} using={using} />
-          {!used && <Keys list={[{ key: "M", label: "Stations" }]} />}
+          {!used && <Keys list={[{ key: "Tab", label: "Stations" }]} />}
           {full && osPage && (
             <div className="cafe-world">
               <FullPage page={osPage} />

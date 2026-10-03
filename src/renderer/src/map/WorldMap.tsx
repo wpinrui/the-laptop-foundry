@@ -9,7 +9,8 @@ import "./map.css";
 // The world map: a street plan on the left with the five places on street
 // corners, and a panel on the right naming the destination, the laptop to
 // bring and Go. The workshop and the cafe take a laptop; the Office, Courts
-// and the studio do not.
+// and the studio do not. Opened from a place it lies over that place, which
+// waits underneath: M, Escape or Stay closes it and the place carries on.
 
 export type Place = "workshop" | "cafe" | "office" | "courts" | "studio";
 /** Where the map was opened from: a place's door, or the menu. */
@@ -48,6 +49,14 @@ const ICON: Record<Place, ReactNode> = {
     </>
   ),
 };
+
+/** The pin dropped on the place the player is in. */
+const PIN = (
+  <>
+    <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+    <circle cx="12" cy="10" r="3" />
+  </>
+);
 
 /** Each place on its street corner, design px on the 1040 by 810 map. */
 const PLACES: { id: Place; name: string; tip: string; x: number; y: number; bring: boolean }[] = [
@@ -109,27 +118,45 @@ export function WorldMap({
   const all = useMemo(() => sortedModels(company), [company]);
   // The cafe opens once there is a working laptop to bring, the studio while one can have a commercial.
   const open = (p: Place) => p !== from && (p !== "cafe" || carried(all, "cafe").length > 0) && (p !== "studio" || studio);
-  const [dest, setDest] = useState<Place>(() => PLACES.find((p) => open(p.id))?.id ?? "workshop");
+  // Nothing is picked until the player picks it.
+  const [dest, setDest] = useState<Place | null>(null);
   const [bring, setBring] = useState<string | null>(null);
-  const laptops = useMemo(() => carried(all, dest), [all, dest]);
+  const laptops = useMemo(() => (dest ? carried(all, dest) : []), [all, dest]);
   // Scores only for reviewed laptops, as on the models screen.
   const scores = useMemo(
     () => new Map(all.map((m) => [m.id, m.reviewed ? overallOf(m, company.name) : null])),
     [all, company.name],
   );
   const here = PLACES.find((p) => p.id === from);
-  const to = PLACES.find((p) => p.id === dest) ?? PLACES[0];
-  const canBring = to.bring && laptops.length > 0;
+  const to = PLACES.find((p) => p.id === dest) ?? null;
+  const canBring = !!to?.bring && laptops.length > 0;
   // The cafe always takes a laptop: with none picked, the first one goes.
   const needs = dest === "cafe";
   const picked = canBring ? (laptops.find((m) => m.id === bring) ?? null) : null;
   const chosen = needs && !picked ? (laptops[0] ?? null) : picked;
 
-  const live = useRef({ go: () => {}, onBack });
-  live.current = { go: () => onGo(dest, chosen), onBack };
+  const go = () => {
+    if (dest) onGo(dest, chosen);
+  };
+  const live = useRef({ go, onBack });
+  live.current = { go, onBack };
+  // Over a place, the map has every key: the place underneath hears none, and M closes the map as it opened it.
+  const over = from !== "menu";
+  const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    // Focus left on the place underneath stays there no longer: its buttons are not the map's.
+    const outside = () => {
+      const a = document.activeElement;
+      return over && a instanceof HTMLElement && a !== document.body && !root.current?.contains(a);
+    };
+    if (outside()) (document.activeElement as HTMLElement).blur();
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (over) e.stopImmediatePropagation();
+      if (outside()) {
+        e.preventDefault();
+        (document.activeElement as HTMLElement).blur();
+      }
+      if (e.key === "Escape" || (over && e.code === "KeyM" && !e.repeat)) {
         e.preventDefault();
         live.current.onBack();
       } else if (e.key === "Enter" && !(document.activeElement instanceof HTMLButtonElement)) {
@@ -137,13 +164,13 @@ export function WorldMap({
         live.current.go();
       }
     };
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  }, []);
+    window.addEventListener("keydown", key, over);
+    return () => window.removeEventListener("keydown", key, over);
+  }, [over]);
 
   // The route from here: along here's street, then down the destination's.
   const route: { left: number; top: number; width: number; height: number; across: boolean }[] = [];
-  if (here) {
+  if (here && to) {
     const x0 = Math.min(here.x, to.x);
     const x1 = Math.max(here.x, to.x);
     const y0 = Math.min(here.y, to.y);
@@ -153,7 +180,7 @@ export function WorldMap({
   }
 
   return (
-    <div className="fd wm">
+    <div ref={root} className="fd wm">
       <div className="wm-map">
         <div className="wm-glow" />
         {STREETS_Y.map((y) => (
@@ -177,10 +204,15 @@ export function WorldMap({
           return (
             <div
               key={p.id}
-              className={`wm-place${isHere ? " here" : ""}${on ? " on" : ""}${!isHere && !open(p.id) ? " shut" : ""}${!isHere && p.id === "studio" && !studio ? " shutter" : ""}`}
+              className={`wm-place${isHere ? " here" : ""}${on ? " on" : ""}${!on && open(p.id) ? " can" : ""}${!isHere && !open(p.id) ? " shut" : ""}${!isHere && p.id === "studio" && !studio ? " shutter" : ""}`}
               style={{ left: u(p.x), top: u(p.y) }}
             >
               {isHere && <i className="wm-ping" />}
+              {isHere && (
+                <svg className="wm-pin" viewBox="0 0 24 24" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  {PIN}
+                </svg>
+              )}
               <i className="wm-dot" />
               <button type="button" disabled={!open(p.id)} onClick={() => setDest(p.id)}>
                 <span className="wm-tile">
@@ -205,7 +237,7 @@ export function WorldMap({
       </div>
 
       <aside className="wm-panel">
-        <div className="wm-dest">{to.name}</div>
+        {to && <div className="wm-dest">{to.name}</div>}
         {canBring ? (
           <>
             <div className="wm-bring">
@@ -237,7 +269,7 @@ export function WorldMap({
           <div className="wm-fill" />
         )}
         <footer className="wm-foot">
-          <button type="button" className="fd-primary" onClick={() => onGo(dest, chosen)}>
+          <button type="button" className="fd-primary" disabled={!dest} onClick={go}>
             Go
           </button>
           <button type="button" className="fd-secondary muted" onClick={onBack}>

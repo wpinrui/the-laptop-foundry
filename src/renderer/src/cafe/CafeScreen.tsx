@@ -157,11 +157,13 @@ export function CafeScreen(props: {
   shop?: Shop;
   /** Once the cafe has loaded, for the travel card over it. */
   onReady?: () => void;
+  /** The world map is open over the cafe. */
+  away?: boolean;
 }) {
   const { subject } = props;
   if (!subject)
     return (
-      <Cafe shoot={null} plugged={false} onPlug={noop} sound={props.sound} onSound={props.onSound} onLeave={props.onBack} onMap={props.onMap} atDoor={props.atDoor} onReady={props.onReady} />
+      <Cafe shoot={null} plugged={false} onPlug={noop} sound={props.sound} onSound={props.onSound} onLeave={props.onBack} onMap={props.onMap} atDoor={props.atDoor} onReady={props.onReady} away={props.away} />
     );
   return <OsCafeScreen {...props} subject={subject} />;
 }
@@ -187,6 +189,7 @@ function OsCafeScreen({
   onSaveNotes,
   shop,
   onReady,
+  away,
 }: {
   subject: Subject;
   library?: Subject[];
@@ -199,6 +202,7 @@ function OsCafeScreen({
   onSaveNotes?: (docs: NoteDoc[]) => void;
   shop?: Shop;
   onReady?: () => void;
+  away?: boolean;
 }) {
   const { build, fit, page, shoot, plugged, plug } = useLaptopOs({ subject, library, sound, onSound, notes, onSaveNotes, shop });
   const colour = (id: string) => colourHex(id);
@@ -224,6 +228,7 @@ function OsCafeScreen({
       onMap={onMap}
       atDoor={atDoor}
       onReady={onReady}
+      away={away}
     />
   );
 }

@@ -60,10 +60,10 @@ const CAMPAIGN_VIEW: StageView = { azimuth: 0, distance: 1300, shift: 0.014, mod
 
 /**
  * Where the player is while a company is open: on the world map or in one of
- * its five places. The map remembers the place it was walked out of, which
- * Stay goes back into; null when it opened from the menu. The workshop and the
- * cafe hold the laptop brought along, if any; a visit made from the Office
- * goes back to the Office on Leave.
+ * its five places. The map opened from a place lies over it, the place still
+ * there underneath, and closing the map goes back into it; null when it
+ * opened from the menu. The workshop and the cafe hold the laptop brought
+ * along, if any; a visit made from the Office goes back to the Office on Leave.
  */
 type InPlace =
   | { at: "office" }
@@ -295,7 +295,10 @@ export function App() {
     () => (company ? eligibleModels(company, company.campaign ? campaignOf(company.campaign) : null) : []),
     [company],
   );
-  const inStudio = where.at === "studio";
+  // The place the player is in: under the map while the map is open over it.
+  const here: Where = where.at === "map" && where.from ? where.from : where;
+  const away = here !== where;
+  const inStudio = here.at === "studio";
   // biome-ignore lint/correctness/useExhaustiveDependencies: on the way into the studio
   useEffect(() => {
     if (inStudio) for (const y of new Set(studioModels.map((m) => (m.build as Build).year))) void ensureMarket(y);
@@ -306,13 +309,14 @@ export function App() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: saved when the place changes, not the company's contents
   useEffect(() => {
     if (!company) return;
+    // The map over a place is no place of its own: the place underneath is saved.
     const p: SavedPlace = open
       ? { at: "workshop", model: open }
-      : where.at === "map" || where.at === "office" || where.at === "courts" || where.at === "studio"
-        ? { at: where.at }
-        : where.model
-          ? { at: where.at, model: where.model.id }
-          : { at: where.at };
+      : here.at === "map" || here.at === "office" || here.at === "courts" || here.at === "studio"
+        ? { at: here.at }
+        : here.model
+          ? { at: here.at, model: here.model.id }
+          : { at: here.at };
     const key = `${company.id}:${p.at}:${p.model ?? ""}`;
     const had = company.place ? `${company.id}:${company.place.at}:${company.place.model ?? ""}` : "";
     if (key === placeSaved.current || (!placeSaved.current && key === had)) return;
@@ -328,14 +332,14 @@ export function App() {
     if (!company) return null;
     // A review or a video over the place is no trip: closing it is no arrival.
     if (full || reviewing) return arrival.key;
-    if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
-    if (where.at === "courts") return "courts";
-    if (where.at === "studio") return "studio";
-    // Opening the map from a place is no trip either: Stay goes back with no card, Go to another place is one.
-    if (where.at === "map") return where.from ? arrival.key : null;
+    // The map over a place is no trip either: the place is still there, and only Go to another place is one.
+    if (here.at === "cafe") return `cafe:${here.model?.id ?? ""}`;
+    if (here.at === "courts") return "courts";
+    if (here.at === "studio") return "studio";
+    if (here.at === "map") return null;
     // The workshop and its builder are one place: going between them is no arrival.
-    if (where.at === "workshop") return "workshop";
-    if (where.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";
+    if (here.at === "workshop") return "workshop";
+    if (here.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";
     return null;
   })();
   if (placeKey !== arrival.key) setArrival({ key: placeKey, stage: placeKey ? "loading" : "done" });
@@ -445,11 +449,8 @@ export function App() {
     withMarket(subject(m), setReviewing);
   };
 
-  // Out of a place to the world map; Stay there goes back into the same place.
-  const toMap = (from: InPlace) => {
-    setOpen(null);
-    setWhere({ at: "map", from });
-  };
+  // The world map over a place, the place paused underneath it as it was, the builder too; closing the map goes back into it.
+  const toMap = (from: InPlace) => setWhere({ at: "map", from });
   const visit = (place: "workshop" | "cafe", m: SavedModel | null, office = false) => {
     if (m && !buildBlock(m.build)) withMarket(subject(m), (s) => setWhere({ at: place, model: m, subject: s, office }));
     else setWhere({ at: place, model: m, subject: null, office });
@@ -504,7 +505,7 @@ export function App() {
           setNaming(null);
           setSelected(m.id);
           setOfficeAt((a) => ({ ...a, station: "desk", model: m.id, arrive: false }));
-          if (where.at === "courts") {
+          if (here.at === "courts") {
             toWorkshop(m, false);
             return;
           }
@@ -514,74 +515,89 @@ export function App() {
     />
   );
 
+  // The world map: over the place it opened from, or on its own when it opened from the menu.
+  const map = company && where.at === "map" && (
+    <WorldMap
+      key={where.from?.at ?? "menu"}
+      company={company}
+      from={where.from?.at ?? "menu"}
+      studio={studioModels.length > 0}
+      onGo={(to, m) => {
+        // Going is the trip: the place under the map, the builder too, is left for the next.
+        setOpen(null);
+        if (to === "office") {
+          setOfficeAt(OFFICE_START);
+          setWhere({ at: "office" });
+        }
+        else if (to === "courts") setWhere({ at: "courts" });
+        else if (to === "studio") setWhere({ at: "studio" });
+        else visit(to, m);
+      }}
+      onBack={() => {
+        if (where.from) setWhere(where.from);
+        else {
+          setCompany(null);
+          setMenu("start");
+        }
+      }}
+    />
+  );
+
   if (full) return <VideoScreen key={full.url} video={full} onBack={() => setFull(null)} />;
-  if (company && where.at === "studio")
+  if (map && !away) return map;
+  // Each place keeps the same shape with the map over it or not, so opening the map never remounts the place.
+  if (company && here.at === "studio")
     return (
-      <StudioPlace
-        company={company}
-        campaign={campaign}
-        models={studioModels}
-        sound={settings.sound}
-        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
-        onMap={() => toMap({ at: "studio" })}
-        onReady={ready}
-        onFinish={finishAd}
-      />
+      <>
+        <StudioPlace
+          company={company}
+          campaign={campaign}
+          models={studioModels}
+          sound={settings.sound}
+          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          onMap={() => toMap({ at: "studio" })}
+          onReady={ready}
+          onFinish={finishAd}
+          away={away}
+        />
+        {map}
+      </>
     );
-  if (company && where.at === "cafe")
+  if (company && here.at === "cafe")
     return (
-      <CafeScreen
-        key={where.model?.id ?? "empty"}
-        subject={where.subject}
-        library={company.models.filter((x) => x.reviewed).map(subject)}
-        onMap={() => toMap(where)}
-        atDoor
-        sound={settings.sound}
-        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
-        notes={company.notes ?? []}
-        onSaveNotes={saveNotes}
-        shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
-        onReady={ready}
-      />
+      <>
+        <CafeScreen
+          key={here.model?.id ?? "empty"}
+          subject={here.subject}
+          library={company.models.filter((x) => x.reviewed).map(subject)}
+          onMap={() => toMap(here)}
+          atDoor
+          sound={settings.sound}
+          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          notes={company.notes ?? []}
+          onSaveNotes={saveNotes}
+          shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
+          onReady={ready}
+          away={away}
+        />
+        {map}
+      </>
     );
-  if (company && where.at === "courts")
+  if (company && here.at === "courts")
     return (
       <>
         <StoreWorld
           company={company}
-          onMap={() => toMap(where)}
+          onMap={() => toMap(here)}
           onClone={campaign?.over ? undefined : (item) => nameCopy(item.build)}
           onReady={ready}
           sound={settings.sound}
           onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          away={away}
         />
         {nameCard}
+        {map}
       </>
-    );
-  if (company && where.at === "map")
-    return (
-      <WorldMap
-        key={where.from?.at ?? "menu"}
-        company={company}
-        from={where.from?.at ?? "menu"}
-        studio={studioModels.length > 0}
-        onGo={(to, m) => {
-          if (to === "office") {
-            setOfficeAt(OFFICE_START);
-            setWhere({ at: "office" });
-          }
-          else if (to === "courts") setWhere({ at: "courts" });
-          else if (to === "studio") setWhere({ at: "studio" });
-          else visit(to, m);
-        }}
-        onBack={() => {
-          if (where.from) setWhere(where.from);
-          else {
-            setCompany(null);
-            setMenu("start");
-          }
-        }}
-      />
     );
   if (reviewing) {
     const saved = company?.models.find((x) => x.id === reviewing.id);
@@ -600,8 +616,8 @@ export function App() {
   }
 
   // The workshop: free roam round the turntable's laptop, and the builder on it in the same scene.
-  if (company && where.at === "workshop") {
-    const at = where;
+  if (company && here.at === "workshop") {
+    const at = here;
     // As saved now: it may have changed in the builder since it was brought along.
     const onTable = at.model && (company.models.find((x) => x.id === at.model?.id) ?? null);
     return (
@@ -613,7 +629,7 @@ export function App() {
           library={company.models.filter((x) => x.reviewed).map(subject)}
           onMap={() => toMap(at)}
           onReady={ready}
-          held={!!naming}
+          held={!!naming || away}
           building={!!onTable && open === onTable.id}
           onTable={(m) => setWhere({ ...at, model: m })}
           onBuild={build}
@@ -644,14 +660,19 @@ export function App() {
           }
         />
         {!loading && nameCard}
+        {map}
       </>
     );
   }
 
-  // The Office: the 3D room, its stations' panels and the quarter report over it. Leaving it goes to the map.
-  const leaveOffice = () => toMap({ at: "office" });
+  // The Office: the 3D room, its stations' panels and the quarter report over it. Leaving it opens the map over it.
+  const leaveOffice = () => {
+    // Free roam's pointer goes free under the map, as under the system menu.
+    if (document.pointerLockElement) document.exitPointerLock();
+    toMap({ at: "office" });
+  };
   const find = (id: string) => company?.models.find((x) => x.id === id);
-  if (company && where.at === "office" && menu === "list" && !(campaign?.over && campaign.bankrupt)) {
+  if (company && here.at === "office" && menu === "list" && !(campaign?.over && campaign.bankrupt)) {
     const actions: OfficeActions = {
       onNew: () => toWorkshop(null),
       onUse: (id) => {
@@ -718,7 +739,7 @@ export function App() {
           onMap={leaveOffice}
           onEndQuarter={endQuarter}
           resolving={resolving}
-          blocked={!!marketView || !!statement || system}
+          blocked={!!marketView || !!statement || system || away}
           actions={actions}
           library={company.models.filter((x) => x.reviewed).map(subject)}
           sound={settings.sound}
@@ -761,6 +782,7 @@ export function App() {
             />
           </div>
         )}
+        {map}
       </>
     );
   }
@@ -888,7 +910,6 @@ export function App() {
               ? undefined
               : () => {
                   setSystem(false);
-                  setOpen(null);
                   setWhere({ at: "map", from: where });
                 }
           }

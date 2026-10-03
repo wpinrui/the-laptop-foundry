@@ -13,6 +13,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
+import { typing } from "../cafe/Cafe";
 import { ConfirmDelete } from "../foundry/Menus";
 import type { SavedModel } from "../../../preload/store";
 import { type Build, colourHex, decorOf, migrateBody, migrateColours, migrateScreen, type Subject, solve } from "../engine";
@@ -283,7 +284,7 @@ export function WorkshopPlace({
   onMap: () => void;
   /** The room and its shelves are in, for the travel card over them. */
   onReady?: () => void;
-  /** A card is up over the workshop (naming a laptop): the scene pauses behind it. */
+  /** A card (naming a laptop) or the map is up over the workshop: the scene pauses behind it. */
   held?: boolean;
   /** The builder is up on the turntable's laptop. */
   building: boolean;
@@ -376,6 +377,18 @@ export function WorkshopPlace({
     table: model ? titleOf(model) : undefined,
   };
   const roaming = !building;
+
+  // In the builder, M opens the map over it as free roam's M does; the builder waits underneath.
+  const toMap = useRef(onMap);
+  toMap.current = onMap;
+  useEffect(() => {
+    if (!building || held) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.code === "KeyM" && !e.repeat && !typing(e)) toMap.current();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [building, held]);
 
   return (
     <div className={`fd bd${roaming ? " free" : ""}`}>

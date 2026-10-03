@@ -3,7 +3,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import type { SavedCompany, SavedModel } from "../../../preload/store";
 import { Loaded } from "../app/Loaded";
-import { type Prompt, Prompts } from "../cafe/Cafe";
+import { type Prompt, Prompts, typing } from "../cafe/Cafe";
 import { type Build, colourHex } from "../engine";
 import type { CampaignState } from "../engine/campaign";
 import { Column, Entry } from "../foundry/Menus";
@@ -47,6 +47,7 @@ export function StudioPlace({
   onMap,
   onReady,
   onFinish,
+  away = false,
 }: {
   company: SavedCompany;
   campaign: CampaignState | null;
@@ -58,6 +59,8 @@ export function StudioPlace({
   onMap: () => void;
   onReady?: () => void;
   onFinish: (c: Commercial, facts: ShortFacts) => void;
+  /** The world map is open over the studio: it stands still, the pointer free, until the map closes. */
+  away?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const at = useRef<ScreenAt | null>(null);
@@ -72,7 +75,7 @@ export function StudioPlace({
   const expectUnlock = useRef(false);
   const pausedAt = useRef(0);
   const walking = goal === "walk" && !ui;
-  const active = walking && !paused;
+  const active = walking && !paused && !away;
   // On the turntable: the newest laptop still to have its commercial, else the last one filmed.
   const lastAd = company.commercials?.[company.commercials.length - 1];
   const shown = models[0] ?? company.models.find((m) => m.id === lastAd?.model) ?? null;
@@ -127,6 +130,19 @@ export function StudioPlace({
     setPaused(false);
     if (goal === "walk" && !ui) lock();
   }, [goal, ui, lock]);
+  // Under the map the pointer is free; it is taken again once the map closes.
+  const wasAway = useRef(away);
+  useEffect(() => {
+    if (wasAway.current === away) return;
+    wasAway.current = away;
+    if (away) unlock();
+    else if (!paused && walking) lock();
+  }, [away, paused, walking, lock, unlock]);
+  // The pause menu's Map: the map closes back onto the studio, not the menu.
+  const toMap = () => {
+    setPaused(false);
+    onMap();
+  };
   // At the desk: onto the screen; the editor grows out of it once the camera is there.
   const sit = useCallback(() => {
     unlock();
@@ -173,11 +189,12 @@ export function StudioPlace({
     lock();
   }, [lock]);
 
-  const state = useRef({ paused, walking, door, resume, sit, onMap });
-  state.current = { paused, walking, door, resume, sit, onMap };
+  const state = useRef({ paused, walking, door, resume, sit, onMap, away });
+  state.current = { paused, walking, door, resume, sit, onMap, away };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
+      if (s.away) return;
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
@@ -187,8 +204,8 @@ export function StudioPlace({
         }
         return;
       }
-      if (s.paused || e.repeat || !s.walking) return;
-      if (e.code === "KeyE" && s.door) s.onMap();
+      if (s.paused || e.repeat || !s.walking || typing(e)) return;
+      if (e.code === "KeyM" || (e.code === "KeyE" && s.door)) s.onMap();
       else if (e.code === "KeyE" && at.current?.near) s.sit();
     };
     window.addEventListener("keydown", key);
@@ -272,7 +289,7 @@ export function StudioPlace({
               <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)}>
                 Sound
               </Entry>
-              <Entry onClick={onMap}>Map</Entry>
+              <Entry onClick={toMap}>Map</Entry>
               <SystemEntries />
             </div>
           </Column>

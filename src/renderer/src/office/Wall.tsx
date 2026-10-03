@@ -203,13 +203,51 @@ const KIND: Record<Won["award"], Award> = {
   gaming: "obelisk",
 };
 
+/**
+ * Where `n` trophies stand. Up to the shell's slot count they take its slots as
+ * authored; past that each shelf takes a staggered back and front row, packed
+ * tighter and scaled down to fit, so every award stays inside the cabinet.
+ */
+function cabinetSlots(slots: THREE.Object3D[], n: number): THREE.Object3D[] {
+  if (n <= slots.length) return slots.slice(0, n);
+  const parent = slots[0].parent;
+  if (!parent) return slots;
+  const shelves = [...new Set(slots.map((s) => s.position.y))].sort((a, b) => a - b);
+  const xs = slots.map((s) => s.position.x);
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const z = slots[0].position.z;
+  const base = Math.max(2, Math.round(slots.length / shelves.length));
+  const pitch0 = (x1 - x0) / (base - 1);
+  const perShelf = Math.ceil(n / shelves.length);
+  const cols = Math.ceil(perShelf / 2);
+  const pitch = (x1 - x0) / Math.max(1, cols - 0.5);
+  const scale = Math.min(1, pitch / pitch0);
+  const depth = pitch0 * 0.3;
+  const out: THREE.Object3D[] = [];
+  for (let i = 0; i < n; i++) {
+    const k = i % perShelf;
+    const row = Math.floor(k / cols);
+    const o = new THREE.Object3D();
+    o.position.set(x0 + ((k % cols) + row * 0.5) * pitch, shelves[Math.floor(i / perShelf)], z - depth + row * 2 * depth);
+    o.scale.setScalar(scale);
+    parent.add(o);
+    out.push(o);
+  }
+  return out;
+}
+
 /** The player's awards in the cabinet, lowest shelf first, as clones of the room's templates. */
 export function Trophies({ data, awards }: { data: OfficeData; awards: Won[] }) {
   const key = awards.map((a) => a.award).join(",");
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed by the awards' kinds
   useEffect(() => {
     const added: THREE.Object3D[] = [];
-    awards.slice(0, data.trophySlots.length).forEach((a, i) => {
+    if (data.trophySlots.length === 0) return;
+    const slots = cabinetSlots(data.trophySlots, awards.length);
+    const made = slots.filter((s) => !data.trophySlots.includes(s));
+    added.push(...made);
+    awards.slice(0, slots.length).forEach((a, i) => {
       const t = data.templates[KIND[a.award]];
       if (!t) return;
       const c = t.clone(true);
@@ -224,7 +262,7 @@ export function Trophies({ data, awards }: { data: OfficeData; awards: Won[] }) 
           m.receiveShadow = true;
         }
       });
-      data.trophySlots[i].add(c);
+      slots[i].add(c);
       added.push(c);
     });
     return () => {

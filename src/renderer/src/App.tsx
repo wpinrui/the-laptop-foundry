@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "../../preload/store";
+import type { SavedCompany, SavedModel, SavedNote, SavedPlace } from "../../preload/store";
+import { initVolumes, setVolumes, useVolumes } from "./audio/engine";
 import { campaignSaved, queueCampaignSave } from "./app/campaignSaves";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
@@ -95,7 +96,11 @@ export function App() {
   const live = useRef<{ id: string; state: CampaignState } | null>(null);
   // While a quarter resolves, campaign changes are held off: the quarter's result would overwrite them.
   const resolvingRef = useRef(false);
-  const [settings, setSettings] = useState<Settings>({ sound: true });
+  const volumes = useVolumes();
+  // The laptop's own sound follows the effects volume; its mute switches effects off and on.
+  const sound = volumes.master > 0 && volumes.sfx > 0;
+  const onSound = (on: boolean) =>
+    setVolumes(on ? { master: volumes.master || 0.8, sfx: volumes.sfx || 0.8 } : { sfx: 0 });
   const [company, setCompany] = useState<SavedCompany | null>(null);
   const [menu, setMenu] = useState<Menu>("start");
   const [pickedSave, setPickedSave] = useState<string | null>(null);
@@ -146,7 +151,7 @@ export function App() {
 
   useEffect(() => {
     store().companies().then((all) => setCompanies(all.map(migrated)));
-    store().settings().then(setSettings);
+    store().settings().then(initVolumes);
   }, []);
 
   const refresh = useCallback((saved: SavedCompany) => {
@@ -594,8 +599,8 @@ export function App() {
           company={company}
           campaign={campaign}
           models={studioModels}
-          sound={settings.sound}
-          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          sound={sound}
+          onSound={onSound}
           onMap={() => toMap({ at: "studio" })}
           onReady={ready}
           onFinish={finishAd}
@@ -613,8 +618,8 @@ export function App() {
           library={company.models.filter((x) => x.reviewed).map(subject)}
           onMap={() => toMap(here)}
           atDoor
-          sound={settings.sound}
-          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          sound={sound}
+          onSound={onSound}
           notes={company.notes ?? []}
           onSaveNotes={saveNotes}
           shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
@@ -633,8 +638,8 @@ export function App() {
           onMap={() => toMap(here)}
           onClone={campaign?.over ? undefined : (item) => nameCopy(item.build)}
           onReady={ready}
-          sound={settings.sound}
-          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          sound={sound}
+          onSound={onSound}
           away={away}
         />
         {nameCard}
@@ -666,8 +671,8 @@ export function App() {
           onDuplicate={campaign?.over ? undefined : duplicate}
           onDelete={removeModel}
           onUnarchive={(id) => archive(id, false)}
-          sound={settings.sound}
-          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          sound={sound}
+          onSound={onSound}
           builder={(canvas, exit) =>
             onTable && (
               <Builder
@@ -774,8 +779,8 @@ export function App() {
           paused={!!reviewing}
           actions={actions}
           library={company.models.filter((x) => x.reviewed).map(subject)}
-          sound={settings.sound}
-          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+          sound={sound}
+          onSound={onSound}
           onSystem={() => {
             if (document.pointerLockElement) document.exitPointerLock();
             setSystem(true);
@@ -872,8 +877,6 @@ export function App() {
   else if (menu === "settings")
     screen = (
       <SettingsMenu
-        sound={settings.sound}
-        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
         onBack={() => setMenu("start")}
       />
     );
@@ -956,8 +959,6 @@ export function App() {
       {system && company && (
         <SystemMenu
           company={company.name}
-          sound={settings.sound}
-          onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
           onResume={() => setSystem(false)}
           onNew={() => leaveCompany("new")}
           onLoad={() => leaveCompany("load")}

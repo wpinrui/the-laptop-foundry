@@ -21,6 +21,7 @@ import { clamp, collideIn, easeOut, FOV_MIN, lookAngles, type Rect, ZOOM_STEP } 
 import type { Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
+import { SoundColumn } from "../foundry/Volume";
 import { PLINTH_H } from "../foundry/Stage";
 import { BottomCover, Model } from "../viewer/Scene";
 import type { AimShelf } from "./Archive";
@@ -895,6 +896,10 @@ export function FreeOverlay({
     return () => window.removeEventListener("keydown", key);
   }, [lock, unlock, pause, patch]);
 
+  const [soundMenu, setSoundMenu] = useState(false);
+  useEffect(() => {
+    if (!state.paused) setSoundMenu(false);
+  }, [state.paused]);
   const active = !state.paused && !state.full && !held;
   const screen = { key: "F", label: "Full screen" };
   let prompts: Prompt[] = [];
@@ -952,14 +957,15 @@ export function FreeOverlay({
         <div className="fd fd-over">
           <div className="fd-scrim" />
           {/* Escape resumes through the key handler above. */}
+          {soundMenu ? (
+            <SoundColumn onBack={() => setSoundMenu(false)} />
+          ) : (
           <Column>
             <div className="fd-entries">
               <Entry onClick={resume} autoFocus>
                 Resume
               </Entry>
-              <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)}>
-                Sound
-              </Entry>
+              <Entry onClick={() => setSoundMenu(true)}>Sound</Entry>
               {models?.edit && <Entry onClick={models.edit}>Build</Entry>}
               {onMap && (
                 <Entry
@@ -975,6 +981,7 @@ export function FreeOverlay({
               <SystemEntries />
             </div>
           </Column>
+          )}
         </div>
       )}
     </div>

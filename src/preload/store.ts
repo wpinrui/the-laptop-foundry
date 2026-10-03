@@ -95,6 +95,9 @@ export interface SavedCompany {
   place?: SavedPlace;
 }
 
+/** Volumes, each 0 to 1. Ambience plays on the effects bus. */
 export interface Settings {
-  sound: boolean;
+  master: number;
+  music: number;
+  sfx: number;
 }

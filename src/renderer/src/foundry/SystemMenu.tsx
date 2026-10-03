@@ -1,5 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
+import type { Settings } from "../../../preload/store";
+import { setVolumes, useVolumes } from "../audio/engine";
 import { Entry } from "./Menus";
+import { VOLUMES, VolumeEntry } from "./Volume";
 import "./foundry.css";
 
 // The system menu: in the Office's free roam, Escape opens it and Escape again (or
@@ -36,8 +39,6 @@ export function SystemEntries() {
 
 export function SystemMenu({
   company,
-  sound,
-  onSound,
   onResume,
   onNew,
   onLoad,
@@ -46,33 +47,48 @@ export function SystemMenu({
   company: string;
   /** Out to the world map; absent when already on it. */
   onMap?: () => void;
-  sound: boolean;
-  onSound: (on: boolean) => void;
   onResume: () => void;
   onNew: () => void;
   onLoad: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState(0);
-  const entries: { label: string; value?: string; run: () => void; secondary?: boolean }[] = [
-    { label: "Resume", value: company, run: onResume },
-    ...(onMap ? [{ label: "Map", run: onMap }] : []),
-    { label: "New company", run: onNew },
-    { label: "Load company", run: onLoad },
-    { label: "Sound", value: sound ? "On" : "Off", run: () => onSound(!sound), secondary: true },
-    { label: "Quit", run: () => window.api.quit(), secondary: true },
-  ];
-  const live = useRef({ entries, at, onResume });
-  live.current = { entries, at, onResume };
+  const [sounds, setSounds] = useState(false);
+  const volumes = useVolumes();
+  const view = (open: boolean) => {
+    setSounds(open);
+    setAt(0);
+  };
+  const entries: { label: string; value?: string; run: () => void; secondary?: boolean; volume?: keyof Settings }[] = sounds
+    ? [
+        ...VOLUMES.map((v) => ({ label: v.label, run: () => {}, volume: v.key })),
+        { label: "Back", run: () => view(false), secondary: true },
+      ]
+    : [
+        { label: "Resume", value: company, run: onResume },
+        ...(onMap ? [{ label: "Map", run: onMap }] : []),
+        { label: "New company", run: onNew },
+        { label: "Load company", run: onLoad },
+        { label: "Sound", run: () => view(true), secondary: true },
+        { label: "Quit", run: () => window.api.quit(), secondary: true },
+      ];
+  const back = sounds ? () => view(false) : onResume;
+  const live = useRef({ entries, at, back, volumes });
+  live.current = { entries, at, back, volumes };
   useEffect(() => {
     // The place under the menu gets no keys while it is open.
     const key = (e: KeyboardEvent) => {
       e.stopImmediatePropagation();
       const s = live.current;
       const n = s.entries.length;
+      const turn = e.key === "ArrowRight" || e.code === "KeyD" ? 1 : e.key === "ArrowLeft" || e.code === "KeyA" ? -1 : 0;
+      const vol = s.entries[s.at]?.volume;
       if (e.key === "Escape") {
         e.preventDefault();
-        s.onResume();
+        s.back();
+      } else if (turn && vol) {
+        e.preventDefault();
+        setVolumes({ [vol]: Math.round(Math.min(1, Math.max(0, s.volumes[vol] + turn * 0.1)) * 10) / 10 });
       } else if (e.key === "ArrowDown" || e.code === "KeyS") {
         e.preventDefault();
         setAt((s.at + 1) % n);
@@ -105,6 +121,18 @@ export function SystemMenu({
           <div key={g === 0 ? "main" : "more"} className="fd-entries">
             {group.map((e) => {
               const i = entries.indexOf(e);
+              const vol = e.volume;
+              if (vol)
+                return (
+                  <VolumeEntry
+                    key={e.label}
+                    label={e.label}
+                    value={volumes[vol]}
+                    onChange={(x) => setVolumes({ [vol]: x })}
+                    focused={i === at}
+                    onHover={() => setAt(i)}
+                  />
+                );
               return (
                 <button
                   key={e.label}

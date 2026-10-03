@@ -776,3 +776,25 @@
   background: var(--accent);
   transition: width 300ms linear;
 }
+
+/* The TV's Shorts and Commercials tabs: the one shown in the text colour. */
+.of-tabs {
+  display: flex;
+  gap: calc(24 * var(--u));
+  margin-bottom: calc(6 * var(--u));
+}
+
+.fd .of-tabs button {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: calc(16 * var(--u));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.fd .of-tabs button.on,
+.fd .of-tabs button:hover {
+  color: var(--text);
+}

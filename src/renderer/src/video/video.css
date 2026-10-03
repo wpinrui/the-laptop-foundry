@@ -1,5 +1,6 @@
 /* The quarter video: the rendered 9:16 file, painted on a canvas centred on black. */
 .fd.vd {
+  z-index: 200;
   background: #000;
 }
 

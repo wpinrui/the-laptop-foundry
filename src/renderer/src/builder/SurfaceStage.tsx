@@ -430,8 +430,13 @@ function PortDetail({
               type="button"
               className="fd-text bd-remove"
               onClick={() => {
+                // The next selection stays on this wall: the port before it there, else the one after, else none.
+                const left = build.ports.filter((_, j) => j !== port);
+                const same = left.map((p, j) => ({ p, j })).filter((x) => x.p.side === bp.side);
+                const before = same.filter((x) => x.j < port);
+                const next = before.length > 0 ? before[before.length - 1].j : (same[0]?.j ?? -1);
                 set((b) => ({ ...b, ports: b.ports.filter((_, j) => j !== port) }));
-                onPort(Math.max(0, port - 1));
+                onPort(next);
               }}
             >
               Remove

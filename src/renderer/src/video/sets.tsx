@@ -24,6 +24,17 @@ export interface Look {
   paper: number;
 }
 
+/** Every set, in the order the shorts take them. */
+export const SET_IDS: readonly SetId[] = ROTATION;
+
+/** A look as a key: the sweep's paper tells two sweeps apart; the other sets have none. */
+export const lookKey = (l: Look) => (l.set === "sweep" ? `sweep:${l.paper}` : l.set);
+
+/** Starts loading the sets' files, so switching to one later does not wait on the disk. */
+export function preloadSets(ids: SetId[]): void {
+  for (const id of ids) useLoader.preload(GLTFLoader, URLS[id]);
+}
+
 /** The set for a company's nth quarter, from 0: the sets in turn, the sweep's paper a new colour each time round. */
 export function lookFor(quarter: number): Look {
   const n = Math.max(0, Math.floor(quarter));

@@ -1,110 +1,138 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SCENE_KINDS, type Scene, type SceneKind } from "../video/commercial";
+import { CARDS, type Scene, type SceneKind, SHOTS } from "../video/commercial";
+import { SET_IDS, type SetId } from "../video/sets";
+import { ICON, Icon, LABEL } from "./icons";
 
-// The commercial's timeline: its x-axis is the script, word by word, the
-// lines laid end to end with a mark at each line break. Scenes are dragged on
-// from the library, moved, trimmed at either end to any word boundary and
-// removed; they never overlap. A stand-in for the designer's.
+// The commercial's timeline: the scene library's tiles over a track whose
+// x-axis is the script, word by word, the lines laid end to end with a mark
+// at each break. Tiles drag onto a word (onto a clip, they swap its scene);
+// clips move, trim at either end to any word boundary, take their own set and
+// are removed; they never overlap. Words not under a clip are the b-roll's,
+// hatched. Lengths are design px, scaled by --u.
 
-/** A word's width on the axis, px. */
-const wordWidth = (w: string) => Math.max(34, 14 + w.length * 8.5);
-/** The extra room at a line break, px. */
-const BREAK = 18;
-/** A scene dropped from the library covers this many words, or as many as fit. */
-const DROP_WORDS = 4;
+const CHAR = 8.3;
+const PAD = 16;
+/** The room at a line break. */
+const GAP = 22;
+const IS_CARD = new Set<SceneKind>(CARDS);
 
-const NAMES: Record<SceneKind, string> = {
-  keyboard: "Keyboard",
-  ports: "Ports",
-  screen: "Screen",
-  lid: "Lid",
-  turn: "Turn",
-  title: "Title",
-  sales: "Sales",
-  stats: "Stats",
-  score: "Score",
-};
+/** Design px to page px. */
+const unit = () => Math.min(window.innerWidth / 1440, window.innerHeight / 810);
+const u = (n: number) => `calc(${n} * var(--u))`;
 
-type Drag =
-  | { type: "new"; kind: SceneKind; x: number; y: number }
-  | { type: "move"; index: number; grab: number }
-  | { type: "trim"; index: number; edge: "start" | "end" };
+export const SET_NAMES: Record<SetId, string> = { desk: "Desk", sweep: "Sweep", night: "Night", bench: "Bench" };
 
-export function Timeline({ words, scenes, onScenes }: {
+export function SetSwatch({ set, size = 14 }: { set: SetId; size?: number }) {
+  return <i className="st-swatch" style={{ width: u(size), height: u(size), background: `var(--vs-set-${set})` }} />;
+}
+
+type Drag = { kind: SceneKind; x: number; y: number; hover: number | null };
+
+export function Timeline({ words, scenes, onScenes, selected, onSelect, current, head, onSeek, sceneSet }: {
   words: { text: string; line: number }[];
   scenes: Scene[];
   onScenes: (s: Scene[]) => void;
+  /** The selected clip, by its index in scenes. */
+  selected: number | null;
+  onSelect: (i: number | null) => void;
+  /** The word playing, and how far through it the playhead is, 0 to 1. */
+  current: number;
+  head: number;
+  onSeek: (word: number) => void;
+  /** The commercial's scene set: what a clip without its own is filmed on. */
+  sceneSet: SetId;
 }) {
   const n = words.length;
-  // Where each word starts on the axis, and where the last ends.
-  const xs = useMemo(() => {
-    const out: number[] = [];
+  const geo = useMemo(() => {
+    const out: { x: number; w: number; first: boolean }[] = [];
     let x = 0;
     words.forEach((w, i) => {
-      if (i > 0 && w.line !== words[i - 1].line) x += BREAK;
-      out.push(x);
-      x += wordWidth(w.text);
+      const first = i === 0 || w.line !== words[i - 1].line;
+      if (i > 0 && first) x += GAP;
+      const width = Math.max(30, w.text.length * CHAR + PAD);
+      out.push({ x, w: width, first });
+      x += width;
     });
-    out.push(x);
-    return out;
+    return { words: out, width: x };
   }, [words]);
-  // A word boundary's place on the axis: between the words either side of it.
-  const bx = (b: number) => (b <= 0 ? 0 : b >= n ? xs[n] : (xs[b - 1] + wordWidth(words[b - 1].text) + xs[b]) / 2);
+  const inner = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
-  const live = useRef({ scenes, onScenes, drag, n });
-  live.current = { scenes, onScenes, drag, n };
+  const dragging = useRef<Drag | null>(null);
+  dragging.current = drag;
+  // The selected clip's set menu, where it opens on the page.
+  const [setMenu, setSetMenu] = useState<{ x: number; y: number } | null>(null);
+  const live = useRef({ scenes, onScenes, n, geo });
+  live.current = { scenes, onScenes, n, geo };
 
-  const localX = (clientX: number) => {
-    const r = track.current?.getBoundingClientRect();
-    return r ? clientX - r.left + (track.current?.scrollLeft ?? 0) : 0;
-  };
+  const tlX = (clientX: number) => (clientX - (inner.current?.getBoundingClientRect().left ?? 0)) / unit();
   const wordAt = (x: number) => {
-    for (let i = 0; i < n; i++) if (x < bx(i + 1)) return i;
-    return n - 1;
-  };
-  const boundaryAt = (x: number) => {
     let best = 0;
-    for (let b = 1; b <= n; b++) if (Math.abs(bx(b) - x) < Math.abs(bx(best) - x)) best = b;
+    let bd = Number.POSITIVE_INFINITY;
+    live.current.geo.words.forEach((w, i) => {
+      const d = x < w.x ? w.x - x : x > w.x + w.w ? x - w.x - w.w : 0;
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    });
     return best;
   };
-  const geo = useRef({ localX, wordAt, boundaryAt });
-  geo.current = { localX, wordAt, boundaryAt };
+  const boundaryAt = (x: number, end: boolean) => {
+    const ws = live.current.geo.words;
+    let best = 0;
+    let bd = Number.POSITIVE_INFINITY;
+    for (let i = 0; i <= ws.length; i++) {
+      const px = end ? (i ? ws[i - 1].x + ws[i - 1].w : Number.NEGATIVE_INFINITY) : i < ws.length ? ws[i].x : Number.POSITIVE_INFINITY;
+      const d = Math.abs(px - x);
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    }
+    return best;
+  };
+  const over = (e: PointerEvent) => {
+    const r = track.current?.getBoundingClientRect();
+    return !!r && e.clientY >= r.top - 30 && e.clientY <= r.bottom && e.clientX >= r.left && e.clientX <= r.right;
+  };
+  /** Where a tile dropped on word `w` goes: onto the clip there, or from the word to the next clip or the line's end. */
+  const placement = (w: number): { replace?: number; a: number; b: number } => {
+    const { scenes: ss, n: count } = live.current;
+    const hit = ss.findIndex((s) => w >= s.startWord && w < s.endWord);
+    if (hit >= 0) return { replace: hit, a: ss[hit].startWord, b: ss[hit].endWord };
+    const next = ss.filter((s) => s.startWord > w).reduce((m, s) => Math.min(m, s.startWord), count);
+    let lineEnd = w;
+    while (lineEnd < count && words[lineEnd].line === words[w].line) lineEnd++;
+    return { a: w, b: Math.max(w + 1, Math.min(next, lineEnd)) };
+  };
 
+  const tileDown = (kind: SceneKind, e: React.PointerEvent) => {
+    e.preventDefault();
+    onSelect(null);
+    setDrag({ kind, x: e.clientX, y: e.clientY, hover: null });
+  };
   // biome-ignore lint/correctness/useExhaustiveDependencies: listens for the whole of a drag, reading it live
   useEffect(() => {
     if (!drag) return;
     const move = (e: PointerEvent) => {
-      const { scenes: ss, onScenes: set, drag: d } = live.current;
-      if (!d) return;
-      const g = geo.current;
-      if (d.type === "new") return setDrag({ ...d, x: e.clientX, y: e.clientY });
-      const s = ss[d.index];
-      if (!s) return;
-      const prevEnd = ss[d.index - 1]?.endWord ?? 0;
-      const nextStart = ss[d.index + 1]?.startWord ?? live.current.n;
-      const x = g.localX(e.clientX);
-      let next: Scene = s;
-      if (d.type === "move") {
-        const len = s.endWord - s.startWord;
-        const start = Math.max(prevEnd, Math.min(nextStart - len, g.wordAt(x) - d.grab));
-        next = { ...s, startWord: start, endWord: start + len };
-      } else if (d.edge === "start") next = { ...s, startWord: Math.max(prevEnd, Math.min(s.endWord - 1, g.boundaryAt(x))) };
-      else next = { ...s, endWord: Math.min(nextStart, Math.max(s.startWord + 1, g.boundaryAt(x))) };
-      if (next.startWord !== s.startWord || next.endWord !== s.endWord) set(ss.map((o, i) => (i === d.index ? next : o)));
+      const hover = live.current.n && over(e) ? wordAt(tlX(e.clientX)) : null;
+      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY, hover } : d));
     };
-    const up = (e: PointerEvent) => {
-      const { scenes: ss, onScenes: set, drag: d, n: count } = live.current;
+    const up = () => {
+      const d = dragging.current;
       setDrag(null);
-      if (d?.type !== "new" || count === 0) return;
-      const r = track.current?.getBoundingClientRect();
-      if (!r || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
-      const w = geo.current.wordAt(geo.current.localX(e.clientX));
-      // Dropped on a scene: no room there.
-      if (ss.some((s) => w >= s.startWord && w < s.endWord)) return;
-      const nextStart = ss.find((s) => s.startWord > w)?.startWord ?? count;
-      const scene: Scene = { kind: d.kind, startWord: w, endWord: Math.min(nextStart, w + DROP_WORDS) };
-      set([...ss, scene].sort((a, b) => a.startWord - b.startWord));
+      if (!d || d.hover === null) return;
+      const { scenes: ss, onScenes: set } = live.current;
+      const p = placement(d.hover);
+      if (p.replace !== undefined) {
+        set(ss.map((s, i) => (i === p.replace ? { ...s, kind: d.kind } : s)));
+        onSelect(p.replace);
+      } else {
+        const next = [...ss, { kind: d.kind, startWord: p.a, endWord: p.b }].sort((a, b) => a.startWord - b.startWord);
+        set(next);
+        onSelect(next.findIndex((s) => s.startWord === p.a));
+      }
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -114,80 +142,181 @@ export function Timeline({ words, scenes, onScenes }: {
     };
   }, [drag !== null]);
 
+  const clipDown = (i: number, mode: "move" | "a" | "b", e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSetMenu(null);
+    const ss = live.current.scenes;
+    const me = ss[i];
+    if (!me) return;
+    const lo = ss[i - 1]?.endWord ?? 0;
+    const hi = ss[i + 1]?.startWord ?? n;
+    const i0 = wordAt(tlX(e.clientX));
+    const len = me.endWord - me.startWord;
+    onSelect(i);
+    const move = (ev: PointerEvent) => {
+      const x = tlX(ev.clientX);
+      let a = me.startWord;
+      let b = me.endWord;
+      if (mode === "a") a = Math.max(lo, Math.min(me.endWord - 1, boundaryAt(x, false)));
+      else if (mode === "b") b = Math.min(hi, Math.max(me.startWord + 1, boundaryAt(x, true)));
+      else {
+        a = Math.max(lo, Math.min(hi - len, me.startWord + wordAt(x) - i0));
+        b = a + len;
+      }
+      const cur = live.current.scenes;
+      if (cur[i] && (cur[i].startWord !== a || cur[i].endWord !== b))
+        live.current.onScenes(cur.map((s, j) => (j === i ? { ...s, startWord: a, endWord: b } : s)));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const ws = geo.words;
+  const seg = (a: number, b: number) => ({ left: u(ws[a].x), width: u(ws[b - 1].x + ws[b - 1].w - ws[a].x) });
+  const gaps: { a: number; b: number }[] = [];
+  let at = 0;
+  for (const s of [...scenes, { startWord: n, endWord: n }]) {
+    if (s.startWord > at) gaps.push({ a: at, b: s.startWord });
+    at = Math.max(at, s.endWord);
+  }
+  const drop = drag && drag.hover !== null && n ? placement(drag.hover) : null;
+  const cw = ws[current];
+  const headX = cw ? cw.x + cw.w * head : 0;
+
   return (
-    <div className="st-timeline">
-      <div className="st-library">
-        {SCENE_KINDS.map((k, i) => (
-          <button
-            key={k}
-            type="button"
-            className={`st-chip${i >= 5 ? " card" : ""}`}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              setDrag({ type: "new", kind: k, x: e.clientX, y: e.clientY });
-            }}
-          >
-            {NAMES[k]}
-          </button>
-        ))}
-      </div>
-      <div ref={track} className="st-track">
-        <div className="st-axis" style={{ width: xs[n] }}>
-          {scenes.map((s, i) => (
-            <div
-              key={`${s.kind}-${s.startWord}`}
-              className={`st-scene${SCENE_KINDS.indexOf(s.kind) >= 5 ? " card" : ""}`}
-              style={{ left: bx(s.startWord), width: bx(s.endWord) - bx(s.startWord) }}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                setDrag({ type: "move", index: i, grab: geo.current.wordAt(geo.current.localX(e.clientX)) - s.startWord });
-              }}
-            >
-              <i
-                className="st-trim start"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setDrag({ type: "trim", index: i, edge: "start" });
-                }}
-              />
-              <span>{NAMES[s.kind]}</span>
-              <button
-                type="button"
-                className="st-remove"
-                aria-label="Remove"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => onScenes(scenes.filter((_, j) => j !== i))}
-              >
-                ×
-              </button>
-              <i
-                className="st-trim end"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setDrag({ type: "trim", index: i, edge: "end" });
-                }}
-              />
+    <>
+      <div className="st-tiles">
+        <div>
+          {SHOTS.map((k) => (
+            <div key={k} className="st-tile" onPointerDown={(e) => tileDown(k, e)}>
+              <Icon d={ICON[k as keyof typeof ICON]} size={24} width={1.6} />
+              <span>{LABEL[k]}</span>
             </div>
           ))}
+        </div>
+        <div>
+          {CARDS.map((k) => (
+            <div key={k} className="st-tile card" onPointerDown={(e) => tileDown(k, e)}>
+              <Icon d={ICON[k as keyof typeof ICON]} size={24} width={1.6} />
+              <span>{LABEL[k]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div ref={track} className="st-track">
+        <div ref={inner} className="st-track-in" style={{ width: u(geo.width + 40) }}>
+          {gaps.map((g) => (
+            <div key={`g${g.a}`} className="st-broll" style={seg(g.a, g.b)} />
+          ))}
+          {drop && <div className="st-drop" style={seg(drop.a, drop.b)} />}
+          {scenes.map((s, i) => {
+            const card = IS_CARD.has(s.kind);
+            const on = selected === i;
+            const px = ws[s.endWord - 1] ? ws[s.endWord - 1].x + ws[s.endWord - 1].w - ws[s.startWord].x : 0;
+            if (!ws[s.startWord] || !ws[s.endWord - 1]) return null;
+            return (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: clips are ordered and never overlap: the index is the clip
+                key={i}
+                className={`st-clip${card ? " card" : ""}${on ? " on" : ""}`}
+                style={seg(s.startWord, s.endWord)}
+                onPointerDown={(e) => clipDown(i, "move", e)}
+              >
+                <div className="st-clip-name">
+                  <Icon d={ICON[s.kind as keyof typeof ICON]} size={22} width={1.6} />
+                  <span style={{ opacity: px > 96 ? 1 : 0 }}>{LABEL[s.kind]}</span>
+                </div>
+                <div className="st-trim a" onPointerDown={(e) => clipDown(i, "a", e)}>
+                  <i />
+                </div>
+                <div className="st-trim b" onPointerDown={(e) => clipDown(i, "b", e)}>
+                  <i />
+                </div>
+                {s.set && !on && <span className="st-clip-set">{<SetSwatch set={s.set} size={10} />}</span>}
+                {on && (
+                  <>
+                    <button
+                      type="button"
+                      className={`st-clip-btn set${s.set ? " own" : ""}`}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        const r = e.currentTarget.getBoundingClientRect();
+                        setSetMenu((m) => (m ? null : { x: r.left, y: r.top }));
+                      }}
+                    >
+                      <SetSwatch set={s.set ?? sceneSet} size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className="st-clip-btn remove"
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        onScenes(scenes.filter((_, j) => j !== i));
+                        onSelect(null);
+                      }}
+                    >
+                      <Icon d={ICON.close} size={14} width={2.5} />
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+          {ws.map((w, i) =>
+            w.first && i > 0 ? <i key={`m${w.x}`} className="st-mark" style={{ left: u(w.x - GAP / 2) }} /> : null,
+          )}
           {words.map((w, i) => (
+            // biome-ignore lint/a11y/useKeyWithClickEvents: the playhead also moves from the preview's controls
             <span
               // biome-ignore lint/suspicious/noArrayIndexKey: a word's place is its identity on the axis
               key={i}
-              className={`st-word${i > 0 && w.line !== words[i - 1].line ? " break" : ""}`}
-              style={{ left: xs[i], width: wordWidth(w.text) }}
+              className={`st-word${i === current ? " now" : i < current ? " past" : ""}`}
+              style={{ left: u(ws[i].x), width: u(ws[i].w) }}
+              onClick={() => onSeek(i)}
             >
               {w.text}
             </span>
           ))}
+          {n > 0 && (
+            <div className="st-head" style={{ left: u(headX) }}>
+              <i />
+            </div>
+          )}
         </div>
       </div>
-      {drag?.type === "new" && (
-        <div className="st-chip ghost" style={{ left: drag.x, top: drag.y }}>
-          {NAMES[drag.kind]}
+      {setMenu && selected !== null && scenes[selected] && (
+        <div className="st-menu st-clip-menu" style={{ left: setMenu.x, top: setMenu.y }} onPointerDown={(e) => e.stopPropagation()}>
+          {[null, ...SET_IDS].map((id) => {
+            const on = (scenes[selected].set ?? null) === id;
+            return (
+              <button
+                key={id ?? "scene"}
+                type="button"
+                className={on ? "on" : undefined}
+                onClick={() => {
+                  onScenes(scenes.map((s, j) => (j === selected ? { ...s, set: id ?? undefined } : s)));
+                  setSetMenu(null);
+                }}
+              >
+                <SetSwatch set={id ?? sceneSet} />
+                <span>{id ? SET_NAMES[id] : `${SET_NAMES[sceneSet]}`}</span>
+                {!id && <Icon d={ICON.film} size={16} />}
+              </button>
+            );
+          })}
         </div>
       )}
-    </div>
+      {drag && (
+        <div className={`st-tile ghost${IS_CARD.has(drag.kind) ? " card" : ""}`} style={{ left: drag.x, top: drag.y }}>
+          <Icon d={ICON[drag.kind as keyof typeof ICON]} size={24} width={1.6} />
+          <span>{LABEL[drag.kind]}</span>
+        </div>
+      )}
+    </>
   );
 }

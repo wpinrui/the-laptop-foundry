@@ -169,19 +169,35 @@
   --cafe-lamp: #ffe8cc;
   /* Tints the designer's white terrazzo floor texture. */
   --cafe-floor: #7c7c7c;
-  /* The stand-in studio room. */
-  --studio-shade: #151312;
-  --studio-sky: #fff6ea;
-  --studio-earth: #2a2522;
-  --studio-floor: #3b3836;
-  --studio-wall: #2a2725;
-  --studio-backdrop: #d9d4cc;
-  --studio-door: #5a4a3c;
-  --studio-table: #1d1b1a;
-  --studio-stand: #111111;
-  --studio-softbox: #f3efe8;
-  --studio-desk: #4a4038;
-  --studio-screen: #0d0d0f;
+  /* The video studio: its environment's room, softboxes and cyc, its lights. */
+  --vs-env-room: #2a2724;
+  --vs-env-soft: #fff4e6;
+  --vs-env-cyc: #f2f0ec;
+  --vs-sky: #f3eee8;
+  --vs-ground: #3a332c;
+  --vs-key: #fff1e2;
+  --vs-fill: #ffe7cc;
+  /* The studio's editor: tiles, clips, menus, the over-time red and the wheel's wedges, worst to best. */
+  --vs-tile: #2a221c;
+  --vs-tile-hi: #3a2f26;
+  --vs-card: #1d1611;
+  --vs-menu: #1d1713;
+  --vs-over: #e0573c;
+  --vs-preview-hi: #f1eee9;
+  --vs-preview-lo: #bcb6ae;
+  --vs-w0: #4b3d37;
+  --vs-w1: #5d4a3f;
+  --vs-w2: #3a322c;
+  --vs-w3: #6f5136;
+  --vs-w4: #8f5f36;
+  --vs-w5: #b56c37;
+  --vs-w6: #dc8139;
+  --vs-w7: #f6b26b;
+  /* The video sets, as their pickers show them. */
+  --vs-set-desk: #8a6a4c;
+  --vs-set-sweep: #d9d2c6;
+  --vs-set-night: #1f2a44;
+  --vs-set-bench: #5b6a5e;
   /* The company office's lights, and its screens' drawings. */
   --office-sun: #fff1dc;
   --office-sky: #f6f1ea;

@@ -142,6 +142,24 @@
   opacity: 0.3;
 }
 
+/* The studio with no laptop left to film: its shutter down. */
+.fd .wm-place.shutter button:disabled {
+  opacity: 0.5;
+}
+
+.wm-place.shutter .wm-tile {
+  background: repeating-linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--text) 22%, transparent) 0 calc(3 * var(--u)),
+    color-mix(in srgb, var(--ground-deep) 90%, transparent) calc(3 * var(--u)) calc(8 * var(--u))
+  );
+  color: var(--muted);
+}
+
+.wm-place.shutter b {
+  color: var(--muted);
+}
+
 .wm-tile {
   width: calc(56 * var(--u));
   height: calc(56 * var(--u));

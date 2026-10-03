@@ -2,6 +2,7 @@ import type { SavedCommercial } from "../../../preload/store";
 import { rng } from "../engine/review";
 import { timelineFor, type Voice } from "./render";
 import { type Cut, FRAMES, PANS, type Program, type Ratio, type Timeline, timelineOf } from "./scene";
+import { type Look, lookFor, SET_IDS, type SetId } from "./sets";
 import type { Card, ShortFacts, Shot } from "./script";
 import { speak } from "./speech";
 
@@ -17,6 +18,24 @@ export interface Scene {
   kind: SceneKind;
   startWord: number;
   endWord: number;
+  /** Its own set; the commercial's scene set when absent. */
+  set?: SetId;
+}
+
+/** Where a commercial is filmed: its scenes' set, the b-roll's, and the sweep's paper colour. */
+export interface Sets {
+  set: SetId;
+  brollSet: SetId;
+  paper: number;
+}
+
+const isSet = (x: unknown): x is SetId => typeof x === "string" && (SET_IDS as readonly string[]).includes(x);
+
+/** A commercial's sets, the defaults filled in for one saved before it had them: the `index`th commercial's look. */
+export function setsOf(c: { set?: string; brollSet?: string; paper?: number }, index: number): Sets {
+  const d = lookFor(index);
+  const set = isSet(c.set) ? c.set : d.set;
+  return { set, brollSet: isSet(c.brollSet) ? c.brollSet : set, paper: typeof c.paper === "number" ? c.paper : d.paper };
 }
 
 /** The scene library, in order: the camera shots, then the cards. */
@@ -69,6 +88,11 @@ export function heard(voice: string, text: string, seconds: number): void {
   if (words > 0 && seconds > 0.5) rates.set(voice, words / Math.max(0.1, seconds - 0.3));
 }
 
+/** How fast a narrator reads, words per second, once heard; null before. */
+export function rateOf(voice: string): number | null {
+  return rates.get(voice) ?? null;
+}
+
 /** The script's timing before it is voiced: each line at the narrator's rate, or caption timing with no voice. */
 export function estimateTimeline(lines: string[], voice: string | null): Timeline {
   const ls = scriptLines(lines);
@@ -82,8 +106,8 @@ export function estimate(lines: string[], voice: string | null): number {
   return scriptLines(lines).length === 0 ? 0 : estimateTimeline(lines, voice).total;
 }
 
-/** When each word starts, seconds, and when the last one ends, from the lines' timeline: words share a line by length. */
-function wordTimes(lines: string[], tl: Timeline): number[] {
+/** When each word starts, seconds, from the lines' timeline: words share a line by length. */
+export function wordTimes(lines: string[], tl: Timeline): number[] {
   const out: number[] = [];
   scriptLines(lines).forEach((l, i) => {
     const words = l.split(" ");
@@ -102,7 +126,7 @@ function wordTimes(lines: string[], tl: Timeline): number[] {
  * between them, its lines as captions. The first scene starting on the first
  * word starts at 0, and one ending on the last word runs to the end.
  */
-export function commercialProgram(c: Pick<Commercial, "id" | "lines" | "scenes" | "ratio">, facts: ShortFacts, tl: Timeline): Program {
+export function commercialProgram(c: Pick<Commercial, "id" | "lines" | "scenes" | "ratio"> & Sets, facts: ShortFacts, tl: Timeline): Program {
   const lines = scriptLines(c.lines);
   const times = wordTimes(lines, tl);
   const n = times.length;
@@ -122,22 +146,25 @@ export function commercialProgram(c: Pick<Commercial, "id" | "lines" | "scenes" 
     return last;
   };
   const cuts: Cut[] = [];
-  const broll = (start: number, end: number, card: Card, cardFrom: number) => {
+  const look = (set: SetId): Look => ({ set, paper: c.paper });
+  const broll = (start: number, end: number, card: Card, cardFrom: number, on: Look) => {
     const count = Math.max(1, Math.round((end - start) / PAN_SECONDS));
     for (let i = 0; i < count; i++)
-      cuts.push({ start: start + ((end - start) * i) / count, end: start + ((end - start) * (i + 1)) / count, view: pan(), card, cardFrom });
+      cuts.push({ start: start + ((end - start) * i) / count, end: start + ((end - start) * (i + 1)) / count, look: on, view: pan(), card, cardFrom });
   };
   let t = 0;
   for (const s of scenes) {
     const start = at(s.startWord);
     const end = at(s.endWord);
-    if (start > t + 0.05) broll(t, start, null, t);
+    // A placed scene is on its own set; the b-roll between them on the b-roll's.
+    const on = look(isSet(s.set) ? s.set : c.set);
+    if (start > t + 0.05) broll(t, start, null, t, look(c.brollSet));
     if (isShot(s.kind)) {
-      cuts.push({ start, end, view: s.kind, card: null, cardFrom: start });
-    } else broll(start, end, s.kind as Card, start);
+      cuts.push({ start, end, look: on, view: s.kind, card: null, cardFrom: start });
+    } else broll(start, end, s.kind as Card, start, on);
     t = end;
   }
-  if (t < tl.total - 0.05 || cuts.length === 0) broll(t, tl.total, null, t);
+  if (t < tl.total - 0.05 || cuts.length === 0) broll(t, tl.total, null, t, look(c.brollSet));
   return {
     frame: FRAMES[c.ratio],
     facts,

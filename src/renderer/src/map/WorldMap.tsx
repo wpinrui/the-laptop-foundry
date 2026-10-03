@@ -43,10 +43,8 @@ const ICON: Record<Place, ReactNode> = {
   ),
   studio: (
     <>
-      <path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z" />
-      <path d="m6.2 5.3 3.1 3.9" />
-      <path d="m12.4 3.4 3.1 4" />
-      <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+      <path d="M16 13l5.2 3.5a.5.5 0 0 0 .8-.4V7.9a.5.5 0 0 0-.8-.4L16 11" />
+      <path d="M2 6h14v12H2z" />
     </>
   ),
 };
@@ -179,7 +177,7 @@ export function WorldMap({
           return (
             <div
               key={p.id}
-              className={`wm-place${isHere ? " here" : ""}${on ? " on" : ""}${!isHere && !open(p.id) ? " shut" : ""}`}
+              className={`wm-place${isHere ? " here" : ""}${on ? " on" : ""}${!isHere && !open(p.id) ? " shut" : ""}${!isHere && p.id === "studio" && !studio ? " shutter" : ""}`}
               style={{ left: u(p.x), top: u(p.y) }}
             >
               {isHere && <i className="wm-ping" />}

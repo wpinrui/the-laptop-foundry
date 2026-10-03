@@ -4,11 +4,11 @@ import * as THREE from "three";
 import type { Build, Fit } from "../engine";
 import { StagedLaptop } from "../foundry/Stage";
 import { type Card, quarterCaption, type Short, type ShortFacts, type Shot, shareCaption, unitsCaption } from "./script";
-import { type Look, SetStage } from "./sets";
+import { type Look, lookKey, SetStage } from "./sets";
 
 // A video of a laptop as a program of cuts: each cut a camera shot of the
 // laptop on one of the sets, or a slow b-roll pan round it, with a number
-// card over it; the narration's captions run beside. The quarter shorts play
+// card over it; each cut names its own set, so a video can move between them; the narration's captions run beside. The quarter shorts play
 // their lines back to back, one shot each; a commercial lays its scenes over
 // the script's words. render.tsx steps this scene frame by frame and encodes
 // it; nothing here reads a wall clock. The sets are in metres, so the laptop,
@@ -69,10 +69,11 @@ export interface Pan {
   lid: number;
 }
 
-/** One stretch of the video: what the camera does, and the card over it from `cardFrom`. */
+/** One stretch of the video: the set, what the camera does, and the card over it from `cardFrom`. */
 export interface Cut {
   start: number;
   end: number;
+  look: Look;
   view: Shot | Pan;
   card: Card;
   /** When the card's own animation starts. */
@@ -99,12 +100,13 @@ export interface Program {
   poster: number;
 }
 
-/** A short as a program: each line on its shot until the next line starts. */
-export function shortProgram(short: Short, tl: Timeline, ratio: Ratio = "9:16"): Program {
+/** A short as a program: each line on its shot, all on the one set, until the next line starts. */
+export function shortProgram(short: Short, tl: Timeline, look: Look, ratio: Ratio = "9:16"): Program {
   const n = short.lines.length;
   const cuts = short.lines.map((l, i): Cut => ({
     start: i === 0 ? 0 : tl.starts[i],
     end: i + 1 < n ? tl.starts[i + 1] : tl.total,
+    look,
     view: l.shot,
     card: l.card,
     cardFrom: i === 0 ? 0 : tl.starts[i],
@@ -135,10 +137,18 @@ export function cutAt(p: Program, t: number): { cut: Cut | undefined; u: number 
   return { cut, u: Math.min(1, Math.max(0, t - cut.start) / Math.max(0.01, cut.end - cut.start)) };
 }
 
-/** The lid angle at `t`: a pan's own, the shots' otherwise. */
-export function lidAt(p: Program, t: number): number {
-  const v = cutAt(p, t).cut?.view;
-  return v && typeof v === "object" ? v.lid : SHOT_LID;
+/** The set and the lid angle at `t`: the cut's set, a pan's own lid or the shots'. */
+export function stageAt(p: Program, t: number): { look: Look; lid: number } {
+  const c = cutAt(p, t).cut;
+  const v = c?.view;
+  return { look: c?.look ?? p.cuts[0]?.look ?? { set: "desk", paper: 0 }, lid: v && typeof v === "object" ? v.lid : SHOT_LID };
+}
+
+/** Every set the program uses, once each. */
+export function looksOf(p: Program): Look[] {
+  const seen = new Map<string, Look>();
+  for (const c of p.cuts) seen.set(lookKey(c.look), c.look);
+  return [...seen.values()];
 }
 
 // ------------------------------------------------------------------ camera
@@ -466,22 +476,23 @@ export function drawOverlay(g: OffscreenCanvasRenderingContext2D | CanvasRenderi
   ctx.fillRect(0, 0, p.frame.w * Math.min(1, t / p.total), 8);
 }
 
-/** Sets the laptop's lid; resolves once the new angle is in the scene. */
-export type LidControl = { current: ((deg: number) => Promise<void>) | null };
+/** Puts the set and the lid of the cut at `t` in the scene; resolves once both are in and drawn. */
+export type StageControl = { current: ((t: number) => Promise<void>) | null };
 
 /**
- * The video's 3D set: the laptop on the set, the camera on the cut at `time`.
- * The lid moves between cuts: `lid` hands the renderer a way to set it and
- * wait for it; `follow` sets it from `time` every frame, for a live preview.
+ * The video's 3D set: the laptop on the cut's set, the camera on the cut at
+ * `time`. The set and the lid change between cuts: `control` hands the
+ * renderer a way to change them and wait until they are in; `follow` changes
+ * them from `time` every frame, for a live preview.
  */
-export function VideoStage({ program, fit, look, time, onLock, onSet, lid, follow = false }: {
+export function VideoStage({ program, fit, time, onLock, onSet, control, follow = false }: {
   program: Program;
   fit: Fit;
-  look: Look;
   time: RefObject<number>;
   onLock: () => void;
+  /** Once the first set is in. */
   onSet: () => void;
-  lid?: LidControl;
+  control?: StageControl;
   follow?: boolean;
 }) {
   const subject = program.facts.subject;
@@ -489,44 +500,54 @@ export function VideoStage({ program, fit, look, time, onLock, onSet, lid, follo
   const dims = useMemo((): Dims => ({ w: fit.shell.outer.x * MM, d: fit.shell.outer.y * MM, h: fit.shell.outer.z * MM }), [fit]);
   const laptop = useRef<THREE.Group>(null);
   const gl = useThree((s) => s.gl);
-  const [anchor, setAnchor] = useState<THREE.Vector3 | null>(null);
-  const [angle, setAngle] = useState(() => lidAt(program, time.current ?? 0));
-  const waiting = useRef<{ deg: number; done: () => void }[]>([]);
-  const shown = useRef(angle);
+  const [want, setWant] = useState(() => stageAt(program, time.current ?? 0));
+  const key = lookKey(want.look);
+  // The set in the scene, by its key, and where the laptop stands on it.
+  const [placed, setPlaced] = useState<{ key: string; anchor: THREE.Vector3 } | null>(null);
+  const waiting = useRef<{ key: string; lid: number; done: () => void }[]>([]);
+  const shown = useRef<{ key: string; lid: number } | null>(null);
+  const first = useRef<(() => void) | null>(onSet);
   const ready = useCallback(
     (a: THREE.Vector3) => {
-      setAnchor(a.clone());
-      onSet();
+      setPlaced({ key, anchor: a.clone() });
+      first.current?.();
+      first.current = null;
     },
-    [onSet],
+    [key],
   );
-  const set = useCallback((deg: number) => {
-    if (deg === shown.current) return Promise.resolve();
+  const set = useCallback((t: number) => {
+    const next = stageAt(program, t);
+    const k = lookKey(next.look);
+    const now = shown.current;
+    if (now && now.key === k && now.lid === next.lid) return Promise.resolve();
     return new Promise<void>((r) => {
-      waiting.current.push({ deg, done: r });
-      setAngle(deg);
+      waiting.current.push({ key: k, lid: next.lid, done: r });
+      setWant((w) => (lookKey(w.look) === k && w.lid === next.lid ? w : next));
     });
-  }, []);
-  if (lid) lid.current = set;
-  // The new angle is in the scene, the hinge parts' own effects run first: its shadow is drawn again and whoever waited goes on.
+  }, [program]);
+  if (control) control.current = set;
+  // The set and the lid are in, the set's and the hinge parts' own effects run first: the shadow is drawn again and whoever waited goes on.
   useEffect(() => {
-    shown.current = angle;
+    if (placed?.key !== key) return;
+    shown.current = { key, lid: want.lid };
     gl.shadowMap.needsUpdate = true;
-    for (const w of waiting.current) if (w.deg === angle) w.done();
-    waiting.current = waiting.current.filter((w) => w.deg !== angle);
-  }, [angle, gl]);
+    const done = (w: { key: string; lid: number }) => w.key === key && w.lid === want.lid;
+    for (const w of waiting.current) if (done(w)) w.done();
+    waiting.current = waiting.current.filter((w) => !done(w));
+  }, [placed, key, want.lid, gl]);
   useFrame(() => {
-    if (follow) void set(lidAt(program, time.current));
+    if (follow) void set(time.current);
   });
+  const anchor = placed?.anchor ?? null;
   return (
     <>
       <Suspense fallback={null}>
-        <SetStage look={look} onReady={ready} />
+        <SetStage key={key} look={want.look} onReady={ready} />
       </Suspense>
       {anchor && (
         <>
           <group ref={laptop} position={anchor} scale={MM}>
-            <StagedLaptop build={build} fit={fit} maker={subject.company} model={subject.name} rival={subject.maker} onLock={onLock} lidAngle={angle} />
+            <StagedLaptop build={build} fit={fit} maker={subject.company} model={subject.name} rival={subject.maker} onLock={onLock} lidAngle={want.lid} />
           </group>
           <Shadows group={laptop} />
           <Rig program={program} time={time} dims={dims} side={program.facts.portSide === "right" ? 1 : -1} anchor={anchor} />

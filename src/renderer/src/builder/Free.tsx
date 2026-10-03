@@ -80,18 +80,6 @@ const TABLE_TOP = new THREE.Box3(
   new THREE.Vector3(-TURNTABLE_R, PLINTH_H - 80, -TURNTABLE_R),
   new THREE.Vector3(TURNTABLE_R, PLINTH_H + 120, TURNTABLE_R),
 );
-/** A room the Walker walks: its walls, what stands in it, its door, where the player starts and what they face, and the spot that answers to onTable. Units are mm. */
-export interface WalkRoom {
-  room: Rect;
-  rects: Rect[];
-  door: THREE.Box3;
-  start: THREE.Vector3;
-  face: THREE.Vector3;
-  table: THREE.Box3;
-}
-
-const WORKSHOP: WalkRoom = { room: ROOM, rects: RECTS, door: DOOR, start: TABLE_START, face: new THREE.Vector3(0, PLINTH_H + 60, 0), table: TABLE_TOP };
-
 /** Degrees a second the lid turns. */
 const LID_SPEED = 200;
 /** Seconds to turn the laptop over, and to lift the cover off. */
@@ -273,7 +261,6 @@ export function Walker({
   shelves,
   onShelf,
   onTable,
-  room: walls = WORKSHOP,
 }: {
   laptop: RefObject<THREE.Group | null>;
   active: boolean;
@@ -290,8 +277,6 @@ export function Walker({
   onShelf?: (id: string | null) => void;
   /** Whether the aim dot is on the empty turntable; without it the turntable is not offered. */
   onTable?: (on: boolean) => void;
-  /** The room walked: the workshop when absent. */
-  room?: WalkRoom;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
@@ -376,10 +361,10 @@ export function Walker({
     if (!started.current) {
       // Stand in front of the turntable, facing the laptop, the camera easing there from where it was.
       started.current = true;
-      const p = walls.start.clone();
-      collideIn(p, walls.room, walls.rects, BODY);
+      const p = TABLE_START.clone();
+      collideIn(p, ROOM, RECTS, BODY);
       pos.current.copy(p);
-      look.current = lookAngles(p, walls.face);
+      look.current = lookAngles(p, new THREE.Vector3(0, PLINTH_H + 60, 0));
       enter.current = camFrom(camera, clock.current);
     }
     if (wasUsing.current !== using) {
@@ -417,7 +402,7 @@ export function Walker({
         const len = Math.hypot(f, r);
         pos.current.x += ((-Math.sin(yaw) * f + Math.cos(yaw) * r) / len) * SPEED * dt;
         pos.current.z += ((-Math.cos(yaw) * f - Math.sin(yaw) * r) / len) * SPEED * dt;
-        collideIn(pos.current, walls.room, walls.rects, BODY);
+        collideIn(pos.current, ROOM, RECTS, BODY);
       }
     }
     const e = enter.current;
@@ -462,7 +447,7 @@ export function Walker({
         on = d < REACH;
       } else if (onTable) {
         const hit = new THREE.Vector3();
-        if (ray.ray.intersectBox(walls.table, hit) && hit.distanceTo(ray.ray.origin) < REACH) {
+        if (ray.ray.intersectBox(TABLE_TOP, hit) && hit.distanceTo(ray.ray.origin) < REACH) {
           table = true;
           d = hit.distanceTo(ray.ray.origin);
         }
@@ -476,7 +461,7 @@ export function Walker({
         d = s.d;
       }
       const hit = new THREE.Vector3();
-      if (onDoor && ray.ray.intersectBox(walls.door, hit) && hit.distanceTo(ray.ray.origin) < Math.min(d, DOOR_REACH)) {
+      if (onDoor && ray.ray.intersectBox(DOOR, hit) && hit.distanceTo(ray.ray.origin) < Math.min(d, DOOR_REACH)) {
         on = false;
         table = false;
         shelf = null;

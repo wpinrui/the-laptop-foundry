@@ -785,9 +785,9 @@
 .st-script {
   position: absolute;
   left: calc(32 * var(--u));
-  top: calc(92 * var(--u));
+  top: calc(116 * var(--u));
   width: calc(520 * var(--u));
-  height: calc(420 * var(--u));
+  height: calc(396 * var(--u));
   box-sizing: border-box;
   resize: none;
   outline: none;
@@ -815,8 +815,8 @@
   position: absolute;
   left: calc(584 * var(--u));
   right: calc(32 * var(--u));
-  top: calc(92 * var(--u));
-  height: calc(420 * var(--u));
+  top: calc(116 * var(--u));
+  height: calc(396 * var(--u));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -886,14 +886,20 @@
   position: absolute;
   left: calc(32 * var(--u));
   right: calc(32 * var(--u));
-  top: calc(530 * var(--u));
-  height: calc(64 * var(--u));
+  top: calc(522 * var(--u));
+  height: calc(86 * var(--u));
   display: flex;
   gap: calc(28 * var(--u));
   font-family: var(--font-display);
 }
 
 .st-tiles > div {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--u));
+}
+
+.st-tiles > div > div {
   display: flex;
   gap: calc(6 * var(--u));
 }
@@ -960,8 +966,8 @@
   position: absolute;
   left: calc(32 * var(--u));
   right: calc(32 * var(--u));
-  top: calc(610 * var(--u));
-  height: calc(176 * var(--u));
+  top: calc(636 * var(--u));
+  height: calc(166 * var(--u));
   overflow-x: auto;
   overflow-y: hidden;
   background: color-mix(in srgb, var(--text) 3%, transparent);
@@ -1284,4 +1290,45 @@
   height: calc(8 * var(--u));
   background: var(--muted);
   transform: rotate(-6deg);
+}
+
+/* What each control is: a small muted name, in the bar beside its value, over the page's areas. */
+.st-label {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 600;
+  font-size: calc(13 * var(--u));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.st-pick .st-label {
+  margin-right: calc(4 * var(--u));
+}
+
+.st-ratios .st-label {
+  align-self: center;
+  margin-right: calc(6 * var(--u));
+}
+
+.st-at-script,
+.st-at-view,
+.st-at-track {
+  position: absolute;
+  left: calc(32 * var(--u));
+}
+
+.st-at-script {
+  top: calc(94 * var(--u));
+}
+
+.st-at-view {
+  left: calc(584 * var(--u));
+  top: calc(94 * var(--u));
+}
+
+.st-at-track {
+  top: calc(616 * var(--u));
 }

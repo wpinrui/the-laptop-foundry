@@ -1,5 +1,4 @@
 import { Html } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
 import { type ReactNode, type RefObject, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { SavedModel } from "../../../preload/store";
@@ -110,40 +109,66 @@ export const fitOf = (b: Build): Fit | null => {
   }
 };
 
+/** The TV's screen shape, width over height. */
+const TV_ASPECT = 16 / 9;
+
 /**
- * A finished video on the TV, a short or a commercial: it decodes in a hidden element, with
- * its sound, and each frame is drawn centred on the screen's own canvas.
- * `take` restarts it.
+ * A finished video on the TV, a short or a commercial, with its sound. Its frames go
+ * straight to a video texture, updated per decoded frame, and are letterboxed on black
+ * at their own shape. The element sits in the page, barely visible, because Chromium
+ * stops driving the frames of a video it thinks nobody sees (detached, transparent)
+ * and they fall behind the sound. `take` restarts it.
  */
 export function TvShort({ data, url, sound, take }: { data: OfficeData; url: string; sound: boolean; take: number }) {
   const video = useMemo(() => {
     const v = document.createElement("video");
     v.playsInline = true;
     v.preload = "auto";
+    v.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none;z-index:-1";
     return v;
   }, []);
-  const canvas = useMemo(() => {
-    const c = document.createElement("canvas");
-    c.width = 1280;
-    c.height = 720;
-    return c;
-  }, []);
   const tex = useMemo(() => {
-    const t = new THREE.CanvasTexture(canvas);
+    const t = new THREE.VideoTexture(video);
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
-  }, [canvas]);
+  }, [video]);
+  useEffect(() => {
+    document.body.appendChild(video);
+    return () => video.remove();
+  }, [video]);
   useEffect(() => {
     const mesh = data.scene.getObjectByName("tv_screen") as THREE.Mesh | undefined;
     if (!mesh) return;
     const was = mesh.material;
     const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+    // Outside the video's own rectangle the screen is black, not the edge pixels stretched.
+    mat.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader.replace(
+        "#include <map_fragment>",
+        `#include <map_fragment>
+        diffuseColor.rgb *= step(0.0, vMapUv.x) * step(vMapUv.x, 1.0) * step(0.0, vMapUv.y) * step(vMapUv.y, 1.0);`,
+      );
+    };
     mesh.material = mat;
     return () => {
       mesh.material = was;
       mat.dispose();
     };
   }, [data, tex]);
+  useEffect(() => {
+    const fit = () => {
+      if (!video.videoWidth || !video.videoHeight) return;
+      // The share of the screen the video fills across and up, fitted inside it.
+      const a = video.videoWidth / video.videoHeight;
+      const fx = Math.min(1, a / TV_ASPECT);
+      const fy = Math.min(1, TV_ASPECT / a);
+      tex.repeat.set(1 / fx, 1 / fy);
+      tex.offset.set(0.5 - 0.5 / fx, 0.5 - 0.5 / fy);
+    };
+    video.addEventListener("loadedmetadata", fit);
+    fit();
+    return () => video.removeEventListener("loadedmetadata", fit);
+  }, [video, tex]);
   useEffect(() => {
     video.src = url;
     // A new video, loaded after its Watch, plays from the start too.
@@ -163,18 +188,6 @@ export function TvShort({ data, url, sound, take }: { data: OfficeData; url: str
     video.muted = !sound;
   }, [video, sound]);
   useEffect(() => () => tex.dispose(), [tex]);
-  useFrame(() => {
-    if (video.readyState < 2 || !video.videoWidth) return;
-    const g = canvas.getContext("2d");
-    if (!g) return;
-    g.fillStyle = "#000";
-    g.fillRect(0, 0, canvas.width, canvas.height);
-    const k = Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
-    const w = video.videoWidth * k;
-    const h = video.videoHeight * k;
-    g.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
-    tex.needsUpdate = true;
-  });
   return null;
 }
 

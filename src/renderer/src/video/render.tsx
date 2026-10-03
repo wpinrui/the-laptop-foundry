@@ -25,7 +25,7 @@ const AUDIO_RATE = 48_000;
 const AUDIO_BITRATE = 96_000;
 /** Frames the encoder may hold before the renderer waits for it. */
 const QUEUE = 6;
-/** Longest wait for the laptop's lock screen before rendering without it, ms. */
+/** Longest wait for the laptop's screen before rendering without it, ms. */
 const LOCK_WAIT = 5000;
 
 export interface Voice {
@@ -237,7 +237,7 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered |
       new Promise<RootState>((r) => {
         state = r;
       }),
-      // The set loads first; the laptop and its lock screen go on it after.
+      // The set loads first; the laptop and its screen go on it after.
       new Promise<void>((r) => {
         set = r;
       }).then(() => Promise.race([locked, new Promise<void>((r) => setTimeout(r, LOCK_WAIT))])),
@@ -268,7 +268,7 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered |
       gl={{ preserveDrawingBuffer: true, antialias: true }}
       camera={{ fov: job.program.frame.fov, near: 0.01, far: 20, position: [0, 1.2, 1] }}
     >
-      <VideoStage program={job.program} fit={fit} time={time} onLock={ready.lock} onSet={ready.set} control={stage} />
+      <VideoStage program={job.program} fit={fit} time={time} onScreen={ready.lock} onSet={ready.set} control={stage} />
       <Driver onState={ready.state} />
     </Canvas>
   );

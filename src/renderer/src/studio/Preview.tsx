@@ -72,7 +72,7 @@ export function Preview({ program, time, playing, onEnd }: {
           dpr={[0.75, 1]}
           camera={{ fov: program.frame.fov, near: 0.01, far: 20, position: [0, 1.2, 1] }}
         >
-          <VideoStage program={program} fit={fit} time={time} onLock={noop} onSet={noop} follow />
+          <VideoStage program={program} fit={fit} time={time} onScreen={noop} onSet={noop} follow />
           <Clock program={program} time={time} playing={playing} onEnd={onEnd} overlay={overlay} />
         </Canvas>
       )}

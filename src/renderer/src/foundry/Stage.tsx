@@ -86,32 +86,37 @@ function Fader({
   return <group ref={group}>{children}</group>;
 }
 
-/** The staged laptop's lock screen: its own era's OS, its company as the user. */
-function useLock(build: Build, fit: Fit, maker: string, model: string, rival?: string | null) {
+/** What a staged laptop's screen shows: its lock screen, or its desktop. */
+export type StagedScreen = "lock" | "desktop";
+
+/** The staged laptop's screen, a still of its own era's OS with its company as the user. */
+function useStill(shot: StagedScreen, build: Build, fit: Fit, maker: string, model: string, rival?: string | null) {
   const owner = useMemo(() => ownerOf(build, maker), [build, maker]);
   const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   const aspect = panel ? panel.size.x / Math.max(1, panel.size.y) : 1.6;
-  return useOsStill("lock", build, owner, `${maker} ${model}`.trim(), aspect, undefined, rival);
+  return useOsStill(shot, build, owner, `${maker} ${model}`.trim(), aspect, undefined, rival);
 }
 
-export function StagedLaptop({ build, fit, maker, model, rival, onLock, lidAngle = 112, unlit = false }: {
+export function StagedLaptop({ build, fit, maker, model, rival, screen = "lock", onScreen, lidAngle = 112, unlit = false }: {
   build: Build;
   fit: Fit;
   maker: string;
   model: string;
   /** The rival maker's id, for its wallpaper; absent for the player's own. */
   rival?: string | null;
-  /** Called once the lock screen is drawn onto the panel. */
-  onLock?: () => void;
+  /** What the screen shows. */
+  screen?: StagedScreen;
+  /** Called once the screen is drawn onto the panel. */
+  onScreen?: () => void;
   /** How far the lid is open, degrees. */
   lidAngle?: number;
   /** No light or halo off the screen: for a still on a clear background, where the halo would draw black. */
   unlit?: boolean;
 }) {
-  const lock = useLock(build, fit, maker, model, rival);
+  const still = useStill(screen, build, fit, maker, model, rival);
   useEffect(() => {
-    if (lock) onLock?.();
-  }, [lock, onLock]);
+    if (still) onScreen?.();
+  }, [still, onScreen]);
   const colour = (id: string) => colourHex(id);
   const colours = useMemo(
     () => ({
@@ -133,7 +138,7 @@ export function StagedLaptop({ build, fit, maker, model, rival, onLock, lidAngle
       xray={false}
       labelFor={noLabel}
       onHover={noHover}
-      lockScreen={lock}
+      lockScreen={still}
       unlit={unlit}
       problems={false}
     />

@@ -485,11 +485,12 @@ export type StageControl = { current: ((t: number) => Promise<void>) | null };
  * renderer a way to change them and wait until they are in; `follow` changes
  * them from `time` every frame, for a live preview.
  */
-export function VideoStage({ program, fit, time, onLock, onSet, control, follow = false }: {
+export function VideoStage({ program, fit, time, onScreen, onSet, control, follow = false }: {
   program: Program;
   fit: Fit;
   time: RefObject<number>;
-  onLock: () => void;
+  /** Once the laptop's desktop is on its screen. */
+  onScreen: () => void;
   /** Once the first set is in. */
   onSet: () => void;
   control?: StageControl;
@@ -547,7 +548,7 @@ export function VideoStage({ program, fit, time, onLock, onSet, control, follow 
       {anchor && (
         <>
           <group ref={laptop} position={anchor} scale={MM}>
-            <StagedLaptop build={build} fit={fit} maker={subject.company} model={subject.name} rival={subject.maker} onLock={onLock} lidAngle={want.lid} />
+            <StagedLaptop build={build} fit={fit} maker={subject.company} model={subject.name} rival={subject.maker} screen="desktop" onScreen={onScreen} lidAngle={want.lid} />
           </group>
           <Shadows group={laptop} />
           <Rig program={program} time={time} dims={dims} side={program.facts.portSide === "right" ? 1 : -1} anchor={anchor} />

@@ -16,12 +16,16 @@ import "./styles/fonts.css";
 // Escape reaches the game from the main process instead of the browser (so the
 // browser never drops the pointer lock): replayed here as a key press on
 // whatever has focus, for every Escape handler to hear as before.
-window.api.onEscape(() => {
+// The main process runs it as a user gesture where it can, so a place taking
+// the pointer back on Escape needs no click.
+const escape = () => {
   markEscape();
   const at = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : window;
   for (const type of ["keydown", "keyup"])
     at.dispatchEvent(new KeyboardEvent(type, { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));
-});
+};
+Object.assign(window, { __gameEscape: escape });
+window.api.onEscape(escape);
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element #root not found");

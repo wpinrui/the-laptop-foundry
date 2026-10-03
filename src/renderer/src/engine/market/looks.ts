@@ -15,7 +15,7 @@ const MIN_YEARS = 5;
 /** A look held longer than this splits at a redesign that leaves 5 years either side. */
 const LONG_YEARS = 10;
 
-export type Tone = "black" | "graphite" | "spacegrey" | "silver" | "platinum" | "white" | "navy" | "blue" | "gold";
+export type Tone = "black" | "graphite" | "spacegrey" | "silver" | "platinum" | "white" | "navy" | "blue" | "gold" | "warmgold";
 
 /** Each tone on metal and on plastic. */
 const TONES: Record<Tone, { metal: string; plastic: string }> = {
@@ -28,19 +28,21 @@ const TONES: Record<Tone, { metal: string; plastic: string }> = {
   navy: { metal: "#253047", plastic: "#2b3650" },
   blue: { metal: "#3d5a80", plastic: "#3b5577" },
   gold: { metal: "#d6c3a5", plastic: "#cdb999" },
+  /** The 2018 to 2021 MacBook Air's gold: warmer and pinker than the 2015 MacBook's champagne. */
+  warmgold: { metal: "#e3bea3", plastic: "#dab49a" },
 };
 
-const LIGHT: Tone[] = ["silver", "platinum", "white", "gold"];
+const LIGHT: Tone[] = ["silver", "platinum", "white", "gold", "warmgold"];
 
 /**
  * The first year a tone was sold on laptops: space grey with the 2015 MacBook,
  * gold the same year, navy and platinum on premium ultrabooks from the mid 2010s.
  * A look only takes a tone its first year had, so it never shows up early.
  */
-const TONE_FROM: Partial<Record<Tone, number>> = { spacegrey: 2015, gold: 2015, navy: 2015, platinum: 2017, graphite: 2009 };
+const TONE_FROM: Partial<Record<Tone, number>> = { spacegrey: 2015, gold: 2015, warmgold: 2018, navy: 2015, platinum: 2017, graphite: 2009 };
 
 /** Tones a line never wore, whatever its palette lists: gold on a MacBook Pro. */
-const NEVER: Record<string, Tone[]> = { "apple-macbook-pro": ["gold"], "apple-macbook-air": ["gold"] };
+const NEVER: Record<string, Tone[]> = { "apple-macbook-pro": ["gold"] };
 
 /** What every line of a maker shares. */
 interface Dna {
@@ -76,6 +78,8 @@ interface LineStyle {
   deck?: [number, Tone][];
   /** Legend colour, for the gaming lines' lit keys. */
   legend?: string;
+  /** A colour the line wore for some years inside one look, as the gold Retina and M1 Air: [from, until, tone]. */
+  variant?: [number, number, Tone];
   /** Overrides the maker's key shape before a year: ThinkPad's classic caps before AccuType. */
   keysBefore?: [number, KeySpec["shape"]];
 }
@@ -95,7 +99,7 @@ const STYLES: Record<string, LineStyle> = {
   "hp-elitebook": { tones: [[2006, ["graphite", "silver"]], [2013, ["silver"]]] },
   "hp-omen": { tones: [[2014, ["black"]]], legend: "#e2231a" },
   "apple-macbook": { tones: [[2006, ["white"]], [2015, ["silver", "spacegrey", "gold"]]] },
-  "apple-macbook-air": { tones: [[2008, ["silver"]], [2022, ["silver", "spacegrey"]]] },
+  "apple-macbook-air": { tones: [[2008, ["silver"]], [2022, ["silver", "spacegrey"]]], variant: [2018, 2021, "warmgold"] },
   "apple-macbook-pro": { tones: [[2006, ["silver"]], [2016, ["spacegrey", "silver"]]] },
   "asus-vivobook": { tones: [[2006, ["black", "silver"]], [2012, ["silver", "blue", "black"]]] },
   "asus-zenbook": { tones: [[2011, ["silver"]], [2015, ["navy", "spacegrey"]], [2022, ["navy", "graphite"]]] },
@@ -222,7 +226,8 @@ export function lookFor(line: Line, year: number): Look {
   const listed = lastAt(style.tones, from).filter((t) => (TONE_FROM[t] ?? 0) <= from && !NEVER[line.id]?.includes(t));
   const tones = listed.length > 0 ? listed : (["black"] as Tone[]);
   // The line's signature tone, listed first, half the time.
-  const tone = h % 2 === 0 || tones.length < 2 ? tones[0] : tones[1 + ((h >>> 1) % (tones.length - 1))];
+  const v = style.variant;
+  const tone = v && year >= v[0] && year <= v[1] && !NEVER[line.id]?.includes(v[2]) ? v[2] : h % 2 === 0 || tones.length < 2 ? tones[0] : tones[1 + ((h >>> 1) % (tones.length - 1))];
   const deck = style.deck ? lastAt(style.deck, from) : undefined;
   const dna = DNA[line.maker] ?? PLAIN;
   const shape = style.keysBefore && from < style.keysBefore[0] ? style.keysBefore[1] : dna.keys;

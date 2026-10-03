@@ -120,6 +120,10 @@ function lane(newest: boolean, tracked = false) {
           const still = await r.poster?.arrayBuffer().catch(() => null);
           if (still) await window.api.video.keepPoster(job.company, job.file, new Uint8Array(still)).catch(() => {});
           have.set(job.file, Date.now());
+          // A new map, so whatever holds the old one sees the list change; and the
+          // video's still asked for again, in case it was asked for before it existed.
+          kept.set(job.company, new Map(have));
+          for (const [k, v] of posters) if (v === null) posters.delete(k);
           notify();
         }
       }

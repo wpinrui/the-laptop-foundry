@@ -268,7 +268,8 @@ export function App() {
     if (short || reviewing) return arrival.key;
     if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
     if (where.at === "courts") return "courts";
-    if (where.at === "map") return null;
+    // Opening the map from a place is no trip either: Stay goes back with no card, Go to another place is one.
+    if (where.at === "map") return where.from ? arrival.key : null;
     // The workshop and its builder are one place: going between them is no arrival.
     if (where.at === "workshop") return "workshop";
     if (where.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";

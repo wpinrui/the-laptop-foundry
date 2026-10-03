@@ -531,7 +531,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 - Quarter: the company's units, revenue, profit, share and rank against the market; every maker's share and movement; the quarter's launches with review scores; the best sellers, with the player's own ranks, and the year's awards in a Q4.
 - Rivals: for a player model, the five rivals it competes with most (buyer overlap times price closeness) by units won, and a stat matrix of indices on the market's par with buyer weights and a market score.
 - Buyers: every segment's buyers, wants, the share the company won, units per player model, and the brand's reach and reputation.
-- Store: the laptop's OS with Courts open, the same retailer site every laptop's OS carries, listing the player's models on the same 1% rule as the store, in its era's look, with class matrix filters, best seller ranks, real stock and similar laptops from the Rivals overlap.
+- Store: the laptop's OS with Courts open, the same retailer site every laptop's OS carries, listing the player's models once the company won at least 0.1% of all laptop units sold that quarter, in its era's look, with class matrix filters, best seller ranks, real stock and similar laptops from the Rivals overlap.
 
 ## Stretch goals
 

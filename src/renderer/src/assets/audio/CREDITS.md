@@ -48,6 +48,10 @@ Freesound files were taken from the site's HQ preview MP3 of each sound (same li
 | sfx/tv_on.ogg | CRT TV Switches On | Fission9 (freesound.org) | CC0 1.0 | https://freesound.org/people/Fission9/sounds/693860/ | not required |
 | sfx/tv_click.ogg | tv click on or off.flac | TRP (freesound.org) | CC0 1.0 | https://freesound.org/people/TRP/sounds/576959/ | not required |
 | sfx/espresso_machine.ogg | Espresso Machine (Automatic) | BageBoy (freesound.org) | CC0 1.0 | https://freesound.org/people/BageBoy/sounds/402845/ | not required |
+| sfx/cafe_cup_1.ogg | spoon on cup.WAV | samplecat (freesound.org) | CC0 1.0 | https://freesound.org/people/samplecat/sounds/11593/ | not required |
+| sfx/cafe_cup_2.ogg | stirring coffee.wav (one clink cut from it) | keweldog (freesound.org) | CC0 1.0 | https://freesound.org/people/keweldog/sounds/181716/ | not required |
+| sfx/cafe_cup_3.ogg | stirring coffee.wav (one clink cut from it) | keweldog (freesound.org) | CC0 1.0 | https://freesound.org/people/keweldog/sounds/181716/ | not required |
+| sfx/cafe_cup_4.ogg | stirring coffee.wav (one clink cut from it) | keweldog (freesound.org) | CC0 1.0 | https://freesound.org/people/keweldog/sounds/181716/ | not required |
 | sfx/quarter_resolved.ogg | jingles_STEEL02.ogg (Music Jingles pack) | Kenney (kenney.nl) | CC0 1.0 | https://kenney.nl/assets/music-jingles | not required |
 | sfx/award_won.ogg | Tada Fanfare A | plasterbrain (freesound.org) | CC0 1.0 | https://freesound.org/people/plasterbrain/sounds/397355/ | not required |
 | sfx/review_published.ogg | jingles_PIZZI13.ogg (Music Jingles pack) | Kenney (kenney.nl) | CC0 1.0 | https://kenney.nl/assets/music-jingles | not required |
@@ -80,9 +84,9 @@ Freesound files were taken from the site's HQ preview MP3 of each sound (same li
 | sfx/step_tile_3.ogg | footstep_concrete_003.ogg (Impact Sounds pack) | Kenney (kenney.nl) | CC0 1.0 | https://kenney.nl/assets/impact-sounds | not required |
 | sfx/step_tile_4.ogg | footstep_concrete_004.ogg (Impact Sounds pack) | Kenney (kenney.nl) | CC0 1.0 | https://kenney.nl/assets/impact-sounds | not required |
 | ambience/workshop.ogg | BGSaSc Room Tone Workshop Birds Hum Clock Ticking | Profispiesser (freesound.org) | CC0 1.0 | https://freesound.org/people/Profispiesser/sounds/520467/ | not required |
-| ambience/office.ogg | Office Ambience.wav | DiArchangeli (freesound.org) | CC0 1.0 | https://freesound.org/people/DiArchangeli/sounds/108695/ | not required |
-| ambience/cafe.ogg | People talking at cafe ambience | priesjensen (freesound.org) | CC0 1.0 | https://freesound.org/people/priesjensen/sounds/482990/ | not required |
-| ambience/courts.ogg | Supermarket | Soundkrampf (freesound.org) | CC0 1.0 | https://freesound.org/people/Soundkrampf/sounds/237331/ | not required |
+| ambience/office.ogg | Empty Office Space Room Tone with Aircon SFX | Soup_UnderScore (freesound.org) | CC0 1.0 | https://freesound.org/people/Soup_UnderScore/sounds/708021/ | not required |
+| ambience/cafe.ogg | 130113 Room tone, quiet, hvac, hotel, London ON | TRP (freesound.org) | CC0 1.0 | https://freesound.org/people/TRP/sounds/715606/ | not required |
+| ambience/courts.ogg | Fluoresent_Light_Hum_and_Refrigerator.wav | brytonentertainment (freesound.org) | CC0 1.0 | https://freesound.org/people/brytonentertainment/sounds/369177/ | not required |
 | ambience/studio.ogg | AMBLM tv studio room tone ambience noise lights off xy.wav | LudwigMueller (freesound.org) | CC0 1.0 | https://freesound.org/people/LudwigMueller/sounds/329550/ | not required |
 | ambience/map.ogg | Downtown LA, Little Tokyo, late night semi distant traffic.wav | janbezouska (freesound.org) | CC0 1.0 | https://freesound.org/people/janbezouska/sounds/330427/ | not required |
 | music/workshop.ogg | Hackbeat | Kevin MacLeod (incompetech.com) | CC BY 4.0 | https://incompetech.com/music/royalty-free/music.html | "Hackbeat" Kevin MacLeod (incompetech.com) Licensed under Creative Commons: By Attribution 4.0 License http://creativecommons.org/licenses/by/4.0/ |

@@ -6,14 +6,15 @@ import { type Loop, loop, play } from "./engine";
 const FADE_S = 1.5;
 let ambience: { name: string; loop: Loop; extra?: ReturnType<typeof setTimeout> } | null = null;
 
-/** The cafe's espresso machine, now and then. */
-function espresso(): ReturnType<typeof setTimeout> {
+/** The empty cafe, now and then: a cup or a spoon, and rarely the espresso machine. */
+function cafe(): ReturnType<typeof setTimeout> {
   return setTimeout(
     () => {
-      play("sfx/espresso_machine", { volume: 0.25 });
-      if (ambience?.name === "cafe") ambience.extra = espresso();
+      if (Math.random() < 0.12) play("sfx/espresso_machine", { volume: 0.15 });
+      else play(`sfx/cafe_cup_${1 + Math.floor(Math.random() * 4)}`, { volume: 0.18, rate: 0.95 + Math.random() * 0.1 });
+      if (ambience?.name === "cafe") ambience.extra = cafe();
     },
-    30_000 + Math.random() * 60_000,
+    15_000 + Math.random() * 30_000,
   );
 }
 
@@ -25,7 +26,7 @@ export function setAmbience(name: string | null) {
     if (ambience.extra) clearTimeout(ambience.extra);
   }
   ambience = name ? { name, loop: loop(`ambience/${name}`, "sfx", 1, FADE_S) } : null;
-  if (ambience?.name === "cafe") ambience.extra = espresso();
+  if (ambience?.name === "cafe") ambience.extra = cafe();
 }
 
 let music: { name: string; loop: Loop } | null = null;

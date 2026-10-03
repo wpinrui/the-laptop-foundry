@@ -485,7 +485,7 @@ export function SettingsMenu({ onBack }: { onBack: () => void }) {
           </li>
           <li>
             <span>Sound effects and ambience</span>
-            <small>Kenney, and Freesound contributors Zott820, Kukensius, Keegan_Miner, Trollarch2, neilraouf, unfa, Fission9, TRP, qubodup, florianreichelt, LilMati, BageBoy, plasterbrain, Profispiesser, DiArchangeli, priesjensen, Soundkrampf, LudwigMueller and janbezouska, CC0</small>
+            <small>Kenney, and Freesound contributors Zott820, Kukensius, Keegan_Miner, Trollarch2, neilraouf, unfa, Fission9, TRP, qubodup, florianreichelt, LilMati, BageBoy, plasterbrain, samplecat, keweldog, Profispiesser, Soup_UnderScore, brytonentertainment, LudwigMueller and janbezouska, CC0</small>
           </li>
           <li>
             <span>Lucide</span>

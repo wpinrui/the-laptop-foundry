@@ -235,21 +235,28 @@
   flex: none;
   display: block;
   box-sizing: border-box;
+  object-fit: cover;
+  border-radius: calc(3 * var(--u));
   border: 1px solid color-mix(in srgb, var(--text) 40%, transparent);
 }
 
-/* The b-roll's set: its swatch under the timeline's hatching. */
+/* The b-roll's set: its picture in a frame of the timeline's hatching. */
 .st-broll-swatch {
   position: relative;
   display: block;
   flex: none;
+  border-radius: calc(3 * var(--u));
 }
 
 .st-broll-swatch::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(115deg, color-mix(in srgb, var(--ground) 70%, transparent) 0 2px, transparent 2px 5px);
+  box-sizing: border-box;
+  padding: calc(2.5 * var(--u));
+  border-radius: inherit;
+  background: repeating-linear-gradient(115deg, color-mix(in srgb, var(--text) 80%, transparent) 0 1.5px, transparent 1.5px 3.5px);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 
 .st-bars {

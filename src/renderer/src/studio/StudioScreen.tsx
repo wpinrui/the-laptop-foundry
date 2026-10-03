@@ -29,7 +29,7 @@ import { SET_IDS, type SetId } from "../video/sets";
 import { adSubject } from "./eligible";
 import { ICON, Icon } from "./icons";
 import { frameSize, Preview } from "./Preview";
-import { SET_NAMES, SetSwatch, Timeline } from "./Timeline";
+import { SET_NAMES, SetThumb, Timeline } from "./Timeline";
 
 // The editing desk's screen, grown out of the monitor to fill the window:
 // pick the laptop, then write the script, lay scenes on its words, pick the
@@ -406,7 +406,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             button={
               <>
                 <em className="st-label">Scenes</em>
-                <SetSwatch set={sceneSet} size={18} />
+                <SetThumb set={sceneSet} size={30} />
                 <span>{SET_NAMES[sceneSet]}</span>
               </>
             }
@@ -422,7 +422,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
                   setMenu(null);
                 }}
               >
-                <SetSwatch set={s} size={18} />
+                <SetThumb set={s} size={30} />
                 <span>{SET_NAMES[s]}</span>
               </button>
             ))}
@@ -434,7 +434,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
               <>
                 <em className="st-label">B-roll</em>
                 <span className="st-broll-swatch">
-                  <SetSwatch set={brollSet} size={18} />
+                  <SetThumb set={brollSet} size={30} />
                 </span>
                 <span>{SET_NAMES[brollSet]}</span>
               </>
@@ -451,7 +451,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
                 }}
               >
                 <span className="st-broll-swatch">
-                  <SetSwatch set={s} size={18} />
+                  <SetThumb set={s} size={30} />
                 </span>
                 <span>{SET_NAMES[s]}</span>
               </button>

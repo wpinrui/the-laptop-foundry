@@ -644,6 +644,7 @@ export function App() {
           model={onTable}
           models={company.models}
           company={company.name}
+          shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
           library={company.models.filter((x) => x.reviewed).map(subject)}
           onMap={() => toMap(at)}
           onReady={ready}

@@ -14,7 +14,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import * as THREE from "three";
-import { type OsPage, useLaptopOs } from "../cafe/CafeScreen";
+import { type OsPage, type Shop, useLaptopOs } from "../cafe/CafeScreen";
 import { blurField, FullPage, type Prompt, type PromptTitle, Prompts, typing } from "../cafe/Cafe";
 import { clamp, collideIn, easeOut, FOV_MIN, lookAngles, type Rect, ZOOM_STEP } from "../cafe/World";
 import type { Fit, Subject } from "../engine";
@@ -211,6 +211,7 @@ export function FreeOs({
   onLook,
   perfect,
   aspect,
+  shop,
 }: {
   subject: Subject;
   library: Subject[];
@@ -221,9 +222,11 @@ export function FreeOs({
   perfect?: boolean;
   /** The shape of the screen the page is shown on, when that is not the panel's own. */
   aspect?: number;
+  /** The campaign, so the retailer's site lists the quarter's shelf with the player's own laptops. */
+  shop?: Shop;
 }) {
   // On the workshop's bench it runs on the charger.
-  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true, room: "workshop", perfect, aspect });
+  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true, room: "workshop", perfect, aspect, shop });
   const node = os.page?.node ?? null;
   useLayoutEffect(() => slot.set(node));
   useEffect(() => () => slot.set(null), [slot]);

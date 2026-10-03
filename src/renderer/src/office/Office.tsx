@@ -268,6 +268,8 @@ export function Office({
             setUsed(k.aimed);
             setUsing(true);
           } else if (k.aim?.kind === "station" && k.aim.id === "door") k.onMap();
+          // Aiming at a station's part of the room opens it: back to its view, its panel up.
+          else if (k.aim?.kind === "station" && k.ring.includes(k.aim.id)) k.go(k.aim.id);
         }
         return;
       }
@@ -351,6 +353,7 @@ export function Office({
   if (free && using && !full) prompts = [{ key: "E", label: "Stop using" }, screen];
   else if (free && !used && aimed) prompts = [{ key: "E", label: "Use" }, screen];
   else if (free && !used && aim?.kind === "station" && aim.id === "door") prompts = [{ key: "E", label: "Leave" }];
+  else if (free && !used && aim?.kind === "station" && ring.includes(aim.id)) prompts = [{ key: "E", label: labelOf(aim.id) }];
   const stationKeys: Prompt[] = [
     { key: "←", label: labelOf(prev) },
     { key: "→", label: labelOf(next) },

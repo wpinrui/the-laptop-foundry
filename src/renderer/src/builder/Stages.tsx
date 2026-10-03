@@ -737,6 +737,7 @@ export function PriceColumn({
   locked,
   valid,
   name,
+  company = "",
   onName,
   onReroll,
   onReview,
@@ -744,6 +745,8 @@ export function PriceColumn({
 }: StageProps & {
   valid: boolean;
   name: string;
+  /** The company's name: its laptop is named with it, as the rivals are with theirs. */
+  company?: string;
   onName: (n: string) => void;
   onReroll: () => void;
   onReview: () => void;
@@ -767,7 +770,7 @@ export function PriceColumn({
     const build = shownBuild;
     const price = build.price ?? snapPrice(cost * PRICE_OVER_COST);
     if (!priced || !opened || !valid) return null;
-    const mine: Subject = { id: MINE, name: name.trim() || "Yours", company: "", build: { ...build, price } };
+    const mine: Subject = { id: MINE, name: name.trim() || "Yours", company, build: { ...build, price } };
     try {
       factsOf(mine);
     } catch {
@@ -790,14 +793,14 @@ export function PriceColumn({
     const rungs: Rung[] = ranked.slice(start, start + LADDER).map((r, i) => ({
       id: r.x.id,
       rank: start + i + 1,
-      name: r.x.id === MINE ? r.x.name : `${r.x.company} ${r.x.name}`,
+      name: `${r.x.company} ${r.x.name}`.trim(),
       price: r.price,
       score: r.score,
       own: r.x.id === MINE,
     }));
     const range = `${money(snapPrice(lo))} to ${money(snapPrice(hi))}`;
     return { cls: range, rank: at + 1, of: ranked.length, rungs };
-  }, [priced, opened, shownBuild, cost, valid, name]);
+  }, [priced, opened, shownBuild, cost, valid, name, company]);
   const lo = Math.max(1, Math.round(cost * 0.5));
   const hi = Math.max(lo + 10, Math.round(cost * 3));
   const margin = price - cost;

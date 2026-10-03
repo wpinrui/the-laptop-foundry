@@ -349,8 +349,8 @@ The player is always on the world map or in one of five places: the Workshop, th
 - The Office is where the player runs the company: see The office.
 - The Studio is where a laptop's commercial is made: see The studio. It is shut while no laptop can have one.
 - Courts is the store, walked in first person. Its display tables hold what is on sale: in a campaign the last played quarter's shelf: rivals, and the player's released models once the company won at least 1% of all laptop units sold that quarter; in a sandbox the generated market of the year.
-- Courts is laid out by department: MacBook, Gaming, Budget, Creator, Business, Thin and Light, and Everyday, each a laptop's first match in that order. Each department has its own colour and an overhead sign, its tables sorted by price. The player's own laptops are on a table by the door.
-- Each table's sign shows its department, its price range and its makers.
+- Courts is laid out by brand, one row of laptops to a table. Each brand's laptops stand together, sorted by price, and brands go by market share, the biggest nearest the entrance. The player's own laptops are placed by their brand's share like any other.
+- Each table's sign shows its maker and its price range.
 - Each price tag carries the price and the specs. Courts shows no review scores.
 - The inspect card shows the laptop's class and its share of its class's sales. Create clone names a copy and takes it to the workshop's turntable.
 - Aiming at a laptop, E inspects it: a card with its maker, name, price, sales, specs and when it was released, a quarter such as 2024 Q2 in a campaign and the model's year in a sandbox. Previous and next step along the tables.

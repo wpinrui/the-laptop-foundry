@@ -28,7 +28,9 @@ Each place has a feel:
 - A model can be edited until it is reviewed. A reviewed model is locked and cannot be edited.
 - Duplicating any model creates a new, independent, unreviewed model with a copy of its build.
 - The player names every model, typing a name or rolling one from the randomiser. There are no placeholder names.
-- The player can delete models to prevent clutter.
+- The player can delete models to prevent clutter. A model that has sold archives instead of deleting.
+- An archived model stays in the workshop, can still be carried to the cafe and anywhere else a laptop goes, and still lends its looks to the builder. It leaves the market views, the studio and Courts, and stops selling from the next quarter played. Its history stays.
+- Aiming at an archived laptop in the world offers Unarchive, which puts it back on sale from the next quarter.
 
 ## Years
 
@@ -58,8 +60,8 @@ Each place has a feel:
 
 - Free view is the workshop itself: the player walks it in first person, starting in front of the turntable.
 - On the empty turntable: E New laptop, which names it and opens the builder, and Q Put laptop, which picks any laptop from a list.
-- On a shelved laptop: E Work on laptop build, which puts it on the turntable and opens the builder, N Next shelf, and X Discard.
-- On the turntable's laptop: B Build, C Duplicate, P Put away, X Discard, L lid, R turn over, O cover, E use and F full screen.
+- On a shelved laptop: E Work on laptop build, which puts it on the turntable and opens the builder, N Next shelf, and X Discard, Archive or Unarchive.
+- On the turntable's laptop: B Build, C Duplicate, P Put away, X Discard, Archive or Unarchive, L lid, R turn over, O cover, E use and F full screen.
 - The prompts name the laptop they act on, with its year.
 - Discard asks first, in the same dialog as every delete.
 
@@ -360,7 +362,7 @@ The Office is a small loft in the workshop's building, and works as a 3D menu. I
 
 - Each station is a fixed view, and its panel is open whenever the view is on it, with no key or click to open or close it. Left and Right glide the camera to the next station and swap to its panel; Up and Down pick a laptop at the Desk and on the product wall. Nothing in the room is clicked. Key prompts along the bottom name the keys.
 - A strip along the top shows the quarter, the cash, last quarter's profit and End quarter at every station and in free roam. End quarter is only there; it plays the quarter report, then returns to the Desk.
-- Desk: where the business is run, at one glance across the view. The company's overview (quarter, cash, profit trend, alerts for sold out laptops, reviews due, new awards and a ready short), the laptops with their status and stock, and for the picked one everything that decides its production and price: run size, price, unit cost with the run size's effect, the retailers' cut, margin, setup, overhead, marketing, profit and break-even, stock, sold and wanted last quarter, and Release or Order, with Use, Read review, Open in the workshop, Duplicate, Delete and New model.
+- Desk: where the business is run, at one glance across the view. The company's overview (quarter, cash, profit trend, alerts for sold out laptops, reviews due, new awards and a ready short), the laptops with their status and stock, and for the picked one everything that decides its production and price: run size, price, unit cost with the run size's effect, the retailers' cut, margin, setup, overhead, marketing, profit and break-even, stock, sold and wanted last quarter, and Release or Order, with Use, Read review, Open in the workshop, Duplicate, Delete or Archive, and New model.
 - Finance: the Books, with the statement and sales beside them. Marketing: the Brand. Market intel: the Market screen's Quarter, Rivals, Buyers and Store.
 - Product wall: a showcase of the company's laptops on shelves, newest first, in as many bays as they fill. A draft stands in foam grey, a laptop in stock has its screen lit, and a sold out one is dark with its lid half shut. Its panel shows the picked laptop and the list at a glance; decisions are made at the Desk.
 - Trophy cabinet: a cup, obelisk or plaque per award won, and the panel's awards and reviews. TV: the company's finished videos, shorts and commercials, newest first, picked and watched on its screen with its sound, or full screen.

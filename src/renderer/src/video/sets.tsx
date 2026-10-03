@@ -70,20 +70,25 @@ export function SetStage({ look, onReady }: { look: Look; onReady: (anchor: THRE
   const scene = useThree((s) => s.scene);
 
   const set = useMemo(() => {
-    const root = gltf.scene;
+    // A copy per stage: the loader caches one scene per file, and a background render's canvas
+    // mounting that same object would take it out of the preview's scene.
+    const root = gltf.scene.clone(true);
     root.updateMatrixWorld(true);
     let extras: Extras | null = null;
     root.traverse((o) => {
       if (!extras && (o.userData as Partial<Extras>).lighting) extras = o.userData as Extras;
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
+      // The sweep's paper is recoloured per look, so each copy gets its own.
+      if (Array.isArray(mesh.material)) mesh.material = mesh.material.map((m) => (m.name === "sweep_paper" ? m.clone() : m));
+      else if (mesh.material.name === "sweep_paper") mesh.material = mesh.material.clone();
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const unlit = mats.some((m) => m.type === "MeshBasicMaterial");
       const clear = mats.some((m) => m.transparent);
       mesh.receiveShadow = !unlit;
       mesh.castShadow = !unlit && !clear && !NO_SHADOW.has(mesh.parent?.name ?? "");
     });
-    // Relative to the set's own root: the loader caches it, so it may still hang under an old parent.
+    // Relative to the set's own root.
     const anchor = new THREE.Vector3();
     const a = root.getObjectByName("anchor_laptop");
     if (a) root.worldToLocal(a.getWorldPosition(anchor));

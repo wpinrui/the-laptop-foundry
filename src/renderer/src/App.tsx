@@ -537,6 +537,20 @@ export function App() {
                 yearLocked={!!campaign}
                 released={!!campaign?.releases[onTable.id]}
                 reroll={(b) => randomName(b.year, inchesOf(b))}
+                // What a stage can load from: in a campaign the released laptops, latest release first; else every saved one, newest first.
+                sources={
+                  campaign
+                    ? company.models
+                        .filter((m) => campaign.releases[m.id])
+                        .sort((a, b) => {
+                          const q = (id: string) => {
+                            const r = campaign.releases[id]?.quarter;
+                            return r ? r.year * 4 + r.quarter : 0;
+                          };
+                          return q(b.id) - q(a.id) || b.updated - a.updated;
+                        })
+                    : sortedModels(company)
+                }
               />
             )
           }

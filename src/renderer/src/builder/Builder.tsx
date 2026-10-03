@@ -46,6 +46,7 @@ import { ScreenColumn, ScreenTray } from "./ScreenStage";
 import { DisplayMarks, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
 import { SliderField } from "./ui";
+import { Dropdown } from "./Dropdown";
 import { type ViewName, viewFor } from "./view";
 import type { WorkshopCanvas } from "./WorkshopPlace";
 import "./builder.css";
@@ -149,6 +150,46 @@ const ZONE_ROLE: Partial<Record<Category, string>> = {
 const LID_OPEN = 110;
 /** The lid slider's range, degrees: shut to lying flat. */
 const LID_MAX = 180;
+/** Edits closer together than this, ms, are one undo step: a slider drag, or rapid clicks on one control. */
+const UNDO_MERGE_MS = 500;
+/** Undo steps kept. */
+const UNDO_STEPS = 1000;
+/** Stages that can take their data from another of the company's laptops. */
+const LOADS = new Set<Stage>(["ports", "colour", "decals"]);
+
+/** What a stage copies from another laptop's build: only that stage's data. */
+function loadInto(stage: Stage, b: Build, from: Build): Build {
+  const src = migrateBody(migrateColours(migrateScreen(from)));
+  if (stage === "ports") return { ...b, ports: structuredClone(src.ports ?? []) };
+  if (stage === "decals") return { ...b, marks: structuredClone(src.marks ?? []) };
+  return {
+    ...b,
+    materials: { ...src.materials },
+    finish: structuredClone(src.finish),
+    bezel: src.bezel,
+    pad: src.pad && { ...src.pad },
+    keyDeck: src.keyDeck,
+  };
+}
+
+// Icons from Lucide (https://lucide.dev), ISC License, Copyright (c) Lucide Contributors.
+function UndoIcon({ redo }: { redo?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={redo ? { transform: "scaleX(-1)" } : undefined}
+    >
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+    </svg>
+  );
+}
 
 // ------------------------------------------------------------------ builder
 
@@ -163,7 +204,10 @@ export function Builder({
   onDuplicate,
   yearLocked = false,
   released = false,
+  sources = [],
 }: {
+  /** The company's other laptops a stage can load its data from, newest first. */
+  sources?: SavedModel[];
   /** The workshop's canvas the builder draws its laptop, camera and overlays into. */
   canvas: WorkshopCanvas;
   /** A campaign model released to market is locked like a reviewed one. */
@@ -224,12 +268,62 @@ export function Builder({
     return () => window.removeEventListener("keydown", key);
   }, [leave]);
 
+  // Undo: the builds before each edit, and the ones undone since. Kept for this visit to the builder.
+  const history = useRef<{ past: Build[]; future: Build[]; at: number }>({ past: [], future: [], at: 0 });
+  const buildNow = useRef(build);
+  buildNow.current = build;
   const set = useCallback(
     (f: (b: Build) => Build) => {
-      if (!locked) setBuild((b) => f(b));
+      if (locked) return;
+      setBuild((b) => {
+        const next = f(b);
+        if (next === b) return b;
+        const h = history.current;
+        const now = performance.now();
+        // A run of edits close together is one step: only its first saves the build before it.
+        if (now - h.at > UNDO_MERGE_MS) {
+          h.past.push(b);
+          if (h.past.length > UNDO_STEPS) h.past.shift();
+        }
+        h.at = now;
+        h.future = [];
+        return next;
+      });
     },
     [locked],
   );
+  // Undo and redo go through the same debounced save as any edit; the stage stays where it is.
+  const step = useCallback(
+    (back: boolean) => {
+      if (locked) return;
+      const h = history.current;
+      const to = (back ? h.past : h.future).pop();
+      if (!to) return;
+      const cur = buildNow.current;
+      (back ? h.future : h.past).push(cur);
+      h.at = 0;
+      setBuild({ ...to, stage: cur.stage });
+    },
+    [locked],
+  );
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      // A text field undoes its own typing.
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.("input, textarea, [contenteditable='true']")) return;
+      const k = e.key.toLowerCase();
+      if (k === "z") {
+        e.preventDefault();
+        step(!e.shiftKey);
+      } else if (k === "y") {
+        e.preventDefault();
+        step(false);
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [step]);
 
   // A campaign model's year is fixed, so its stage never shows in the builder.
   const stages: Stage[] = yearLocked ? STAGES.filter((s) => s !== "year") : [...STAGES];
@@ -245,7 +339,8 @@ export function Builder({
   const go = (s: Stage) => {
     setStage(s);
     setVisited((v) => (v.has(s) ? v : new Set([...v, s])));
-    set((b) => (b.stage === s ? b : { ...b, stage: s }));
+    // Changing stage is remembered, but it is no undo step.
+    if (!locked) setBuild((b) => (b.stage === s ? b : { ...b, stage: s }));
   };
   const idx = stages.indexOf(stage);
   const goRef = useRef(go);
@@ -527,6 +622,25 @@ export function Builder({
       );
       break;
   }
+  // Ports, Colour and Decals can take that stage's data from another of the company's laptops.
+  const loadable = sources.filter((m) => m.id !== model.id);
+  if (LOADS.has(stage) && loadable.length > 0)
+    column = (
+      <>
+        <Dropdown
+          label="Load from"
+          value={null}
+          placeholder="Load from"
+          disabled={locked}
+          options={loadable.map((m) => ({ key: m.id, label: m.name, aside: (m.build as Build).year }))}
+          onChange={(id) => {
+            const from = loadable.find((m) => m.id === id);
+            if (from) set((b) => loadInto(stage, b, from.build as Build));
+          }}
+        />
+        {column}
+      </>
+    );
 
   return (
     <>
@@ -617,6 +731,30 @@ export function Builder({
           </div>
         )}
         <div className="bd-view">
+          {!locked && (
+            <div className="bd-undo">
+              <button
+                type="button"
+                className="fd-text"
+                aria-label="Undo"
+                title="Undo"
+                disabled={history.current.past.length === 0}
+                onClick={() => step(true)}
+              >
+                <UndoIcon />
+              </button>
+              <button
+                type="button"
+                className="fd-text"
+                aria-label="Redo"
+                title="Redo"
+                disabled={history.current.future.length === 0}
+                onClick={() => step(false)}
+              >
+                <UndoIcon redo />
+              </button>
+            </div>
+          )}
           <SliderField label="Lid" value={lidAngle} unit="deg" min={0} max={LID_MAX} onChange={setLid} disabled={flip} />
           <button type="button" className="fd-text bd-free" onClick={() => toFree.current()}>
             Free view

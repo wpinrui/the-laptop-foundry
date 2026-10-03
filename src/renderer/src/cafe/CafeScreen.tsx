@@ -159,6 +159,8 @@ export function CafeScreen(props: {
   onReady?: () => void;
   /** The world map is open over the cafe. */
   away?: boolean;
+  /** The laptop brought along is archived: unarchives it. */
+  onUnarchive?: () => void;
 }) {
   const { subject } = props;
   if (!subject)
@@ -190,7 +192,9 @@ function OsCafeScreen({
   shop,
   onReady,
   away,
+  onUnarchive,
 }: {
+  onUnarchive?: () => void;
   subject: Subject;
   library?: Subject[];
   onBack?: () => void;
@@ -230,6 +234,7 @@ function OsCafeScreen({
       atDoor={atDoor}
       onReady={onReady}
       away={away}
+      onUnarchive={onUnarchive}
     />
   );
 }

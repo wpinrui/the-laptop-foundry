@@ -15,6 +15,7 @@ import {
   TOOLING_COST,
 } from "./constants";
 import type { CampaignState, Quarter } from "./index";
+import { unitsOf } from "./shelf";
 
 // Releasing a model: one-off design and tooling, then production runs paid
 // up front at the scaled unit cost. The units go into stock.
@@ -37,6 +38,13 @@ export interface Release {
   sold: number;
   /** The price each settled quarter sold at, oldest first. */
   prices: PricedQuarter[];
+}
+
+/** The model has sold at least one unit: deleting it archives it instead. */
+export function hasSold(state: CampaignState, id: string): boolean {
+  const r = state.releases[id];
+  if (r && (r.sold > 0 || r.made > r.stock)) return true;
+  return state.shelf.some((s) => unitsOf(s.units[id]) > 0) || state.sales.some((s) => (s.units[id] ?? 0) > 0);
 }
 
 /** A quarter's price for a release. */

@@ -264,12 +264,12 @@ export function rivalLaunch(company: string, r: Rival, at: number): number {
 }
 
 /** Every laptop on sale this quarter: the player's releases (even sold out) and the rivals on sale. */
-export function sellersOf(state: CampaignState, models: { id: string; build: unknown }[], rivals: Rival[], company: string): Seller[] {
+export function sellersOf(state: CampaignState, models: { id: string; build: unknown; archived?: boolean }[], rivals: Rival[], company: string): Seller[] {
   const at = quarterIndex(state.now);
   const out: Seller[] = [];
   for (const [id, r] of Object.entries(state.releases)) {
     const m = models.find((x) => x.id === id);
-    if (!m || quarterIndex(r.quarter) > at) continue;
+    if (!m || m.archived || quarterIndex(r.quarter) > at) continue;
     const build = { ...(m.build as Build), price: r.price };
     const p = profileOf(id, build);
     const boost = state.boosts?.[id];

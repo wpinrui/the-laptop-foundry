@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { SavedModel } from "../../../preload/store";
-import { type CampaignState, type Quarter, worldQuarters } from "../engine/campaign";
+import { archivedOf, type CampaignState, type Quarter, worldQuarters } from "../engine/campaign";
 import { useWorldMarket } from "./data";
 import { QuarterTab } from "./QuarterTab";
 import { RivalsTab } from "./RivalsTab";
@@ -26,7 +26,7 @@ const same = (a: Quarter, b: Quarter) => a.year === b.year && a.quarter === b.qu
 /** The models the Rivals tab can pick: released first, newest first. */
 function pickable(campaign: CampaignState, models: SavedModel[]): SavedModel[] {
   const rel = (m: SavedModel) => campaign.releases[m.id];
-  return [...models].sort((a, b) => Number(!!rel(b)) - Number(!!rel(a)) || b.created - a.created);
+  return models.filter((m) => !m.archived).sort((a, b) => Number(!!rel(b)) - Number(!!rel(a)) || b.created - a.created);
 }
 
 /** The year between steppers that walk the played quarters, then the year's four quarters. */
@@ -119,6 +119,7 @@ export function MarketScreen({
     return () => window.removeEventListener("keydown", k, true);
   }, [proceed]);
   const market = useWorldMarket(models);
+  const hidden = useMemo(() => archivedOf(models), [models]);
   const quarters = useMemo(() => worldQuarters(campaign), [campaign]);
   const [picked, setPicked] = useState<Quarter | null>(startQuarter ?? null);
   const quarter = (picked && quarters.find((q) => same(q, picked))) || quarters[0];
@@ -164,7 +165,7 @@ export function MarketScreen({
             <RivalsTab campaign={campaign} market={market} quarter={quarter} models={choices} model={model} company={company} />
           </>
         )}
-        {quarter && tab === "buyers" && <BuyersTab campaign={campaign} quarter={quarter} />}
+        {quarter && tab === "buyers" && <BuyersTab campaign={campaign} quarter={quarter} hidden={hidden} />}
       </div>
     </section>
   );

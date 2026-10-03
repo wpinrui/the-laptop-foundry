@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import type { SavedCompany, SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
-import { type CampaignState, publicationQuarter, quarterLabel, worldQuarters } from "../engine/campaign";
+import { type CampaignState, hasSold, publicationQuarter, quarterLabel, worldQuarters } from "../engine/campaign";
 import type { SegmentId } from "../engine/market/types";
 import { AwardsTab } from "../foundry/Awards";
 import { BooksTab, type StatementTab } from "../foundry/Finance";
@@ -58,6 +58,7 @@ export interface OfficeActions {
   onOpen: (id: string) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
+  onUnarchive: (id: string) => void;
   units: (id: string) => number;
   onUnits: (id: string, units: number) => void;
   onPrice: (id: string, price: number) => void;
@@ -370,6 +371,7 @@ function Detail({
   const [doomed, setDoomed] = useState(false);
   const block = buildBlock(model.build);
   const over = !!campaign?.over;
+  const sold = !!campaign && hasSold(campaign, model.id);
   // A commercial's wheel result, waiting on the next quarter's sales.
   const boost = campaign?.boosts[model.id];
   return (
@@ -405,13 +407,11 @@ function Detail({
             Duplicate
           </button>
         )}
-        <button
-          type="button"
-          className="fd-secondary muted"
-          onClick={() => setDoomed(true)}
-        >
-          Delete
-        </button>
+        {!model.archived && (
+          <button type="button" className="fd-secondary muted" onClick={() => (sold ? actions.onDelete(model.id) : setDoomed(true))}>
+            {sold ? "Archive" : "Delete"}
+          </button>
+        )}
       </div>
       {doomed && (
         <ConfirmDelete

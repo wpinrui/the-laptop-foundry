@@ -25,7 +25,12 @@ export interface WorldMarket {
   /** Every loaded rival, any year. */
   rivals: Rival[];
   /** The player's saved models. */
-  models: { id: string; name: string; build: unknown }[];
+  models: { id: string; name: string; build: unknown; archived?: boolean }[];
+}
+
+/** The player's archived models' ids: the market views and Courts leave them out. */
+export function archivedOf(models: { id: string; archived?: boolean }[]): Set<string> {
+  return new Set(models.filter((m) => m.archived).map((m) => m.id));
 }
 
 /** One laptop as the market views show it. */
@@ -218,7 +223,8 @@ export function quarterSummary(state: CampaignState, market: WorldMarket, q: Qua
   const makers = [...now.entries()]
     .map(([maker, units]) => ({ maker, units, share: shareIn(units, total), change: change(maker) }))
     .sort((a, b) => b.units - a.units);
-  const look = (id: string) => laptopOf(state, market, id, q);
+  const hidden = archivedOf(market.models);
+  const look = (id: string) => (hidden.has(id) ? null : laptopOf(state, market, id, q));
   let best: WorldSeller[] = [];
   if (shelf) {
     best = Object.entries(shelf.units)
@@ -242,7 +248,7 @@ export function quarterSummary(state: CampaignState, market: WorldMarket, q: Qua
     ? SEGMENTS.map((s, i) => ({ segment: s.id, units: Object.values(shelf.units).reduce((a, u) => a + (u[i] ?? 0), 0) }))
     : [];
   const ownIds = shelf ? Object.keys(shelf.own) : Object.keys(sales?.units ?? {});
-  const models = ownIds.map((id) => {
+  const models = ownIds.filter((id) => !hidden.has(id)).map((id) => {
     const units = shelf ? unitsOf(shelf.units[id]) : (sales?.units[id] ?? 0);
     const l = look(id);
     return {
@@ -361,8 +367,9 @@ export function storeListing(
     if (shelf.own[id]) ours += unitsOf(u);
   }
   const listsOwn = total > 0 && ours / total >= share;
+  const hidden = archivedOf(market.models);
   const items = Object.entries(shelf.units).flatMap(([id, u]): StoreItem[] => {
-    if (shelf.own[id] && !listsOwn) return [];
+    if (shelf.own[id] && (!listsOwn || hidden.has(id))) return [];
     const l = laptopOf(state, market, id, q);
     return l ? [{ ...l, units: unitsOf(u), isNew: shelf.launched.includes(id), segments: topSegments(u) }] : [];
   });
@@ -560,10 +567,14 @@ export interface SegmentRow {
 }
 
 /** Every segment's buyers in a quarter, most first, with the player's models that were on the shelf. */
-export function segmentsOf(state: CampaignState, q: Quarter): { rows: SegmentRow[]; models: { id: string; name: string; units: number }[] } {
+export function segmentsOf(
+  state: CampaignState,
+  q: Quarter,
+  hidden: Set<string> = new Set(),
+): { rows: SegmentRow[]; models: { id: string; name: string; units: number }[] } {
   const shelf = shelfAt(state, q);
   const ownIds = shelf ? Object.keys(shelf.own) : [];
-  const models = ownIds.map((id) => ({ id, name: shelf?.own[id]?.name ?? "", units: unitsOf(shelf?.units[id]) }));
+  const models = ownIds.filter((id) => !hidden.has(id)).map((id) => ({ id, name: shelf?.own[id]?.name ?? "", units: unitsOf(shelf?.units[id]) }));
   const rows = SEGMENTS.map((s, i): SegmentRow => {
     const buyers = shelf ? Object.values(shelf.units).reduce((a, u) => a + (u[i] ?? 0), 0) : 0;
     const per = Object.fromEntries(ownIds.map((id) => [id, shelf?.units[id]?.[i] ?? 0]));

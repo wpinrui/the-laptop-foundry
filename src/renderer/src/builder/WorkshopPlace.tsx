@@ -17,6 +17,7 @@ import { typing } from "../cafe/Cafe";
 import type { Shop } from "../cafe/CafeScreen";
 import { ConfirmDelete } from "../foundry/Menus";
 import type { SavedModel } from "../../../preload/store";
+import { hasSold } from "../engine/campaign";
 import { type Build, colourHex, decorOf, migrateBody, migrateColours, migrateScreen, type Subject, solve } from "../engine";
 import { yearOf } from "../foundry/LaptopList";
 import { Lights } from "../foundry/Stage";
@@ -274,8 +275,11 @@ export function WorkshopPlace({
   onNew,
   onDuplicate,
   onDelete,
+  onUnarchive,
   shop,
 }: {
+  /** Puts an archived laptop back on the market. */
+  onUnarchive?: (id: string) => void;
   /** The campaign, for the retailer's site on the laptop's OS. */
   shop?: Shop;
   /** The laptop on the turntable, or none. */
@@ -313,6 +317,7 @@ export function WorkshopPlace({
   const state = free ?? freeStart(false);
   const [picking, setPicking] = useState(false);
   const [doomed, setDoomed] = useState<SavedModel | null>(null);
+  const sold = (id: string) => !!shop && hasSold(shop.state, id);
   const hold = held || picking || !!doomed;
   // Behind a card the scene stands still, as behind the pause menu.
   const shown = hold ? { ...state, paused: true } : state;
@@ -373,7 +378,18 @@ export function WorkshopPlace({
     put: model || models.length === 0 ? undefined : () => setPicking(true),
     edit: model ? () => onBuild(model) : undefined,
     copy: model && onDuplicate ? () => onDuplicate(model.id) : undefined,
-    discard: onDelete ? (id?: string) => setDoomed((id ? models.find((m) => m.id === id) : model) ?? null) : undefined,
+    discard: onDelete
+      ? (id?: string) => {
+          const m = (id ? models.find((x) => x.id === id) : model) ?? null;
+          if (m?.archived) onUnarchive?.(m.id);
+          else if (m && sold(m.id)) onDelete(m.id);
+          else setDoomed(m);
+        }
+      : undefined,
+    fate: (id?: string) => {
+      const m = id ? models.find((x) => x.id === id) : model;
+      return m?.archived ? "Unarchive" : m && sold(m.id) ? "Archive" : "Discard";
+    },
   };
   const named = {
     shelf: (id: string) => {

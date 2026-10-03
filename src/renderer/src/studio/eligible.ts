@@ -11,7 +11,7 @@ export function eligibleModels(company: SavedCompany, campaign: CampaignState | 
   if (campaign) for (const id of campaign.advertised) done.add(id);
   return [...company.models]
     .sort((a, b) => b.created - a.created)
-    .filter((m) => !done.has(m.id) && !buildBlock(m.build) && (!campaign || !!campaign.releases[m.id]));
+    .filter((m) => !m.archived && !done.has(m.id) && !buildBlock(m.build) && (!campaign || !!campaign.releases[m.id]));
 }
 
 /** A model as its commercial shows it: in a campaign, at its release price. */

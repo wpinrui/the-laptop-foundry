@@ -4,6 +4,7 @@ import { buildBlock } from "../builder/problems";
 import { type Build, colourHex, solve } from "../engine";
 import { overallOf, sortedModels, yearOf } from "../foundry/LaptopList";
 import "../foundry/foundry.css";
+import { Tooltip } from "../ui/Tooltip";
 import "./map.css";
 
 // The world map: a street plan on the left with the five places on street
@@ -118,6 +119,13 @@ export function WorldMap({
   const all = useMemo(() => sortedModels(company), [company]);
   // The cafe opens once there is a working laptop to bring, the studio while one can have a commercial.
   const open = (p: Place) => p !== from && (p !== "cafe" || carried(all, "cafe").length > 0) && (p !== "studio" || studio);
+  /** Why a shut place is shut, by the rule that shuts it. */
+  const shutWhy = (p: Place): string =>
+    p === "cafe"
+      ? "Build a laptop that works to bring here."
+      : company.campaign
+        ? "Release a new laptop to film its commercial."
+        : "Finish a new laptop to film its commercial.";
   // Nothing is picked until the player picks it.
   const [dest, setDest] = useState<Place | null>(null);
   const [bring, setBring] = useState<string | null>(null);
@@ -209,7 +217,7 @@ export function WorldMap({
           return (
             <div
               key={p.id}
-              className={`wm-place${isHere ? " here" : ""}${on ? " on" : ""}${!on && open(p.id) ? " can" : ""}${!isHere && !open(p.id) ? " shut" : ""}${!isHere && p.id === "studio" && !studio ? " shutter" : ""}`}
+              className={`wm-place${isHere ? " here" : ""}${on ? " on" : ""}${!on && open(p.id) ? " can" : ""}${!isHere && !open(p.id) ? " shut" : ""}`}
               style={{ left: u(p.x), top: u(p.y) }}
             >
               {isHere && <i className="wm-ping" />}
@@ -219,30 +227,34 @@ export function WorldMap({
                 </svg>
               )}
               <i className="wm-dot" />
-              <button
-                type="button"
-                disabled={!open(p.id)}
-                onClick={() => setDest(p.id)}
-                onDoubleClick={() => {
-                  if (open(p.id)) onGo(p.id, chosenFor(p.id));
-                }}
-              >
-                <span className="wm-tile">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.75}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    {ICON[p.id]}
-                  </svg>
-                </span>
-                <b>{p.name}</b>
-                <span className="wm-tip">{p.tip}</span>
-              </button>
+              <Tooltip tip={isHere || open(p.id) ? p.tip : shutWhy(p.id)}>
+                {/* aria-disabled, not disabled: a shut place still hovers to say why it is shut. */}
+                <button
+                  type="button"
+                  aria-disabled={!open(p.id)}
+                  onClick={() => {
+                    if (open(p.id)) setDest(p.id);
+                  }}
+                  onDoubleClick={() => {
+                    if (open(p.id)) onGo(p.id, chosenFor(p.id));
+                  }}
+                >
+                  <span className="wm-tile">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={1.75}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      {ICON[p.id]}
+                    </svg>
+                  </span>
+                  <b>{p.name}</b>
+                </button>
+              </Tooltip>
             </div>
           );
         })}

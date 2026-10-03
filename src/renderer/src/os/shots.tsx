@@ -1,11 +1,11 @@
 import { type Build, gameEdition, type Measurements, panelOf, results, simulate, solve } from "../engine";
-import wallSmall from "../assets/os/wallpaper-small.jpg?inline";
 import { lookOf as lookOfPanel } from "../review/look";
 import { paintAsh } from "./art";
 import { AshApp, Desktop, Lock, lookOf, Screen, SysApp, Win } from "./Os";
 import { snapshot } from "./snapshot";
 import { sysGroups } from "./sys";
 import { type Era, eraOf, type Owner, type Power } from "./types";
+import { wallpaperData } from "./wallpapers";
 
 // Still pictures of the laptop's screen for the menu's lock screen, the
 // builder's desktop and the review photos. Each is the real OS, laid out at
@@ -23,6 +23,8 @@ export interface ShotInput {
   aspect: number;
   /** Canvas width to draw at. */
   outW: number;
+  /** The rival maker's id, for its wallpaper; absent for the player's own. */
+  rival?: string | null;
 }
 
 const FULL: Power = { battery: true, pct: 100, plugged: false, time: "Fully charged" };
@@ -50,7 +52,7 @@ function ashState(build: Build, m: Measurements) {
   return { ed, fps: run?.fps ?? 0 };
 }
 
-function nodeFor(i: ShotInput, w: number, h: number) {
+function nodeFor(i: ShotInput, w: number, h: number, wallSmall: string) {
   const era = eraOf(i.build.year);
   const now = new Date();
   const bar = { era, app: null, power: FULL, muted: false, year: i.build.year, now };
@@ -112,7 +114,7 @@ export const SYS_TITLE: Record<Era, string> = { 2006: "System Properties", 2016:
 export const SYS_SIZE: Record<Era, [number, number]> = { 2006: [840, 640], 2016: [1080, 670], 2026: [1100, 690] };
 
 /** A plain stand-in when the real picture cannot be drawn: the wallpaper. */
-function fallback(outW: number, aspect: number): Promise<HTMLCanvasElement> {
+function fallback(outW: number, aspect: number, wallSmall: string): Promise<HTMLCanvasElement> {
   const c = document.createElement("canvas");
   c.width = Math.round(outW);
   c.height = Math.round(outW / aspect);
@@ -136,18 +138,19 @@ const cache = new Map<string, Promise<HTMLCanvasElement>>();
 
 /** A picture of the OS; the same inputs give the same cached canvas. */
 export function osShot(i: ShotInput): Promise<HTMLCanvasElement> {
-  const key = [i.shot, i.aspect.toFixed(3), Math.round(i.outW), i.owner.maker, i.owner.wordmark, i.model, JSON.stringify(i.build)].join("|");
+  const key = [i.shot, i.aspect.toFixed(3), Math.round(i.outW), i.owner.maker, i.owner.wordmark, i.rival ?? "", i.model, JSON.stringify(i.build)].join("|");
   let p = cache.get(key);
   if (!p) {
     p = (async () => {
       // Out of any render or effect in progress, so the off-screen root may flush.
       await Promise.resolve();
       const [w, h] = logical(i.build, i.aspect);
+      const wall = await wallpaperData(i.rival, i.build);
       try {
-        return await snapshot(nodeFor(i, w, h), lookOf(eraOf(i.build.year)), w, h, i.outW);
+        return await snapshot(nodeFor(i, w, h, wall), lookOf(eraOf(i.build.year)), w, h, i.outW);
       } catch (e) {
         console.error("OS picture fell back to the wallpaper", e);
-        return fallback(i.outW, i.aspect);
+        return fallback(i.outW, i.aspect, wall);
       }
     })();
     if (cache.size > 40) cache.clear();

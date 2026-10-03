@@ -81,6 +81,15 @@ const api = {
     /** Opens a save dialog for a rendered video. True once written. */
     save: (bytes: Uint8Array, name: string): Promise<boolean> => ipcRenderer.invoke("video:save", bytes, name),
   },
+  wallpaper: {
+    /** Opens a file dialog for a JPEG, PNG or WebP wallpaper, as a data URL. Null when cancelled. */
+    pick: (): Promise<{ image: string } | { error: "too-big"; limit: string } | { error: "not-image" } | null> =>
+      ipcRenderer.invoke("wallpaper:pick"),
+    /** Keeps a downscaled JPEG; resolves to its id. */
+    save: (bytes: Uint8Array): Promise<string> => ipcRenderer.invoke("wallpaper:save", bytes),
+    /** A kept wallpaper as a data URL, or null. */
+    get: (id: string): Promise<string | null> => ipcRenderer.invoke("wallpaper:get", id),
+  },
   quit: (): Promise<void> => ipcRenderer.invoke("app:quit"),
   /** The in-game browser's frames, as the main process sees them. */
   fox: {

@@ -87,22 +87,24 @@ function Fader({
 }
 
 /** The staged laptop's lock screen: its own era's OS, its company as the user. */
-function useLock(build: Build, fit: Fit, maker: string, model: string) {
+function useLock(build: Build, fit: Fit, maker: string, model: string, rival?: string | null) {
   const owner = useMemo(() => ownerOf(build, maker), [build, maker]);
   const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   const aspect = panel ? panel.size.x / Math.max(1, panel.size.y) : 1.6;
-  return useOsStill("lock", build, owner, `${maker} ${model}`.trim(), aspect);
+  return useOsStill("lock", build, owner, `${maker} ${model}`.trim(), aspect, undefined, rival);
 }
 
-export function StagedLaptop({ build, fit, maker, model, onLock }: {
+export function StagedLaptop({ build, fit, maker, model, rival, onLock }: {
   build: Build;
   fit: Fit;
   maker: string;
   model: string;
+  /** The rival maker's id, for its wallpaper; absent for the player's own. */
+  rival?: string | null;
   /** Called once the lock screen is drawn onto the panel. */
   onLock?: () => void;
 }) {
-  const lock = useLock(build, fit, maker, model);
+  const lock = useLock(build, fit, maker, model, rival);
   useEffect(() => {
     if (lock) onLock?.();
   }, [lock, onLock]);

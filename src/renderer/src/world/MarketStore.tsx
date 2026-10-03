@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { SavedModel } from "../../../preload/store";
-import wallpaper from "../assets/os/wallpaper.jpg";
 import type { CampaignState } from "../engine/campaign";
 import { Browser, Desktop, Screen, type TaskbarProps, Win } from "../os/Os";
 import type { Power } from "../os/types";
+import { wallpaperFor } from "../os/wallpapers";
 import { eraOf } from "../review/ReviewSite";
 import { STORE } from "../store/name";
 import { StoreSite, type StoreSource, storeUrl } from "../store/StoreSite";
@@ -70,7 +70,7 @@ export function MarketStore({
     <div className="ms-os">
       <div className="ms-os-frame" style={{ width: W, height: H, transform: `scale(${k})` }}>
         <Screen era={era}>
-          <Desktop {...bar} wallpaper={wallpaper} apps={["shop"]}>
+          <Desktop {...bar} wallpaper={wallpaperFor(null, campaign.now.year)} apps={["shop"]}>
             {source && (
               <Win app="shop" title={STORE[era].name} w={99999} h={99999} hidden={minimised} onMin={() => setMinimised(true)} onClose={onClose}>
                 <Browser

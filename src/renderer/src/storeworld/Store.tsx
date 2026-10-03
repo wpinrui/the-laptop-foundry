@@ -23,7 +23,7 @@ import {
   ZOOM_STEP,
 } from "../cafe/World";
 import { type Build, colourHex, decorOf, type Fit, solve } from "../engine";
-import { useOsStill } from "../os/useOsScreen";
+import { osShot } from "../os/shots";
 import { Model, surfacesOf } from "../viewer/Scene";
 import { type Baked, bake, Looks } from "./bake";
 import { buildDisplays } from "./displays";
@@ -62,7 +62,7 @@ const BATCH = 2;
 /** Frames a model is mounted before it is baked: its units build in effects. */
 const SETTLE_FRAMES = 3;
 const SHADOW_FRAMES = 90;
-/** How long the laptops wait for the shared screen picture before baking without it. */
+/** How long the laptops wait for their screen pictures before baking without them. */
 const SCREEN_WAIT_MS = 2500;
 
 type V3 = [number, number, number];
@@ -333,6 +333,39 @@ function Bakery({
 
 const OWNER = { maker: "Courts", wordmark: "COURTS" };
 
+/** Display units that share a desktop picture: one maker's wallpaper (or the player's own), one year. */
+const groupOf = (item: OnSale) => `${item.maker ?? `own:${item.build.wallpaper ?? ""}`}|${item.build.year}`;
+
+/** The display units' desktop pictures, one per group, each with its maker's wallpaper. */
+function useStills(seats: Seat[]): Map<string, THREE.Texture> {
+  const [stills, setStills] = useState<Map<string, THREE.Texture>>(() => new Map());
+  const firsts = useMemo(() => {
+    const m = new Map<string, OnSale>();
+    for (const s of seats) if (!m.has(groupOf(s.item))) m.set(groupOf(s.item), s.item);
+    return m;
+  }, [seats]);
+  useEffect(() => {
+    let live = true;
+    const made: THREE.Texture[] = [];
+    setStills(new Map());
+    for (const [k, item] of firsts) {
+      osShot({ shot: "desktop", build: item.build, owner: OWNER, model: "", aspect: 1.6, outW: 1024, rival: item.maker }).then((c) => {
+        if (!live) return;
+        const t = new THREE.CanvasTexture(c);
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = 4;
+        made.push(t);
+        setStills((m) => new Map(m).set(k, t));
+      });
+    }
+    return () => {
+      live = false;
+      for (const t of made) t.dispose();
+    };
+  }, [firsts]);
+  return stills;
+}
+
 /** What the Model draws for a build; null when it cannot be fitted. */
 function lookOf(build: Build) {
   let fit: Fit;
@@ -456,8 +489,8 @@ function Laptops({
   );
   const all = useRef(baked);
   all.current = baked;
-  const first = seats[0]?.item.build ?? null;
-  const screen = useOsStill("desktop", first, OWNER, "", 1.6, 1024);
+  const stills = useStills(seats);
+  const screenOf = (item: OnSale) => stills.get(groupOf(item));
   const [waited, setWaited] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setWaited(true), SCREEN_WAIT_MS);
@@ -473,10 +506,8 @@ function Laptops({
   const onDone = useCallback((id: string, b: Baked | null) => {
     setBaked((m) => new Map(m).set(id, b));
   }, []);
-  const ready = !!screen || waited;
-  const queue = ready
-    ? seats.filter((s) => !baked.has(s.item.id)).slice(0, BATCH)
-    : [];
+  // Each laptop bakes once its own screen picture is drawn, or after the wait without it.
+  const queue = seats.filter((s) => !baked.has(s.item.id) && (waited || !!screenOf(s.item))).slice(0, BATCH);
   const done = seats.every((s) => baked.has(s.item.id));
   return (
     <>
@@ -485,7 +516,7 @@ function Laptops({
         <Bakery
           key={s.item.id}
           item={s.item}
-          screen={screen}
+          screen={screenOf(s.item)}
           looks={looks}
           onDone={onDone}
         />
@@ -494,7 +525,7 @@ function Laptops({
         <Live
           seat={seats[live]}
           screen={page}
-          still={screen}
+          still={screenOf(seats[live].item)}
           portal={portal}
         />
       )}

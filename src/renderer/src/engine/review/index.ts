@@ -53,6 +53,8 @@ export interface Subject {
   name: string;
   company: string;
   build: Build;
+  /** The rival maker's id; absent for the player's own. */
+  maker?: string | null;
 }
 
 export interface Facts {
@@ -114,7 +116,7 @@ export function factsOf(s: Subject, content: Content = CONTENT): Facts {
 
 export function rivalSubject(r: Rival): Subject {
   const maker = MAKER_NAMES[r.maker] ?? r.maker;
-  return { id: r.id, name: r.name, company: maker, build: r.build };
+  return { id: r.id, name: r.name, company: maker, build: r.build, maker: r.maker };
 }
 
 const MAKER_NAMES: Record<string, string> = Object.fromEntries(MAKERS.map((m) => [m.id, m.name]));

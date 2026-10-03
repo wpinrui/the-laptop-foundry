@@ -5,6 +5,7 @@ import { registerFox } from "./fox";
 import { registerStore } from "./store";
 import { registerSvgImport } from "./svg";
 import { registerVideo } from "./video";
+import { registerWallpaper } from "./wallpaper";
 
 // The review photo sets' bundled assets (HDRIs, models, textures), served from
 // the built renderer's review-assets folder. A custom scheme, because fetch
@@ -76,6 +77,7 @@ app.whenReady().then(() => {
   registerStore();
   registerSvgImport();
   registerVideo();
+  registerWallpaper();
   serveAssets();
   createWindow();
   app.on("activate", () => {

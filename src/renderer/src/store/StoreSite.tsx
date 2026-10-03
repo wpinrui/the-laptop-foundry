@@ -124,7 +124,7 @@ const pageOf = (p: Product) => slug(`${p.brand} ${p.name}`);
 /** The product's studio photo once taken, the drawing until then. */
 function Render({ p, era, company }: { p: Product; era: Era; company: string }) {
   const subject = useMemo(
-    () => (p.build ? { id: `store:${p.id}`, name: p.name, company: makerName(p.maker, company), build: { ...p.build, price: p.price } } : null),
+    () => (p.build ? { id: `store:${p.id}`, name: p.name, company: makerName(p.maker, company), build: { ...p.build, price: p.price }, maker: p.maker } : null),
     [p, company],
   );
   const { photos, shoot } = usePhotos(subject);

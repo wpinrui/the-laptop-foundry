@@ -83,6 +83,7 @@ Still on, because none of it is code quality:
 
   You must use DESIGN, not lazy text to communicate intent to the player.
   ```
+- Exception to the text rule above: labels are not needless text. Any number, stat or control whose meaning isn't obvious at a glance gets a short label. This applies to every UI change, not only designer prompts.
 - When the designer is asked to do 3D modelling, the prompt also tells them to search liberally for CC0 and CC BY 3D models to use, crediting every one (CC BY requires attribution).
 - Use subagents of appropriate size liberally. Have a balanced approach: don't burn tokens but don't engage incompetent subagents.
 - Always run subagents in the background. Never foreground one: it blocks my next message until it finishes.

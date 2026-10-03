@@ -444,6 +444,8 @@ Rivals come from real makers and their real laptop lines. Each line has its real
 #### Rival generator
 
 - The generator picks parts for a line and year, then swaps and fixes parts in a cheap loop until the build is valid and decent.
+- Each line keeps one look (body, colours, finish, keys, logo) for at least 5 years, and changes it only when the line is redesigned.
+- Lines of one maker share traits such as key shape and logo style. Premium makers run thinner bezels than the year's norm.
 - A year's market is generated the first time that year is opened in a company, then saved with the company.
 - The hand-built rival fields are deleted.
 - A line never sells its own parts at a loss. If its usual price band would, the price rises to the lowest point that still covers them.

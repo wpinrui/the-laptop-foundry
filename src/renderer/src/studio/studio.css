@@ -1339,3 +1339,33 @@
 .st-at-track {
   top: calc(616 * var(--u));
 }
+
+/* The laptop's spec sheet, under Specs in the bar. */
+.st-menu.left {
+  left: 0;
+  right: auto;
+}
+
+.st-specs {
+  width: calc(560 * var(--u));
+  padding: calc(10 * var(--u)) calc(18 * var(--u));
+}
+
+.st-spec {
+  display: grid;
+  grid-template-columns: calc(150 * var(--u)) minmax(0, 1fr);
+  gap: calc(16 * var(--u));
+  padding: calc(8 * var(--u)) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  font-size: calc(15 * var(--u));
+  line-height: 1.35;
+}
+
+.st-spec span {
+  color: var(--muted);
+}
+
+.st-spec b {
+  font-weight: 500;
+  color: var(--text);
+}

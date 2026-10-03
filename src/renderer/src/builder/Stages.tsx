@@ -720,8 +720,7 @@ function ClassLadder({ cls, rank, of, rungs }: { cls: string; rank: number; of: 
         <div key={r.id} className={r.own ? "bd-rung mine" : "bd-rung"}>
           <span>{r.rank}</span>
           <b title={r.name}>{r.name}</b>
-          <span>{money(r.price)}</span>
-          <em>{r.score}</em>
+          <em>{money(r.price)}</em>
         </div>
       ))}
     </div>

@@ -1,3 +1,4 @@
+import { Info } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
@@ -8,7 +9,9 @@ import {
   clampRun,
   economics,
   isRefresh,
+  lastQuarterProfit,
   lifetimeProfit,
+  type ModelResult,
   marketingCost,
   outlook,
   MIN_RUN,
@@ -168,6 +171,30 @@ function Stepper({
 
 type Open = "unit" | "setup" | "overhead";
 
+/** A stretch's units sold and its profit or loss, in all or per unit. */
+function ResultRows({ result, span }: { result: ModelResult; span: "Lifetime" | "Last quarter" }) {
+  const loss = result.profit < 0;
+  const tone = loss ? "short" : "up";
+  return (
+    <>
+      <span className="cr-label">{`${span} sales`}</span>
+      <b>{count(result.sold)}</b>
+      {span === "Last quarter" && (
+        <>
+          <span className="cr-label">{loss ? "Last quarter loss" : "Last quarter profit"}</span>
+          <b className={tone}>{usdShort(Math.abs(result.profit))}</b>
+        </>
+      )}
+      {span === "Lifetime" && result.sold > 0 && (
+        <>
+          <span className="cr-label">{loss ? "Loss per unit" : "Profit per unit"}</span>
+          <b className={tone}>{usd(Math.abs(result.profit / result.sold))}</b>
+        </>
+      )}
+    </>
+  );
+}
+
 // The Model tab: the selected model's stock and last sales, its review, its
 // price once released, a run size, then every cost of the run and the
 // quarter per unit and in all, the quarter's projected profit, and Release
@@ -201,6 +228,7 @@ export function ModelTab({
   const [open, setOpen] = useState<Open | null>(null);
   const { released, lines, cost, refresh, price } = useRun(campaign, model, models);
   const life = released ? lifetimeProfit(campaign, model.id) : null;
+  const recent = released ? lastQuarterProfit(campaign, model.id) : null;
   const head = (
     <>
       {onMarket && (
@@ -218,16 +246,19 @@ export function ModelTab({
         {price > 0 && <b>{usd(price)}</b>}
       </div>
       {life !== null && (
-        <>
-          <div className="cr-life">
-            <span className="cr-label">{life.profit < 0 ? "Lifetime loss" : "Lifetime profit"}</span>
-            <b className={life.profit < 0 ? "short" : "up"}>{usdShort(Math.abs(life.profit))}</b>
-          </div>
-          <div className="cr-life">
-            <span className="cr-label">Lifetime sales</span>
-            <b>{count(life.sold)}</b>
-          </div>
-        </>
+        <div className="cr-life">
+          <span className="cr-label">{life.profit < 0 ? "Lifetime loss" : "Lifetime profit"}</span>
+          <b className={life.profit < 0 ? "short" : "up"}>{usdShort(Math.abs(life.profit))}</b>
+          <span className="cr-info">
+            <button type="button" aria-label="Lifetime details">
+              <Info strokeWidth={2} aria-hidden />
+            </button>
+            <span className="cr-info-card" role="tooltip">
+              <ResultRows result={life} span="Lifetime" />
+              {recent && <ResultRows result={recent} span="Last quarter" />}
+            </span>
+          </span>
+        </div>
       )}
     </>
   );

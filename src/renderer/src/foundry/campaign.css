@@ -491,6 +491,64 @@
   color: var(--warning);
 }
 
+.cr-info {
+  position: relative;
+  font-size: calc(16 * var(--u));
+}
+
+.cr-info > button {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: help;
+}
+
+.cr-info > button svg {
+  width: 0.9em;
+  height: 0.9em;
+}
+
+.cr-info:hover > button,
+.cr-info > button:focus-visible {
+  color: var(--text);
+}
+
+.cr-info-card {
+  position: absolute;
+  top: calc(100% + 8 * var(--u));
+  right: 0;
+  z-index: 5;
+  display: none;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: calc(8 * var(--u)) calc(16 * var(--u));
+  padding: calc(12 * var(--u)) calc(14 * var(--u));
+  background: var(--ground-deep);
+  border: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+.cr-info:hover .cr-info-card,
+.cr-info:focus-within .cr-info-card {
+  display: grid;
+}
+
+.cr-info-card b {
+  text-align: right;
+  font-weight: 600;
+  font-size: calc(16 * var(--u));
+}
+
+.cr-info-card b.up {
+  color: var(--accent);
+}
+
+.cr-info-card b.short {
+  color: var(--warning);
+}
+
 .cr-cells {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -6,7 +6,7 @@ import type { ModelBox, ModelContext, ModelModule } from "../contract";
 // ctx.part names the whole speaker set, so the driver is told from the box
 // (src/renderer/src/engine/content/peripherals.ts, SPEAKERS, shrunk by up to
 // 15 % by spend):
-//   2006: 45 x 40 (34 mm deep or more) is the subwoofer; 30 x 15 is a speaker.
+//   Before 2018 (wider than deep): a near-square box is the subwoofer; a long one is a speaker.
 //   2026: 45 or 60 deep (37 mm or more) is a woofer; 35 deep is a tweeter.
 //
 // 2006 speaker:   a plastic box with screw ears at both ends and a round cone:
@@ -316,11 +316,13 @@ function build(
 ): THREE.Object3D {
   const c = ctx.materials;
   const m: Mats = { body: c.body, metal: c.metal, plastic: c.plastic, rubber: c.rubber };
-  const old = ctx.year < 2015;
   const W = box.width, H = box.height, D = box.depth;
+  // A box lying long side across (every set before 2018) takes the round-cone
+  // drivers; the 2026 drivers stand long side along depth and only fit that way.
+  const old = ctx.year < 2015 || W >= D;
   const k = new Kit();
   if (old) {
-    if (D >= 28) sub2006(k, m, W, H, D);
+    if (D >= 0.7 * W) sub2006(k, m, W, H, D);
     else speaker2006(k, m, W, H, D);
   } else if (D >= 37) woofer2026(k, m, W, H, D);
   else tweeter2026(k, m, W, H, D);

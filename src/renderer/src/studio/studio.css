@@ -70,38 +70,6 @@
   filter: blur(calc(8 * var(--u))) brightness(0.32);
 }
 
-/* The E under the desk screen while the player stands at the desk. */
-.st-keycap {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 5;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 200ms ease-out;
-}
-
-.st-keycap.on {
-  opacity: 1;
-}
-
-.st-keycap span {
-  position: absolute;
-  left: calc(-21 * var(--u));
-  top: calc(16 * var(--u));
-  width: calc(42 * var(--u));
-  height: calc(42 * var(--u));
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--text);
-  color: var(--ground);
-  border-bottom: calc(4 * var(--u)) solid var(--muted);
-  font: 700 calc(22 * var(--u)) / 1 var(--font-display);
-  animation: st-glow 2.2s ease-in-out infinite;
-}
-
 /* A commercial rendering, bottom right: its progress round its icon, its laptop. */
 .fd.st-chip {
   position: absolute;

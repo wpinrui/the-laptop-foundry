@@ -1,7 +1,9 @@
 /* The world map, to the designer's handoff: 1440 by 810 design px times --u.
    The street plan fills the left, the panel is the right 400. */
 
-.wm {
+/* Over a place it is the top layer, under only the cards and the travel card. */
+.fd.wm {
+  z-index: 100;
   background: var(--ground);
   font-variant-numeric: tabular-nums;
 }
@@ -179,6 +181,54 @@
 
 .wm-place.here .wm-tile {
   border-color: var(--text);
+}
+
+/* Every place the player can go to now glows. */
+@keyframes wm-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 calc(4 * var(--u)) color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 calc(22 * var(--u)) color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+}
+
+.wm-place.can .wm-tile {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--line-strong));
+  animation: wm-glow 2.4s ease-in-out infinite;
+}
+
+/* Where the player is: a pin dropped on its tile's corner. */
+@keyframes wm-drop {
+  0% {
+    transform: translateY(calc(-18 * var(--u)));
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(calc(2 * var(--u)));
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.wm-pin {
+  position: absolute;
+  left: calc(64 * var(--u));
+  top: calc(-96 * var(--u));
+  width: calc(28 * var(--u));
+  height: calc(28 * var(--u));
+  fill: var(--text);
+  stroke: var(--ground);
+  z-index: 1;
+  pointer-events: none;
+  animation: wm-drop 420ms ease-out both;
+}
+
+.wm-pin circle {
+  fill: var(--ground);
 }
 
 .wm-place.on .wm-tile {

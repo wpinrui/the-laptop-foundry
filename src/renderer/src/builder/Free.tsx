@@ -802,7 +802,12 @@ export function FreeOverlay({
         }
         return;
       }
-      if (e.repeat || s.paused || s.busy || typing(e)) return;
+      if (e.repeat || s.paused || typing(e)) return;
+      if (e.code === "KeyM" && !s.using && !s.full && leave) {
+        leave();
+        return;
+      }
+      if (s.busy) return;
       if (e.code === "KeyF") {
         if (s.full) {
           patch({ full: false });
@@ -938,7 +943,17 @@ export function FreeOverlay({
                 Sound
               </Entry>
               {models?.edit && <Entry onClick={models.edit}>Build</Entry>}
-              {onMap && <Entry onClick={onMap}>Map</Entry>}
+              {onMap && (
+                <Entry
+                  onClick={() => {
+                    // The map closes back onto the workshop, not the menu.
+                    patch({ paused: false });
+                    onMap();
+                  }}
+                >
+                  Map
+                </Entry>
+              )}
               <SystemEntries />
             </div>
           </Column>

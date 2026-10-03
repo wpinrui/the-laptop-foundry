@@ -133,6 +133,8 @@ export interface StoreWorldProps {
   onClone?: (item: OnSale) => void;
   /** Once the store has loaded with its stock on the tables, for the travel card over it. */
   onReady?: () => void;
+  /** The world map is open over the store: it stands still, the pointer free, until the map closes. */
+  away?: boolean;
 }
 
 export function StoreWorld({
@@ -144,6 +146,7 @@ export function StoreWorld({
   onMap,
   onClone,
   onReady,
+  away = false,
 }: StoreWorldProps) {
   const stock = useOnSale(company, campaign, year);
   // Each laptop's best buyer segment, and its share of the units sold by everything on sale in that class.
@@ -181,7 +184,7 @@ export function StoreWorld({
   const expectUnlock = useRef(false);
   const pausedAt = useRef(0);
   const leaving = useRef(false);
-  const active = !paused && !full;
+  const active = !paused && !full && !away;
 
   const leave = useCallback(() => {
     if (leaving.current) return;
@@ -250,14 +253,32 @@ export function StoreWorld({
     if (inspect === null) lock();
   }, [inspect, lock]);
 
+  // Under the map the pointer is free; it is taken again once the map closes, and the door leads out again.
+  const wasAway = useRef(away);
+  useEffect(() => {
+    if (wasAway.current === away) return;
+    wasAway.current = away;
+    if (away) unlock();
+    else {
+      leaving.current = false;
+      if (!paused && inspect === null) lock();
+    }
+  }, [away, paused, inspect, lock, unlock]);
+  // The pause menu's Map: the map closes back onto the store, not the menu.
+  const toMap = () => {
+    setPaused(false);
+    leave();
+  };
+
   const seat = inspect !== null ? layout.seats[inspect] : undefined;
   const canUse = !!seat && usable(seat.item);
 
-  const state = useRef({ paused, aim, inspect, using, full, canUse, resume, open, close, step, leave });
-  state.current = { paused, aim, inspect, using, full, canUse, resume, open, close, step, leave };
+  const state = useRef({ paused, aim, inspect, using, full, canUse, resume, open, close, step, leave, away });
+  state.current = { paused, aim, inspect, using, full, canUse, resume, open, close, step, leave, away };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
+      if (s.away) return;
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
@@ -269,6 +290,10 @@ export function StoreWorld({
         return;
       }
       if (s.paused || e.repeat || typing(e)) return;
+      if (e.code === "KeyM" && !s.using && !s.full) {
+        s.leave();
+        return;
+      }
       if (s.full) {
         if (e.code === "KeyF") setFull(false);
         return;
@@ -388,7 +413,7 @@ export function StoreWorld({
                   Sound
                 </Entry>
               )}
-              <Entry onClick={leave}>Map</Entry>
+              <Entry onClick={toMap}>Map</Entry>
               <SystemEntries />
             </div>
           </Column>

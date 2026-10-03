@@ -117,6 +117,7 @@ export function Cafe({
   onMap,
   atDoor,
   onReady,
+  away = false,
 }: {
   /** None: the player came empty handed. */
   laptop?: LaptopLook;
@@ -134,6 +135,8 @@ export function Cafe({
   atDoor?: boolean;
   /** Once the cafe has loaded. */
   onReady?: () => void;
+  /** The world map is open over the cafe: it stands still, the pointer free, until the map closes. */
+  away?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);
   // Sitting: seated, pointer locked, looking around. Using: seated with the
@@ -147,7 +150,7 @@ export function Cafe({
   // Leaving pointer lock on purpose (full screen, leaving) is not a pause.
   const expectUnlock = useRef(false);
   const pausedAt = useRef(0);
-  const active = !paused && !full;
+  const active = !paused && !full && !away;
 
   const pause = useCallback(() => {
     pausedAt.current = performance.now();
@@ -190,11 +193,26 @@ export function Cafe({
     document.exitPointerLock();
   }, []);
 
-  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug, onMap });
-  state.current = { pose, using, full, paused, aim, active, resume, onPlug, onMap };
+  // Under the map the pointer is free; it is taken again once the map closes.
+  const wasAway = useRef(away);
+  useEffect(() => {
+    if (wasAway.current === away) return;
+    wasAway.current = away;
+    if (away) unlock();
+    else if (!paused && !full && !using) lock();
+  }, [away, paused, full, using, lock, unlock]);
+  // The pause menu's Map: the map closes back onto the cafe, not the menu.
+  const toMap = () => {
+    setPaused(false);
+    onMap();
+  };
+
+  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug, onMap, away });
+  state.current = { pose, using, full, paused, aim, active, resume, onPlug, onMap, away };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
+      if (s.away) return;
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
@@ -205,6 +223,10 @@ export function Cafe({
         return;
       }
       if (e.repeat || s.paused || typing(e)) return;
+      if (e.code === "KeyM" && !s.using && !s.full) {
+        s.onMap();
+        return;
+      }
       if (e.code === "KeyF") {
         if (s.full) {
           setFull(false);
@@ -302,7 +324,7 @@ export function Cafe({
                 Sound
               </Entry>
               {onLeave && <Entry onClick={onLeave}>Leave</Entry>}
-              <Entry onClick={onMap}>Map</Entry>
+              <Entry onClick={toMap}>Map</Entry>
               <SystemEntries />
             </div>
           </Column>

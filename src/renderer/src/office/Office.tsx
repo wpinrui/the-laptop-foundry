@@ -5,6 +5,7 @@ import type { SavedCompany } from "../../../preload/store";
 import { Loaded } from "../app/Loaded";
 import { FreeOs, makeSlot, type PageLook, SlotView } from "../builder/Free";
 import { blurField, FullPage, type Prompt, Prompts } from "../cafe/Cafe";
+import type { Shop } from "../cafe/CafeScreen";
 import { yearOf } from "../foundry/LaptopList";
 import type { Subject } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
@@ -109,6 +110,11 @@ export function Office({
     [company, campaign],
   );
   const mine = useMemo(() => (campaign ? campaign.awards.filter((a) => a.maker === null) : []), [campaign]);
+  // The retailer's site on the desk computer or a used laptop lists the campaign's shelf, the player's laptops with it.
+  const shop = useMemo(
+    (): Shop | undefined => (campaign ? { state: campaign, models: company.models, company: company.name } : undefined),
+    [campaign, company],
+  );
   const boxes = useRef<{ id: string; box: THREE.Box3 }[]>([]);
   const count = Math.min(40, items.length);
   const stamp = `${items.map((i) => `${i.model.id}${i.status}${i.model.updated}`).join()}|${mine.length}`;
@@ -484,6 +490,7 @@ export function Office({
           onLook={setLook}
           perfect={atDesk}
           aspect={atDesk && data ? deskAspect(data) : undefined}
+          shop={shop}
         />
       )}
     </div>

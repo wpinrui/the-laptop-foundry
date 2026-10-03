@@ -11,9 +11,9 @@ import {
 } from "react";
 import type { SavedCompany } from "../../../preload/store";
 import { blurField, FullPage, type Prompt, Prompts, typing } from "../cafe/Cafe";
-import { useLaptopOs } from "../cafe/CafeScreen";
+import { type Shop, useLaptopOs } from "../cafe/CafeScreen";
 import { panelOf, simulate, solve } from "../engine";
-import type { CampaignState } from "../engine/campaign";
+import { type CampaignState, campaignOf } from "../engine/campaign";
 import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
 import { lookOf as screenLook } from "../review/look";
@@ -90,18 +90,20 @@ function StoreOs({
   onSound,
   slot,
   onLook,
+  shop,
 }: {
   item: OnSale;
   sound: boolean;
   onSound: (on: boolean) => void;
   slot: Slot;
   onLook: (l: PageLook | null) => void;
+  shop?: Shop;
 }) {
   const subject = useMemo(
     () => ({ id: item.id, name: item.name, company: item.brand, build: item.build, maker: item.maker }),
     [item],
   );
-  const os = useLaptopOs({ subject, sound, onSound, startPlugged: true, startOn: true });
+  const os = useLaptopOs({ subject, sound, onSound, startPlugged: true, startOn: true, shop });
   const node = os.page?.node ?? null;
   useLayoutEffect(() => slot.set(node));
   useEffect(() => () => slot.set(null), [slot]);
@@ -149,6 +151,11 @@ export function StoreWorld({
   away = false,
 }: StoreWorldProps) {
   const stock = useOnSale(company, campaign, year);
+  // The retailer's site on a display unit lists the campaign's shelf, the player's laptops with it.
+  const shop = useMemo((): Shop | undefined => {
+    const state = campaign ?? (company.campaign ? campaignOf(company.campaign) : null);
+    return state ? { state, models: company.models, company: company.name } : undefined;
+  }, [campaign, company]);
   // Each laptop's best buyer segment, and its share of the units sold by everything on sale in that class.
   const classes = useMemo(() => {
     const best = bestSegments(stock.items.map((i) => ({ id: i.id, name: i.name, company: i.brand, build: i.build })));
@@ -384,6 +391,7 @@ export function StoreWorld({
           onSound={onSound ?? noSound}
           slot={slot}
           onLook={setLook}
+          shop={shop}
         />
       )}
       {active && inspect === null && <i className="cafe-dot" />}

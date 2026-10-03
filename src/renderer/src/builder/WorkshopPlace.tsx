@@ -14,6 +14,7 @@ import {
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { typing } from "../cafe/Cafe";
+import type { Shop } from "../cafe/CafeScreen";
 import { ConfirmDelete } from "../foundry/Menus";
 import type { SavedModel } from "../../../preload/store";
 import { type Build, colourHex, decorOf, migrateBody, migrateColours, migrateScreen, type Subject, solve } from "../engine";
@@ -106,6 +107,7 @@ function TableLaptop({
   onOs,
   lidOpen,
   openAngle,
+  shop,
 }: {
   model: SavedModel;
   company: string;
@@ -120,6 +122,7 @@ function TableLaptop({
   lidOpen: boolean;
   /** How far its lid opens. */
   openAngle: number;
+  shop?: Shop;
 }) {
   const build = useMemo(() => migrateBody(migrateColours(migrateScreen(model.build as Build))), [model]);
   const fit = useMemo(() => solve(build), [build]);
@@ -173,7 +176,7 @@ function TableLaptop({
   // A layout cleanup: it runs before the next laptop's, or the builder's, layout effect sets its own.
   useLayoutEffect(() => () => canvas.table.set(null), [canvas]);
 
-  return valid ? <FreeOs subject={subject} library={library} sound={sound} onSound={onSound} slot={osSlot} onLook={setOsLook} /> : null;
+  return valid ? <FreeOs subject={subject} library={library} sound={sound} onSound={onSound} slot={osSlot} onLook={setOsLook} shop={shop} /> : null;
 }
 
 /** Every laptop the company has, newest first, to put one on the empty turntable. */
@@ -271,7 +274,10 @@ export function WorkshopPlace({
   onNew,
   onDuplicate,
   onDelete,
+  shop,
 }: {
+  /** The campaign, for the retailer's site on the laptop's OS. */
+  shop?: Shop;
   /** The laptop on the turntable, or none. */
   model: SavedModel | null;
   /** Every laptop the company has built, for the archive's shelves. */
@@ -458,6 +464,7 @@ export function WorkshopPlace({
           library={library}
           sound={sound}
           onSound={onSound}
+          shop={shop}
           state={shown}
           canvas={canvas}
           drive={drive}

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel } from "../../../preload/store";
-import { type Build, colourHex } from "../engine";
+import { type Build, colourHex, reviewOf } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
 import { overallOf, yearOf } from "../foundry/LaptopList";
 import {
@@ -76,12 +76,14 @@ async function hear(voice: string, line: string): Promise<void> {
 }
 
 /** A dropdown in the editor's bar: the button, and its menu under it while open. */
-function Drop({ open, onOpen, button, children, wide = false }: {
+function Drop({ open, onOpen, button, children, wide = false, left = false }: {
   open: boolean;
   onOpen: (on: boolean) => void;
   button: ReactNode;
   children: ReactNode;
   wide?: boolean;
+  /** Opens under the button's left edge rather than its right. */
+  left?: boolean;
 }) {
   return (
     <div className="st-drop-wrap">
@@ -91,7 +93,7 @@ function Drop({ open, onOpen, button, children, wide = false }: {
           <Icon d={ICON.down} size={14} width={2.5} />
         </span>
       </button>
-      {open && <div className={`st-menu st-in${wide ? " wide" : ""}`}>{children}</div>}
+      {open && <div className={`st-menu st-in${wide ? " wide" : ""}${left ? " left" : ""}`}>{children}</div>}
     </div>
   );
 }
@@ -156,7 +158,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
   const [brollSet, setBrollSet] = useState<SetId>(defaults.set);
   const [voices, setVoices] = useState<string[]>([]);
   const [voice, setVoice] = useState<string | null>(null);
-  const [menu, setMenu] = useState<"voice" | "set" | "broll" | null>(null);
+  const [menu, setMenu] = useState<"voice" | "set" | "broll" | "specs" | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -185,6 +187,15 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
   const tl = estimateTimeline(lines, voice);
   const total = words.length ? tl.total : 0;
   const starts = useMemo(() => wordTimes(scriptLines(lines), tl), [lines, tl]);
+  // The laptop's spec sheet, as its review lists it, to write the script from.
+  const specs = useMemo((): [string, string][] => {
+    if (!model) return [];
+    try {
+      return reviewOf(adSubject(model, company.name, campaign)).specs.filter(([, v]) => v !== "");
+    } catch {
+      return [];
+    }
+  }, [model, company.name, campaign]);
   const facts = useMemo(() => {
     if (!model) return null;
     try {
@@ -399,6 +410,18 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             <i style={{ background: lidColour(model) }} />
             <b>{model.name}</b>
           </div>
+          {specs.length > 0 && (
+            <Drop open={menu === "specs"} onOpen={(o) => setMenu(o ? "specs" : null)} left button={<em className="st-label">Specs</em>}>
+              <div className="st-specs">
+                {specs.map(([k, v]) => (
+                  <div key={k} className="st-spec">
+                    <span>{k}</span>
+                    <b>{v}</b>
+                  </div>
+                ))}
+              </div>
+            </Drop>
+          )}
           <div className="st-fill" />
           <Drop
             open={menu === "set"}

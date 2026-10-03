@@ -29,6 +29,9 @@ export const SET_NAMES: Record<SetId, string> = { desk: "Desk", sweep: "Sweep", 
 const SET_THUMBS: Record<SetId, string> = { desk: deskThumb, sweep: sweepThumb, night: nightThumb, bench: benchThumb };
 
 /** The set as a picture of it, a laptop standing on its spot. */
+/** How many words a scene dropped on the timeline covers to start with. */
+const DROP_WORDS = 5;
+
 export function SetThumb({ set, size = 14 }: { set: SetId; size?: number }) {
   return <img className="st-swatch" src={SET_THUMBS[set]} alt="" draggable={false} style={{ width: u(size), height: u(size) }} />;
 }
@@ -103,7 +106,7 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
     const r = track.current?.getBoundingClientRect();
     return !!r && e.clientY >= r.top - 30 && e.clientY <= r.bottom && e.clientX >= r.left && e.clientX <= r.right;
   };
-  /** Where a tile dropped on word `w` goes: onto the clip there, or from the word to the next clip or the line's end. */
+  /** Where a tile dropped on word `w` goes: onto the clip there, or DROP_WORDS words from it, stopping at the next clip or the line's end. */
   const placement = (w: number): { replace?: number; a: number; b: number } => {
     const { scenes: ss, n: count } = live.current;
     const hit = ss.findIndex((s) => w >= s.startWord && w < s.endWord);
@@ -111,7 +114,7 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
     const next = ss.filter((s) => s.startWord > w).reduce((m, s) => Math.min(m, s.startWord), count);
     let lineEnd = w;
     while (lineEnd < count && words[lineEnd].line === words[w].line) lineEnd++;
-    return { a: w, b: Math.max(w + 1, Math.min(next, lineEnd)) };
+    return { a: w, b: Math.max(w + 1, Math.min(next, lineEnd, w + DROP_WORDS)) };
   };
 
   const tileDown = (kind: SceneKind, e: React.PointerEvent) => {

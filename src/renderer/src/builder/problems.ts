@@ -3,19 +3,27 @@ import { formatOption, panelLabel } from "./format";
 
 // Fit problems in words, and the builder stage each one belongs to.
 
-export const STAGES = ["year", "chassis", "screen", "inside", "surface", "keys", "finish", "marks", "price"] as const;
+export const STAGES = ["year", "chassis", "screen", "inside", "keyboard", "trackpad", "webcam", "ports", "finish", "price"] as const;
 export type Stage = (typeof STAGES)[number];
 export const STAGE_NAME: Record<Stage, string> = {
   year: "Year",
   chassis: "Chassis",
   screen: "Screen",
   inside: "Inside",
-  surface: "Surface",
-  keys: "Keys",
+  keyboard: "Keyboard",
+  trackpad: "Trackpad",
+  webcam: "Webcam",
+  ports: "Ports",
   finish: "Finish",
-  marks: "Decals",
   price: "Price",
 };
+
+/** A stage remembered by an older save, as the stage that holds it now. */
+export function stageNow(saved: string | undefined): Stage | undefined {
+  if (saved === "surface" || saved === "keys") return "keyboard";
+  if (saved === "marks") return "finish";
+  return STAGES.find((s) => s === saved);
+}
 
 const CAT_NAME: Record<Category, string> = {
   processor: "processor",
@@ -67,7 +75,6 @@ const ROLE_WORD: Record<string, string> = {
 const AXIS_NAME = { x: "width", y: "depth", z: "height" } as const;
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-const SURFACE = new Set<string>(["keyboard", "trackpad", "webcam", "port"]);
 
 const MEMORY_NEED: Record<string, string> = {
   "ddr2-sodimm": "DDR2 SO-DIMM slots",
@@ -93,7 +100,9 @@ function needName(need: string): string {
 export function stageOfCategory(cat: string | undefined): Stage {
   if (!cat) return "chassis";
   if (cat === "display") return "screen";
-  return SURFACE.has(cat) ? "surface" : "inside";
+  if (cat === "keyboard" || cat === "trackpad" || cat === "webcam") return cat;
+  if (cat === "port") return "ports";
+  return "inside";
 }
 
 function partName(id: string): string {
@@ -128,12 +137,17 @@ export function stageOf(p: Problem): Stage {
     case "wrong-finish":
       return "finish";
     case "no-charging":
-      return "surface";
+      return "ports";
     case "screen":
       return "screen";
-    case "overlap":
+    case "overlap": {
+      // A moved part that runs into another: its own stage; one the engine cannot name is the keyboard's deck.
+      const s = partStage(p.part);
+      return s === "chassis" ? "keyboard" : s;
+    }
     case "bezel-fit":
-      return "surface";
+      // A webcam that does not fit its band is the webcam's; anything else in the bezel is the display's.
+      return p.role === "webcam" ? "webcam" : "screen";
     default:
       return "chassis";
   }

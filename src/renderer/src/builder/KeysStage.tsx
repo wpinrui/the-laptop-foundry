@@ -6,7 +6,7 @@ import { Dropdown } from "./Dropdown";
 import { fontOptions, snapWeight, WEIGHT_NAME, weightsOf } from "./fonts";
 import { Chip, Chips, Label, SliderField, Toggle } from "./ui";
 
-// The Keys stage: keycap shape, three colour groups (letters, modifiers, and
+// The keycaps, on the Keyboard stage: keycap shape, three colour groups (letters, modifiers, and
 // the accent keys Esc and Enter) and the legends' colour, font, alignment,
 // case, size and weight. The colour groups are multi-select: a picked colour
 // goes to every selected group. Any colour is allowed in every year.

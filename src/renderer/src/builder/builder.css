@@ -2258,3 +2258,9 @@
 .bd-put .fd-actions {
   padding-inline: calc(48 * var(--u));
 }
+
+/* A surface stage's own fields open its column: no rule above them. */
+.bd-column > fieldset > .bd-surface-detail:first-child {
+  padding-top: 0;
+  border-top: 0;
+}

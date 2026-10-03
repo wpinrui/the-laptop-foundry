@@ -210,6 +210,7 @@ export function FreeOs({
   slot,
   onLook,
   perfect,
+  aspect,
 }: {
   subject: Subject;
   library: Subject[];
@@ -218,9 +219,11 @@ export function FreeOs({
   slot: Slot;
   onLook: (l: PageLook | null) => void;
   perfect?: boolean;
+  /** The shape of the screen the page is shown on, when that is not the panel's own. */
+  aspect?: number;
 }) {
   // On the workshop's bench it runs on the charger.
-  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true, room: "workshop", perfect });
+  const os = useLaptopOs({ subject, library, sound, onSound, startPlugged: true, startOn: true, room: "workshop", perfect, aspect });
   const node = os.page?.node ?? null;
   useLayoutEffect(() => slot.set(node));
   useEffect(() => () => slot.set(null), [slot]);

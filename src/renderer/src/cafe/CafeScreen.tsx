@@ -258,6 +258,7 @@ export function useLaptopOs({
   onSaveNotes,
   shop,
   perfect = false,
+  aspect,
 }: {
   subject: Subject;
   library?: Subject[];
@@ -274,6 +275,8 @@ export function useLaptopOs({
   onSaveNotes?: (docs: NoteDoc[]) => void;
   /** An ideal machine: no panel simulation, no speaker model, no page pacing. */
   perfect?: boolean;
+  /** The shape of the screen it is shown on, width over height, when that is not the panel's own. */
+  aspect?: number;
 }): {
   build: Subject["build"];
   fit: ReturnType<typeof solve>;
@@ -444,7 +447,11 @@ export function useLaptopOs({
   };
 
   const panel = useMemo(() => panelOf(build), [build]);
-  const look = useMemo(() => lookOf(panel), [panel]);
+  const look = useMemo(() => {
+    const l = lookOf(panel);
+    if (!l || !aspect) return l;
+    return { ...l, height: Math.round(l.width / aspect), mm: { x: l.mm.x, y: l.mm.x / aspect } };
+  }, [panel, aspect]);
   const fx = useMemo(
     () => (panel && look ? panelFx(panel, look.width / panel.res[0], room) : null),
     [panel, look, room],

@@ -227,6 +227,12 @@ function deskScreen(
   return { centre, normal, up, w: len[wIdx], h: len[upIdx] };
 }
 
+/** The desk monitor's screen shape, width over height, for the OS page laid on it. */
+export function deskAspect(data: OfficeData): number | undefined {
+  const s = deskScreen(data);
+  return s ? s.w / s.h : undefined;
+}
+
 /** Where the camera leans in to the desk computer: its screen filling most of the view. */
 export function deskLean(data: OfficeData, aspect: number): Pose | null {
   const s = deskScreen(data);

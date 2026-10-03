@@ -374,11 +374,11 @@ The Office is a small loft in the workshop's building, and works as a 3D menu. I
 
 The Studio is a small commercial studio, walked in first person. At its editing desk the player makes a commercial for one of their laptops. Arriving from the map starts at the editing desk.
 
-- Each laptop can have one commercial, ever. In a campaign only released laptops can; in a sandbox, any laptop that works.
+- Each laptop can have one commercial, ever, filmed while it works and before it has sold a unit, released or not. Discarding a laptop deletes its commercial; archiving keeps it.
 - The script is typed line by line. The narrator reads each line and it shows as a caption.
 - The timeline runs along the script, word by word, in two tracks: camera angles and cards. Each is dragged onto its own track and its start and end trimmed to any word, so a card shows over whatever plays under it. The angles are keyboard, ports, screen, lid and turn; the cards are title, sales, stats and score. Where no angle is placed, the video shows slow b-roll pans of the laptop from showcase angles, the lid angle changing from pan to pan.
 - The video is 9:16, 1:1 or 16:9, narrated by any installed narrator or silent. A live estimate shows its length; 90 seconds is the limit.
-- Finish spins a wheel. Its wedges are sized by their odds: -50% 8%, -25% 12%, 0% 19%, +10% 20%, +25% 18%, +50% 11%, +100% 9%, +200% 3%, so +20% on average. In a campaign the result scales the laptop's demand in the next quarter to resolve, stock still capping its sales; until then the Desk shows it on that laptop. In a sandbox the wheel spins and changes nothing.
+- Finish spins a wheel. Its wedges are sized by their odds: -50% 8%, -25% 12%, 0% 19%, +10% 20%, +25% 18%, +50% 11%, +100% 9%, +200% 3%, so +20% on average. In a campaign the result scales the laptop's demand from its first quarter on sale, in full that quarter and fading over its second to fourth until it is gone from its fifth, stock still capping its sales; the Desk shows it on that laptop. In a sandbox the wheel spins and changes nothing.
 
 ## Videos
 

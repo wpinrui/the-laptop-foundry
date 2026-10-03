@@ -11,6 +11,7 @@ import { solve } from "../solve";
 import type { Build, Fit, PanelOption, Part, Side } from "../types";
 import { type Chart, chartsFor } from "./charts";
 import { CATEGORY_KEYS, CATEGORY_NAMES, prosAndCons, type Scores, scoresFromFacts } from "./score";
+import { hotSkin } from "./scales";
 
 export type * from "./charts";
 export type { CategoryScore, ProCon, Scores } from "./score";
@@ -875,7 +876,7 @@ export function reviewOf(s: Subject, content: Content = CONTENT): Review {
           `Surface temperatures top out at ${num(c.peakSkin)} °C. Inside, the processor reaches ${num(c.peakDie)} °C.`,
           `Our thermal camera finds a ${num(c.peakSkin)} °C hotspot, while the processor hits ${num(c.peakDie)} °C.`,
           `Under stress, the processor reaches ${num(c.peakDie)} °C and the case ${num(c.peakSkin)} °C.`,
-        ]) + (c.peakSkin > 48 ? " That is too hot to rest on a lap." : ""),
+        ]) + (c.peakSkin > hotSkin(f.subject.build.year, f.cls.performance === "gaming") ? " That is too hot to rest on a lap." : ""),
       ],
       tables: [
         compare("Noise and temperature", ["Idle*", "Load*", "Surface*"], f, peers, (x) =>

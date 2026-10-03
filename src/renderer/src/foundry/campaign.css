@@ -472,16 +472,22 @@
 
 .cr-life {
   margin-top: calc(-6 * var(--u));
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: calc(10 * var(--u));
+}
+
+.cr-life b {
   font-weight: 600;
   font-size: calc(16 * var(--u));
 }
 
-.cr-life.up {
+.cr-life b.up {
   color: var(--accent);
 }
 
-.cr-life.short {
+.cr-life b.short {
   color: var(--warning);
 }
 

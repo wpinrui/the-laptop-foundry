@@ -1685,12 +1685,12 @@ function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
 }
 
 /** One model of the line in the year. Always returns a build; `valid` says whether it solves clean. */
-export function generateModel(line: Line, year: number, rng: Rng): Generated {
+export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: number } = {}): Generated {
   const start = performance.now();
   const shape = shapeFor(line, year);
   const who = personaOf(line, shape, year);
   const vendors = shape.cpu.filter((v) => v !== "apple" || who.silicon);
-  const pos = rng();
+  const pos = opts.pos ?? rng();
   const ctx: Ctx = {
     line,
     year,

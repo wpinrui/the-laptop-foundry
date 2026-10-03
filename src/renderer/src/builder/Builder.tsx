@@ -47,6 +47,7 @@ import { DisplayMarks, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./Surfac
 import { PowerOn, StatStrip, statsOf } from "./Stats";
 import { SliderField } from "./ui";
 import { Dropdown } from "./Dropdown";
+import { Optimise } from "./Optimise";
 import { type ViewName, viewFor } from "./view";
 import type { WorkshopCanvas } from "./WorkshopPlace";
 import "./builder.css";
@@ -607,19 +608,22 @@ export function Builder({
       break;
     case "done":
       column = (
-        <PriceColumn
-          {...props}
-          valid={valid}
-          name={name}
-          company={company}
-          onName={setName}
-          onReroll={() => setName(reroll(build))}
-          onReview={review}
-          onDuplicate={() => {
-            pending.current?.();
-            onDuplicate();
-          }}
-        />
+        <>
+          {import.meta.env.DEV && <Optimise build={build} set={set} locked={locked} />}
+          <PriceColumn
+            {...props}
+            valid={valid}
+            name={name}
+            company={company}
+            onName={setName}
+            onReroll={() => setName(reroll(build))}
+            onReview={review}
+            onDuplicate={() => {
+              pending.current?.();
+              onDuplicate();
+            }}
+          />
+        </>
       );
       break;
   }

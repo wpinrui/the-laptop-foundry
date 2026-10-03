@@ -316,10 +316,19 @@ export const SCORE_STEEPNESS = 0.35;
 /**
  * How fast appeal falls once the price passes the segment's ceiling:
  * exp(-k x (price / ceiling - 1)). At 4, 25% over the ceiling keeps 37% of
- * the buyers and 50% over keeps 14%. Under the ceiling the market score's
- * price stat does the work.
+ * the buyers and 50% over keeps 14%, both against the appeal at the ceiling.
  */
 export const OVER_CEILING_STEEPNESS = 4;
+
+/**
+ * Below the ceiling appeal is full up to this share of it, then eases off
+ * toward the ceiling at UNDER_CEILING_STEEPNESS, so a price at the ceiling
+ * is no longer free.
+ */
+export const PRICE_KNEE = 0.6;
+
+/** How fast appeal eases from the knee to the ceiling: exp(-k x (price / ceiling - knee)). At 3 the ceiling keeps 30%. */
+export const UNDER_CEILING_STEEPNESS = 3;
 
 /**
  * The critics' pull: exp(k x (review - REVIEW_PAR) / REVIEW_SPAN). At 1 a

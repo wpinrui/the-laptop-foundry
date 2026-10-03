@@ -14,7 +14,28 @@ import { speak } from "./speech";
 // studio's screens and the render queue build on it.
 
 export type Commercial = SavedCommercial;
-export type SceneKind = "keyboard" | "ports" | "screen" | "lid" | "turn" | "title" | "sales" | "stats" | "score";
+export type SceneKind =
+  | "hero"
+  | "keyboard"
+  | "ports"
+  | "screen"
+  | "glance"
+  | "lid"
+  | "side"
+  | "top"
+  | "turn"
+  | "orbit"
+  | "push"
+  | "title"
+  | "sales"
+  | "stats"
+  | "score"
+  | "price"
+  | "spec"
+  | "quote"
+  | "chips"
+  | "launch"
+  | "logo";
 export interface Scene {
   kind: SceneKind;
   startWord: number;
@@ -40,8 +61,8 @@ export function setsOf(c: { set?: string; brollSet?: string; paper?: number }, i
 }
 
 /** The scene library, in order: the camera shots, then the cards. */
-export const SHOTS: SceneKind[] = ["keyboard", "ports", "screen", "lid", "turn"];
-export const CARDS: SceneKind[] = ["title", "sales", "stats", "score"];
+export const SHOTS: SceneKind[] = ["hero", "keyboard", "ports", "screen", "glance", "lid", "side", "top", "turn", "orbit", "push"];
+export const CARDS: SceneKind[] = ["title", "price", "spec", "stats", "chips", "sales", "score", "quote", "launch", "logo"];
 export const SCENE_KINDS: SceneKind[] = [...SHOTS, ...CARDS];
 
 /** The timeline's tracks: within one, scenes never overlap; across them, a card plays over an angle. */

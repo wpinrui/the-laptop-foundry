@@ -221,7 +221,7 @@ export function Timeline({ words, tracks, onTracks, selected, onSelect, current,
           <div>
           {SHOTS.map((k) => (
             <div key={k} className="st-tile" onPointerDown={(e) => tileDown(k, e)}>
-              <Icon d={ICON[k as keyof typeof ICON]} size={24} width={1.6} />
+              <Icon d={ICON[k as keyof typeof ICON]} size={18} width={1.7} />
               <span>{LABEL[k]}</span>
             </div>
           ))}
@@ -232,7 +232,7 @@ export function Timeline({ words, tracks, onTracks, selected, onSelect, current,
           <div>
           {CARDS.map((k) => (
             <div key={k} className="st-tile card" onPointerDown={(e) => tileDown(k, e)}>
-              <Icon d={ICON[k as keyof typeof ICON]} size={24} width={1.6} />
+              <Icon d={ICON[k as keyof typeof ICON]} size={18} width={1.7} />
               <span>{LABEL[k]}</span>
             </div>
           ))}
@@ -352,7 +352,7 @@ export function Timeline({ words, tracks, onTracks, selected, onSelect, current,
       )}
       {drag && (
         <div className={`st-tile ghost${IS_CARD.has(drag.kind) ? " card" : ""}`} style={{ left: drag.x, top: drag.y }}>
-          <Icon d={ICON[drag.kind as keyof typeof ICON]} size={24} width={1.6} />
+          <Icon d={ICON[drag.kind as keyof typeof ICON]} size={18} width={1.7} />
           <span>{LABEL[drag.kind]}</span>
         </div>
       )}

@@ -223,6 +223,30 @@ function shotView(shot: Shot, u: number, k: Dims, side: number): { pos: THREE.Ve
       const target = screen.clone().add(new THREE.Vector3(0, 0, -0.05 * k.d));
       return { target, pos: around(target, lerp(Math.PI - 0.7, Math.PI - 0.25, e), 0.3, full * 0.75) };
     }
+    case "hero": {
+      // A low three-quarter from the front right, easing in: the laptop at its most heroic.
+      const target = new THREE.Vector3(0, y0 + k.h + 0.3 * k.d, -0.15 * k.d);
+      return { target, pos: around(target, lerp(0.62, 0.46, e), lerp(0.08, 0.14, e), lerp(full * 1.05, full * 0.92, e)) };
+    }
+    case "glance": {
+      // The display close, from the side, raking across its face.
+      return { target: screen, pos: around(screen, side * lerp(0.85, 0.6, e), lerp(0.28, 0.34, e), lerp(0.95, 0.8, e) * k.w) };
+    }
+    case "side": {
+      // Level with the deck, side on: how thin it is.
+      const target = new THREE.Vector3(0, y0 + k.h + 0.15 * k.d, -0.1 * k.d);
+      return { target, pos: around(target, side * lerp(Math.PI / 2 - 0.12, Math.PI / 2 + 0.04, e), lerp(0.03, 0.07, e), lerp(full * 0.95, full * 0.82, e)) };
+    }
+    case "top": {
+      // High over the deck, drifting across it.
+      const target = new THREE.Vector3(0, y0 + k.h, -0.1 * k.d);
+      return { target, pos: around(target, lerp(-0.3, 0.3, u), 1.2, full * 0.85) };
+    }
+    case "push": {
+      // A low dolly straight in on the laptop.
+      const target = new THREE.Vector3(0, y0 + k.h + 0.25 * k.d, -0.15 * k.d);
+      return { target, pos: around(target, lerp(0.12, 0.04, e), lerp(0.05, 0.12, e), lerp(full * 1.15, full * 0.7, e)) };
+    }
     case "turn": {
       // A slow orbit from the front round to the right side, rising a little. It stops short of the
       // back: a dark lid from behind fills the frame with black.
@@ -365,9 +389,57 @@ function drawCaption(g: CanvasRenderingContext2D, f: Frame, c: Caption, local: n
   g.fillText(text, f.w / 2, y);
 }
 
+/** `text` broken into lines no wider than `max` in the current font, at most `most` of them. */
+function wrap(g: CanvasRenderingContext2D, text: string, max: number, most: number): string[] {
+  const out: string[] = [];
+  let cur = "";
+  for (const w of text.split(/\s+/).filter(Boolean)) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (cur && g.measureText(next).width > max) {
+      out.push(cur);
+      cur = w;
+    } else cur = next;
+  }
+  if (cur) out.push(cur);
+  if (out.length > most) {
+    out.length = most;
+    out[most - 1] = `${out[most - 1].replace(/[,.;:]?$/, "")}...`;
+  }
+  return out;
+}
+
+/** The end card: the brand over the whole frame, the shot dimmed behind it. */
+function drawLogo(g: CanvasRenderingContext2D, p: Program, local: number) {
+  const { w: fw, h: fh } = p.frame;
+  const f = p.facts;
+  const a = Math.min(1, local / 0.4);
+  const s = Math.min(fw, fh) / 1080;
+  const rise = (1 - ease(a)) * 30 * s;
+  g.save();
+  g.globalAlpha = a * 0.72;
+  g.fillStyle = "#0e0b09";
+  g.fillRect(0, 0, fw, fh);
+  g.globalAlpha = a;
+  g.textAlign = "center";
+  g.textBaseline = "alphabetic";
+  const cy = fh * 0.46 + rise;
+  g.fillStyle = ACCENT;
+  fitFont(g, f.subject.company.toUpperCase(), 700, 200 * s, DISPLAY, fw * 0.8);
+  g.fillText(f.subject.company.toUpperCase(), fw / 2, cy);
+  const rule = Math.min(fw * 0.5, 420 * s) * ease(a);
+  g.fillRect(fw / 2 - rule / 2, cy + 40 * s, rule, 8 * s);
+  g.fillStyle = INK;
+  fitFont(g, f.subject.name.toUpperCase(), 600, 90 * s, DISPLAY, fw * 0.8);
+  g.fillText(f.subject.name.toUpperCase(), fw / 2, cy + 150 * s);
+  g.font = `400 ${Math.round(44 * s)}px ${BODY}`;
+  g.fillText(p.kicker, fw / 2, cy + 230 * s);
+  g.restore();
+}
+
 /** A card, drawn in its own box `w` wide from the layout's corner, at its scale. */
 function drawCard(g: CanvasRenderingContext2D, p: Program, card: Card, local: number) {
   if (!card) return;
+  if (card === "logo") return drawLogo(g, p, local);
   const f = p.facts;
   const L = layoutOf(p.frame);
   const w = L.w / L.k;
@@ -430,6 +502,89 @@ function drawCard(g: CanvasRenderingContext2D, p: Program, card: Card, local: nu
       g.textAlign = "right";
       g.fillText(r.caption, w - 60, ry + 20);
     });
+  } else if (card === "price") {
+    const y = rise;
+    panel(g, 0, y, w, 400, a);
+    g.globalAlpha = a;
+    g.fillStyle = ACCENT;
+    fitFont(g, f.kind.toUpperCase(), 700, 44, DISPLAY, w - 120);
+    g.fillText(f.kind.toUpperCase(), 60, y + 100);
+    g.fillStyle = INK;
+    fitFont(g, p.kicker, 700, 210, DISPLAY, w - 120);
+    g.fillText(p.kicker, 56, y + 290);
+    g.font = `400 40px ${BODY}`;
+    g.fillText(`${f.subject.company} ${f.subject.name}`, 64, y + 350);
+  } else if (card === "spec") {
+    const top = f.stats[0];
+    if (top) {
+      const y = rise;
+      panel(g, 0, y, w, 400, a);
+      g.globalAlpha = a;
+      g.fillStyle = ACCENT;
+      g.font = `700 44px ${DISPLAY}`;
+      g.fillText(top.label.toUpperCase(), 60, y + 100);
+      g.fillStyle = INK;
+      fitFont(g, top.caption, 700, 240, DISPLAY, w - 120);
+      g.fillText(top.caption, 56, y + 320);
+    }
+  } else if (card === "chips") {
+    const rows = [
+      ["PROCESSOR", f.cpu],
+      ["GRAPHICS", f.gpu],
+    ].filter(([, v]) => !!v);
+    const y = rise;
+    panel(g, 0, y, w, 90 + rows.length * 190, a);
+    g.globalAlpha = a;
+    rows.forEach(([label, v], i) => {
+      const ry = y + 100 + i * 190;
+      g.fillStyle = ACCENT;
+      g.font = `700 40px ${DISPLAY}`;
+      g.fillText(label, 60, ry);
+      g.fillStyle = INK;
+      fitFont(g, v, 700, 96, DISPLAY, w - 120);
+      g.fillText(v, 56, ry + 100);
+    });
+  } else if (card === "quote") {
+    const said = f.pros[0] ?? f.kind;
+    const y = rise;
+    g.font = `600 64px ${BODY}`;
+    const lines = wrap(g, `${said.charAt(0).toUpperCase()}${said.slice(1)}.`.replace(/\.\.$/, "."), w - 120, 3);
+    const h = 170 + lines.length * 82 + (f.score !== null ? 110 : 0);
+    panel(g, 0, y, w, h, a);
+    g.globalAlpha = a;
+    g.fillStyle = ACCENT;
+    g.font = `700 180px ${DISPLAY}`;
+    g.fillText("“", 50, y + 170);
+    g.fillStyle = INK;
+    g.font = `600 64px ${BODY}`;
+    lines.forEach((l, i) => g.fillText(l, 60, y + 190 + i * 82));
+    if (f.score !== null) {
+      const t = `${f.score} / 100`;
+      g.font = `700 52px ${DISPLAY}`;
+      const tw = g.measureText(t).width + 60;
+      const py = y + 190 + lines.length * 82;
+      g.fillStyle = ACCENT;
+      g.beginPath();
+      g.roundRect(60, py - 10, tw, 76, 38);
+      g.fill();
+      g.fillStyle = "#14100d";
+      g.textBaseline = "middle";
+      g.fillText(t, 90, py + 30);
+    }
+  } else if (card === "launch") {
+    g.globalAlpha = a;
+    g.shadowColor = "rgba(0,0,0,0.7)";
+    g.shadowBlur = 28;
+    g.shadowOffsetY = 4;
+    const top = rise + 170;
+    g.fillStyle = ACCENT;
+    g.font = `700 230px ${DISPLAY}`;
+    g.fillText("NEW", -6, top);
+    g.fillStyle = INK;
+    fitFont(g, f.subject.name.toUpperCase(), 700, 110, DISPLAY, w);
+    g.fillText(f.subject.name.toUpperCase(), 0, top + 120);
+    g.font = `600 56px ${DISPLAY}`;
+    g.fillText(f.mine && f.units > 0 ? `OUT NOW, ${quarterCaption(f.quarter)}` : `OUT NOW, ${f.quarter.year}`, 0, top + 200);
   } else if (card === "score") {
     const cx = w / 2;
     const cy = 290 + rise;

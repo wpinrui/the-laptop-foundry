@@ -21,6 +21,7 @@ import {
 import type { Preset } from "../engine/bench";
 import { balancedProfile } from "../engine/sim/profiles";
 import { BOOT_MS, paintAsh } from "../os/art";
+import { sfx } from "../audio/sfx";
 import { paintRally, paintTiles } from "../os/games";
 import { paceOf, setPace } from "../os/pace";
 import {
@@ -425,6 +426,7 @@ export function useLaptopOs({
     if (pct >= LOW_PCT) warned.current = false;
     else if (!plugged && !warned.current && phase === "on") {
       warned.current = true;
+      sfx("ui_notification", { volume: 0.7 });
       setToast(true);
     }
   }, [pct, plugged, battery, phase]);

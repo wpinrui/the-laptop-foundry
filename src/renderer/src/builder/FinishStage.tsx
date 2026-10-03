@@ -1,5 +1,6 @@
 import { available, type Build, CONTENT, colourHex, type Fit, type PadFinish, type Piece, padSurface, pieceOf } from "../engine";
 import { useState } from "react";
+import { sfx } from "../audio/sfx";
 import { pickWallpaper, useWallpaper } from "../os/wallpapers";
 import { token } from "../viewer/theme";
 import { ColourPicker } from "./ColourPicker";
@@ -188,6 +189,7 @@ function WallpaperField({ build, set, locked }: Pick<StageProps, "build" | "set"
             const got = await pickWallpaper(build.year).finally(() => setBusy(false));
             if (!got) return;
             if ("error" in got) {
+              sfx("ui_error", { volume: 0.7 });
               setNote(got.error);
               return;
             }

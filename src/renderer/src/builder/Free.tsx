@@ -22,6 +22,7 @@ import type { Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
 import { SoundColumn } from "../foundry/Volume";
+import { usePanelSound } from "../audio/sfx";
 import { PLINTH_H } from "../foundry/Stage";
 import { BottomCover, Model } from "../viewer/Scene";
 import type { AimShelf } from "./Archive";
@@ -798,6 +799,7 @@ export function FreeOverlay({
   }, [held, lock, unlock, state.paused, state.using, state.full]);
 
   const [soundMenu, setSoundMenu] = useState(false);
+  usePanelSound(state.paused);
   useEffect(() => {
     if (!state.paused) setSoundMenu(false);
   }, [state.paused]);

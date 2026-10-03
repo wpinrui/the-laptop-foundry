@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { Settings } from "../../../preload/store";
 import { setVolumes, useVolumes } from "../audio/engine";
+import { usePanelSound } from "../audio/sfx";
 import { Entry } from "./Menus";
 import { VOLUMES, VolumeEntry } from "./Volume";
 import "./foundry.css";
@@ -54,6 +55,7 @@ export function SystemMenu({
   const root = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState(0);
   const [sounds, setSounds] = useState(false);
+  usePanelSound();
   const volumes = useVolumes();
   const view = (open: boolean) => {
     setSounds(open);

@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
+import { sfx } from "../audio/sfx";
 import { full } from "../ui/number";
 import { Tooltip } from "../ui/Tooltip";
 
@@ -72,7 +73,10 @@ export function Slider({
         value={value}
         aria-label={label}
         disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => {
+          sfx("builder_slider_tick", { volume: 0.35, gap: 45 });
+          onChange(Number(e.target.value));
+        }}
       />
       {mark !== undefined && <i className="bd-tick" style={{ left: `${at(mark) * 100}%` }} />}
     </div>

@@ -12,7 +12,7 @@ import {
   trackpadOf,
 } from "../market/stats";
 import type { Facts } from "./index";
-import { type CategoryKey, placeOn, SCALES, scoreOn } from "./scales";
+import { type CategoryKey, GAMING_HEAT, placeOn, SCALES, scoreOn } from "./scales";
 import { weightsFor } from "./weights";
 
 // The review score (GDD, Version 0.2, "Review score"): the critics' score.
@@ -91,12 +91,15 @@ export function scoresFromFacts(f: Facts, content: Content = CONTENT): Scores {
   const year = f.subject.build.year;
   const values = categoryValues(f, content);
   const weights = weightsFor(f.cls);
+  // A gaming case is judged against a hotter bar.
+  const judged = (key: CategoryKey) =>
+    key === "temperature" && f.cls.performance === "gaming" ? values[key] - GAMING_HEAT : values[key];
   const categories = CATEGORY_KEYS.map((key) => ({
     key,
     name: CATEGORY_NAMES[key],
-    score: round1(scoreOn(values[key], SCALES[key], year)),
+    score: round1(scoreOn(judged(key), SCALES[key], year)),
     value: values[key],
-    place: placeOn(values[key], SCALES[key], year),
+    place: placeOn(judged(key), SCALES[key], year),
     weight: weights[key],
   }));
   const overall = round1(categories.reduce((s, c) => s + c.score * c.weight, 0));

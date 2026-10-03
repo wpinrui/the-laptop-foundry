@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { type Build, costOf, type Fit, type Measurements, results, weightOf } from "../engine";
+import { type Build, classify, costOf, type Fit, type Measurements, results, weightOf } from "../engine";
+import { hotSkin } from "../engine/review/scales";
 import { Label } from "./ui";
 
 // Raw measurements only: weight, thickness, battery, a benchmark figure,
@@ -55,7 +56,7 @@ export function statsOf(build: Build, fit: Fit, m: Measurements | null): Stat[] 
     },
     { key: "cpu", label: "CPU temp", value: cpuDie === null ? "—" : String(Math.round(cpuDie)), unit: "°C", warn: !!cut?.cpu },
     ...(gpuDie === null ? [] : [{ key: "gpu" as const, label: "GPU temp", value: String(Math.round(gpuDie)), unit: "°C", warn: !!cut?.gpu }]),
-    { key: "skin", label: "Surface temp", value: skin === null ? "—" : String(Math.round(skin)), unit: "°C", warn: skin !== null && skin >= 45 },
+    { key: "skin", label: "Surface temp", value: skin === null ? "—" : String(Math.round(skin)), unit: "°C", warn: skin !== null && kg !== null && skin >= hotSkin(build.year, classify(build, fit, m, kg).performance === "gaming") },
     { key: "noise", label: "Fan noise", value: noise === null ? "—" : String(Math.round(noise)), unit: "dB", warn: noise !== null && noise >= 45 },
     price,
   ];

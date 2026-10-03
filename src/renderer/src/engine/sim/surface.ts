@@ -73,7 +73,7 @@ const DEPTH = 400;
 /** Extra cooling of the case over a fan at full speed, per face: the intake side most. */
 const WASH = { top: 10, bottom: 40 };
 /** Lateral spreading length, cells: a floor for every shell plus a term for conductive, thicker ones. */
-const SPREAD_LEN = { floor: 4.4, metal: 4 };
+const SPREAD_LEN = { floor: 7.5, metal: 4 };
 /** The spreader over each chip, mm: a heat-pipe block, or a fanless build's plate. */
 const PLATE = { x: 120, y: 90 };
 const SWEEPS = 160;

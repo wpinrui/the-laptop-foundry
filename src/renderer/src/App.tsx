@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel, SavedNote, SavedPlace } from "../../preload/store";
 import { initVolumes, setVolumes, useVolumes } from "./audio/engine";
+import { setAmbience } from "./audio/scene";
 import { sfx, useUiSounds } from "./audio/sfx";
 import { campaignSaved, queueCampaignSave } from "./app/campaignSaves";
 import { randomName } from "./app/names";
@@ -359,6 +360,11 @@ export function App() {
     void store().savePlace(company.id, p);
   }, [company?.id, where, open]);
 
+  // The place the player hears: the map while it is open, else the place itself; none in the menus.
+  const heard = !company ? null : where.at === "map" ? "map" : here.at;
+  useEffect(() => {
+    setAmbience(heard);
+  }, [heard]);
   if (!companies) return null;
 
   // The 3D place on screen, as the view below picks it; a new key is a fresh arrival. Null for 2D screens.

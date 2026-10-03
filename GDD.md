@@ -367,7 +367,7 @@ The Office is a small loft in the workshop's building, and works as a 3D menu. I
 - Product wall: a showcase of the company's laptops on shelves, newest first, in as many bays as they fill. A laptop in stock has its screen lit, a sold out one is dark with its lid half shut, and a draft stands as it was built. Its panel shows the picked laptop and the list at a glance; decisions are made at the Desk.
 - Trophy cabinet: a cup, obelisk or plaque per award won, and the panel's awards and reviews. TV: the company's finished videos, shorts and commercials, newest first, picked and watched on its screen with its sound, or full screen.
 - Door: E leaves to the map. Arriving from the map starts in free roam beside the Desk.
-- M walks the room in first person, with WASD and the mouse, the panels hidden; M again returns to the nearest station. Aiming at a laptop on the product wall that works, E uses it as in the Cafe: its own OS on its screen, F full screen and E stops using. Aiming at the door, E leaves. The desk's monitor is scenery.
+- Free roam walks the room in first person, with WASD and the mouse, the panels hidden, and the scroll wheel zooms. Aiming at a station's part of the room, E opens it. Aiming at a laptop on the product wall that works, E uses it as in the Cafe: its own OS on its screen, F full screen and E stops using. Aiming at the door, E leaves. The desk's monitor is scenery.
 - A sandbox company's office has no Finance, Market intel or Marketing in the ring and no End quarter.
 
 ## The studio

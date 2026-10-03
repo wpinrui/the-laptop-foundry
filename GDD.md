@@ -346,7 +346,7 @@ The player is always on the world map or in one of five places: the Workshop, th
 - Travelling to a place shows Going to it until the place has loaded. Closing a review or a video, Stay, and going between the workshop and the builder are no travel and show nothing.
 - The Office is where the player runs the company: see The office.
 - The Studio is where a laptop's commercial is made: see The studio. It is shut while no laptop can have one.
-- Courts is the store, walked in first person. Its display tables hold what is on sale: in a campaign the last played quarter's shelf, rivals and the player's released models; in a sandbox the generated market of the year.
+- Courts is the store, walked in first person. Its display tables hold what is on sale: in a campaign the last played quarter's shelf: rivals, and the player's released models once the company won at least 1% of all laptop units sold that quarter; in a sandbox the generated market of the year.
 - Courts is laid out by department: MacBook, Gaming, Budget, Creator, Business, Thin and Light, and Everyday, each a laptop's first match in that order. Each department has its own colour and an overhead sign, its tables sorted by price. The player's own laptops are on a table by the door.
 - Each table's sign shows its department, its price range and its makers.
 - Each price tag carries the price and the specs. Courts shows no review scores.
@@ -493,7 +493,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 #### Marketing and brand
 
 - Reach, the share of a segment that knows the company, and perception, its opinion of the company, are tracked per segment, ported from Laptop Tycoon.
-- A new company starts at 2% reach and neutral perception everywhere. Reach never falls below 1%.
+- A new company starts at 0% reach and neutral perception everywhere, so it sells nothing until it markets. Reach a campaign doesn't hold decays, but never below half the highest reach the company has held in that segment.
 - Five paid campaign tiers run per segment per quarter, from grassroots at $2,000 to cultural omnipresence at $3,000,000, in 2000 dollars, rising 3% a year. Each grows reach toward a ceiling and spills some of its new buyers to neighbouring segments. Reach a campaign doesn't hold decays back down every quarter.
 - Perception moves with buyers' experience of value, market score and review score against par, smoothed a quarter at a time. A bad experience weighs 1.5 times a good one.
 
@@ -531,7 +531,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 - Quarter: the company's units, revenue, profit, share and rank against the market; every maker's share and movement; the quarter's launches with review scores; the best sellers, with the player's own ranks, and the year's awards in a Q4.
 - Rivals: for a player model, the five rivals it competes with most (buyer overlap times price closeness) by units won, and a stat matrix of indices on the market's par with buyer weights and a market score.
 - Buyers: every segment's buyers, wants, the share the company won, units per player model, and the brand's reach and reputation.
-- Store: the laptop's OS with Courts open, the same retailer site every laptop's OS carries, in its era's look, with class matrix filters, best seller ranks, real stock and similar laptops from the Rivals overlap.
+- Store: the laptop's OS with Courts open, the same retailer site every laptop's OS carries, listing the player's models on the same 1% rule as the store, in its era's look, with class matrix filters, best seller ranks, real stock and similar laptops from the Rivals overlap.
 
 ## Stretch goals
 

@@ -15,9 +15,9 @@ import { lookFor } from "./sets";
 // from there, so nothing waits on a render.
 
 /** Bumped when the short changes, so a short kept on disk from before is made again. */
-const SHORT_VERSION = 4;
+const SHORT_VERSION = 5;
 /** Bumped when the commercial's render changes. */
-const AD_VERSION = 1;
+const AD_VERSION = 2;
 
 export const shortFile = (q: Quarter) => `${q.year}q${q.quarter}-v${SHORT_VERSION}`;
 export const adFile = (id: string) => `ad-${id}-v${AD_VERSION}`;

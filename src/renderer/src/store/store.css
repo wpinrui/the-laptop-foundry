@@ -80,6 +80,10 @@
   height: 100%;
 }
 
+img.ct-art {
+  object-fit: contain;
+}
+
 .ct-lid {
   fill: var(--slot-metal);
 }

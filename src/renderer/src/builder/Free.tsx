@@ -715,7 +715,7 @@ export function FreeOverlay({
    * The workshop's model keys: on the empty turntable a new laptop or one put
    * there from the list; the turntable's laptop into the builder or copied.
    */
-  models?: { make?: () => void; put?: () => void; edit?: () => void; copy?: () => void };
+  models?: { make?: () => void; put?: () => void; edit?: () => void; copy?: () => void; discard?: (id?: string) => void };
   /** The laptops the prompts are about, named over them: a shelved one by id, and the turntable's. */
   named?: { shelf: (id: string) => PromptTitle | undefined; table?: PromptTitle };
   /** A card is up over the scene: the pointer is free and the keys are the card's. */
@@ -829,6 +829,10 @@ export function FreeOverlay({
       if (s.shelf && shelves && !s.using) {
         if (e.code === "KeyE") shelves.take(s.shelf);
         else if (e.code === "KeyN") shelves.more?.();
+        else if (e.code === "KeyX" && made?.discard) {
+          unlock();
+          made.discard(s.shelf);
+        }
         return;
       }
       if (s.table && !s.using) {
@@ -848,6 +852,9 @@ export function FreeOverlay({
       else if (e.code === "KeyC" && made?.copy) {
         e.preventDefault();
         made.copy();
+      } else if (e.code === "KeyX" && made?.discard) {
+        unlock();
+        made.discard();
       }
       else if (e.code === "KeyE" && !s.flipped && s.lidOpen && runs) {
         unlock();
@@ -874,6 +881,7 @@ export function FreeOverlay({
     title = named?.shelf(state.shelf);
     prompts.push({ key: "E", label: "Work on laptop build" });
     if (archive.more) prompts.push({ key: "N", label: "Next shelf" });
+    if (models?.discard) prompts.push({ key: "X", label: "Discard" });
   } else if (active && state.table) {
     if (models?.make) prompts.push({ key: "E", label: "New laptop" });
     if (models?.put) prompts.push({ key: "Q", label: "Put laptop" });
@@ -890,6 +898,7 @@ export function FreeOverlay({
     if (archive?.putAway) prompts.push({ key: "P", label: "Put away" });
     if (models?.edit) prompts.push({ key: "B", label: "Build" });
     if (models?.copy) prompts.push({ key: "C", label: "Duplicate" });
+    if (models?.discard) prompts.push({ key: "X", label: "Discard" });
   }
 
   return (

@@ -381,6 +381,21 @@ export function App() {
     nameCopy(src.build as Build);
     return src;
   };
+  // Deleting a model, from the office or the workshop: its line ends and its stock is written off.
+  const removeModel = (id: string) => {
+    if (!company) return;
+    void store()
+      .deleteModel(company.id, id)
+      .then((c) => {
+        refresh(c);
+        setOfficeAt((a) => ({ ...a, model: null }));
+        commit((s) => {
+          if (!s.releases[id]) return null;
+          const { [id]: _, ...releases } = s.releases;
+          return { ...s, releases };
+        });
+      });
+  };
   const newModel = () => setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
   // From the Office or the store a new model, or a copy, goes to the workshop, the travel card up until the room is in.
   const toWorkshop = (m: SavedModel | null, office = true) => {
@@ -505,6 +520,7 @@ export function App() {
           onLeaveBuild={() => setOpen(null)}
           onNew={campaign?.over ? undefined : newModel}
           onDuplicate={campaign?.over ? undefined : duplicate}
+          onDelete={removeModel}
           sound={settings.sound}
           onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
           builder={(canvas, exit) =>
@@ -552,19 +568,7 @@ export function App() {
         const src = duplicate(id);
         if (src) toWorkshop(src);
       },
-      onDelete: (id) =>
-        store()
-          .deleteModel(company.id, id)
-          .then((c) => {
-            refresh(c);
-            setOfficeAt((a) => ({ ...a, model: null }));
-            // A deleted model's line ends and its stock is written off.
-            commit((s) => {
-              if (!s.releases[id]) return null;
-              const { [id]: _, ...releases } = s.releases;
-              return { ...s, releases };
-            });
-          }),
+      onDelete: removeModel,
       units: (id) => runs[id] || DEFAULT_RUN,
       onUnits: (id, u) => setRuns((r) => ({ ...r, [id]: u })),
       onPrice: (id, p) => commit((s) => setPrice(s, id, p)),

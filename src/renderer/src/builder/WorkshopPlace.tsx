@@ -13,6 +13,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
+import { ConfirmDelete } from "../foundry/Menus";
 import type { SavedModel } from "../../../preload/store";
 import { type Build, colourHex, decorOf, migrateBody, migrateColours, migrateScreen, type Subject, solve } from "../engine";
 import { yearOf } from "../foundry/LaptopList";
@@ -268,6 +269,7 @@ export function WorkshopPlace({
   onLeaveBuild,
   onNew,
   onDuplicate,
+  onDelete,
 }: {
   /** The laptop on the turntable, or none. */
   model: SavedModel | null;
@@ -297,11 +299,14 @@ export function WorkshopPlace({
   onNew?: () => void;
   /** A copy of the turntable's laptop; absent when no more can be made. */
   onDuplicate?: (id: string) => void;
+  /** Deletes a laptop, once confirmed: off its shelf or the turntable. */
+  onDelete?: (id: string) => void;
 }) {
   const [free, setFree] = useState<FreeState | null>(() => freeStart(!!model));
   const state = free ?? freeStart(false);
   const [picking, setPicking] = useState(false);
-  const hold = held || picking;
+  const [doomed, setDoomed] = useState<SavedModel | null>(null);
+  const hold = held || picking || !!doomed;
   // Behind a card the scene stands still, as behind the pause menu.
   const shown = hold ? { ...state, paused: true } : state;
   const portal = useRef<HTMLDivElement | null>(null);
@@ -361,6 +366,7 @@ export function WorkshopPlace({
     put: model || models.length === 0 ? undefined : () => setPicking(true),
     edit: model ? () => onBuild(model) : undefined,
     copy: model && onDuplicate ? () => onDuplicate(model.id) : undefined,
+    discard: onDelete ? (id?: string) => setDoomed((id ? models.find((m) => m.id === id) : model) ?? null) : undefined,
   };
   const named = {
     shelf: (id: string) => {
@@ -446,6 +452,18 @@ export function WorkshopPlace({
         />
       )}
       {building && model && builder(canvas, exit)}
+      {roaming && doomed && (
+        <ConfirmDelete
+          name={doomed.name}
+          onCancel={() => setDoomed(null)}
+          onConfirm={() => {
+            const id = doomed.id;
+            setDoomed(null);
+            if (id === model?.id) putAway();
+            onDelete?.(id);
+          }}
+        />
+      )}
       {roaming && picking && (
         <PutPicker
           models={models}

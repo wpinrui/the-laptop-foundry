@@ -218,8 +218,6 @@
   --accent-wash: rgba(232, 137, 74, 0.12);
   --warning: oklch(0.82 0.14 85);
   --danger: oklch(0.6 0.2 27);
-  /* A figure that beats the player's, as in the builder's rival table. */
-  --better: oklch(0.74 0.15 150);
   --line: rgba(239, 230, 220, 0.14);
   --line-strong: rgba(239, 230, 220, 0.3);
   --font-display: "Barlow Condensed", system-ui, sans-serif;

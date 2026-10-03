@@ -291,13 +291,17 @@ function Rig({ data, goal, active, onArrive, onAim, at }: {
     return b;
   }, [data]);
 
+  // Placed once, on arrival: at the editing desk, in its view.
   // biome-ignore lint/correctness/useExhaustiveDependencies: placed once, on arrival
   useLayoutEffect(() => {
-    camera.position.copy(data.arrival.pos);
-    camera.quaternion.copy(data.arrival.quat);
-    const e = new THREE.Euler().setFromQuaternion(data.arrival.quat, "YXZ");
-    walk.current.yaw = e.y;
-    walk.current.pitch = 0;
+    const w = walk.current;
+    w.pos.copy(data.desk.pos).setY(EYE);
+    collideIn(w.pos, data.room, data.colliders, BODY);
+    const e = new THREE.Euler().setFromQuaternion(data.desk.quat, "YXZ");
+    w.yaw = e.y;
+    w.pitch = e.x;
+    camera.position.copy(w.pos);
+    camera.rotation.set(w.pitch, w.yaw, 0, "YXZ");
   }, []);
 
   const first = useRef(true);

@@ -341,7 +341,7 @@ export function registerFox(
   });
 
   // Escape leaves a site's full screen and goes no further. Otherwise, inside
-  // a site it still reaches the game, which pauses on it.
+  // a site it hands the keys back to the game, which steps back on the next one.
   wc.on("before-input-event", (e, input) => {
     if (input.type !== "keyDown" || input.key !== "Escape") return;
     if (full.size) {

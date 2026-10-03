@@ -33,7 +33,7 @@ export interface OfficeAt {
   station: StationId;
   /** The laptop picked at the Desk and on the product wall; the newest when null. */
   model: string | null;
-  /** Just in from the map: start at the door and walk to the desk. */
+  /** Just in from the map: start in free roam beside the Desk. */
   arrive: boolean;
 }
 

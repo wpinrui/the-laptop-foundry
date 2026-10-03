@@ -284,11 +284,16 @@ export function StoreWorld({
     const key = (e: KeyboardEvent) => {
       const s = state.current;
       if (s.away) return;
+      // Escape steps back to walking: out of full screen, then off the laptop and the table. Walking, it pauses.
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
-        } else if (s.inspect !== null && !s.full && !s.using) s.close();
-        else {
+        } else if (typing(e)) blurField();
+        else if (s.full) setFull(false);
+        else if (s.inspect !== null) {
+          blurField();
+          s.close();
+        } else {
           unlock();
           pause();
         }

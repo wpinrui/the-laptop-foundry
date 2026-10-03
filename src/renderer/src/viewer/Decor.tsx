@@ -326,7 +326,7 @@ function drawFace(
   }
 }
 
-function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
+function FaceMarks({ face, marks, texWidth = 2048 }: { face: Face; marks: Mark[]; texWidth?: number }) {
   const key = JSON.stringify(marks);
   // A pixel a millimetre is too much for every step of a size drag: the last
   // mask stretches over the face until the size holds still.
@@ -378,7 +378,7 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
     };
   }, [loaded]);
   const made = useMemo(() => {
-    const S = Math.min(8, 2048 / Math.max(face.w, face.h));
+    const S = Math.min(8, texWidth / Math.max(face.w, face.h));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(16, Math.round(face.w * S));
     canvas.height = Math.max(16, Math.round(face.h * S));
@@ -392,7 +392,7 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
     redraw();
     return { tex, redraw };
     // biome-ignore lint/correctness/useExhaustiveDependencies: redrawn when the marks' content changes
-  }, [loaded, face.w, face.h, mask]);
+  }, [loaded, face.w, face.h, mask, texWidth]);
   // Picture loads and fonts redraw the canvas on show, hooked up once it is committed:
   // a memo can run more than once for one render (Strict Mode runs each twice
   // and keeps one), so one set there could point at a discarded canvas, and
@@ -440,7 +440,7 @@ function useFaceShape(fit: Fit): Pick<Fit, "shell"> {
 }
 
 /** Marks on the base's faces (palm rest and bottom), in the base's engine space. */
-export function BaseMarks({ fit, marks }: { fit: Fit; marks: Mark[] | undefined }) {
+export function BaseMarks({ fit, marks, texWidth }: { fit: Fit; marks: Mark[] | undefined; texWidth?: number }) {
   const palm = (marks ?? []).filter((m) => m.surface === "palm");
   const bottom = (marks ?? []).filter((m) => m.surface === "bottom");
   const shape = useFaceShape(fit);
@@ -448,14 +448,14 @@ export function BaseMarks({ fit, marks }: { fit: Fit; marks: Mark[] | undefined 
   const bottomFace = useMemo(() => faceOf(shape, "bottom"), [shape]);
   return (
     <>
-      {palm.length > 0 && <FaceMarks face={palmFace} marks={palm} />}
-      {bottom.length > 0 && <FaceMarks face={bottomFace} marks={bottom} />}
+      {palm.length > 0 && <FaceMarks face={palmFace} marks={palm} texWidth={texWidth} />}
+      {bottom.length > 0 && <FaceMarks face={bottomFace} marks={bottom} texWidth={texWidth} />}
     </>
   );
 }
 
 /** Marks on the lid's back and bezel, in the closed lid's engine space. The bezel colour is the lid front the Model draws. */
-export function LidDecor({ fit, marks }: { fit: Fit; marks: Mark[] | undefined }) {
+export function LidDecor({ fit, marks, texWidth }: { fit: Fit; marks: Mark[] | undefined; texWidth?: number }) {
   const lid = (marks ?? []).filter((m) => m.surface === "lid");
   const onBezel = (marks ?? []).filter((m) => m.surface === "bezel");
   const shape = useFaceShape(fit);
@@ -463,8 +463,8 @@ export function LidDecor({ fit, marks }: { fit: Fit; marks: Mark[] | undefined }
   const bezelFace = useMemo(() => faceOf(shape, "bezel"), [shape]);
   return (
     <>
-      {lid.length > 0 && <FaceMarks face={lidFace} marks={lid} />}
-      {onBezel.length > 0 && <FaceMarks face={bezelFace} marks={onBezel} />}
+      {lid.length > 0 && <FaceMarks face={lidFace} marks={lid} texWidth={texWidth} />}
+      {onBezel.length > 0 && <FaceMarks face={bezelFace} marks={onBezel} texWidth={texWidth} />}
     </>
   );
 }

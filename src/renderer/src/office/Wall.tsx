@@ -1,11 +1,11 @@
 import { useFrame } from "@react-three/fiber";
 import { memo, type RefObject, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { SavedModel } from "../../../preload/store";
 import { type Build, colourHex, decorOf, solve } from "../engine";
 import type { Award as Won } from "../engine/campaign";
 import { Model, surfacesOf } from "../viewer/Scene";
+import { bakeLaptop, freeze, SHELF_TEX, type Shelf, useShelf } from "../viewer/shelf";
 import { token } from "../viewer/theme";
 import type { Status } from "./Panels";
 import type { Award, OfficeData } from "./Room";
@@ -21,67 +21,6 @@ const noHover = () => {};
 const PULL = 70;
 /** Frames a laptop is left to settle before it is baked. */
 export const SETTLE = 6;
-
-/**
- * Merges a settled laptop's plain meshes into one mesh per material, under
- * `into`, and hides the originals: a laptop is hundreds of small parts, and
- * thirty of them on the wall would be thousands of draw calls. Returns the
- * undo.
- */
-function bake(root: THREE.Object3D, into: THREE.Group): () => void {
-  root.updateWorldMatrix(true, true);
-  const inv = new THREE.Matrix4().copy(into.matrixWorld).invert();
-  const byMat = new Map<THREE.Material, THREE.BufferGeometry[]>();
-  const hidden: THREE.Object3D[] = [];
-  root.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh || !m.visible || (m as THREE.InstancedMesh).isInstancedMesh) return;
-    if (Array.isArray(m.material)) return;
-    const mat = m.material;
-    if (mat.transparent || (mat as THREE.ShaderMaterial).isShaderMaterial) return;
-    const g0 = m.geometry;
-    if (!g0.attributes.position) return;
-    let g = g0.index ? g0.toNonIndexed() : g0.clone();
-    for (const k of Object.keys(g.attributes)) if (!["position", "normal", "uv"].includes(k)) g.deleteAttribute(k);
-    if (!g.attributes.normal) g.computeVertexNormals();
-    g.morphAttributes = {};
-    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld));
-    if (m.matrixWorld.determinant() < 0) {
-      // A mirrored part: flip its winding so it still faces out.
-      const pos = g.attributes.position.array as Float32Array;
-      for (let i = 0; i < pos.length; i += 9)
-        for (let j = 0; j < 3; j++) [pos[i + 3 + j], pos[i + 6 + j]] = [pos[i + 6 + j], pos[i + 3 + j]];
-      g = g.clone();
-    }
-    const list = byMat.get(mat) ?? [];
-    list.push(g);
-    byMat.set(mat, list);
-    hidden.push(m);
-  });
-  const made: THREE.Mesh[] = [];
-  for (const [mat, gs] of byMat) {
-    // Only what every part has can be merged: drop uv where one lacks it.
-    if (gs.some((g) => !g.attributes.uv)) for (const g of gs) g.deleteAttribute("uv");
-    const merged = mergeGeometries(gs, false);
-    for (const g of gs) g.dispose();
-    if (!merged) continue;
-    const mesh = new THREE.Mesh(merged, mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.matrixAutoUpdate = false;
-    into.add(mesh);
-    made.push(mesh);
-  }
-  const bakedFrom = hidden.filter((m) => made.some((x) => x.material === (m as THREE.Mesh).material));
-  for (const m of bakedFrom) m.visible = false;
-  return () => {
-    for (const m of made) {
-      m.removeFromParent();
-      m.geometry.dispose();
-    }
-    for (const m of bakedFrom) m.visible = true;
-  };
-}
 
 export interface WallItem {
   model: SavedModel;
@@ -111,11 +50,13 @@ function useLit(): THREE.Texture {
 }
 
 const Laptop = memo(function Laptop({
+  shelf,
   model,
   status,
   lit,
   foam,
 }: {
+  shelf: Shelf;
   model: SavedModel;
   status: Status;
   lit: THREE.Texture;
@@ -144,30 +85,22 @@ const Laptop = memo(function Laptop({
   const frames = useRef(0);
   useEffect(() => {
     frames.current = 0;
+    if (group.current) freeze(group.current, false);
   }, [foamed, look]);
-  const baked = useRef<THREE.Group>(null);
-  const undo = useRef<(() => void) | null>(null);
-  useEffect(
-    () => () => {
-      undo.current?.();
-      undo.current = null;
-    },
-    [],
-  );
   useFrame(() => {
     if (frames.current > SETTLE) return;
     frames.current++;
-    group.current?.traverse((o) => {
-      // A screen's glow light on every laptop would weigh on every material in the room.
-      if ((o as THREE.Light).isLight) o.visible = false;
-      const m = o as THREE.Mesh;
-      if (!m.isMesh) return;
-      m.castShadow = true;
-      if (foamed && m.material !== foam) m.material = foam;
-    });
-    if (frames.current === SETTLE && group.current && baked.current) {
-      undo.current?.();
-      undo.current = bake(group.current, baked.current);
+    const g = group.current;
+    if (!g) return;
+    if (foamed)
+      g.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh && m.material !== foam) m.material = foam;
+      });
+    if (frames.current === SETTLE) {
+      // The wall draws the laptop from here on; the model stays, hidden and still, as the owner of its marks.
+      shelf.set(model.id, bakeLaptop(g, shelf.root));
+      freeze(g);
     }
   });
   if (!look) return null;
@@ -175,9 +108,8 @@ const Laptop = memo(function Laptop({
   const out = look.fit.shell.outer;
   const k = Math.min(1, 380 / out.x, 270 / out.y);
   return (
-    <>
-    <group ref={baked} />
-    <group ref={group} scale={k}>
+    // Never drawn: the source of the wall's baked meshes.
+    <group ref={group} scale={k} visible={false}>
       <Model
         fit={look.fit}
         year={build.year}
@@ -190,9 +122,10 @@ const Laptop = memo(function Laptop({
         labelFor={noLabel}
         onHover={noHover}
         lockScreen={status === "stock" ? lit : undefined}
+        unlit
+        texWidth={SHELF_TEX}
       />
     </group>
-    </>
   );
 });
 
@@ -211,12 +144,14 @@ export function Wall({
   boxes: RefObject<{ id: string; box: THREE.Box3 }[]>;
 }) {
   const lit = useLit();
+  // Both sides: the shell's faces are drawn from either side, and one-sided foam left the bezel see-through.
   const foam = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: token("office-foam"), roughness: 0.95, metalness: 0 }),
+    () => new THREE.MeshStandardMaterial({ color: token("office-foam"), roughness: 0.95, metalness: 0, side: THREE.DoubleSide }),
     [],
   );
   useEffect(() => () => foam.dispose(), [foam]);
-  const shown = items.slice(0, data.slots.length);
+  const shelf = useShelf(true);
+  const shown = useMemo(() => items.slice(0, data.slots.length), [items, data]);
   // The pointer picks laptops by their slot's box.
   useEffect(() => {
     boxes.current = shown.map((it, i) => {
@@ -226,21 +161,31 @@ export function Wall({
       return { id: it.model.id, box };
     });
   }, [shown, data, boxes]);
+  // A laptop gone from the wall goes from the shelf; one rebaking keeps its old look until the new one lands.
+  useEffect(() => shelf.keep(new Set(shown.map((it) => it.model.id))), [shelf, shown]);
+  // The picked laptop slides out of its slot toward the room; the one in use is drawn whole elsewhere.
+  useEffect(() => {
+    shown.forEach((it, i) => {
+      const id = it.model.id;
+      const pull = new THREE.Vector3(0, 12, PULL).applyQuaternion(data.slots[i].quat);
+      shelf.place(id, id === hidden ? null : id === picked ? pull : undefined);
+    });
+  }, [shelf, shown, data, picked, hidden]);
   return (
     <>
+      <primitive object={shelf.root} />
       {shown.map((it, i) => {
         const s = data.slots[i];
         return (
-          <group key={it.model.id} position={s.pos} quaternion={s.quat} visible={it.model.id !== hidden}>
-            <group position={it.model.id === picked ? [0, 12, PULL] : [0, 0, 0]}>
-              <Laptop
-                key={`${it.status}:${it.model.updated}`}
-                model={it.model}
-                status={it.status}
-                lit={lit}
-                foam={foam}
-              />
-            </group>
+          <group key={it.model.id} position={s.pos} quaternion={s.quat}>
+            <Laptop
+              key={`${it.status}:${it.model.updated}`}
+              shelf={shelf}
+              model={it.model}
+              status={it.status}
+              lit={lit}
+              foam={foam}
+            />
           </group>
         );
       })}

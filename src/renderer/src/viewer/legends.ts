@@ -58,7 +58,7 @@ function legendText(raw: string, mode: string): string {
   return t;
 }
 
-export function attachLegends(obj: THREE.Object3D, opts: Record<string, OptionValue> | undefined): void {
+export function attachLegends(obj: THREE.Object3D, opts: Record<string, OptionValue> | undefined, width = 2048): void {
   if (!opts || opts.legendFont === undefined) return;
   let host: THREE.Object3D | null = null;
   obj.traverse((o) => {
@@ -74,9 +74,9 @@ export function attachLegends(obj: THREE.Object3D, opts: Record<string, OptionVa
   const W = box.max.x - box.min.x;
   const D = box.max.z - box.min.z;
   if (!(W > 0 && D > 0) || spots.length === 0) return;
-  const S = 2048 / W;
+  const S = width / W;
   const canvas = document.createElement("canvas");
-  canvas.width = 2048;
+  canvas.width = width;
   canvas.height = Math.max(64, Math.round(D * S));
   const g = canvas.getContext("2d");
   const u = D / 6;

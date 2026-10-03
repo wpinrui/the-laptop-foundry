@@ -27,3 +27,12 @@ export function setAmbience(name: string | null) {
   ambience = name ? { name, loop: loop(`ambience/${name}`, "sfx", 1, FADE_S) } : null;
   if (ambience?.name === "cafe") ambience.extra = espresso();
 }
+
+let music: { name: string; loop: Loop } | null = null;
+
+/** Crossfades to a track from assets/audio/music; null fades it out. */
+export function setMusic(name: string | null) {
+  if ((music?.name ?? null) === name) return;
+  music?.loop.stop(FADE_S);
+  music = name ? { name, loop: loop(`music/${name}`, "music", 1, FADE_S, true) } : null;
+}

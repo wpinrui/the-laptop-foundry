@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel, SavedNote, SavedPlace } from "../../preload/store";
 import { initVolumes, setVolumes, useVolumes } from "./audio/engine";
-import { setAmbience } from "./audio/scene";
+import { setAmbience, setMusic } from "./audio/scene";
 import { sfx, useUiSounds } from "./audio/sfx";
 import { campaignSaved, queueCampaignSave } from "./app/campaignSaves";
 import { randomName } from "./app/names";
@@ -364,6 +364,8 @@ export function App() {
   const heard = !company ? null : where.at === "map" ? "map" : here.at;
   useEffect(() => {
     setAmbience(heard);
+    // The main menu has its own theme; every place and the map have theirs.
+    setMusic(heard ?? "menu");
   }, [heard]);
   if (!companies) return null;
 

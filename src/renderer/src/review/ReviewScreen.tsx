@@ -115,6 +115,7 @@ export function ReviewScreen({
   reveal,
   onRevealed,
   onBack,
+  onMap,
 }: {
   subject: Subject;
   /** Play the reveal: this review has never been opened. */
@@ -122,6 +123,8 @@ export function ReviewScreen({
   /** The score has landed; the reveal need not play again. */
   onRevealed?: () => void;
   onBack: () => void;
+  /** M: off the review and out to the map over the place underneath. */
+  onMap?: () => void;
 }) {
   const [history, setHistory] = useState<string[]>([subject.id]);
   const [full, setFull] = useState(false);
@@ -144,16 +147,25 @@ export function ReviewScreen({
   const { photos, shoot } = usePhotos(shown);
   const fit = useMemo(() => solve(build), [build]);
 
+  // The review is over a place that stays mounted: its keys are the review's, caught before the place's own.
+  const toMap = useRef(onMap);
+  toMap.current = onMap;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+      if (t?.closest?.("input, textarea, [contenteditable='true']")) return;
+      e.stopImmediatePropagation();
+      if (e.code === "KeyM" && !e.repeat && toMap.current) {
+        e.preventDefault();
+        toMap.current();
+        return;
+      }
       if (beat !== "read") return;
       if (e.key === "f" || e.key === "F") setFull((v) => !v);
       if (e.key === "Escape") setFull(false);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [beat]);
 
   // The reveal's clock, from Open.

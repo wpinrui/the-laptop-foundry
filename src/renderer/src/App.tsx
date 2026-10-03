@@ -624,22 +624,6 @@ export function App() {
         {map}
       </>
     );
-  if (reviewing) {
-    const saved = company?.models.find((x) => x.id === reviewing.id);
-    return (
-      <ReviewScreen
-        key={reviewing.id}
-        subject={reviewing}
-        reveal={!saved?.revealed}
-        onRevealed={() => {
-          const m = company?.models.find((x) => x.id === reviewing.id);
-          if (m && !m.revealed) save({ ...m, revealed: Date.now() });
-        }}
-        onBack={() => setReviewing(null)}
-      />
-    );
-  }
-
   // The workshop: free roam round the turntable's laptop, and the builder on it in the same scene.
   if (company && here.at === "workshop") {
     const at = here;
@@ -655,7 +639,8 @@ export function App() {
           library={company.models.filter((x) => x.reviewed).map(subject)}
           onMap={() => toMap(at)}
           onReady={ready}
-          held={!!naming || away}
+          held={!!naming || away || !!reviewing}
+          paused={!!reviewing}
           building={!!onTable && open === onTable.id}
           onTable={(m) => setWhere({ ...at, model: m })}
           onBuild={build}
@@ -768,7 +753,8 @@ export function App() {
           onMap={leaveOffice}
           onEndQuarter={endQuarter}
           resolving={resolving}
-          blocked={!!marketView || !!statement || system || away || !!full}
+          blocked={!!marketView || !!statement || system || away || !!full || !!reviewing}
+          paused={!!reviewing}
           actions={actions}
           library={company.models.filter((x) => x.reviewed).map(subject)}
           sound={settings.sound}
@@ -918,6 +904,28 @@ export function App() {
   return (
     <SystemActions.Provider value={company ? { onNew: () => leaveCompany("new"), onLoad: () => leaveCompany("load") } : null}>
       {view}
+      {/* A review over the place it was opened from: the place stays mounted, and closing it is straight back. */}
+      {reviewing && (
+        <ReviewScreen
+          key={reviewing.id}
+          subject={reviewing}
+          reveal={!company?.models.find((x) => x.id === reviewing.id)?.revealed}
+          onRevealed={() => {
+            const m = company?.models.find((x) => x.id === reviewing.id);
+            if (m && !m.revealed) save({ ...m, revealed: Date.now() });
+          }}
+          onBack={() => setReviewing(null)}
+          onMap={
+            company
+              ? () => {
+                  setReviewing(null);
+                  if (document.pointerLockElement) document.exitPointerLock();
+                  setWhere(here.at === "map" ? here : { at: "map", from: here });
+                }
+              : undefined
+          }
+        />
+      )}
       {/* A video full screen, over the place: closing it is straight back, nothing reloaded. */}
       {full && <VideoScreen key={full.url} video={full} onBack={() => setFull(null)} />}
       {arrival.key && arrival.stage !== "done" && (

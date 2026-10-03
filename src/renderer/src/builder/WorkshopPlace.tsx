@@ -267,6 +267,7 @@ export function WorkshopPlace({
   onMap,
   onReady,
   held = false,
+  paused = false,
   building,
   builder,
   onTable,
@@ -296,6 +297,8 @@ export function WorkshopPlace({
   onReady?: () => void;
   /** A card (naming a laptop) or the map is up over the workshop: the scene pauses behind it. */
   held?: boolean;
+  /** A full-screen review is over the workshop: the room stops drawing behind it. */
+  paused?: boolean;
   /** The builder is up on the turntable's laptop. */
   building: boolean;
   /** The builder, drawing into this canvas; `exit` goes back to free roam with its lid, flip and laptop as built. */
@@ -428,6 +431,7 @@ export function WorkshopPlace({
           gl={{ toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 0.9 }}
           camera={{ fov: 62, near: 10, far: 40000, position: TABLE_START.toArray() }}
           onPointerMissed={() => input.current?.missed()}
+          frameloop={paused ? "never" : "always"}
         >
           <Workshop onReady={roomIn} />
           <Reflections intensity={0.5} />

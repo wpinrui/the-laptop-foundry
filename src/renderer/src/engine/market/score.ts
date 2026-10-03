@@ -10,6 +10,12 @@ import { HEADLINE_STATS, type HeadlineStat, type Segment, type SegmentId } from 
 
 export const RATIO_MIN = 0.5;
 export const RATIO_MAX = 1.5;
+/**
+ * Games ratio's ceiling. Most of a year's market has no graphics card, so its
+ * average frame rate is low and even a modest card reached 1.5; past it a
+ * stronger card bought a gamer nothing.
+ */
+export const GAMES_RATIO_MAX = 3;
 export const SCORE_MIN = 1;
 export const SCORE_MAX = 10;
 /** Noise is uniform in plus or minus this. */
@@ -57,10 +63,10 @@ export function marketAverage(market: HeadlineValues[]): HeadlineValues {
   return out;
 }
 
-/** The laptop's value over the average, clamped to 0.5 to 1.5. A zero average reads as 1. */
-export function statRatio(value: number, average: number): number {
+/** The laptop's value over the average, clamped to 0.5 to 1.5 (games to GAMES_RATIO_MAX). A zero average reads as 1. */
+export function statRatio(value: number, average: number, stat?: HeadlineStat): number {
   if (!(average > 0)) return 1;
-  return clamp(value / average, RATIO_MIN, RATIO_MAX);
+  return clamp(value / average, RATIO_MIN, stat === "games" ? GAMES_RATIO_MAX : RATIO_MAX);
 }
 
 export function sentimentOf(ratio: number): Sentiment {
@@ -103,7 +109,7 @@ export function marketScore(
   const ratios = {} as Record<HeadlineStat, number>;
   const sentiment = {} as Record<HeadlineStat, Sentiment>;
   for (const k of HEADLINE_STATS) {
-    ratios[k] = statRatio(laptop.stats[k], avg[k]);
+    ratios[k] = statRatio(laptop.stats[k], avg[k], k);
     sentiment[k] = sentimentOf(ratios[k]);
   }
   const out = {} as Record<SegmentId, SegmentScore>;

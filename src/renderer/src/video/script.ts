@@ -222,13 +222,7 @@ export function writeShort(facts: ShortFacts): Short {
   add(
     "title",
     "title",
-    facts.mine
-      ? pick("hook-mine", [
-          [`The best-selling laptop of ${qc}? Yours. The ${s.name}.`, `The best-selling laptop of ${qs}? Yours. The ${s.name}.`],
-          [`Your ${s.name} just outsold every laptop on the market in ${qc}.`, `Your ${s.name} just outsold every laptop on the market in ${qs}.`],
-          [`${qc} has a winner, and you built it. The ${s.name}.`, `${qs} has a winner, and you built it. The ${s.name}.`],
-        ])
-      : pick("hook", [
+    pick("hook", [
           [`The best-selling laptop of ${qc}? The ${full}.`, `The best-selling laptop of ${qs}? The ${full}.`],
           [`Nothing sold more in ${qc} than the ${full}.`, `Nothing sold more in ${qs} than the ${full}.`],
           [`Guess what topped the charts in ${qc}? The ${full}.`, `Guess what topped the charts in ${qs}? The ${full}.`],
@@ -318,9 +312,7 @@ export function writeShort(facts: ShortFacts): Short {
   add(
     "turn",
     "title",
-    facts.mine
-      ? pick("outro-mine", ["Not bad for your own design. Now do it again next quarter.", "That's the one to beat, and it's yours. See you next quarter."])
-      : pick("outro", [
+    pick("outro", [
           ["That's the one to beat. See you next quarter.", "That's the one to beat. See you next quarter."],
           price ? [`Is it worth ${usd(price)}? The market says yes.`, `Is it worth ${usd(price)}? The market says yes.`] : ["Would you buy one?", "Would you buy one?"],
           ["Would you buy one? See you next quarter.", "Would you buy one? See you next quarter."],

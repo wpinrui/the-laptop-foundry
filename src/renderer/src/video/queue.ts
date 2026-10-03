@@ -15,7 +15,7 @@ import { lookFor } from "./sets";
 // from there, so nothing waits on a render.
 
 /** Bumped when the short changes, so a short kept on disk from before is made again. */
-const SHORT_VERSION = 5;
+const SHORT_VERSION = 6;
 /** Bumped when the commercial's render changes. */
 const AD_VERSION = 2;
 

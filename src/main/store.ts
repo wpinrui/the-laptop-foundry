@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { app } from "electron";
 import { handleTop } from "./ipc";
 import { shortsDir } from "./video";
-import type { SavedCampaign, SavedCommercial, SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "../preload/store";
+import type { SavedCampaign, SavedCommercial, SavedCompany, SavedModel, SavedNote, SavedPlace, SavedScene, Settings } from "../preload/store";
 
 // Each company is one save: one JSON file in the companies folder of the user
 // data folder. Settings live in their own file. Writes go to a temporary file
@@ -93,6 +93,28 @@ const MAX_SCENES = 200;
 
 const isCount = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 100000;
 
+/** The cards of the one-track timeline, before cards had their own track. */
+const LEGACY_CARDS = ["title", "sales", "stats", "score"];
+
+const isTrack = (t: unknown): t is SavedScene[] =>
+  Array.isArray(t) &&
+  t.length <= MAX_SCENES &&
+  t.every((s) => !!s && typeof s.kind === "string" && isCount(s.startWord) && isCount(s.endWord) && s.endWord > s.startWord && isSetOrNone(s.set));
+
+/** A commercial from before its timeline had two tracks, split onto them at the same words: its shots onto the angle track, its cards onto the card track. */
+function migrateCommercial(c: unknown): unknown {
+  const x = c as (Partial<SavedCommercial> & { scenes?: unknown }) | null;
+  if (!x || typeof x !== "object" || x.angles !== undefined || !isTrack(x.scenes)) return c;
+  const scenes = x.scenes as SavedScene[];
+  const rest: Record<string, unknown> = { ...x };
+  delete rest.scenes;
+  return {
+    ...rest,
+    angles: scenes.filter((s) => !LEGACY_CARDS.includes(s.kind)),
+    cards: scenes.filter((s) => LEGACY_CARDS.includes(s.kind)).map(({ kind, startWord, endWord }) => ({ kind, startWord, endWord })),
+  };
+}
+
 function isCommercial(c: unknown): c is SavedCommercial {
   const x = c as SavedCommercial;
   return (
@@ -103,11 +125,8 @@ function isCommercial(c: unknown): c is SavedCommercial {
     Array.isArray(x.lines) &&
     x.lines.length <= MAX_LINES &&
     x.lines.every((l) => typeof l === "string" && l.length <= MAX_LINE) &&
-    Array.isArray(x.scenes) &&
-    x.scenes.length <= MAX_SCENES &&
-    x.scenes.every(
-      (s) => !!s && typeof s.kind === "string" && isCount(s.startWord) && isCount(s.endWord) && s.endWord > s.startWord && isSetOrNone(s.set),
-    ) &&
+    isTrack(x.angles) &&
+    isTrack(x.cards) &&
     isSetOrNone(x.set) &&
     isSetOrNone(x.brollSet) &&
     (x.paper === undefined || isCount(x.paper)) &&
@@ -142,7 +161,7 @@ function readCompany(raw: unknown, id: string): SavedCompany | null {
     campaign: readCampaign(x.campaign),
     markets: x.markets && typeof x.markets === "object" && !Array.isArray(x.markets) ? x.markets : undefined,
     notes: Array.isArray(x.notes) ? x.notes.filter(isNote) : undefined,
-    commercials: Array.isArray(x.commercials) ? x.commercials.filter(isCommercial) : undefined,
+    commercials: Array.isArray(x.commercials) ? x.commercials.map(migrateCommercial).filter(isCommercial) : undefined,
     place: readPlace(x.place),
   };
 }

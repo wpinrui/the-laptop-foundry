@@ -1,16 +1,17 @@
-import type { SavedCommercial } from "../../../preload/store";
+import type { SavedCommercial, SavedScene } from "../../../preload/store";
 import { rng } from "../engine/review";
 import { timelineFor, type Voice } from "./render";
-import { type Cut, FRAMES, PANS, type Program, type Ratio, type Timeline, timelineOf } from "./scene";
+import { type CardSpan, type Cut, FRAMES, PANS, type Program, type Ratio, type Timeline, timelineOf } from "./scene";
 import { type Look, lookFor, SET_IDS, type SetId } from "./sets";
 import type { Card, ShortFacts, Shot } from "./script";
 import { speak } from "./speech";
 
 // A commercial made in the studio: the player's script, read line by line,
-// with scenes laid over its words. A scene is a camera shot of the laptop or
-// a number card; wherever no scene covers a word the video cuts to b-roll,
-// slow pans round the laptop. This module is the logic only: the studio's
-// screens and the render queue build on it.
+// with scenes laid over its words on two tracks. The angle track holds camera
+// shots of the laptop; wherever none covers a word the video cuts to b-roll,
+// slow pans round the laptop. The card track holds number cards, drawn over
+// whatever the angle track is playing. This module is the logic only: the
+// studio's screens and the render queue build on it.
 
 export type Commercial = SavedCommercial;
 export type SceneKind = "keyboard" | "ports" | "screen" | "lid" | "turn" | "title" | "sales" | "stats" | "score";
@@ -42,6 +43,18 @@ export function setsOf(c: { set?: string; brollSet?: string; paper?: number }, i
 export const SHOTS: SceneKind[] = ["keyboard", "ports", "screen", "lid", "turn"];
 export const CARDS: SceneKind[] = ["title", "sales", "stats", "score"];
 export const SCENE_KINDS: SceneKind[] = [...SHOTS, ...CARDS];
+
+/** The timeline's tracks: within one, scenes never overlap; across them, a card plays over an angle. */
+export type TrackId = "cards" | "angles";
+/** Top to bottom, as the timeline stacks them: the cards over the angles they play on. */
+export const TRACK_IDS: TrackId[] = ["cards", "angles"];
+/** The kinds each track takes. A new kind joins its track's list. */
+export const TRACK_KINDS: Record<TrackId, SceneKind[]> = { angles: SHOTS, cards: CARDS };
+export type Tracks = Record<TrackId, Scene[]>;
+export const NO_TRACKS: Tracks = { angles: [], cards: [] };
+
+/** The track a kind goes on. */
+export const trackOf = (k: SceneKind): TrackId => (TRACK_IDS.find((t) => TRACK_KINDS[t].includes(k)) ?? "angles");
 export const RATIOS: Ratio[] = ["9:16", "1:1", "16:9"];
 
 /** The longest a commercial may run, seconds. */
@@ -66,6 +79,11 @@ export function scriptLines(lines: string[]): string[] {
 /** Every word of the script, end to end, with the line it is on. */
 export function wordsOf(lines: string[]): { text: string; line: number }[] {
   return scriptLines(lines).flatMap((l, line) => l.split(" ").map((text) => ({ text, line })));
+}
+
+/** Every track's scenes kept within `n` words. */
+export function fitTracks(t: Tracks, n: number): Tracks {
+  return { angles: fitScenes(t.angles, n), cards: fitScenes(t.cards, n) };
 }
 
 /** Scenes kept within `n` words, in order, none overlapping: what a shorter script leaves of them. */
@@ -122,16 +140,20 @@ export function wordTimes(lines: string[], tl: Timeline): number[] {
 }
 
 /**
- * The commercial as a program: its scenes at their words' times, b-roll
- * between them, its lines as captions. The first scene starting on the first
- * word starts at 0, and one ending on the last word runs to the end.
+ * The commercial as a program: its angles at their words' times, b-roll
+ * between them, its cards over both, its lines as captions. A scene starting
+ * on the first word starts at 0, and one ending on the last word runs to the end.
  */
-export function commercialProgram(c: Pick<Commercial, "id" | "lines" | "scenes" | "ratio"> & Sets, facts: ShortFacts, tl: Timeline): Program {
+export function commercialProgram(
+  c: Pick<Commercial, "id" | "lines" | "ratio"> & { angles: SavedScene[]; cards: SavedScene[] } & Sets,
+  facts: ShortFacts,
+  tl: Timeline,
+): Program {
   const lines = scriptLines(c.lines);
   const times = wordTimes(lines, tl);
   const n = times.length;
   const at = (w: number) => (w <= 0 ? 0 : w >= n ? tl.total : times[w]);
-  const scenes = fitScenes(c.scenes as Scene[], n);
+  const scenes = fitScenes(c.angles as Scene[], n);
   const random = rng(`commercial:${c.id}`);
   let last: { pan: number; lid: number } | null = null;
   const pan = () => {
@@ -147,10 +169,10 @@ export function commercialProgram(c: Pick<Commercial, "id" | "lines" | "scenes" 
   };
   const cuts: Cut[] = [];
   const look = (set: SetId): Look => ({ set, paper: c.paper });
-  const broll = (start: number, end: number, card: Card, cardFrom: number, on: Look) => {
+  const broll = (start: number, end: number, on: Look) => {
     const count = Math.max(1, Math.round((end - start) / PAN_SECONDS));
     for (let i = 0; i < count; i++)
-      cuts.push({ start: start + ((end - start) * i) / count, end: start + ((end - start) * (i + 1)) / count, look: on, view: pan(), card, cardFrom });
+      cuts.push({ start: start + ((end - start) * i) / count, end: start + ((end - start) * (i + 1)) / count, look: on, view: pan(), card: null, cardFrom: start });
   };
   let t = 0;
   for (const s of scenes) {
@@ -158,18 +180,21 @@ export function commercialProgram(c: Pick<Commercial, "id" | "lines" | "scenes" 
     const end = at(s.endWord);
     // A placed scene is on its own set; the b-roll between them on the b-roll's.
     const on = look(isSet(s.set) ? s.set : c.set);
-    if (start > t + 0.05) broll(t, start, null, t, look(c.brollSet));
-    if (isShot(s.kind)) {
-      cuts.push({ start, end, look: on, view: s.kind, card: null, cardFrom: start });
-    } else broll(start, end, s.kind as Card, start, on);
+    if (start > t + 0.05) broll(t, start, look(c.brollSet));
+    if (isShot(s.kind)) cuts.push({ start, end, look: on, view: s.kind, card: null, cardFrom: start });
+    else broll(start, end, on);
     t = end;
   }
-  if (t < tl.total - 0.05 || cuts.length === 0) broll(t, tl.total, null, t, look(c.brollSet));
+  if (t < tl.total - 0.05 || cuts.length === 0) broll(t, tl.total, look(c.brollSet));
+  const cards: CardSpan[] = fitScenes(c.cards as Scene[], n)
+    .filter((s) => CARDS.includes(s.kind))
+    .map((s) => ({ card: s.kind as Card, start: at(s.startWord), end: at(s.endWord) }));
   return {
     frame: FRAMES[c.ratio],
     facts,
     kicker: facts.price ? `$${Math.round(facts.price).toLocaleString("en-US")}` : "New",
     cuts,
+    cards,
     captions: lines.map((text, i) => ({ text, start: tl.starts[i], dur: tl.durs[i] })),
     total: tl.total,
     poster: cuts[0] ? (cuts[0].start + cuts[0].end) / 2 : 0,

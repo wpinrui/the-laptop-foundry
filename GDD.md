@@ -43,18 +43,25 @@ Each place has a feel:
 ### Flow
 
 - The laptop is visible in three dimensions throughout, including its internal layout as it changes. The reference is the engine and car builder in Automation.
-- Building is a fixed line of stages: year, chassis, screen, inside, surface, keys, finish, decals and price.
+- Building is a fixed line of stages: year, chassis, screen, internals, keyboard, trackpad, webcam, ports, colour, decals and done.
 - The player can jump between stages freely.
 - Fit problems show live on every stage.
-- The builder stands in a workshop room, the laptop on a turntable.
+- The builder is a mode over the workshop's free view, on the same turntable in the same room. Back, Done and Esc return to free view in place, the laptop still on the turntable.
+- Ctrl+Z undoes and Ctrl+Shift+Z or Ctrl+Y redoes, for the whole visit to the builder. Edits less than half a second apart are one step.
+- Ports, colour and decals can be loaded from any saved model, newest first. Ports also load the era's default set, with Thunderbolt on an Intel build.
+- A selected port can be replaced by another port in place. The ports view only turns to another wall when the player picks one.
+- Colour sets the laptop's wallpaper from an image file. With none set it is the company's.
+- Done ranks the build by market score against every laptop that year within a quarter of its price, with the two above and the two below.
 - A lid slider opens and shuts the lid. It is a view setting, not part of the design.
 
 ### Free view
 
-- Free view lets the player walk the workshop in first person.
-- Looking at the laptop offers what its state allows: turn it over, take its bottom cover off, open or shut the lid, or use it.
-- Using it runs the laptop's own OS on its screen, as in the cafe.
-- F shows the screen full screen. The mouse wheel zooms.
+- Free view is the workshop itself: the player walks it in first person, starting in front of the turntable.
+- On the empty turntable: E New laptop, which names it and opens the builder, and Q Put laptop, which picks any laptop from a list.
+- On a shelved laptop: E Work on laptop build, which puts it on the turntable and opens the builder, N Next shelf, and X Discard.
+- On the turntable's laptop: B Build, C Duplicate, P Put away, X Discard, L lid, R turn over, O cover, E use and F full screen.
+- The prompts name the laptop they act on, with its year.
+- Discard asks first, in the same dialog as every delete.
 
 ### Bodies
 
@@ -126,6 +133,7 @@ The operating system is always Windows. The player does not choose it and it aff
 ### Keycaps and decals
 
 - The player styles the keycaps: shape, the colours of letters, modifiers and accent keys, and the legends' font, colour, alignment, case, size and weight.
+- The shapes are square, rounded, round and smile. New builds have black keys with white legends.
 - The player adds text, preset, emoji and imported image decals (SVG, PNG, JPEG or WebP) to the lid, palm rest, bottom and bezel, each etched, printed or embossed.
 - A decal is filled or outlined, and turns about its centre. An SVG may keep its own colours.
 - Emoji come from the full Twemoji set, with skin tones.
@@ -317,7 +325,6 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 - The player can browse the in-game review site and read reviews of any of their laptops and any rival.
 - The player can browse the real internet in the laptop's browser.
 - The player can run the processor benchmark and the demanding game. Both show a mock of the real visuals at the build's simulated speed or frame rate. The games cannot be played.
-- Fan noise is audible in the cafe.
 - The battery drains 30 times faster than real time, varying with activity.
 - The player plugs in and unplugs with C, aiming at the laptop or the power socket in the table.
 - F shows the screen full screen.
@@ -326,19 +333,24 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 
 The player is always on the world map or in one of five places: the Workshop, the Cafe, the Office, Courts and the Studio.
 
-- Opening a company from the menu lands on the map, with no current place.
+- Opening a company reopens it where the player left it; a new company, or one whose place is gone, opens in the office.
 - The map is a street plan with the five places on street corners. A panel beside it names the selected destination and holds Go.
 - The place the player walked out of is marked as the current place and cannot be picked. A dashed route runs along the streets from it to the destination.
-- The Workshop and the Cafe ask which laptop to bring. None comes first and is the default: the player arrives empty handed.
+- The Workshop and the Cafe ask which laptop to bring. The Workshop offers None first, by default. The Cafe always takes one, and is shut until a laptop works.
 - Any laptop can come to the Workshop, drafts included. Only a laptop that works can come to the Cafe.
-- The Workshop opens in free view, through the personnel door, with the laptop brought along on the turntable, or an empty turntable.
+- The Workshop opens in free view in front of the turntable, with the laptop brought along on it, or an empty turntable.
 - The Cafe opens through the street entrance, with the laptop brought along on the table. Empty handed, the table is bare and nothing asks for a laptop.
 - Walking out through the Workshop's personnel door returns to the map. In the Cafe and Courts the exit door is a wall to walk into: aiming at it shows E Leave, which returns to the map. So does Map in any pause menu.
 - From a place, Stay goes back in. From the menu, Menu goes back to the main menu.
+- Each place has a short description on the map.
+- Travelling to a place shows Going to it until the place has loaded. Closing a review or a video, Stay, and going between the workshop and the builder are no travel and show nothing.
 - The Office is where the player runs the company: see The office.
 - The Studio is where a laptop's commercial is made: see The studio. It is shut while no laptop can have one.
 - Courts is the store, walked in first person. Its display tables hold what is on sale: in a campaign the last played quarter's shelf, rivals and the player's released models; in a sandbox the generated market of the year.
+- Courts is laid out by department: MacBook, Gaming, Budget, Creator, Business, Thin and Light, and Everyday, each a laptop's first match in that order. Each department has its own colour and an overhead sign, its tables sorted by price. The player's own laptops are on a table by the door.
+- Each table's sign shows its department, its price range and its makers.
 - Each price tag carries the price and the specs. Courts shows no review scores.
+- The inspect card shows the laptop's class and its share of its class's sales. Create clone names a copy and takes it to the workshop's turntable.
 - Aiming at a laptop, E inspects it: a card with its maker, name, price, sales, specs and when it was released, a quarter such as 2024 Q2 in a campaign and the model's year in a sandbox. Previous and next step along the tables.
 - From the inspect view, E uses the laptop as in the Cafe: its own OS on its screen, a store demo account under the maker's name, or the company's for the player's own models. Clicks and typing go to the OS, the screen and speakers are that laptop's, F shows it full screen and E stops using. Display units run on mains power. A laptop whose build does not work cannot be used.
 
@@ -377,7 +389,9 @@ Every video is an MP4 made in the background, wherever the player is.
 
 ## The system menu
 
-In the Office, Esc opens the system menu: Resume, New company, Load company, Sound and Quit. Esc or Resume return to exactly where the player was, a laptop in use included. The other places keep their own Esc pause menus, which end with New company, Load company and Quit.
+In the Office, Esc opens the system menu: Resume, Map, New company, Load company, Sound and Quit. Esc or Resume return to exactly where the player was, a laptop in use included. The other places keep their own Esc pause menus, which end with New company, Load company and Quit.
+
+Esc in any pause menu closes it again; the pointer is never lost to it.
 
 ## Version 0.2
 

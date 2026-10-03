@@ -1,4 +1,5 @@
 import { isRecentEscape } from "../app/escape";
+import { sfx } from "../audio/sfx";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -381,6 +382,7 @@ export function Office({
         actions,
         playing,
         onWatch: (file) => {
+          sfx("tv_on", { volume: 0.6 });
           actions.tv?.onPlay(file);
           setPlaying(true);
           setTake((t) => t + 1);

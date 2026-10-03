@@ -1,4 +1,5 @@
 import { useFrame, useLoader, useThree } from "@react-three/fiber";
+import { stepper } from "../audio/sfx";
 import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -16,6 +17,7 @@ export const M = 1000;
 const EYE = 1620;
 const BODY = 260;
 const SPEED = 2000;
+const STEPS = stepper("carpet");
 const LOOK = 0.0022;
 /** Vertical field of view at 16:9; narrower windows widen it so the sides stay in view. */
 const FOV = 50;
@@ -492,6 +494,7 @@ export function Rig({
       w.pos.x += ((-Math.sin(w.yaw) * f + Math.cos(w.yaw) * r) / len) * SPEED * dt;
       w.pos.z += ((-Math.cos(w.yaw) * f - Math.sin(w.yaw) * r) / len) * SPEED * dt;
       collideIn(w.pos, data.room, data.colliders, BODY);
+      STEPS(w.pos);
     }
     const up = rise.current;
     if (up) {

@@ -1,4 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { stepper } from "../audio/sfx";
 import {
   type ReactNode,
   type RefObject,
@@ -38,6 +39,7 @@ import type { OnSale } from "./onSale";
 const M = 1000;
 const EYE = 1620;
 const SPEED = 2000;
+const STEPS = stepper("tile");
 const FAST = 2.2;
 const LOOK = 0.0022;
 const FOV = 60;
@@ -708,6 +710,7 @@ function Player({
         pos.current.x += ((-Math.sin(yaw) * f + Math.cos(yaw) * r) / len) * v;
         pos.current.z += ((-Math.cos(yaw) * f - Math.sin(yaw) * r) / len) * v;
         collideIn(pos.current, ROOM_MM, rects, BODY);
+        STEPS(pos.current);
       }
     }
     const cam = camera;

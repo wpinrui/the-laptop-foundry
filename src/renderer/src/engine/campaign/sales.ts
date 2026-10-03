@@ -265,6 +265,35 @@ export function rivalLaunch(company: string, r: Rival, at: number): number {
   return launch > at ? launch - 4 : launch;
 }
 
+/** How fast a commercial's effect fades over its laptop's second to fourth quarters on sale. */
+const BOOST_FADE = 0.7;
+/** The quarter on sale, counted from 1, from which a commercial's effect is gone. */
+const BOOST_GONE = 5;
+
+/**
+ * A commercial's multiplier in its laptop's `k`th quarter on sale (1 is the
+ * first): in full the first, fading exponentially to nothing from the fifth.
+ */
+export function boostAt(multiplier: number, k: number): number {
+  if (k < 1 || k >= BOOST_GONE) return 1;
+  const tail = Math.exp(-BOOST_FADE * (BOOST_GONE - 1));
+  const share = (Math.exp(-BOOST_FADE * (k - 1)) - tail) / (1 - tail);
+  return 1 + (multiplier - 1) * share;
+}
+
+/**
+ * A model's commercial multiplier for the quarter being played, counted from
+ * its first quarter on sale; undefined when it has none, is not on sale yet,
+ * or the effect has faded.
+ */
+export function boostOf(state: CampaignState, id: string): number | undefined {
+  const m = state.boosts?.[id];
+  const r = state.releases[id];
+  if (m === undefined || !r) return undefined;
+  const k = quarterIndex(state.now) - quarterIndex(r.quarter) + 1;
+  return k >= 1 && k < BOOST_GONE ? boostAt(m, k) : undefined;
+}
+
 /** Every laptop on sale this quarter: the player's releases (even sold out) and the rivals on sale. */
 export function sellersOf(state: CampaignState, models: { id: string; build: unknown; archived?: boolean }[], rivals: Rival[], company: string): Seller[] {
   const at = quarterIndex(state.now);
@@ -274,7 +303,7 @@ export function sellersOf(state: CampaignState, models: { id: string; build: unk
     if (!m || m.archived || quarterIndex(r.quarter) > at) continue;
     const build = { ...(m.build as Build), price: r.price };
     const p = profileOf(id, build);
-    const boost = state.boosts?.[id];
+    const boost = boostOf(state, id);
     out.push({ id, maker: null, ...p, optical: hasOptical(build), review: criticsScore(state, id), price: r.price, launch: quarterIndex(r.quarter), stock: r.stock, ...(boost ? { boost } : {}) });
   }
   const on = new Set(state.onSale);
@@ -353,8 +382,6 @@ export const simulateSales: QuarterStep = (state, ctx) => {
     sales: [...state.sales, record].slice(-SALES_HISTORY),
     shelf: [...state.shelf, shelf],
     outcomes: res.outcomes,
-    // Every commercial's multiplier is spent on this quarter.
-    boosts: {},
   };
 };
 

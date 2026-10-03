@@ -66,7 +66,7 @@ export interface CampaignState {
   reviews: Record<string, PublishedReview>;
   /** Every year's awards, oldest first. */
   awards: Award[];
-  /** A commercial's wheel result per model id, 1.5 for +50%: it multiplies the model's sales in the next quarter to resolve, then goes. */
+  /** A commercial's wheel result per model id, 1.5 for +50%: it scales the model's demand from its first quarter on sale, fading to nothing by its fifth (see boostOf). */
   boosts: Record<string, number>;
   /** Models that have had their one commercial. */
   advertised: string[];

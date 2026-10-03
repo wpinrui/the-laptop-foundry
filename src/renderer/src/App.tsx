@@ -23,7 +23,7 @@ import { ReviewScreen } from "./review/ReviewScreen";
 import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
 import { adFacts, bestSeller, shortFacts, subjectOf, writeShort } from "./video/script";
 import type { Commercial } from "./video/commercial";
-import { adFile, adOfFile, loadVideo, offerShort, quarterOfFile, queueAd, useAdRender, usePosters, useVideos } from "./video/queue";
+import { adFile, adOfFile, forgetAds, loadVideo, offerShort, quarterOfFile, queueAd, useAdRender, usePosters, useVideos } from "./video/queue";
 import { type PlayingVideo, VideoScreen } from "./video/VideoScreen";
 import { adSubject, eligibleModels } from "./studio/eligible";
 import { StudioPlace } from "./studio/StudioPlace";
@@ -265,6 +265,20 @@ export function App() {
     const c = company;
     (c.commercials ?? []).forEach((ad, i) => queueAd(c.id, ad, () => adFactsFor(c, ad), i));
   }, [adsKey]);
+  // A commercial from before its effect lasted past one quarter has its wheel result back on its laptop, counted from its first quarter on sale.
+  const commitRef = useRef<((change: (s: CampaignState) => CampaignState | null) => void) | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: checked when the company or its commercials change
+  useEffect(() => {
+    if (!company?.campaign) return;
+    const ads = company.commercials ?? [];
+    commitRef.current?.((s) => {
+      const missing = ads.filter((ad) => s.boosts[ad.model] === undefined);
+      if (missing.length === 0) return null;
+      const boosts = { ...s.boosts };
+      for (const ad of missing) boosts[ad.model] = ad.multiplier;
+      return { ...s, boosts };
+    });
+  }, [adsKey, !!company?.campaign]);
 
   // The company's finished videos for the Office TV, newest first.
   const kept = useVideos(company?.id ?? null);
@@ -382,6 +396,7 @@ export function App() {
     const next = change(live.current?.id === company.id ? live.current.state : campaign);
     if (next) void apply(next);
   };
+  commitRef.current = commit;
   const subject = (m: SavedModel): Subject => ({ id: m.id, name: m.name, company: name, build: m.build as Build });
   // Opens the subject's year first: its review and apps compare it with that year's market.
   const withMarket = (s: Subject, then: (s: Subject) => void) => {
@@ -449,7 +464,7 @@ export function App() {
       setFull(next);
     });
   };
-  // A finished commercial: recorded with the company, its wheel result on the laptop's next quarter, its render queued.
+  // A finished commercial: recorded with the company, its wheel result on the laptop's sales from its first quarter on sale, its render queued.
   const finishAd = (c: Commercial, facts: ReturnType<typeof adFacts>) => {
     if (!company) return;
     const id = company.id;
@@ -486,7 +501,7 @@ export function App() {
     nameCopy(src.build as Build);
     return src;
   };
-  // Deleting a model, from the office or the workshop: its line ends and its stock is written off.
+  // Deleting a model, from the office or the workshop: its line ends, its stock is written off and its commercial goes.
   // A model that has sold archives instead: its history stays, and it stops selling from the next quarter.
   const removeModel = (id: string) => {
     if (!company) return;
@@ -496,10 +511,12 @@ export function App() {
       .then((c) => {
         refresh(c);
         setOfficeAt((a) => ({ ...a, model: null }));
+        forgetAds(company.id, (company.commercials ?? []).filter((ad) => ad.model === id).map((ad) => ad.id));
         commit((s) => {
-          if (!s.releases[id]) return null;
+          if (!s.releases[id] && s.boosts[id] === undefined && !s.advertised.includes(id)) return null;
           const { [id]: _, ...releases } = s.releases;
-          return { ...s, releases };
+          const { [id]: __, ...boosts } = s.boosts;
+          return { ...s, releases, boosts, advertised: s.advertised.filter((x) => x !== id) };
         });
       });
   };

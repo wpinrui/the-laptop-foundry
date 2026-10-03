@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import type { SavedCompany, SavedModel } from "../../../preload/store";
 import { buildBlock } from "../builder/problems";
-import { type CampaignState, hasSold, publicationQuarter, quarterLabel, worldQuarters } from "../engine/campaign";
+import { type CampaignState, boostOf, hasSold, publicationQuarter, quarterLabel, worldQuarters } from "../engine/campaign";
 import type { SegmentId } from "../engine/market/types";
 import { AwardsTab } from "../foundry/Awards";
 import { BooksTab, type StatementTab } from "../foundry/Finance";
@@ -387,8 +387,8 @@ function Detail({
   const block = buildBlock(model.build);
   const over = !!campaign?.over;
   const sold = !!campaign && hasSold(campaign, model.id);
-  // A commercial's wheel result, waiting on the next quarter's sales.
-  const boost = campaign?.boosts[model.id];
+  // A commercial's effect on the quarter being played; in full until its laptop goes on sale.
+  const boost = !campaign ? undefined : campaign.releases[model.id] ? boostOf(campaign, model.id) : campaign.boosts[model.id];
   return (
     <>
       {!campaign && (
@@ -397,7 +397,7 @@ function Detail({
           {score != null && <b>{Math.round(score)}</b>}
         </div>
       )}
-      {boost !== undefined && (
+      {boost !== undefined && Math.round((boost - 1) * 100) !== 0 && (
         <div className={`of-boost${boost < 1 ? " down" : ""}`}>
           {pctLabel(boost)}
         </div>

@@ -134,63 +134,6 @@ function rankingOf(own: string, ownScore: number | null, edition: number): RankR
   return rows.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
 
-// ------------------------------------------------------------------ fan audio
-
-/** Fan noise synthesised from filtered white noise and a faint blade tone. */
-function useFanAudio(db: number, fan: number, muted: boolean, volume: number) {
-  const nodes = useRef<{
-    ctx: AudioContext;
-    gain: GainNode;
-    band: BiquadFilterNode;
-    tone: OscillatorNode;
-    toneGain: GainNode;
-  } | null>(null);
-
-  useEffect(() => {
-    const ctx = new AudioContext();
-    const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-    src.loop = true;
-    const band = ctx.createBiquadFilter();
-    band.type = "bandpass";
-    band.Q.value = 0.6;
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-    src.connect(band).connect(gain).connect(ctx.destination);
-    const tone = ctx.createOscillator();
-    tone.type = "triangle";
-    const toneGain = ctx.createGain();
-    toneGain.gain.value = 0;
-    tone.connect(toneGain).connect(ctx.destination);
-    src.start();
-    tone.start();
-    nodes.current = { ctx, gain, band, tone, toneGain };
-    // Browsers hold audio until the first gesture.
-    const resume = () => ctx.resume();
-    window.addEventListener("pointerdown", resume);
-    return () => {
-      window.removeEventListener("pointerdown", resume);
-      ctx.close();
-      nodes.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    const n = nodes.current;
-    if (!n) return;
-    const t = n.ctx.currentTime;
-    // The OS volume slider scales the fan; 60 is as loud as it really is.
-    const level = muted || db <= 23 ? 0 : 10 ** ((db - 68) / 20) * (volume / 60);
-    n.gain.gain.setTargetAtTime(level, t, 0.4);
-    n.toneGain.gain.setTargetAtTime(level * 0.08, t, 0.4);
-    n.band.frequency.setTargetAtTime(350 + fan * 1500, t, 0.4);
-    n.tone.frequency.setTargetAtTime(110 + fan * 420, t, 0.4);
-  }, [db, fan, muted, volume]);
-}
-
 // ------------------------------------------------------------------ screen
 
 type Phase = "boot" | "on" | "off";
@@ -394,10 +337,6 @@ export function useLaptopOs({
   const load: "cpu" | "gpu" | null = !running ? null : kiln.running ? "cpu" : gameRun ? "gpu" : null;
   const i = Math.min(tl.cpu.db.length - 1, Math.floor(heat));
   const last = (a: number[]) => a[a.length - 1] ?? 0;
-  const active = load ? tl[load] : tl.cpu;
-  const db = off ? 0 : load ? active.db[i] : Math.max(last(tl.idle.db), heat > 0 ? tl.cpu.db[i] : 0);
-  const fan = off ? 0 : load ? active.fan[i] : Math.max(last(tl.idle.fan), heat > 0 ? tl.cpu.fan[i] : 0);
-  useFanAudio(db, fan, !sound, volume);
   const speaker = useMemo(() => speakerOf(build, fit), [build, fit]);
   useEffect(() => {
     if (!perfect) setSpeakerOs(speaker, sound ? volume / 100 : 0);

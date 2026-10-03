@@ -162,13 +162,14 @@ export function buildPanels(c: Ctx): Partial<Record<StationId, ReactNode>> {
  */
 function Desk(c: Ctx) {
   const { company, campaign, actions, at, onAt } = c;
-  const models = useMemo(() => wallOrder(company), [company]);
+  // Archived laptops are off the desk; their copies in the world still unarchive them.
+  const models = useMemo(() => wallOrder(company).filter((m) => !m.archived), [company]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: scored when the models change
   const scores = useMemo(
     () => new Map(models.map((m) => [m.id, m.reviewed ? overallOf(m, company.name) : null])),
     [company.models, company.name],
   );
-  const current = pickedModel(company, at);
+  const current = models.find((m) => m.id === at.model) ?? models[0] ?? null;
   const currentId = current?.id;
   // The picked laptop stays in view as Up and Down move through the list.
   useEffect(() => {

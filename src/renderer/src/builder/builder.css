@@ -2187,6 +2187,12 @@
   height: calc(13 * var(--u));
 }
 
+.bd-keycaps i svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .bd-chip.bd-visual .bd-aligns i {
   width: calc(18 * var(--u));
   height: calc(18 * var(--u));

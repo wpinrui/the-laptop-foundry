@@ -229,6 +229,43 @@ function roundRect(cx: number, cz: number, hw: number, hd: number, r: number, cs
   return out;
 }
 
+/**
+ * Lenovo's smile keycap (AccuType), as fractions of the cap's depth from a
+ * 15.5 by 15 mm cap: small back corners, larger front corners, and the front
+ * edge sagging toward the player between them. The sag follows the cap's
+ * depth, never its width, so a space bar curves as deep as a letter.
+ */
+const SMILE = { back: 1 / 15, front: 1.5 / 15, sag: 1.2 / 15 };
+/** Points along the smile's curve between its front corners: the same on every key. */
+const SMILE_STEPS = 8;
+
+/** The smile cap's outline in plan, anticlockwise from the +x side; +z is the front. Same count for the same cs. */
+function smileRect(cx: number, cz: number, hw: number, hd: number, cs: number): P2[] {
+  const d = 2 * hd;
+  const sag = Math.min(SMILE.sag * d, 0.3 * hd);
+  const rB = Math.max(0.05, Math.min(SMILE.back * d, hw - 0.01, hd - 0.01));
+  const rF = Math.max(0.05, Math.min(SMILE.front * d, hw - 0.01, hd - sag - 0.01));
+  // The front corners stop short of the front by the sag; the curve reaches it at the middle.
+  const zF = cz + hd - sag;
+  const out: P2[] = [];
+  const arc = (ox: number, oz: number, r: number, a0: number) => {
+    for (let i = 0; i <= cs; i++) {
+      const a = a0 + (i / cs) * (Math.PI / 2);
+      out.push([ox + r * Math.cos(a), oz + r * Math.sin(a)]);
+    }
+  };
+  arc(cx + hw - rF, zF - rF, rF, 0);
+  const run = hw - rF;
+  for (let i = 1; i < SMILE_STEPS; i++) {
+    const t = 1 - (2 * i) / SMILE_STEPS;
+    out.push([cx + t * run, zF + sag * (1 - t * t)]);
+  }
+  arc(cx - hw + rF, zF - rF, rF, Math.PI / 2);
+  arc(cx - hw + rB, cz - hd + rB, rB, Math.PI);
+  arc(cx + hw - rB, cz - hd + rB, rB, 1.5 * Math.PI);
+  return out;
+}
+
 type Surf = (x: number, z: number) => number;
 
 /** A ring of vertices on a plan outline, at a fixed height or on a surface. */
@@ -395,6 +432,9 @@ function build(
   const cs = shape === "round" ? 7 : 4;
   // Corner radius scale by cap shape: square is nearly sharp, round runs to a full circle.
   const rk = shape === "square" ? 0.3 : shape === "round" ? 20 : 1;
+  // A cap's outline in plan at a given size: the smile draws its own corners, the rest round theirs by r.
+  const outline = (x: number, z: number, hw: number, hd: number, r: number): P2[] =>
+    shape === "smile" ? smileRect(x, z, hw, hd, cs) : roundRect(x, z, hw, hd, r, cs);
 
   const specs = layout(cols === 19);
   specs.forEach((k, n) => {
@@ -430,9 +470,9 @@ function build(
       const r0 = 0.07 * p * rk;
       rB = r0;
       const r1 = 0.1 * p * rk;
-      const bp = roundRect(cx, cz, hw0, hd0, r0, cs);
-      const mp = roundRect(cx, cz, hw0 - 0.3 * taper, hd0 - 0.3 * taper, (r0 + r1) / 2, cs);
-      const tp = roundRect(cx, cz, hw1, hd1, r1, cs);
+      const bp = outline(cx, cz, hw0, hd0, r0);
+      const mp = outline(cx, cz, hw0 - 0.3 * taper, hd0 - 0.3 * taper, (r0 + r1) / 2);
+      const tp = outline(cx, cz, hw1, hd1, r1);
       const yMid = capBot + 0.5 * (yT - dish - Math.abs(tilt) - capBot);
       const B = ringAt(caps, bp, capBot);
       const M = ringAt(caps, mp, yMid);
@@ -462,9 +502,9 @@ function build(
       lift = 0.035;
       const r0 = 0.085 * p * rk;
       rB = r0;
-      const bp = roundRect(cx, cz, hw0, hd0, r0, cs);
-      const up = roundRect(cx, cz, hw0 - taper, hd0 - taper, r0 - taper * 0.5, cs);
-      const ep = roundRect(cx, cz, hw0 - taper - cham, hd0 - taper - cham, r0 - taper * 0.5 - cham * 0.5, cs);
+      const bp = outline(cx, cz, hw0, hd0, r0);
+      const up = outline(cx, cz, hw0 - taper, hd0 - taper, r0 - taper * 0.5);
+      const ep = outline(cx, cz, hw0 - taper - cham, hd0 - taper - cham, r0 - taper * 0.5 - cham * 0.5);
       const B = ringAt(caps, bp, capBot);
       const U = ringAt(caps, up, yT - cham);
       const E = ringAt(caps, ep, yT);
@@ -499,8 +539,8 @@ function build(
       const halo = Math.min(modern ? 0.5 : 0.3, gap / 2 - 0.05);
       if (halo > 0.02) {
         const ins = Math.min(0.4, 0.3 * Math.min(hw0, hd0));
-        const ip = roundRect(cx, cz, hw0 - ins, hd0 - ins, rB - ins, cs);
-        const op = roundRect(cx, cz, hw0 + halo, hd0 + halo, rB + halo, cs);
+        const ip = outline(cx, cz, hw0 - ins, hd0 - ins, rB - ins);
+        const op = outline(cx, cz, hw0 + halo, hd0 + halo, rB + halo);
         const I = ringAt(target, ip, plateTop + 0.02);
         const O = ringAt(target, op, plateTop + 0.02);
         for (let i = 0; i < I.length; i++) {
@@ -509,7 +549,7 @@ function build(
         }
       }
       const skirt = Math.min(modern ? 0.3 : 0.4, 0.15 * capH);
-      const bp = roundRect(cx, cz, hw0 + 0.02, hd0 + 0.02, rB + 0.02, cs);
+      const bp = outline(cx, cz, hw0 + 0.02, hd0 + 0.02, rB + 0.02);
       band(target, ringAt(target, bp, capBot), ringAt(target, bp, capBot + skirt), bp, cx, cz);
     }
 

@@ -23,7 +23,7 @@ import { BuilderScene } from "./BuilderScene";
 import { panelLabel } from "./format";
 import { Measurements } from "./Measurements";
 import { SelectionMarks } from "./Overlay3d";
-import { problemText, STAGE_NAME, STAGES, type Stage, stageOf } from "./problems";
+import { problemText, STAGE_NAME, STAGES, type Stage, stageNow, stageOf } from "./problems";
 import { screenTexture } from "./screens";
 import { ownerOf } from "../os/types";
 import { useBootingScreen } from "../os/useOsScreen";
@@ -42,7 +42,7 @@ import { type FinishPiece, FinishColumn } from "./FinishStage";
 import { type KeyGroup, KeysColumn } from "./KeysStage";
 import { MarkHandles, type MarkBrowse, MarksColumn, MarksTray } from "./MarksStage";
 import { ScreenColumn, ScreenTray } from "./ScreenStage";
-import { DisplayMarks, type SurfaceItem, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
+import { DisplayMarks, SurfaceColumn, SurfaceMarks, WebcamMarks } from "./SurfaceStage";
 import { PowerOn, StatStrip, statsOf } from "./Stats";
 import { SliderField } from "./ui";
 import { type ViewName, viewFor } from "./view";
@@ -117,15 +117,25 @@ const FRAME: Record<Stage, Frame> = {
   chassis: { view: "hero", shift: 0.2, zoom: 1.05 },
   screen: { view: "screen", shift: 0.2, zoom: 1.05, lift: 0.01 },
   inside: { view: "part", shift: 0.24 },
-  surface: { view: "deck", shift: 0.18, lift: 0.012 },
-  keys: { view: "keys", shift: 0.17, zoom: 1.1, lift: 0.012 },
+  keyboard: { view: "deck", shift: 0.18, lift: 0.012 },
+  trackpad: { view: "deck", shift: 0.18, lift: 0.012 },
+  webcam: { view: "screen", shift: 0.2, zoom: 0.9, lift: 0.02 },
+  ports: { view: "side", shift: 0.15, zoom: 1.05, lift: 0.02 },
   finish: { view: "finish", shift: 0.16, zoom: 1.12, lift: 0.03 },
-  marks: { view: "lid", shift: 0.18, zoom: 0.98, lift: 0.02 },
   price: { view: "hero", shift: 0.2 },
 };
+/** The Finish stage's Decals page, on the lid. */
+const DECALS: Frame = { view: "lid", shift: 0.18, zoom: 0.98, lift: 0.02 };
+
+/** The stages for what sits on the laptop's surfaces: each one is its surface item. */
+const SURFACE = new Set<Stage>(["keyboard", "trackpad", "webcam", "ports"]);
+type SurfaceStageName = "keyboard" | "trackpad" | "webcam" | "ports";
 
 /** Stages with a tray of cards along the bottom. */
-const TRAY = new Set<Stage>(["chassis", "screen", "keys", "finish", "marks"]);
+const TRAY = new Set<Stage>(["chassis", "screen", "finish"]);
+
+/** The Finish stage's two pages. */
+type FinishPage = "finish" | "decals";
 
 /** Floor zone roles where an empty slot's part would go. */
 const ZONE_ROLE: Partial<Record<Category, string>> = {
@@ -226,7 +236,7 @@ export function Builder({
 
   // Reopen where the player left off. Only a brand-new model starts on Year.
   const [stage, setStage] = useState<Stage>(() => {
-    const saved = build.stage as Stage | undefined;
+    const saved = stageNow(build.stage);
     if (saved && stages.includes(saved)) return saved;
     if (Object.values(build.parts).some((l) => (l ?? []).length > 0)) return "chassis";
     return yearLocked ? "chassis" : "year";
@@ -238,8 +248,11 @@ export function Builder({
     set((b) => (b.stage === s ? b : { ...b, stage: s }));
   };
   const idx = stages.indexOf(stage);
+  const goRef = useRef(go);
+  goRef.current = go;
   const [insideSlot, setInsideSlot] = useState("processor");
-  const [surfaceItem, setSurfaceItem] = useState<SurfaceItem>("keyboard");
+  // An older save left on its Decals stage reopens on the Finish stage's Decals page.
+  const [finishPage, setFinishPage] = useState<FinishPage>(() => (build.stage === "marks" ? "decals" : "finish"));
   const [port, setPort] = useState(0);
   const [keyGroups, setKeyGroups] = useState<KeyGroup[]>(["letters", "mods", "accent"]);
   const [piece, setPiece] = useState<FinishPiece>("lid");
@@ -311,13 +324,10 @@ export function Builder({
     [inside, selectedBoxes],
   );
 
-  const surface = stage === "surface" && !powering;
+  const surface = SURFACE.has(stage) && !powering;
   const portSide = build.ports[port]?.side;
-  let frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : FRAME[stage];
-  if (surface && surfaceItem === "webcam") frame = { view: "screen", shift: 0.2, zoom: 0.9, lift: 0.02 };
-  if (surface && surfaceItem === "display") frame = { view: "screen", shift: 0.2, zoom: 1.05, lift: 0.01 };
-  if (surface && surfaceItem === "ports") frame = { view: "side", shift: 0.15, zoom: 1.05, lift: 0.02 };
-  const marking = stage === "marks" && !powering;
+  const marking = stage === "finish" && finishPage === "decals" && !powering;
+  let frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : marking ? DECALS : FRAME[stage];
   if (marking && markSurface === "palm") frame = { view: "deck", shift: 0.18, lift: 0.012 };
   if (marking && markSurface === "bottom") frame = { view: "bottom", shift: 0.18 };
   if (marking && markSurface === "bezel") frame = { view: "screen", shift: 0.2, zoom: 1.05, lift: 0.01 };
@@ -395,14 +405,14 @@ export function Builder({
     (b: Box) => {
       // The click that ends a handle drag must not select whatever is under the pointer.
       if (arrowDrag.on || performance.now() < arrowDrag.until) return;
-      if (b.role === "keys") setSurfaceItem("keyboard");
-      else if (b.role === "pad") setSurfaceItem("trackpad");
-      else if (b.role === "webcam") setSurfaceItem("webcam");
-      else if (b.role === "panel") setSurfaceItem("display");
+      if (b.role === "keys") goRef.current("keyboard");
+      else if (b.role === "pad") goRef.current("trackpad");
+      else if (b.role === "webcam") goRef.current("webcam");
+      else if (b.role === "panel") goRef.current("screen");
       else if (String(b.role).startsWith("port:")) {
         const i = fit.place.ports.findIndex((p) => p?.box === b.id);
         if (i >= 0) {
-          setSurfaceItem("ports");
+          goRef.current("ports");
           setPort(i);
         }
       }
@@ -439,24 +449,35 @@ export function Builder({
       tray = <ChassisTray {...props} onPreview={setPreview} />;
       break;
     case "screen":
-      column = <ScreenColumn {...props} />;
+      column = (
+        <>
+          <ScreenColumn {...props} />
+          <SurfaceColumn {...props} item="display" port={port} onPort={setPort} />
+        </>
+      );
       tray = <ScreenTray {...props} />;
       break;
     case "inside":
       column = <InsideColumn {...props} slot={slot.key} onSlot={setInsideSlot} onGrillView={setGrillView} />;
       break;
-    case "surface":
+    case "keyboard":
       column = (
-        <SurfaceColumn {...props} item={surfaceItem} onItem={setSurfaceItem} port={port} onPort={setPort} />
+        <>
+          <SurfaceColumn {...props} item="keyboard" port={port} onPort={setPort} />
+          <KeysColumn {...props} groups={keyGroups} onGroups={setKeyGroups} />
+        </>
       );
       break;
-    case "keys":
-      column = <KeysColumn {...props} groups={keyGroups} onGroups={setKeyGroups} />;
+    case "trackpad":
+    case "webcam":
+    case "ports":
+      column = <SurfaceColumn {...props} item={stage} port={port} onPort={setPort} />;
       break;
     case "finish":
-      column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;
-      break;
-    case "marks":
+      if (finishPage === "finish") {
+        column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;
+        break;
+      }
       column = (
         <>
           <MarksColumn
@@ -517,7 +538,7 @@ export function Builder({
         fit={previewFit}
         year={build.year}
         view={view}
-        resetKey={`${stage}:${stage === "inside" ? slot.key : stage === "surface" ? `${surfaceItem}:${portSide ?? ""}` : stage === "marks" ? markSurface : ""}:${powering}`}
+        resetKey={`${stage}:${stage === "inside" ? slot.key : stage === "ports" ? (portSide ?? "") : marking ? `decals:${markSurface}` : ""}:${powering}`}
         lidAngle={lidAngle}
         colours={colours}
         surfaces={surfaces}
@@ -526,20 +547,20 @@ export function Builder({
         screen={screen}
         glow={powering}
         paint={paint}
-        problems={!["keys", "finish", "marks"].includes(stage)}
+        problems={stage !== "finish"}
         extra={
           inside && outside ? undefined : inside ? (
             <SelectionMarks selected={selectedBoxes} empty={emptyBoxes} />
           ) : surface ? (
-            <SurfaceMarks build={build} fit={fit} set={set} item={surfaceItem} port={port} locked={locked} />
+            <SurfaceMarks build={build} fit={fit} set={set} item={stage as SurfaceStageName} port={port} locked={locked} />
           ) : marking && (markSurface === "palm" || markSurface === "bottom") ? (
             <MarkHandles build={build} fit={fit} set={set} selected={markSel} locked={locked} />
           ) : undefined
         }
         lidExtra={
-          surface && surfaceItem === "webcam" ? (
+          stage === "webcam" && !powering ? (
             <WebcamMarks fit={fit} set={set} locked={locked} />
-          ) : surface && surfaceItem === "display" ? (
+          ) : stage === "screen" && !powering ? (
             <DisplayMarks fit={fit} set={set} locked={locked} />
           ) : marking && (markSurface === "lid" || markSurface === "bezel") ? (
             <MarkHandles build={build} fit={fit} set={set} selected={markSel} locked={locked} />
@@ -588,7 +609,9 @@ export function Builder({
                 // biome-ignore lint/suspicious/noArrayIndexKey: problems have no id and never reorder within one render
                 key={i}
                 onClick={() => {
-                  go(stageOf(p));
+                  const to = stageOf(p);
+                  if (to === "finish") setFinishPage("finish");
+                  go(to);
                   setListOpen(false);
                 }}
               >
@@ -609,8 +632,23 @@ export function Builder({
         <PowerOn name={shownName} stats={stats} onDone={donePowering} />
       ) : (
         // One body per stage: the column scrolls on its own and always ends above the tray row.
-        <div className={`bd-body bd-${stage}`}>
+        <div className={`bd-body bd-${stage}${surface ? " bd-surface" : ""}${marking ? " bd-marks" : ""}`}>
           <div key={stage} className="bd-column fd-in">
+            {stage === "finish" && (
+              // Finish and Decals: two pages of the one stage. Next and Back step over stages, not these.
+              <div className="bd-slots big">
+                {(["finish", "decals"] as const).map((p) => (
+                  <button
+                    type="button"
+                    key={p}
+                    className={["bd-row-item", p === finishPage ? "on" : ""].join(" ")}
+                    onClick={() => setFinishPage(p)}
+                  >
+                    {p === "finish" ? "Finish" : "Decals"}
+                  </button>
+                ))}
+              </div>
+            )}
             {stage === "price" ? column : <fieldset disabled={locked}>{column}</fieldset>}
             {stage === "year" && (
               <div className="bd-actions">

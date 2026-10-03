@@ -6,7 +6,7 @@ import { PLINTH_H } from "../foundry/Stage";
 // angle round the laptop (az), an elevation (el), a distance as a multiple of
 // the laptop's larger plan side (k), and a target point.
 
-export type ViewName = "hero" | "deck" | "keys" | "lid" | "side" | "screen" | "part" | "front" | "finish" | "xray" | "bottom" | "grill";
+export type ViewName = "hero" | "deck" | "lid" | "side" | "screen" | "part" | "front" | "finish" | "xray" | "bottom" | "grill";
 
 export interface View {
   az: number;
@@ -55,8 +55,6 @@ export function viewFor(
   const span = Math.max(W, D);
   const zoom = opt.zoom ?? 1;
   const lift = (opt.lift ?? 0) * 1000;
-  const keys = fit.boxes.find((b) => b.kind === "unit" && b.role === "keys");
-  const kbZ = keys ? D / 2 - (keys.at.y + keys.size.y / 2) : 0;
   const panel = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
   // Panel centre, measured from the hinge along the lid.
   const r = panel ? D - (panel.at.y + panel.size.y / 2) : D / 2;
@@ -88,12 +86,6 @@ export function viewFor(
       el = 1.12;
       k = 2.05;
       t = [0, PLINTH_H + H, 30];
-      break;
-    case "keys":
-      az = 0;
-      el = 1.02;
-      k = 1.22;
-      t = [0, PLINTH_H + H, kbZ + 4];
       break;
     case "lid": {
       az = Math.PI + 0.42;

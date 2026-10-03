@@ -20,7 +20,8 @@ import type { StageProps } from "./Stages";
 import { type DropOption, Dropdown } from "./Dropdown";
 import { Chip, Chips, Label, Line, money, SliderField, Value } from "./ui";
 
-// The Surface stage: keyboard, trackpad, webcam and ports, placed on the 3D
+// What sits on the laptop's surfaces, each its own stage (the display on the
+// Screen stage): keyboard, trackpad, webcam and ports, placed on the 3D
 // laptop with drag arrows. Keyboard and trackpad stay centred left to right;
 // the webcam slides along the top bezel; the display moves up and down the
 // lid. Ports are not moved by hand: each wall's list order is their order
@@ -75,10 +76,6 @@ function isPortProblem(p: Problem): boolean {
   );
 }
 
-function portsWarn(fit: Fit): boolean {
-  return fit.problems.some(isPortProblem);
-}
-
 // Icons from Lucide (https://lucide.dev), ISC License, Copyright (c) Lucide Contributors.
 const GRIP = (
   <>
@@ -101,12 +98,6 @@ function Icon({ d }: { d: ReactNode }) {
   );
 }
 
-function partWarn(build: Build, fit: Fit, cat: Category): boolean {
-  const bp = build.parts[cat]?.[0];
-  if (!bp) return cat !== "webcam";
-  return fit.problems.some((p) => (p.kind === "year" && p.ref === bp.part) || (p.kind === "compat" && "part" in p && p.part === bp.part));
-}
-
 function Centred() {
   return (
     <div className="bd-centred">
@@ -116,39 +107,19 @@ function Centred() {
   );
 }
 
+/** One surface item's fields: its stage's column, or the display's part of the Screen stage. */
 export function SurfaceColumn({
   build,
   fit,
   set,
   item,
-  onItem,
   port,
   onPort,
-}: StageProps & { item: SurfaceItem; onItem: (i: SurfaceItem) => void; port: number; onPort: (i: number) => void }) {
-  const items: [SurfaceItem, string, boolean][] = [
-    ["keyboard", "Keyboard", partWarn(build, fit, "keyboard")],
-    ["trackpad", "Trackpad", partWarn(build, fit, "trackpad")],
-    ["webcam", "Webcam", partWarn(build, fit, "webcam")],
-    ["display", "Display", fit.problems.some((p) => p.kind === "compat" && p.code === "bezel-fit")],
-    ["ports", "Ports", portsWarn(fit)],
-  ];
+}: StageProps & { item: SurfaceItem; port: number; onPort: (i: number) => void }) {
   const rep = fit.place;
   return (
     <>
-      <div className="bd-slots big">
-        {items.map(([k, name, warn]) => (
-          <button
-            type="button"
-            key={k}
-            className={["bd-row-item", k === item ? "on" : "", warn ? "warn" : ""].join(" ")}
-            onClick={() => onItem(k)}
-          >
-            {name}
-            {k === "ports" && <small>{build.ports.length}</small>}
-          </button>
-        ))}
-      </div>
-      <div key={item} className="bd-surface-detail fd-in">
+      <div className="bd-surface-detail">
         {item === "keyboard" && (
           <>
             {rep.kb && (
@@ -238,8 +209,8 @@ export function SurfaceColumn({
           .filter(
             (p) =>
               p.kind === "compat" &&
-              (p.code === "overlap" ||
-                p.code === "bezel-fit" ||
+              ((p.code === "overlap" && item !== "display") ||
+                (p.code === "bezel-fit" && (item === "webcam" || item === "display")) ||
                 (item === "ports" && isPortProblem(p))),
           )
           .map((p) => (

@@ -611,6 +611,7 @@ export function Builder({
           {...props}
           valid={valid}
           name={name}
+          company={company}
           onName={setName}
           onReroll={() => setName(reroll(build))}
           onReview={review}

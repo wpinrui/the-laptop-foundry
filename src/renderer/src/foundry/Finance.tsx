@@ -8,10 +8,8 @@ import {
   STARTING_CASH,
   shareOf,
 } from "../engine/campaign";
-import { count, usdShort } from "./Release";
+import { Short } from "../ui/Short";
 import "./campaign.css";
-
-export { usdShort };
 
 /** A share in a few characters: 0.042%, 1.3%. */
 export function pct(share: number): string {
@@ -83,7 +81,11 @@ export function BooksTab({ campaign, onOpen }: { campaign: CampaignState; onOpen
                   <span className="bar">
                     <i style={{ width: `${(v / top) * 100}%` }} />
                   </span>
-                  <b>{l.cost ? (v ? usdShort(-v) : "$0") : `+${usdShort(v)}`}</b>
+                  <b>{l.cost ? (v ? <Short value={-v} money /> : "$0") : (
+                      <>
+                        +<Short value={v} money />
+                      </>
+                    )}</b>
                 </div>
               );
             })}
@@ -91,13 +93,13 @@ export function BooksTab({ campaign, onOpen }: { campaign: CampaignState; onOpen
               <div className="cost">
                 <span className="short">Unexplained</span>
                 <span />
-                <b className="short">{usdShort(lastGap)}</b>
+                <b className="short"><Short value={lastGap} money /></b>
               </div>
             )}
             <div className="profit">
               <b>Profit</b>
               <span />
-              <b className={warn(last.profit < 0)}>{usdShort(last.profit)}</b>
+              <b className={warn(last.profit < 0)}><Short value={last.profit} money /></b>
             </div>
           </div>
           <div className="cr-rule" />
@@ -113,10 +115,10 @@ export function BooksTab({ campaign, onOpen }: { campaign: CampaignState; onOpen
               return (
                 <Fragment key={key(e)}>
                   <span className="q">{quarterLabel(e.quarter)}</span>
-                  <b>{usdShort(e.revenue)}</b>
-                  <b className={warn(e.profit < 0)}>{usdShort(e.profit)}</b>
-                  <b className={warn(e.cash < 0)}>{usdShort(e.cash)}</b>
-                  <b>{r ? count(Object.values(r.units).reduce((a, b) => a + b, 0)) : ""}</b>
+                  <b><Short value={e.revenue} money /></b>
+                  <b className={warn(e.profit < 0)}><Short value={e.profit} money /></b>
+                  <b className={warn(e.cash < 0)}><Short value={e.cash} money /></b>
+                  <b>{r ? <Short value={Object.values(r.units).reduce((a, b) => a + b, 0)} /> : ""}</b>
                   <b>{r ? pct(shareOf(r)) : ""}</b>
                 </Fragment>
               );
@@ -152,7 +154,7 @@ function Statement({ campaign }: { campaign: CampaignState }) {
   const total = (l: Line) => ledger.reduce((s, e) => s + l.of(e), 0);
   const profit = ledger.reduce((s, e) => s + e.profit, 0);
   const scroller = useScrolledRight();
-  const cell = (v: number, cost?: boolean) => (v === 0 ? "" : usdShort(cost ? -v : v));
+  const cell = (v: number, cost?: boolean) => (v === 0 ? "" : <Short value={cost ? -v : v} money />);
   return (
     <div className="fd-books-scroll" ref={scroller}>
       <table className="fd-books-table">
@@ -174,39 +176,39 @@ function Statement({ campaign }: { campaign: CampaignState }) {
                 <td key={key(e)}>{cell(l.of(e), l.cost)}</td>
               ))}
               {open && <td className="now">{cell(nowCell(l), l.cost)}</td>}
-              <td className="sum">{usdShort(l.cost ? -total(l) : total(l))}</td>
+              <td className="sum"><Short value={l.cost ? -total(l) : total(l)} money /></td>
             </tr>
           ))}
           <tr className="strong">
             <th>Profit</th>
             {ledger.map((e) => (
               <td key={key(e)} className={warn(e.profit < 0)}>
-                {usdShort(e.profit)}
+                <Short value={e.profit} money />
               </td>
             ))}
             {open && <td className="now" />}
-            <td className={`sum${profit < 0 ? " short" : ""}`}>{usdShort(profit)}</td>
+            <td className={`sum${profit < 0 ? " short" : ""}`}><Short value={profit} money /></td>
           </tr>
           {anyGap && (
             <tr>
               <th className="short">Unexplained</th>
               {gap.map((g, i) => (
                 <td key={key(ledger[i])} className="short">
-                  {g === 0 ? "" : usdShort(g)}
+                  {g === 0 ? "" : <Short value={g} money />}
                 </td>
               ))}
               {open && <td className="now" />}
-              <td className="sum short">{usdShort(gap.reduce((a, b) => a + b, 0))}</td>
+              <td className="sum short"><Short value={gap.reduce((a, b) => a + b, 0)} money /></td>
             </tr>
           )}
           <tr className="strong">
             <th>Cash</th>
             {ledger.map((e) => (
               <td key={key(e)} className={warn(e.cash < 0)}>
-                {usdShort(e.cash)}
+                <Short value={e.cash} money />
               </td>
             ))}
-            {open && <td className={`now${campaign.cash < 0 ? " short" : ""}`}>{usdShort(campaign.cash)}</td>}
+            {open && <td className={`now${campaign.cash < 0 ? " short" : ""}`}><Short value={campaign.cash} money /></td>}
             <td className="sum" />
           </tr>
         </tbody>
@@ -249,12 +251,12 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
                 {rows.map((r) => (
                   <td key={q(r)} />
                 ))}
-                <td className={`sum${stock === 0 ? " short" : ""}`}>{stock === undefined ? "" : count(stock)}</td>
+                <td className={`sum${stock === 0 ? " short" : ""}`}>{stock === undefined ? "" : <Short value={stock} />}</td>
               </tr>
               <tr>
                 <th>Sold</th>
                 {rows.map((r) => (
-                  <td key={q(r)}>{r.units[id] === undefined ? "" : count(r.units[id])}</td>
+                  <td key={q(r)}>{r.units[id] === undefined ? "" : <Short value={r.units[id]} />}</td>
                 ))}
                 <td className="sum" />
               </tr>
@@ -264,7 +266,7 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
                   const d = r.demand[id];
                   return (
                     <td key={q(r)} className={warn(d !== undefined && d > (r.units[id] ?? 0))}>
-                      {d === undefined ? "" : count(d)}
+                      {d === undefined ? "" : <Short value={d} />}
                     </td>
                   );
                 })}
@@ -277,7 +279,7 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
                     const l = (r.demand[id] ?? 0) - (r.units[id] ?? 0);
                     return (
                       <td key={q(r)} className="short">
-                        {l > 0 ? count(l) : ""}
+                        {l > 0 ? <Short value={l} /> : ""}
                       </td>
                     );
                   })}
@@ -287,14 +289,14 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
               <tr>
                 <th>Price</th>
                 {rows.map((r) => (
-                  <td key={q(r)}>{r.units[id] === undefined ? "" : usdShort(price(id, r))}</td>
+                  <td key={q(r)}>{r.units[id] === undefined ? "" : <Short value={price(id, r)} money />}</td>
                 ))}
-                <td className="sum">{campaign.releases[id] ? usdShort(campaign.releases[id].price) : ""}</td>
+                <td className="sum">{campaign.releases[id] ? <Short value={campaign.releases[id].price} money /> : ""}</td>
               </tr>
               <tr>
                 <th>Revenue</th>
                 {rows.map((r) => (
-                  <td key={q(r)}>{r.units[id] ? usdShort(r.units[id] * price(id, r)) : ""}</td>
+                  <td key={q(r)}>{r.units[id] ? <Short value={r.units[id] * price(id, r)} money /> : ""}</td>
                 ))}
                 <td className="sum" />
               </tr>
@@ -312,7 +314,7 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
           <tr>
             <th>Units</th>
             {rows.map((r) => (
-              <td key={q(r)}>{count(Object.values(r.units).reduce((a, b) => a + b, 0))}</td>
+              <td key={q(r)}><Short value={Object.values(r.units).reduce((a, b) => a + b, 0)} /></td>
             ))}
             <td className="sum" />
           </tr>

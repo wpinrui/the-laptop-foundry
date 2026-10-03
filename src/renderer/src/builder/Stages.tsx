@@ -50,6 +50,7 @@ import {
   Toggle,
   Value,
 } from "./ui";
+import { Tooltip } from "../ui/Tooltip";
 
 // The left column of each builder stage, and the tray along the bottom where
 // the stage has one. Every change goes through `set`, which does nothing on a
@@ -721,7 +722,9 @@ function ClassLadder({ cls, rank, of, rungs }: { cls: string; rank: number; of: 
       {rungs.map((r) => (
         <div key={r.id} className={r.own ? "bd-rung mine" : "bd-rung"}>
           <span>{r.rank}</span>
-          <b title={r.name}>{r.name}</b>
+          <Tooltip tip={r.name}>
+            <b>{r.name}</b>
+          </Tooltip>
           <em>{money(r.price)}</em>
         </div>
       ))}
@@ -814,15 +817,16 @@ export function PriceColumn({
           onChange={(e) => onName(e.target.value)}
         />
         {!locked && (
-          <button
-            type="button"
-            className="bd-reroll"
-            aria-label="new name"
-            title="New name"
-            onClick={onReroll}
-          >
-            ↻
-          </button>
+          <Tooltip tip="New name">
+            <button
+              type="button"
+              className="bd-reroll"
+              aria-label="new name"
+              onClick={onReroll}
+            >
+              ↻
+            </button>
+          </Tooltip>
         )}
       </div>
       {priced && (

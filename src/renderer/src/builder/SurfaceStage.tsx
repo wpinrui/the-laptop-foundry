@@ -20,6 +20,7 @@ import type { StageProps } from "./Stages";
 import { type DropOption, Dropdown } from "./Dropdown";
 import { defaultPorts } from "./defaultPorts";
 import { Chip, Chips, Label, Line, money, SliderField, Value } from "./ui";
+import { Tooltip } from "../ui/Tooltip";
 
 // What sits on the laptop's surfaces, each its own stage (the display on the
 // Screen stage): keyboard, trackpad, webcam and ports, placed on the 3D
@@ -336,9 +337,11 @@ function PortDetail({
                 setOver(null);
               }}
             >
-              <span className="bd-port-grip" title="Drag to reorder">
-                <Icon d={GRIP} />
-              </span>
+              <Tooltip tip="Drag to reorder">
+                <span className="bd-port-grip">
+                  <Icon d={GRIP} />
+                </span>
+              </Tooltip>
               <button
                 type="button"
                 className={["bd-port-item", i === port ? "on" : "", warnOf(p.part) ? "warn" : ""].join(" ")}
@@ -349,26 +352,28 @@ function PortDetail({
                 </b>
                 <span>{CONTENT.parts.find((x) => x.id === p.part)?.name ?? p.part}</span>
               </button>
-              <button
-                type="button"
-                className="bd-port-move"
-                aria-label="Move up"
-                title={wall === "left" || wall === "right" ? "Toward the rear" : "Toward the left"}
-                disabled={k === 0}
-                onClick={() => move(i, onWall[k - 1].i)}
-              >
-                <Icon d={CHEVRON_UP} />
-              </button>
-              <button
-                type="button"
-                className="bd-port-move"
-                aria-label="Move down"
-                title={wall === "left" || wall === "right" ? "Toward the front" : "Toward the right"}
-                disabled={k === onWall.length - 1}
-                onClick={() => move(i, onWall[k + 1].i)}
-              >
-                <Icon d={CHEVRON_DOWN} />
-              </button>
+              <Tooltip tip={wall === "left" || wall === "right" ? "Toward the rear" : "Toward the left"}>
+                <button
+                  type="button"
+                  className="bd-port-move"
+                  aria-label="Move up"
+                  disabled={k === 0}
+                  onClick={() => move(i, onWall[k - 1].i)}
+                >
+                  <Icon d={CHEVRON_UP} />
+                </button>
+              </Tooltip>
+              <Tooltip tip={wall === "left" || wall === "right" ? "Toward the front" : "Toward the right"}>
+                <button
+                  type="button"
+                  className="bd-port-move"
+                  aria-label="Move down"
+                  disabled={k === onWall.length - 1}
+                  onClick={() => move(i, onWall[k + 1].i)}
+                >
+                  <Icon d={CHEVRON_DOWN} />
+                </button>
+              </Tooltip>
             </div>
           ))}
         </div>

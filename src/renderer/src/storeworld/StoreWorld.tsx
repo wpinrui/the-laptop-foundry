@@ -18,19 +18,20 @@ import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
 import { lookOf as screenLook } from "../review/look";
 import { bestSegments } from "../review/segments";
-import { countShort } from "../world/data";
+import { Short } from "../ui/Short";
 import { flagOf } from "./displays";
 import { layoutOf } from "./layout";
 import { type OnSale, useOnSale } from "./onSale";
 import { Store, type StoreAim } from "./Store";
 import "../cafe/cafe.css";
 import "./storeworld.css";
+import { full as fullNumber } from "../ui/number";
 
 // The Courts store as a place to walk around: the shell and pointer lock,
 // the aim dot, the inspect card with its previous and next, and the pause
 // menu. Walking out through the door calls onMap.
 
-const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+const usd = (n: number) => fullNumber(n, true);
 
 /** A display unit can be used when its build fits, simulates and has a screen. */
 const usableCache = new WeakMap<OnSale, boolean>();
@@ -471,7 +472,7 @@ function Card({
   onBack: () => void;
 }) {
   const s = item.spec;
-  const rows: [string, string][] = [
+  const rows: [string, ReactNode][] = [
     ["Processor", s.cpu],
     ["Graphics", s.gpu],
     ["Memory", s.memory],
@@ -482,10 +483,10 @@ function Card({
     ["Released", item.released],
   ];
   if (item.stock !== null)
-    rows.push(["Stock", item.stock.toLocaleString("en-US")]);
+    rows.push(["Stock", <Short value={item.stock} />]);
   const flag = flagOf(item);
-  const cells: [string, string, string?][] = [];
-  if (item.units > 0) cells.push(["Sold", countShort(item.units)]);
+  const cells: [string, ReactNode, string?][] = [];
+  if (item.units > 0) cells.push(["Sold", <Short value={item.units} />]);
   if (item.rank !== null) cells.push(["Rank", `${item.rank}`]);
   if (cls) cells.push(["Class", cls.name]);
   if (cls?.share != null) cells.push(["Class share", `${cls.share}%`]);

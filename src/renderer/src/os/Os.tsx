@@ -7,6 +7,7 @@ import { Battery, ErrorIcon, Glyph, Mark, PowerGlyph, Speaker, Warn } from "./Ic
 import { STORE } from "../store/name";
 import { type AppId, clockOf, type Era, type Owner, type Power } from "./types";
 import "./os.css";
+import { full } from "../ui/number";
 
 // The laptop's own operating system, one look per era: 2006 classic blue,
 // 2016 glass and 2026 dark. Everything is laid out in logical pixels, the
@@ -330,7 +331,7 @@ export interface RankRow {
   own: boolean;
 }
 
-const pts = (n: number) => Math.round(n).toLocaleString("en-US");
+const pts = (n: number) => full(n);
 
 export function KilnApp({
   era,

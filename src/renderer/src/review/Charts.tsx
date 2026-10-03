@@ -1,4 +1,5 @@
 import type { BarChart, Chart, DisplayBox, LineChart, ScaleChart, SurfaceGrid } from "../engine";
+import { Tooltip } from "../ui/Tooltip";
 
 // The review's charts, drawn from the review's chart data. Each era styles
 // them its own way (review.css); the structure is shared. Slot 0 is the
@@ -111,31 +112,33 @@ function Lines({ chart, era }: { chart: LineChart; era: Era }) {
                 </g>
               ))}
               {ordered.map((s) => (
-                <polyline
-                  key={s.slot}
-                  fill="none"
-                  style={{ stroke: line(s.slot) }}
-                  strokeWidth={s.slot === 0 ? 2.5 : 1.5}
-                  strokeLinejoin="round"
-                  points={s.values.map((v, i) => `${xAt(xOf(i, s.values.length)).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ")}
-                >
-                  <title>{s.name}</title>
-                </polyline>
+                <Tooltip key={s.slot} tip={s.name}>
+                  <polyline
+                    fill="none"
+                    style={{ stroke: line(s.slot) }}
+                    strokeWidth={s.slot === 0 ? 2.5 : 1.5}
+                    strokeLinejoin="round"
+                    points={s.values.map((v, i) => `${xAt(xOf(i, s.values.length)).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ")}
+                  />
+                </Tooltip>
               ))}
               {Array.from({ length: n }, (_, i) => {
                 const x0 = xAt((i / n) * chart.xMax);
                 const x1 = xAt(((i + 1) / n) * chart.xMax);
                 return (
-                  <rect key={i} x={x0} y={y0} width={x1 - x0} height={PANEL_H} className="rs-hit">
-                    <title>
-                      {[
-                        `${chart.xLabel} ${num(xOf(i, n), chart.xMax === n ? 0 : 1)}`,
-                        ...p.series
-                          .filter((s) => i < s.values.length)
-                          .map((s) => `${s.name}: ${num(s.values[i], p.decimals)}`),
-                      ].join("\n")}
-                    </title>
-                  </rect>
+                  <Tooltip
+                    key={i}
+                    tip={[
+                      `${chart.xLabel} ${num(xOf(i, n), chart.xMax === n ? 0 : 1)}`,
+                      ...p.series
+                        .filter((s) => i < s.values.length)
+                        .map((s) => `${s.name}: ${num(s.values[i], p.decimals)}`),
+                    ].map((t) => (
+                      <div key={t}>{t}</div>
+                    ))}
+                  >
+                    <rect x={x0} y={y0} width={x1 - x0} height={PANEL_H} className="rs-hit" />
+                  </Tooltip>
                 );
               })}
             </g>
@@ -184,13 +187,14 @@ function Bars({ chart, onOpen, era }: { chart: BarChart; onOpen: (id: string) =>
                 )}
               </span>
               <span className="rs-bartrack">
-                <span
-                  className={`rs-barfill rs-b${Math.min(r.slot, 4)}`}
-                  style={{ width: `${Math.max(0.5, (r.value / max) * 100)}%` }}
-                  title={`${r.name}: ${text}`}
-                >
-                  <span className="rs-barin">{text}</span>
-                </span>
+                <Tooltip tip={`${r.name}: ${text}`}>
+                  <span
+                    className={`rs-barfill rs-b${Math.min(r.slot, 4)}`}
+                    style={{ width: `${Math.max(0.5, (r.value / max) * 100)}%` }}
+                  >
+                    <span className="rs-barin">{text}</span>
+                  </span>
+                </Tooltip>
               </span>
               <span className="rs-barval">{text}</span>
               <span className="rs-bardelta">
@@ -230,9 +234,9 @@ function Scale({ chart, era }: { chart: ScaleChart; era: Era }) {
           );
         })}
         {others.map((m) => (
-          <line key={`${m.slot}-${m.label}`} x1={xAt(m.value)} x2={xAt(m.value)} y1={31} y2={51} strokeWidth={3} style={{ stroke: line(m.slot) }}>
-            <title>{`${m.label}: ${num(m.value, 1)} ${chart.unit}`}</title>
-          </line>
+          <Tooltip key={`${m.slot}-${m.label}`} tip={`${m.label}: ${num(m.value, 1)} ${chart.unit}`}>
+            <line x1={xAt(m.value)} x2={xAt(m.value)} y1={31} y2={51} strokeWidth={3} style={{ stroke: line(m.slot) }} />
+          </Tooltip>
         ))}
         {own.map((m, i) => (
           <g key={m.label}>

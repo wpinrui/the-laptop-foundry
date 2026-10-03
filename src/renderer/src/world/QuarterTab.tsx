@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { AWARD_NAMES, type CampaignState, type Quarter, quarterSummary, type WorldMarket } from "../engine/campaign";
 import { pct } from "../foundry/Finance";
-import { count, usd, usdShort } from "../foundry/Release";
-import { countShort, makerName, ordinal } from "./data";
+import { usd } from "../foundry/Release";
+import { Short } from "../ui/Short";
+import { makerName, ordinal } from "./data";
 
 // The Market screen's Quarter tab: how the company did in the quarter, then
 // every maker's share, the quarter's launches and its best sellers, with the
@@ -60,15 +61,15 @@ export function QuarterTab({
         <h2>{company}</h2>
         <div>
           <span>Units</span>
-          <b>{count(p.units)}</b>
+          <b><Short value={p.units} /></b>
         </div>
         <div>
           <span>Revenue</span>
-          <b>{entry ? usdShort(entry.revenue) : "$0"}</b>
+          <b>{entry ? <Short value={entry.revenue} money /> : "$0"}</b>
         </div>
         <div>
           <span>Profit</span>
-          <b className={entry && entry.profit < 0 ? "short" : "up"}>{entry ? usdShort(entry.profit) : "$0"}</b>
+          <b className={entry && entry.profit < 0 ? "short" : "up"}>{entry ? <Short value={entry.profit} money /> : "$0"}</b>
         </div>
         <div>
           <span>Share</span>
@@ -83,7 +84,7 @@ export function QuarterTab({
         </div>
         <div className="mq-market">
           <span>Market</span>
-          <b>{countShort(s.total)}</b>
+          <b><Short value={s.total} /></b>
         </div>
       </div>
       <div className="mq-cols">
@@ -134,7 +135,7 @@ export function QuarterTab({
                   <small>{makerName(b.maker, company)}</small>
                   {b.name}
                 </span>
-                <b>{countShort(b.units)}</b>
+                <b><Short value={b.units} /></b>
                 <i>
                   <i style={{ width: `${(b.units / most) * 100}%` }} />
                 </i>
@@ -147,7 +148,7 @@ export function QuarterTab({
                 <div key={b.id} className="mine">
                   <em>{b.rank}</em>
                   <span>{b.name}</span>
-                  <b>{countShort(b.units)}</b>
+                  <b><Short value={b.units} /></b>
                 </div>
               ))}
             </div>

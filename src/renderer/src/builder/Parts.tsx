@@ -25,6 +25,7 @@ import { useSettled } from "../viewer/stable";
 import { formatOption, panelLabel } from "./format";
 import { problemText } from "./problems";
 import { Chip, Chips, Label, money, SliderField } from "./ui";
+import { Tooltip } from "../ui/Tooltip";
 
 // A slot list and the options for the selected slot, one row each: name, spec
 // line and price. Options that would add a problem are dimmed with the reason.
@@ -388,19 +389,19 @@ export function Options({
         {rows.map((r) => {
           const on = (current?.part ?? "") === r.id;
           return (
-            <button
-              type="button"
-              key={r.id || "none"}
-              className={["bd-option", on ? "on" : "", r.reason ? "off" : ""].join(" ")}
-              title={r.reason ?? undefined}
-              onClick={() => set((b) => withPart(b, slot.cat, slot.index, r.id))}
-            >
-              <span>
-                <b>{r.name}</b>
-                {r.reason ? <small className="warn">{r.reason}</small> : r.spec && <small>{r.spec}</small>}
-              </span>
-              {r.price !== null && <i>{money(r.price)}</i>}
-            </button>
+            <Tooltip key={r.id || "none"} tip={r.reason ?? undefined}>
+              <button
+                type="button"
+                className={["bd-option", on ? "on" : "", r.reason ? "off" : ""].join(" ")}
+                onClick={() => set((b) => withPart(b, slot.cat, slot.index, r.id))}
+              >
+                <span>
+                  <b>{r.name}</b>
+                  {r.reason ? <small className="warn">{r.reason}</small> : r.spec && <small>{r.spec}</small>}
+                </span>
+                {r.price !== null && <i>{money(r.price)}</i>}
+              </button>
+            </Tooltip>
           );
         })}
       </div>

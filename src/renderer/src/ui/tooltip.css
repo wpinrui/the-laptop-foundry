@@ -1,0 +1,27 @@
+/* The app's hover card. It lives in document.body, so it sets its own scale and type. */
+
+.tt {
+  --u: min(calc(100vw / 1440), calc(100vh / 810));
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  box-sizing: border-box;
+  max-width: min(calc(420 * var(--u)), calc(100vw - 16px));
+  padding: calc(7 * var(--u)) calc(11 * var(--u));
+  background: var(--ground-deep);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: max(14px, calc(15 * var(--u)));
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+}
+
+.tt-num {
+  cursor: default;
+}

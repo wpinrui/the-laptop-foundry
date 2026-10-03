@@ -492,7 +492,6 @@
 }
 
 .cr-info {
-  position: relative;
   font-size: calc(16 * var(--u));
 }
 
@@ -515,24 +514,15 @@
   color: var(--text);
 }
 
-.cr-info-card {
-  position: absolute;
-  top: calc(100% + 8 * var(--u));
-  right: 0;
-  z-index: 5;
-  display: none;
+.tt.cr-info-card {
+  display: grid;
+  max-width: none;
   grid-template-columns: auto auto;
   align-items: baseline;
   gap: calc(8 * var(--u)) calc(16 * var(--u));
   padding: calc(12 * var(--u)) calc(14 * var(--u));
-  background: var(--ground-deep);
-  border: 1px solid var(--line-strong);
+  font-size: calc(16 * var(--u));
   white-space: nowrap;
-}
-
-.cr-info:hover .cr-info-card,
-.cr-info:focus-within .cr-info-card {
-  display: grid;
 }
 
 .cr-info-card b {

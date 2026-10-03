@@ -8,7 +8,10 @@ import { BooksTab, type StatementTab } from "../foundry/Finance";
 import { overallOf, yearOf } from "../foundry/LaptopList";
 import { BrandTab } from "../foundry/Marketing";
 import { ConfirmDelete } from "../foundry/Menus";
-import { ModelTab, statusOf, usd, usdShort } from "../foundry/Release";
+import { ModelTab, statusOf, usd } from "../foundry/Release";
+import { full } from "../ui/number";
+import { Short } from "../ui/Short";
+import { Tooltip } from "../ui/Tooltip";
 import { pctLabel } from "../video/commercial";
 import { type MarketTab, MarketScreen } from "../world/MarketScreen";
 import { labelOf, type OfficeAt, type StationId } from "./stations";
@@ -280,17 +283,25 @@ function Overview({ company, campaign, actions, go, at, onAt }: Ctx) {
       <div className="of-desk-clock">
         <b>{quarterLabel(campaign.now)}</b>
         <span>
-          <b className={campaign.cash < 0 ? "short" : undefined}>{usd(campaign.cash)}</b>
-          {last && <small className={last.profit < 0 ? "short" : "up"}>{usdShort(last.profit)}</small>}
+          <b className={campaign.cash < 0 ? "short" : undefined}>
+            <Short value={campaign.cash} money />
+          </b>
+          {last && (
+            <small className={last.profit < 0 ? "short" : "up"}>
+              <Short value={last.profit} money />
+            </small>
+          )}
         </span>
       </div>
       {ledger.length > 0 && (
         <div className="of-trend">
           {ledger.map((e) => (
-            <div key={`${e.quarter.year}-${e.quarter.quarter}`} title={`${quarterLabel(e.quarter)} ${usdShort(e.profit)}`}>
-              <i className={e.profit < 0 ? "down" : "up"} style={{ height: `${(Math.abs(e.profit) / top) * 50}%` }} />
-              <small>{`Q${e.quarter.quarter}`}</small>
-            </div>
+            <Tooltip key={`${e.quarter.year}-${e.quarter.quarter}`} tip={`${quarterLabel(e.quarter)} ${full(e.profit, true)}`}>
+              <div>
+                <i className={e.profit < 0 ? "down" : "up"} style={{ height: `${(Math.abs(e.profit) / top) * 50}%` }} />
+                <small>{`Q${e.quarter.quarter}`}</small>
+              </div>
+            </Tooltip>
           ))}
         </div>
       )}

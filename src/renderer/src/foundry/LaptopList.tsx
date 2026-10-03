@@ -4,10 +4,9 @@ import { buildBlock } from "../builder/problems";
 import { type Build, scoresOf } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
 import { ConfirmDelete } from "./Menus";
-import { statusOf, usdShort } from "./Release";
+import { Short } from "../ui/Short";
+import { statusOf } from "./Release";
 import "./foundry.css";
-
-const usd = (n: number) => `${n < 0 ? "-" : ""}$${Math.round(Math.abs(n)).toLocaleString("en-US")}`;
 
 // The laptop list: the rail of models on the left, the selected one on the
 // plinth, its name large at the lower right with the actions under it.
@@ -125,8 +124,14 @@ export function LaptopList({
             <div className={`fd-clock${over ? " over" : ""}`}>
               <b>{quarterLabel(campaign.now)}</b>
               <span>
-                <b>{usd(campaign.cash)}</b>
-                {last && <small className={last.profit < 0 ? "short" : "up"}>{usdShort(last.profit)}</small>}
+                <b>
+                  <Short value={campaign.cash} money />
+                </b>
+                {last && (
+                  <small className={last.profit < 0 ? "short" : "up"}>
+                    <Short value={last.profit} money />
+                  </small>
+                )}
               </span>
             </div>
             {short && (

@@ -10,6 +10,7 @@ import { cap, makerName } from "../world/data";
 import { type StillSubject, useStills } from "../viewer/stills";
 import { STORE } from "./name";
 import "./store.css";
+import { full } from "../ui/number";
 
 // Courts, the in-game retailer: every laptop on sale, the class matrix as
 // filters, and a product page. One brand in three eras: a 2006 portal, a
@@ -111,7 +112,7 @@ export function specOf(item: StoreItem, company: string): Spec {
 }
 
 const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+const dollars = (n: number) => full(n, true);
 const slug = (s: string) =>
   s
     .toLowerCase()

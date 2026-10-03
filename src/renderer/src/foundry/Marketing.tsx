@@ -1,7 +1,9 @@
 import { type CampaignState, marketingCost, maxTier, tierCost } from "../engine/campaign";
 import { SEGMENTS } from "../engine/market/segments";
 import type { SegmentId } from "../engine/market/types";
-import { usdShort } from "./Release";
+import { full } from "../ui/number";
+import { Short } from "../ui/Short";
+import { Tooltip } from "../ui/Tooltip";
 import "./campaign.css";
 
 // The Brand tab: the campaigns' cost per quarter, then per segment its reach
@@ -21,7 +23,9 @@ export function BrandTab({
     <>
       <div className="cr-line cr-brand-cost">
         <span>Per quarter</span>
-        <b className={cost > campaign.cash ? "short" : undefined}>{usdShort(cost)}</b>
+        <b className={cost > campaign.cash ? "short" : undefined}>
+          <Short value={cost} money />
+        </b>
       </div>
       <div className="cr-brand">
         <div className="cr-brand-head">
@@ -54,12 +58,13 @@ export function BrandTab({
                 </button>
                 <span>
                   {Array.from({ length: top }, (_, i) => (
-                    <i
+                    <Tooltip
                       // biome-ignore lint/suspicious/noArrayIndexKey: pips are positional
                       key={i}
-                      className={i < tier ? "on" : undefined}
-                      title={usdShort(tierCost((i + 1) as 1 | 2 | 3 | 4 | 5, year))}
-                    />
+                      tip={full(tierCost((i + 1) as 1 | 2 | 3 | 4 | 5, year), true)}
+                    >
+                      <i className={i < tier ? "on" : undefined} />
+                    </Tooltip>
                   ))}
                 </span>
                 <button

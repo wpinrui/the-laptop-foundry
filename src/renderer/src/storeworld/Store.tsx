@@ -150,7 +150,7 @@ function useShell(): THREE.Group {
       mesh.castShadow = !clear && !unlit && !NO_CAST.has(name);
     });
   }, [scene]);
-  // The shell's one hanging sign gives way to the departments' own, over their tables.
+  // The shell's one hanging department sign is left out: the store goes by brand, each table signed with its own.
   useEffect(() => {
     const sign = scene.getObjectByName("sign");
     if (sign) sign.visible = false;

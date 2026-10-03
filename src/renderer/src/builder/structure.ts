@@ -1,4 +1,5 @@
 import { available, type Build, CONTENT, colourHex, type Piece, PIECES } from "../engine";
+import { stockKeys } from "./KeysStage";
 
 // Structural choices always hold a valid value for the year. Changing year
 // keeps every part, port, option and spend setting: anything the new year
@@ -84,6 +85,8 @@ export function emptyBuild(): Build {
     },
     spend: {},
     shape: {},
+    // A new build starts on the stock caps: black, white legends.
+    keys: stockKeys(),
   };
   return { ...base, ...validFinish(base) };
 }

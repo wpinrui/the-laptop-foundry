@@ -20,6 +20,33 @@ const GROUPS: [KeyGroup, string][] = [
   ["legend", "Legend"],
 ];
 
+const SHAPES: [KeySpec["shape"], string][] = [
+  ["square", "Square"],
+  ["rounded", "Rounded"],
+  ["round", "Round"],
+  ["smile", "Smile"],
+];
+
+/**
+ * One cap seen from above, front edge down, on a 15.5 by 15 mm cap: white so
+ * it reads on the dark tile. The smile's front edge sags 1.2 mm between its
+ * 1.5 mm corners; its back corners are 1 mm.
+ */
+function CapIcon({ shape }: { shape: KeySpec["shape"] }) {
+  return (
+    <svg viewBox="0 0 15.5 15" aria-hidden="true">
+      {shape === "smile" ? (
+        <path
+          fill="#fff"
+          d="M1 0H14.5A1 1 0 0 1 15.5 1V12.3A1.5 1.5 0 0 1 14 13.8Q7.75 16.2 1.5 13.8A1.5 1.5 0 0 1 0 12.3V1A1 1 0 0 1 1 0Z"
+        />
+      ) : (
+        <rect width="15.5" height="15" fill="#fff" rx={shape === "square" ? 0.6 : shape === "round" ? 7.5 : 2.5} />
+      )}
+    </svg>
+  );
+}
+
 /** The Keys stage starts from the stock caps. */
 export function stockKeys(): KeySpec {
   const cap = token("keycap").toUpperCase();
@@ -49,7 +76,6 @@ export function KeysColumn({
     const next = groups.includes(g) ? groups.filter((x) => x !== g) : [...groups, g];
     if (next.length > 0) onGroups(GROUPS.map(([x]) => x).filter((x) => next.includes(x)));
   };
-  const radius = { square: "2px", rounded: "6px", round: "50%" } as const;
   return (
     <>
       <Chips>
@@ -75,19 +101,20 @@ export function KeysColumn({
       <div className="bd-line">
         <Label>Shape</Label>
         <Chips>
-          {(["square", "rounded", "round"] as const).map((shape) => (
+          {SHAPES.map(([shape, name]) => (
             <button
               type="button"
               key={shape}
-              title={shape}
-              aria-label={shape}
+              title={name}
+              aria-label={name}
               className={k.shape === shape ? "bd-chip bd-visual on" : "bd-chip bd-visual"}
               onClick={() => set((b) => withKeys(b, (x) => ({ ...x, shape })))}
             >
               <span className="bd-keycaps">
-                {[k.colours.letters, k.colours.mods, k.colours.accent].map((c, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: three fixed preview caps
-                  <i key={i} style={{ background: c, borderRadius: radius[shape] }} />
+                {[0, 1, 2].map((i) => (
+                  <i key={i}>
+                    <CapIcon shape={shape} />
+                  </i>
                 ))}
               </span>
             </button>

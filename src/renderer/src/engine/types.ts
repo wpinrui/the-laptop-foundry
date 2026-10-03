@@ -584,7 +584,8 @@ export interface PartPin {
 
 /** Keycaps as the player styled them. Colours are hex. */
 export interface KeySpec {
-  shape: "square" | "rounded" | "round";
+  /** Smile: Lenovo's AccuType cap, its front edge curving toward the player. */
+  shape: "square" | "rounded" | "round" | "smile";
   colours: { letters: string; mods: string; accent: string };
   legend: {
     font: string;

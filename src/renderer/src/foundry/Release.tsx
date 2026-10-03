@@ -8,6 +8,7 @@ import {
   type CampaignState,
   clampRun,
   economics,
+  estimateSales,
   isRefresh,
   lastQuarterProfit,
   lifetimeProfit,
@@ -21,7 +22,9 @@ import {
   stepPrice,
   stepRun,
 } from "../engine/campaign";
+import { rivalsFor } from "../engine/market/field";
 import type { CostLine } from "../engine/price";
+import { FIRST_MARKET_YEAR, useMarket, useMarkets } from "../market/markets";
 import { full } from "../ui/number";
 import { Short } from "../ui/Short";
 import { Tooltip } from "../ui/Tooltip";
@@ -58,11 +61,24 @@ export function useRun(campaign: CampaignState, model: SavedModel, models: Saved
   return { build, released, lines, cost, refresh, price };
 }
 
-/** The model's sold and demanded units in the latest quarter, or null when it did not sell then. */
-export function lastSales(campaign: CampaignState, id: string): { sold: number; demand: number } | null {
+/** The model's units sold in the latest quarter, or null when it did not sell then. */
+export function lastSales(campaign: CampaignState, id: string): { sold: number } | null {
   const last = campaign.sales[campaign.sales.length - 1];
   if (!last || last.units[id] === undefined) return null;
-  return { sold: last.units[id], demand: last.demand[id] ?? last.units[id] };
+  return { sold: last.units[id] };
+}
+
+/** The model's estimated sales in the quarter being played, once the markets its rivals come from are open. */
+function useEstimate(campaign: CampaignState, models: SavedModel[], company: string, id: string) {
+  const y = campaign.now.year;
+  const ready = useMarket(y - 1, y);
+  const version = useMarkets();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the loaded markets change with their version
+  return useMemo(() => {
+    if (!ready || !campaign.releases[id]) return null;
+    const rivals = y - 1 >= FIRST_MARKET_YEAR ? [...rivalsFor(y - 1), ...rivalsFor(y)] : rivalsFor(y);
+    return estimateSales(campaign, { models, company, rivals }, id);
+  }, [ready, version, campaign, models, company, id, y]);
 }
 
 /** A model's status beside its year: Draft, Sold out, or its stock. */
@@ -209,6 +225,7 @@ function ResultRows({ result, span }: { result: ModelResult; span: "Lifetime" | 
 
 export function ModelTab({
   campaign,
+  company,
   model,
   models,
   units,
@@ -220,6 +237,8 @@ export function ModelTab({
   onDraftPrice,
 }: {
   campaign: CampaignState;
+  /** The company's id: seeds the rivals' launch quarters for the estimate. */
+  company: string;
   model: SavedModel;
   models: SavedModel[];
   units: number;
@@ -234,6 +253,7 @@ export function ModelTab({
 }) {
   const [open, setOpen] = useState<Open | null>(null);
   const { released, lines, cost, refresh, price } = useRun(campaign, model, models);
+  const estimate = useEstimate(campaign, models, company, model.id);
   const life = released ? lifetimeProfit(campaign, model.id) : null;
   const recent = released ? lastQuarterProfit(campaign, model.id) : null;
   const head = (
@@ -290,13 +310,17 @@ export function ModelTab({
     units,
     released ?? null,
     marketingCost(campaign.brand, campaign.now.year),
-    sales ? sales.demand : null,
+    estimate ? (estimate.want.low + estimate.want.high) / 2 : null,
   );
   const lastQ = campaign.sales[campaign.sales.length - 1]?.quarter;
   const review = campaign.reviews[model.id];
   const max = maxAffordable(cost, campaign.cash, setup);
+  // The run that covers the estimate's high end beyond the stock on hand.
+  const gap = estimate && released ? Math.ceil((estimate.want.high - released.stock) / 100) * 100 : 0;
   const presets: [string, number][] = released
-    ? [["Demand", sales ? clampRun(Math.ceil(sales.demand / 100) * 100) : units]]
+    ? gap > 0
+      ? [["Estimate", clampRun(gap)]]
+      : []
     : [[count(SMALL_RUN), SMALL_RUN]];
   if (max > 0) presets.push(["Max affordable", max]);
   const toggle = (k: Open) => setOpen((x) => (x === k ? null : k));
@@ -324,10 +348,20 @@ export function ModelTab({
             <span>Sold {lastQ ? `Q${lastQ.quarter}` : ""}</span>
             <b>{sales ? <Short value={sales.sold} /> : "0"}</b>
           </div>
-          <div>
-            <span>Wanted {lastQ ? `Q${lastQ.quarter}` : ""}</span>
-            <b className={warn(!!sales && sales.demand > sales.sold)}>{sales ? <Short value={sales.demand} /> : "0"}</b>
-          </div>
+          {estimate && (
+            <div>
+              <span>Next quarter</span>
+              <b className={warn(estimate.want.high > estimate.high)}>
+                {estimate.low === estimate.high ? (
+                  <Short value={estimate.high} />
+                ) : (
+                  <>
+                    <Short value={estimate.low} /> to <Short value={estimate.high} />
+                  </>
+                )}
+              </b>
+            </div>
+          )}
         </div>
       )}
       <div className="cr-line">
@@ -439,7 +473,7 @@ export function ModelTab({
             </dd>
             {o.atDemand && (
               <>
-                <dt>Holding, at demand</dt>
+                <dt>Holding, estimated</dt>
                 <dd>
               <Short value={-o.atDemand.holding} money />
             </dd>

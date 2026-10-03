@@ -19,6 +19,7 @@ export * from "./awards";
 export * from "./brand";
 export * from "./constants";
 export * from "./critics";
+export * from "./estimate";
 export * from "./finance";
 export * from "./release";
 export * from "./rivals";

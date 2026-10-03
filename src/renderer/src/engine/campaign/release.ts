@@ -308,7 +308,7 @@ export interface Outlook {
   available: number;
   /** The quarter's profit if every unit on hand sells. */
   profitSoldOut: number;
-  /** At last quarter's demand: units sold, holding on the rest, the quarter's profit. Null without a demand. */
+  /** At the estimated sales: units sold, holding on the rest, the quarter's profit. Null without an estimate. */
   atDemand: { sold: number; holding: number; profit: number } | null;
   /** Units to sell this quarter to cover its spend, or null when a unit earns nothing. */
   breakEven: number | null;

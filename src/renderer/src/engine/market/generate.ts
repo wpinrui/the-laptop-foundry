@@ -36,6 +36,7 @@ import type {
 } from "../types";
 import { PIECES, QUALITY_KEYS } from "../types";
 import { curveAt } from "./io";
+import { dress, type Look, lookFor } from "./looks";
 import { linesIn, nameFor, priceFor, shapeFor } from "./makers";
 import { modelName } from "./names";
 import type { CpuVendor, HeadlineStat, Line, LineShape } from "./types";
@@ -206,6 +207,10 @@ interface Ctx {
   protect: Set<string>;
   /** Actual cost over the estimate, last seen: the estimate lays the parts in a rough shell. */
   costBias: number;
+  /** The line's design language for the year. */
+  look: Look;
+  /** The panel was already grown once to fill the lid. */
+  filled?: boolean;
 }
 
 const BASE: Record<Budget, number> = { low: 0.2, midrange: 0.5, premium: 0.78 };
@@ -528,7 +533,27 @@ function pickScreen(ctx: Ctx, towardSmall = false, keep?: number): ScreenSpec {
   const tiers = gamutsFor(year, kind);
   const stockTier = rowGamut && tiers.includes(rowGamut) ? tiers.indexOf(rowGamut) : 0;
   const gamut = tiers[clamp(stockTier + (pd > 0.75 ? 1 : 0), 0, tiers.length - 1)];
-  return { ...spec, nits, ...(gamut ? { gamut } : {}) };
+  // Premium lines run the era's thinnest bezel; cheaper ones a little more.
+  const bezel = spec.bezel + BEZEL_TIER[ctx.who.budget];
+  return { ...spec, bezel, nits, ...(gamut ? { gamut } : {}) };
+}
+
+const BEZEL_TIER: Record<Budget, number> = { premium: 0, midrange: 1, low: 2 };
+
+/**
+ * A bigger panel in the line's range when the lid has room for it: the chassis
+ * is sized by what sits in the base, and a panel far smaller than its lid
+ * shows as a giant bezel.
+ */
+function fillDiag(ctx: Ctx, build: Build): number | undefined {
+  const [lo, hi] = ctx.shape.screen;
+  const screen = build.screen;
+  if (!screen) return undefined;
+  const era = eraFor(ctx.year).bezel;
+  const room = build.size.y - era.top - era.chin - 6;
+  const sizes = [...new Set(panelsFor(ctx.year).filter((p) => p.inches >= lo - 0.06 && p.inches <= hi + 0.06 && kindAvailable(kindOf(p), ctx.year)).map((p) => p.inches))];
+  const fits = sizes.filter((d) => d > screen.diag && activeArea({ inches: d, aspect: screen.ratio } as PanelOption).y <= room);
+  return fits.length > 0 ? Math.max(...fits) : undefined;
 }
 
 // ------------------------------------------------------------------ battery and cooling
@@ -1277,6 +1302,12 @@ function spendWithin(ctx: Ctx, c: Choices, level: number, share: number): boolea
 
 // ------------------------------------------------------------------ first picks
 
+/** The look's body, when the year has it. */
+function lookBody(ctx: Ctx): string | undefined {
+  const b = CONTENT.bodies.find((x) => x.id === ctx.look.body);
+  return b && available(b, ctx.year) ? b.id : undefined;
+}
+
 function firstChoices(ctx: Ctx): Choices {
   const cpu = pickCpu(ctx);
   const gpu = wantsGpu(ctx, cpu) ? pickGpu(ctx, cpu) : undefined;
@@ -1284,7 +1315,8 @@ function firstChoices(ctx: Ctx): Choices {
   const battery = pickBattery(ctx, screen);
   const optical = pickOptical(ctx);
   const bodies = bodiesFor(ctx);
-  const body = ctx.rng() < 0.6 ? bodies[0] : bodies[Math.floor(ctx.rng() * bodies.length) % bodies.length];
+  const roll = ctx.rng() < 0.6 ? bodies[0] : bodies[Math.floor(ctx.rng() * bodies.length) % bodies.length];
+  const body = lookBody(ctx) ?? roll;
   const partial: Partial<Choices> = { battery, optical };
   const layout = layoutsFor(ctx, body, partial)[0] ?? "a";
   const tp = pickTrackpad(ctx);
@@ -1314,7 +1346,7 @@ function firstChoices(ctx: Ctx): Choices {
     spend: pickSpend(ctx),
     quality: pickQuality(ctx),
     price: pickPrice(ctx),
-    sig: Math.round(ctx.rng() * 0.35 * 20) / 20,
+    sig: lookBody(ctx) ? ctx.look.sig : Math.round(ctx.rng() * 0.35 * 20) / 20,
     slack: ctx.who.thin
       ? { x: 0, y: 0, z: 0 }
       : { x: Math.round(ctx.rng() * 4 * loose), y: Math.round(ctx.rng() * 10 * loose), z: Math.round((0.5 + ctx.rng() * 2.5) * loose * 2) / 2 },
@@ -1703,6 +1735,38 @@ function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
   return undefined;
 }
 
+function dressed(ctx: Ctx, build: Build): Build {
+  return dress(build, ctx.look, (m) => {
+    const mat = CONTENT.materials.find((x) => x.id === m);
+    return (mat?.finishes ?? []).filter((f) => {
+      const tex = CONTENT.finishes.find((x) => x.id === f);
+      return !!tex && available(tex, ctx.year);
+    });
+  });
+}
+
+/**
+ * Shrink the plan back to what the parts need: the settle loop only grows, and
+ * a body's shape follows its size, so a chassis can end up far wider or deeper
+ * than its minimum, which shows as a giant bezel around the panel.
+ */
+function tighten(ctx: Ctx, build: Build, fit: Fit, t: Tally): { build: Build; fit: Fit } {
+  const room = ctx.who.thin ? 0.5 : 2;
+  let b = build;
+  let f = fit;
+  for (let k = 0; k < 4; k++) {
+    const x = Math.min(b.size.x, up(f.min.x + room));
+    const y = Math.min(b.size.y, up(f.min.y + room));
+    if (b.size.x - x < 1 && b.size.y - y < 1) break;
+    const next = { ...b, size: { ...b.size, x, y } };
+    const nf = counted(t, next, true);
+    if (nf.problems.length > 0) break;
+    b = next;
+    f = nf;
+  }
+  return { build: b, fit: f };
+}
+
 /** One model of the line in the year. Always returns a build; `valid` says whether it solves clean. */
 export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: number } = {}): Generated {
   const start = performance.now();
@@ -1727,11 +1791,12 @@ export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: 
     lighter: false,
     protect: new Set(),
     costBias: 1,
+    look: lookFor(line, year),
   };
   const t: Tally = { solves: 0, sims: 0, start };
   let c: Choices | undefined = firstChoices(ctx);
   // Start in the body that suits the picks best: some shapes cost the same parts far more thickness.
-  thinnestBody(ctx, c, t);
+  if (!lookBody(ctx)) thinnestBody(ctx, c, t);
   let best: { build: Build; fit: Fit; score: number } | undefined;
   let last: { build: Build; fit: Fit } | undefined;
   // The time budget only cuts the search short once there is a valid build to return.
@@ -1746,13 +1811,23 @@ export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: 
       if (!best) best = { build: r.build, fit: r.fit, score: Number.POSITIVE_INFINITY };
       break;
     }
+    if (!ctx.filled) {
+      ctx.filled = true;
+      const diag = fillDiag(ctx, r.build);
+      if (diag !== undefined) {
+        c = clone(c);
+        c.screen = pickScreen(ctx, false, diag);
+        continue;
+      }
+    }
     const miss = missOf(ctx, r.build, r.fit, t);
     if (!best || miss.score < best.score) best = { build: r.build, fit: r.fit, score: miss.score };
     if (miss.score === 0) break;
     c = fixPriority(ctx, c, miss);
   }
   if (best) {
-    const build = pricedAtCost(best.build, best.fit);
+    best = { ...best, ...tighten(ctx, best.build, best.fit, t) };
+    const build = pricedAtCost(dressed(ctx, best.build), best.fit);
     const listPrice = best.build.price ?? 0;
     return { build, valid: true, fallback: false, solves: t.solves, sims: t.sims, ms: performance.now() - start, problems: [], listPrice, repriced: build.price !== listPrice };
   }
@@ -1762,7 +1837,7 @@ export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: 
   t.solves += st.solves;
   const ok = safe.fit.problems.length === 0;
   const out = ok ? safe : (last ?? safe);
-  const build = pricedAtCost(out.build, out.fit);
+  const build = pricedAtCost(dressed(ctx, out.build), out.fit);
   const listPrice = out.build.price ?? 0;
   return {
     build,

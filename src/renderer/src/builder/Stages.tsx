@@ -386,7 +386,6 @@ export function ChassisTray({
             top={f && <Silhouette fit={f} k={k} vx={vx} w={SIL_W + 4} h={SIL_H + 2} on={b.id === build.body} />}
             name={b.name}
             aside={short > 0.05 ? <Value v={`+${short.toFixed(1)}`} unit="mm" warn /> : undefined}
-            onHover={(on) => onPreview?.({ body: on ? b.id : undefined })}
             onClick={() => {
               onPreview?.({});
               set((x) => toBody(x, b.id));

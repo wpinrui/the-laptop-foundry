@@ -1,11 +1,11 @@
 import { useFrame } from "@react-three/fiber";
 import { type Dispatch, memo, type RefObject, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { SavedModel } from "../../../preload/store";
 import { type Build, colourHex, decorOf, type Fit, migrateBody, migrateColours, migrateScreen, solve } from "../engine";
 import { PLINTH_H } from "../foundry/Stage";
 import { Model, surfacesOf } from "../viewer/Scene";
+import { bakeLaptop, freeze, SHELF_TEX, type Shelf, useShelf } from "../viewer/shelf";
 import { type FreeState, freeStart } from "./Free";
 
 // The archive: every laptop the company has built, standing a little open on the shelving
@@ -74,68 +74,14 @@ export const shelfOrder = (models: SavedModel[]) => [...models].sort((a, b) => a
 /** A ray's nearest shelved laptop within reach. */
 export type AimShelf = (ray: THREE.Ray, reach: number) => { id: string; d: number } | null;
 
-const KEEP = ["position", "normal", "uv"];
-
-/** An attribute as plain floats, so parts built different ways merge. */
-function plain(a: THREE.BufferAttribute | THREE.InterleavedBufferAttribute): THREE.BufferAttribute {
-  if (a instanceof THREE.BufferAttribute && a.array instanceof Float32Array && !a.normalized) return a;
-  const out = new Float32Array(a.count * a.itemSize);
-  for (let i = 0; i < a.count; i++) for (let k = 0; k < a.itemSize; k++) out[i * a.itemSize + k] = a.getComponent(i, k);
-  return new THREE.BufferAttribute(out, a.itemSize);
-}
-
-/**
- * The laptop's meshes merged into one per material, in the shelved group's
- * space: a few draws instead of hundreds (every key is its own mesh). The
- * materials stay the laptop's own, so its hidden model is kept mounted.
- */
-function bake(src: THREE.Object3D, root: THREE.Object3D): THREE.Mesh[] {
-  root.updateWorldMatrix(true, false);
-  src.updateWorldMatrix(false, true);
-  const toRoot = root.matrixWorld.clone().invert();
-  const byMaterial = new Map<THREE.Material, THREE.BufferGeometry[]>();
-  const m = new THREE.Matrix4();
-  src.traverse((o) => {
-    const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh || Array.isArray(mesh.material) || !mesh.geometry.attributes.position) return;
-    // Hidden parts stay hidden: only what the laptop shows is baked.
-    let shown = true;
-    for (let p: THREE.Object3D | null = mesh; p && p !== src; p = p.parent) if (!p.visible) shown = false;
-    if (!shown) return;
-    let geo = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
-    for (const name of Object.keys(geo.attributes)) {
-      if (!KEEP.includes(name)) geo.deleteAttribute(name);
-      else geo.setAttribute(name, plain(geo.getAttribute(name)));
-    }
-    geo.morphAttributes = {};
-    if (!geo.attributes.normal) geo.computeVertexNormals();
-    geo = geo.applyMatrix4(m.multiplyMatrices(toRoot, mesh.matrixWorld));
-    const list = byMaterial.get(mesh.material) ?? [];
-    list.push(geo);
-    byMaterial.set(mesh.material, list);
-  });
-  const out: THREE.Mesh[] = [];
-  for (const [material, geos] of byMaterial) {
-    // Merged geometry needs the same attributes throughout: uv only where every part has it.
-    if (!geos.every((x) => x.attributes.uv)) for (const x of geos) x.deleteAttribute("uv");
-    const merged = mergeGeometries(geos);
-    for (const x of geos) x.dispose();
-    if (!merged) continue;
-    const mesh = new THREE.Mesh(merged, material);
-    mesh.raycast = noRaycast;
-    mesh.receiveShadow = true;
-    mesh.matrixAutoUpdate = false;
-    out.push(mesh);
-  }
-  return out;
-}
-
 const Shelved = memo(function Shelved({
+  shelf,
   model,
   x,
   y,
   onBaked,
 }: {
+  shelf: Shelf;
   model: SavedModel;
   x: number;
   y: number;
@@ -147,54 +93,50 @@ const Shelved = memo(function Shelved({
   useEffect(() => {
     if (!look) onBaked(model.id);
   }, []);
-  const g = useRef<THREE.Group>(null);
   const src = useRef<THREE.Group>(null);
-  const settle = useRef({ n: -1, frames: 0 });
-  const [baked, setBaked] = useState<THREE.Mesh[] | null>(null);
+  const settle = useRef({ n: -1, frames: 0, done: false });
   const surfaces = useMemo(() => (look ? surfacesOf(look.build) : undefined), [look]);
   const decor = useMemo(() => (look ? decorOf(look.build) : undefined), [look]);
   useFrame(() => {
     const s = src.current;
-    const root = g.current;
-    if (baked || !s || !root) return;
+    const st = settle.current;
+    if (st.done || !s) return;
     // The laptop builds its units as it mounts: baked once its meshes stop changing.
     let n = 0;
     s.traverse((o) => {
       n++;
       o.raycast = noRaycast;
     });
-    const st = settle.current;
     if (n !== st.n) {
       st.n = n;
       st.frames = 0;
     } else if (++st.frames >= BAKE_AFTER) {
-      setBaked(bake(s, root));
+      st.done = true;
+      shelf.set(model.id, bakeLaptop(s, shelf.root));
+      freeze(s);
       onBaked(model.id);
     }
   });
-  useEffect(() => () => baked?.forEach((m) => m.geometry.dispose()), [baked]);
   if (!look || !surfaces) return null;
   const D = look.fit.shell.outer.y;
   return (
-    <group ref={g} position={[x, y, depthAt(D)]} rotation-y={Math.PI}>
-      {baked?.map((m) => (
-        <primitive key={m.uuid} object={m} />
-      ))}
-      {/* Never drawn: the source of the baked meshes, and the owner of their materials. */}
+    <group position={[x, y, depthAt(D)]} rotation-y={Math.PI}>
+      {/* Never drawn: the source of the shelf's baked meshes, and the owner of its marks. */}
       <group ref={src} visible={false}>
         <Model
-        fit={look.fit}
-        year={look.build.year}
-        lidAngle={SHELF_LID}
-        colours={look.colours}
-        surfaces={surfaces}
-        decor={decor}
-        xray={false}
-        labelFor={noLabel}
-        onHover={noHover}
-        problems={false}
-        unlit
-      />
+          fit={look.fit}
+          year={look.build.year}
+          lidAngle={SHELF_LID}
+          colours={look.colours}
+          surfaces={surfaces}
+          decor={decor}
+          xray={false}
+          labelFor={noLabel}
+          onHover={noHover}
+          problems={false}
+          unlit
+          texWidth={SHELF_TEX}
+        />
       </group>
     </group>
   );
@@ -239,10 +181,22 @@ export function Archive({
     done.current.add(id);
     setDone((n) => n + 1);
   }, []);
-  const all = slots.every(({ m }) => m.id === onTable || done.current.has(m.id));
+  const all = slots.every(({ m }) => done.current.has(m.id));
+  const shelf = useShelf(false);
+  // The page is in once every laptop on it is baked and merged.
+  const waiting = useRef(true);
+  waiting.current = !all;
+  useFrame(() => {
+    if (!waiting.current && !shelf.busy) {
+      waiting.current = true;
+      onReady();
+    }
+  });
+  useEffect(() => shelf.keep(new Set(slots.map(({ m }) => m.id))), [shelf, slots]);
+  // The laptop on the turntable stays baked on the shelf, left out of the drawing until it is back.
   useEffect(() => {
-    if (all) onReady();
-  }, [all, onReady]);
+    for (const { m } of slots) shelf.place(m.id, m.id === onTable ? null : undefined);
+  }, [shelf, slots, onTable]);
 
   const boxes = useMemo(
     () =>
@@ -278,7 +232,10 @@ export function Archive({
 
   return (
     <>
-      {slots.slice(0, shown).map(({ m, x, y }) => (m.id === onTable ? null : <Shelved key={m.id} model={m} x={x} y={y} onBaked={onBaked} />))}
+      <primitive object={shelf.root} />
+      {slots.slice(0, shown).map(({ m, x, y }) => (
+        <Shelved key={m.id} shelf={shelf} model={m} x={x} y={y} onBaked={onBaked} />
+      ))}
     </>
   );
 }

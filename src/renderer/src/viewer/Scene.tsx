@@ -83,6 +83,8 @@ interface SceneProps {
   /** No light or halo off the screen: for many laptops at once, where each light would slow every material. */
   unlit?: boolean;
   lidExtra?: ReactNode;
+  /** Widest canvas for the marks and keycap legends, px: less for laptops seen only from afar. */
+  texWidth?: number;
 }
 
 export interface Paint {
@@ -238,6 +240,7 @@ function useUnitsGroup(
   year: number,
   hinge: UnitOpts["hinge"],
   onFailed?: (failed: string[]) => void,
+  texWidth?: number,
 ): THREE.Group {
   const store = useRef<{ group: THREE.Group; live: Live } | null>(null);
   if (!store.current) store.current = { group: new THREE.Group(), live: new Map() };
@@ -255,7 +258,7 @@ function useUnitsGroup(
     const failed: string[] = [];
     for (const b of boxes) {
       seen.add(b.id);
-      const key = `${b.role}|${b.part ?? ""}|${b.size.x.toFixed(3)}|${b.size.y.toFixed(3)}|${b.size.z.toFixed(3)}|${JSON.stringify(b.opts ?? {})}|${b.edge ?? ""}|${b.turn ? "turn" : ""}|${year}|${hinge}`;
+      const key = `${b.role}|${b.part ?? ""}|${b.size.x.toFixed(3)}|${b.size.y.toFixed(3)}|${b.size.z.toFixed(3)}|${JSON.stringify(b.opts ?? {})}|${b.edge ?? ""}|${b.turn ? "turn" : ""}|${year}|${hinge}|${texWidth ?? ""}`;
       let label = b.role as string;
       try {
         label = labelFor(b);
@@ -279,7 +282,7 @@ function useUnitsGroup(
       let obj: THREE.Object3D;
       try {
         obj = renderUnit(b.role, b, { colour: roleColour(b.role, year), year, hinge }, ctx);
-        if (b.role === "keys") attachLegends(obj, b.opts);
+        if (b.role === "keys") attachLegends(obj, b.opts, texWidth);
       } catch (e) {
         console.error(`unit ${b.id} could not be drawn`, e);
         obj = dangerBox(b, ctx, e);
@@ -300,7 +303,7 @@ function useUnitsGroup(
       live.delete(id);
     }
     onFailed?.(failed);
-  }, [boxes, ctx, group, live, labelFor, year, hinge, onFailed]);
+  }, [boxes, ctx, group, live, labelFor, year, hinge, onFailed, texWidth]);
   return group;
 }
 
@@ -325,8 +328,10 @@ function Units({
   lidAngle,
   onFailed,
   paint,
+  texWidth,
 }: {
   paint?: Paint;
+  texWidth?: number;
   boxes: Box[];
   ctx: UnitCtx;
   labelFor: (b: Box) => string;
@@ -339,7 +344,7 @@ function Units({
   /** Called after each pass with the units that could not be drawn. */
   onFailed?: (failed: string[]) => void;
 }) {
-  const group = useUnitsGroup(boxes, ctx, labelFor, year, hinge, onFailed);
+  const group = useUnitsGroup(boxes, ctx, labelFor, year, hinge, onFailed, texWidth);
   // Runs after the units effect above, so freshly built hinges turn too.
   useEffect(() => {
     if (lidAngle === undefined) return;
@@ -1162,6 +1167,7 @@ export const Model = memo(function Model({
   lidExtra,
   decor,
   unlit = false,
+  texWidth,
 }: SceneProps & { portal?: RefObject<HTMLDivElement | null> }) {
   const ctx = useMemo(() => makeCtx(), []);
   // Base and lid report their failed units separately; the scene gets them together.
@@ -1284,10 +1290,11 @@ export const Model = memo(function Model({
           lidAngle={lidAngle}
           onFailed={reportBase}
           paint={paint}
+          texWidth={texWidth}
         />
         <HingeBarrel fit={fit} part="base" colour={colours.floor} surface={surfaces?.floor} xray={xray} />
         <Bumpers fit={fit} xray={xray} />
-        <BaseMarks fit={fit} marks={decor?.marks} />
+        <BaseMarks fit={fit} marks={decor?.marks} texWidth={texWidth} />
         {extra}
         {problems && <Overflow fit={fit} />}
         {/* The lid turns about the hinge axis, which runs along x. */}
@@ -1317,8 +1324,9 @@ export const Model = memo(function Model({
               hinge={fit.shell.style.hinge}
               onFailed={reportLid}
               paint={paint}
+              texWidth={texWidth}
             />
-            <LidDecor fit={fit} marks={decor?.marks} />
+            <LidDecor fit={fit} marks={decor?.marks} texWidth={texWidth} />
             {lidExtra}
             {!xray && panelBox && (
               // A solid lid would hide a panel set behind its bezel: show the dark screen glass.

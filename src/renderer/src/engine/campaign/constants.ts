@@ -336,6 +336,29 @@ export const PACK_MIN = 0.5;
 export const PACK_MAX = 2;
 
 /**
+ * How much buyers want an optical drive, by year: 1 wanted, 0 indifferent,
+ * below 0 a liability. The MacBook Air left it out in 2008, ultrabooks from
+ * 2011, and mainstream laptops had dropped it by about 2016.
+ */
+export const OPTICAL_WANT: [year: number, want: number][] = [
+  [2006, 1],
+  [2009, 0.9],
+  [2011, 0.6],
+  [2013, 0.3],
+  [2015, 0.1],
+  [2016, 0],
+  [2018, -0.5],
+  [2020, -1],
+];
+/**
+ * An optical drive's pull on appeal: exp(k x s x want) with one, and
+ * exp(-k x s x max(0, 2 want - 1)) without, where s is 1 - 2 x the segment's
+ * portability weight, 0.3 to 1. At 0.3 a drive lifts appeal 35% in 2006 and
+ * costs 26% from 2020; lacking one costs 26% in 2006.
+ */
+export const OPTICAL_PULL = 0.3;
+
+/**
  * Below the ceiling appeal is full up to this share of it, then eases off
  * toward the ceiling at UNDER_CEILING_STEEPNESS, so a price at the ceiling
  * is no longer free.

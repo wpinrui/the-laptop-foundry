@@ -19,7 +19,12 @@ export interface Profile {
   inches: number;
   /** Packaging, for the sales: kg, total thickness in mm, and screen-to-body (active panel area over the base footprint, 0 to 1). */
   pack: Pack;
+  /** PROFILE_VERSION when measured; a saved profile from an older formula is measured again. */
+  version?: number;
 }
+
+/** Bumped whenever a headline stat's formula changes, so saved markets re-measure. */
+export const PROFILE_VERSION = 2;
 
 export interface Pack {
   kg: number;
@@ -54,6 +59,7 @@ export function profileOf(id: string, build: Build): Profile {
     review: s.overall,
     categories: Object.fromEntries(s.categories.map((c) => [c.key, c.score])) as Record<CategoryKey, number>,
     inches: f.panel?.inches ?? build.screen?.diag ?? 14,
+    version: PROFILE_VERSION,
     pack: { kg: f.kg, mm: f.fit.frame.z + f.fit.lidZ, stb: foot > 0 ? (area.x * area.y) / foot : 0 },
   };
   profiles.set(key, p);
@@ -63,7 +69,7 @@ export function profileOf(id: string, build: Build): Profile {
 const num = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
 function isProfile(p: Profile | undefined): p is Profile {
-  return !!p && num(p.review) && num(p.inches) && !!p.stats && HEADLINE_STATS.every((k) => num(p.stats[k])) && !!p.categories && CATEGORY_KEYS.every((k) => num(p.categories[k])) && !!p.pack && num(p.pack.kg) && num(p.pack.mm) && num(p.pack.stb);
+  return !!p && p.version === PROFILE_VERSION && num(p.review) && num(p.inches) && !!p.stats && HEADLINE_STATS.every((k) => num(p.stats[k])) && !!p.categories && CATEGORY_KEYS.every((k) => num(p.categories[k])) && !!p.pack && num(p.pack.kg) && num(p.pack.mm) && num(p.pack.stb);
 }
 
 /** A rival's profile: the one saved with its market, or measured now for a market saved without one (or without packaging). */

@@ -171,9 +171,12 @@ export function savedCampaign(state: CampaignState): SavedCampaign {
 // ------------------------------------------------------------------ quarter steps
 // Each step plugs a later system into the quarter. They run in this order.
 
-/** Paid campaigns run, and reach and reputation move with sales and reviews. */
-export const runMarketing: QuarterStep = (state) => ({
-  ...updatePerception(wordOfMouth(market(state), state.outcomes), state.outcomes),
+/** Paid campaigns run before the quarter's sales, so the reach they buy sells this quarter. */
+export const runMarketing: QuarterStep = (state) => market(state);
+
+/** Reach and reputation move with the quarter's sales and reviews. */
+export const spreadWord: QuarterStep = (state) => ({
+  ...updatePerception(wordOfMouth(state, state.outcomes), state.outcomes),
   outcomes: [],
 });
 
@@ -184,8 +187,9 @@ export const settleFinances: QuarterStep = (state) => settle(state);
 export const QUARTER_STEPS: { name: string; run: QuarterStep }[] = [
   { name: "Rivals", run: launchRivals },
   { name: "Critics", run: publishReviews },
-  { name: "Sales", run: simulateSales },
   { name: "Marketing", run: runMarketing },
+  { name: "Sales", run: simulateSales },
+  { name: "Word of mouth", run: spreadWord },
   { name: "Books", run: settleFinances },
   { name: "Awards", run: presentAwards },
 ];

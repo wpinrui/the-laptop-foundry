@@ -13,6 +13,7 @@ import {
   MARKET_PAR,
   MAX_REACH,
   OVER_CEILING_STEEPNESS,
+  PRICE_KNEE,
   REVIEW_PAR,
   REVIEW_SPAN,
   RIVAL_BRAND,
@@ -20,6 +21,7 @@ import {
   SALES_HISTORY,
   SALES_NOISE,
   SCORE_STEEPNESS,
+  UNDER_CEILING_STEEPNESS,
   WORD_OF_MOUTH,
 } from "./constants";
 import type { CampaignState, Quarter, QuarterStep } from "./index";
@@ -96,10 +98,12 @@ export function scoreFactor(score: number): number {
   return Math.exp(SCORE_STEEPNESS * (score - MARKET_PAR));
 }
 
-/** 1 up to the segment's ceiling, falling off fast past it. */
+/** 1 up to the knee, easing off to the segment's ceiling, falling off fast past it. */
 export function priceFactor(price: number, ceiling: number): number {
-  if (!(ceiling > 0) || price <= ceiling) return 1;
-  return Math.exp(-OVER_CEILING_STEEPNESS * (price / ceiling - 1));
+  if (!(ceiling > 0)) return 1;
+  const x = price / ceiling;
+  const under = Math.exp(-UNDER_CEILING_STEEPNESS * (Math.min(1, Math.max(PRICE_KNEE, x)) - PRICE_KNEE));
+  return x <= 1 ? under : under * Math.exp(-OVER_CEILING_STEEPNESS * (x - 1));
 }
 
 /** The critics' pull from the review score. */

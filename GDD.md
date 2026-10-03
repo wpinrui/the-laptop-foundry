@@ -486,7 +486,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 #### Sales
 
 - Each segment's buyers this quarter, a share of its population on a seasonal curve, split among every laptop on sale by appeal.
-- Appeal multiplies the market score (exponential: a 10 sells about 4.8 times an average 5.5, a 1 about a fifth), price against the segment's price ceiling (falling fast past it, to about 14% of appeal at 50% over), screen size fit, a launch novelty bonus that decays roughly 15% a quarter, faster for segments that chase the new, the critics' review score, award bonuses, the maker's brand, and up to 12% random noise a quarter.
+- Appeal multiplies the market score (exponential: a 10 sells about 4.8 times an average 5.5, a 1 about a fifth), price against the segment's price ceiling (full appeal up to 60% of it, easing to about 30% at the ceiling, then falling fast past it, to about 14% of that at 50% over), screen size fit, a launch novelty bonus that decays roughly 15% a quarter, faster for segments that chase the new, the critics' review score, award bonuses, the maker's brand, and up to 12% random noise a quarter.
 - Every buyer buys. The player's sales stop at stock; rivals never run out.
 - A good quarter's buyers spread word of mouth, growing reach in the segments that bought.
 

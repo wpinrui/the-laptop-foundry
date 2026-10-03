@@ -29,7 +29,6 @@ import { SET_IDS, type SetId } from "../video/sets";
 import { adSubject } from "./eligible";
 import { ICON, Icon } from "./icons";
 import { frameSize, Preview } from "./Preview";
-import { useStills } from "./Stills";
 import { SET_NAMES, SetSwatch, Timeline } from "./Timeline";
 
 // The editing desk's screen, grown out of the monitor to fill the window:
@@ -126,11 +125,13 @@ function BoxVideo({ url }: { url: string }) {
   );
 }
 
-export function StudioScreen({ company, campaign, models, zoomed, origin, onLeave, onFinish }: {
+export function StudioScreen({ company, campaign, models, stills, zoomed, origin, onLeave, onFinish }: {
   company: SavedCompany;
   campaign: CampaignState | null;
   /** The laptops that can still have their commercial. */
   models: SavedModel[];
+  /** The pick cards' laptop stills, by model id, taken while the studio loaded. */
+  stills: Record<string, string>;
   /** Grown to the full window; false shrinks it back into the screen. */
   zoomed: boolean;
   /** The desk screen on the page, px: where it grows out of. */
@@ -142,7 +143,6 @@ export function StudioScreen({ company, campaign, models, zoomed, origin, onLeav
   const [step, setStep] = useState<"pick" | "edit" | "done">(models.length > 0 ? "pick" : "done");
   const [picked, setPicked] = useState<string | null>(null);
   const model = models.find((m) => m.id === picked) ?? null;
-  const { stills, shoot } = useStills(step === "pick" ? models : [], company.name);
   const index = company.commercials?.length ?? 0;
   const sandbox = !campaign;
 
@@ -574,7 +574,6 @@ export function StudioScreen({ company, campaign, models, zoomed, origin, onLeav
   return (
     <div className="fd st" style={{ transform: grow, opacity: zoomed ? 1 : 0 }}>
       {body}
-      {shoot}
     </div>
   );
 }

@@ -94,7 +94,7 @@ function useLock(build: Build, fit: Fit, maker: string, model: string, rival?: s
   return useOsStill("lock", build, owner, `${maker} ${model}`.trim(), aspect, undefined, rival);
 }
 
-export function StagedLaptop({ build, fit, maker, model, rival, onLock, lidAngle = 112 }: {
+export function StagedLaptop({ build, fit, maker, model, rival, onLock, lidAngle = 112, unlit = false }: {
   build: Build;
   fit: Fit;
   maker: string;
@@ -105,6 +105,8 @@ export function StagedLaptop({ build, fit, maker, model, rival, onLock, lidAngle
   onLock?: () => void;
   /** How far the lid is open, degrees. */
   lidAngle?: number;
+  /** No light or halo off the screen: for a still on a clear background, where the halo would draw black. */
+  unlit?: boolean;
 }) {
   const lock = useLock(build, fit, maker, model, rival);
   useEffect(() => {
@@ -132,6 +134,7 @@ export function StagedLaptop({ build, fit, maker, model, rival, onLock, lidAngle
       labelFor={noLabel}
       onHover={noHover}
       lockScreen={lock}
+      unlit={unlit}
     />
   );
 }

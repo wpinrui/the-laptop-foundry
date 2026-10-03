@@ -822,8 +822,8 @@
   position: absolute;
   left: calc(584 * var(--u));
   right: calc(32 * var(--u));
-  top: calc(116 * var(--u));
-  height: calc(396 * var(--u));
+  top: calc(128 * var(--u));
+  height: calc(384 * var(--u));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1342,8 +1342,10 @@
 
 /* Preview or Specs, over the right of the page: the one shown in the text colour. */
 .st-tabs {
+  right: calc(32 * var(--u));
   display: flex;
-  gap: calc(22 * var(--u));
+  justify-content: center;
+  gap: calc(28 * var(--u));
 }
 
 .st-tabs button {

@@ -346,6 +346,9 @@ export function StoreWorld({
     prompts = [{ key: "E", label: "Leave" }];
   else if (active && inspect === null && aim !== null)
     prompts = [{ key: "E", label: "Inspect" }];
+  // The display laptop aimed at is named over its prompts, as everywhere a laptop is aimed at.
+  const aimed = active && inspect === null && typeof aim === "number" ? layout.seats[aim]?.item : undefined;
+  const aimTitle = aimed ? { name: `${aimed.brand} ${aimed.name}`, year: aimed.build.year } : undefined;
   const page = using && look ? { node: <SlotView slot={slot} />, ...look } : undefined;
 
   return (
@@ -384,7 +387,7 @@ export function StoreWorld({
         />
       )}
       {active && inspect === null && <i className="cafe-dot" />}
-      {active && <Prompts list={prompts} using={inspect !== null} />}
+      {active && <Prompts list={prompts} using={inspect !== null} title={aimTitle} />}
       {seat && !using && (
         <Card
           ref={card}

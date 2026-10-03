@@ -217,6 +217,7 @@ function OsCafeScreen({
   );
   return (
     <Cafe
+      title={{ name: `${subject.company} ${subject.name}`.trim(), year: build.year }}
       laptop={{ fit, year: build.year, colours, decor: decorOf(build), surfaces }}
       page={page}
       shoot={shoot}

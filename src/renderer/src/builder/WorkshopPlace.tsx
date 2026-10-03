@@ -251,7 +251,7 @@ function PutPicker({
   );
 }
 
-const titleOf = (m: SavedModel) => ({ name: m.name, year: yearOf(m) });
+const titleOf = (m: SavedModel, company: string) => ({ name: `${company} ${m.name}`.trim(), year: yearOf(m) });
 
 export function WorkshopPlace({
   model,
@@ -372,9 +372,9 @@ export function WorkshopPlace({
   const named = {
     shelf: (id: string) => {
       const m = models.find((x) => x.id === id);
-      return m ? titleOf(m) : undefined;
+      return m ? titleOf(m, company) : undefined;
     },
-    table: model ? titleOf(model) : undefined,
+    table: model ? titleOf(model, company) : undefined,
   };
   const roaming = !building;
 

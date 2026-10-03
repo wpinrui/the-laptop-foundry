@@ -38,6 +38,8 @@ export interface OfficeProps {
   resolving: { step: number; of: number; name: string } | null;
   /** Something is open over the office (the quarter report, a statement, the system menu, the map): keys are its. */
   blocked: boolean;
+  /** A full-screen review is over the office: the room stops drawing behind it. */
+  paused?: boolean;
   /** What the stations' panels do; without it the stations have no panels. */
   actions?: OfficeActions;
   /** The player's reviewed models, for the review site on a laptop's own screen. */
@@ -78,6 +80,7 @@ export function Office({
   onEndQuarter,
   resolving,
   blocked,
+  paused = false,
   actions,
   library,
   sound,
@@ -322,9 +325,11 @@ export function Office({
   // Back from the system menu into free roam: the pointer is taken again.
   const wasBlocked = useRef(blocked);
   useEffect(() => {
+    // Something over the office frees the pointer; back from it, free roam takes it again.
+    if (!wasBlocked.current && blocked) unlock();
     if (wasBlocked.current && !blocked && free && !used) lock();
     wasBlocked.current = blocked;
-  }, [blocked, free, used, lock]);
+  }, [blocked, free, used, lock, unlock]);
   useEffect(
     () => () => {
       expectUnlock.current = true;
@@ -386,6 +391,7 @@ export function Office({
           dpr={[1, 1.5]}
           gl={{ toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 0.95 }}
           camera={{ fov: 50, near: 20, far: 40000 }}
+          frameloop={paused ? "never" : "always"}
         >
           <color attach="background" args={[token("office-shade")]} />
           <Lights />

@@ -2101,6 +2101,8 @@
   position: fixed;
   inset: 0;
   overflow: hidden;
+  /* Over the place it was opened from, which stays mounted underneath. */
+  z-index: 150;
 }
 
 .rv-overlay {

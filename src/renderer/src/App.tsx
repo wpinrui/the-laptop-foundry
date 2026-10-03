@@ -263,10 +263,12 @@ export function App() {
   // The 3D place on screen, as the view below picks it; a new key is a fresh arrival. Null for 2D screens.
   const run = company?.campaign ? campaignOf(company.campaign) : null;
   const placeKey = ((): string | null => {
-    if (!company || short) return null;
+    if (!company) return null;
+    // A review or a video over the place is no trip: closing it is no arrival.
+    if (short || reviewing) return arrival.key;
     if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
     if (where.at === "courts") return "courts";
-    if (where.at === "map" || reviewing) return null;
+    if (where.at === "map") return null;
     // The workshop and its builder are one place: going between them is no arrival.
     if (where.at === "workshop") return "workshop";
     if (where.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";

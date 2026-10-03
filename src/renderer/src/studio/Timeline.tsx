@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CARDS, type Scene, type SceneKind, SHOTS } from "../video/commercial";
 import { SET_IDS, type SetId } from "../video/sets";
+import benchThumb from "../assets/video-sets/thumbs/bench.png";
+import deskThumb from "../assets/video-sets/thumbs/desk.png";
+import nightThumb from "../assets/video-sets/thumbs/night.png";
+import sweepThumb from "../assets/video-sets/thumbs/sweep.png";
 import { ICON, Icon, LABEL } from "./icons";
 
 // The commercial's timeline: the scene library's tiles over a track whose
@@ -22,8 +26,11 @@ const u = (n: number) => `calc(${n} * var(--u))`;
 
 export const SET_NAMES: Record<SetId, string> = { desk: "Desk", sweep: "Sweep", night: "Night", bench: "Bench" };
 
-export function SetSwatch({ set, size = 14 }: { set: SetId; size?: number }) {
-  return <i className="st-swatch" style={{ width: u(size), height: u(size), background: `var(--vs-set-${set})` }} />;
+const SET_THUMBS: Record<SetId, string> = { desk: deskThumb, sweep: sweepThumb, night: nightThumb, bench: benchThumb };
+
+/** The set as a picture of it, a laptop standing on its spot. */
+export function SetThumb({ set, size = 14 }: { set: SetId; size?: number }) {
+  return <img className="st-swatch" src={SET_THUMBS[set]} alt="" draggable={false} style={{ width: u(size), height: u(size) }} />;
 }
 
 type Drag = { kind: SceneKind; x: number; y: number; hover: number | null };
@@ -244,7 +251,7 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
                 <div className="st-trim b" onPointerDown={(e) => clipDown(i, "b", e)}>
                   <i />
                 </div>
-                {s.set && !on && <span className="st-clip-set">{<SetSwatch set={s.set} size={10} />}</span>}
+                {s.set && !on && <span className="st-clip-set">{<SetThumb set={s.set} size={10} />}</span>}
                 {on && (
                   <>
                     <button
@@ -256,7 +263,7 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
                         setSetMenu((m) => (m ? null : { x: r.left, y: r.top }));
                       }}
                     >
-                      <SetSwatch set={s.set ?? sceneSet} size={12} />
+                      <SetThumb set={s.set ?? sceneSet} size={12} />
                     </button>
                     <button
                       type="button"
@@ -310,7 +317,7 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
                   setSetMenu(null);
                 }}
               >
-                <SetSwatch set={id ?? sceneSet} />
+                <SetThumb set={id ?? sceneSet} size={26} />
                 <span>{id ? SET_NAMES[id] : `${SET_NAMES[sceneSet]}`}</span>
                 {!id && <Icon d={ICON.film} size={16} />}
               </button>

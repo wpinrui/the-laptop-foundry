@@ -218,7 +218,10 @@ export function ModelTab({
         {price > 0 && <b>{usd(price)}</b>}
       </div>
       {life !== null && (
-        <div className={`cr-life ${life < 0 ? "short" : "up"}`}>{`${life > 0 ? "+" : ""}${usdShort(life)}`}</div>
+        <div className="cr-life">
+          <span className="cr-label">{life < 0 ? "Lifetime loss" : "Lifetime profit"}</span>
+          <b className={life < 0 ? "short" : "up"}>{usdShort(Math.abs(life))}</b>
+        </div>
       )}
     </>
   );

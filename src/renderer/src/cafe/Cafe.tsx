@@ -118,7 +118,10 @@ export function Cafe({
   atDoor,
   onReady,
   away = false,
+  title,
 }: {
+  /** The laptop's name and year, over its prompts, as everywhere a laptop is aimed at. */
+  title?: PromptTitle;
   /** None: the player came empty handed. */
   laptop?: LaptopLook;
   page?: Page;
@@ -308,7 +311,7 @@ export function Cafe({
       {active && (
         <>
           {!using && <i className="cafe-dot" />}
-          <Prompts list={prompts} using={using} />
+          <Prompts list={prompts} using={using} title={aim === "laptop" || using ? title : undefined} />
         </>
       )}
       {paused && (

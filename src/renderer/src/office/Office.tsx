@@ -5,6 +5,7 @@ import type { SavedCompany } from "../../../preload/store";
 import { Loaded } from "../app/Loaded";
 import { FreeOs, makeSlot, type PageLook, SlotView } from "../builder/Free";
 import { blurField, FullPage, type Prompt, Prompts } from "../cafe/Cafe";
+import { yearOf } from "../foundry/LaptopList";
 import type { Subject } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
 import { usd, usdShort } from "../foundry/Release";
@@ -349,6 +350,9 @@ export function Office({
   const tv = !free && station === "tv" && playing ? actions?.tv?.url : undefined;
 
   const screen = { key: "F", label: "Full screen" };
+  // A laptop on the product wall is named over its prompts, as everywhere a laptop is aimed at.
+  const shelved = free && aim?.kind === "laptop" ? company.models.find((m) => m.id === (used ?? aim.id)) : undefined;
+  const shelfTitle = shelved ? { name: `${company.name} ${shelved.name}`, year: yearOf(shelved) } : undefined;
   let prompts: Prompt[] = [];
   if (free && using && !full) prompts = [{ key: "E", label: "Stop using" }, screen];
   else if (free && !used && aimed) prompts = [{ key: "E", label: "Use" }, screen];
@@ -447,7 +451,7 @@ export function Office({
       {free ? (
         <>
           {!used && <div className="cafe-dot" />}
-          <Prompts list={prompts} using={using} />
+          <Prompts list={prompts} using={using} title={shelfTitle} />
           {!used && <Keys list={[{ key: "Tab", label: "Stations" }]} />}
           {full && osPage && (
             <div className="cafe-world">

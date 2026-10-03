@@ -37,6 +37,8 @@ const kept = new Map<string, Map<string, number>>();
 const listing = new Map<string, Promise<Map<string, number>>>();
 // Renders that failed this session are not tried again until the next.
 const failed = new Set<string>();
+// Commercials deleted with their laptop: never queued again, and one rendering now is not kept.
+const dropped = new Set<string>();
 const subs = new Set<() => void>();
 let stamp = 0;
 
@@ -100,6 +102,7 @@ function lane(newest: boolean, tracked = false) {
   let pending: Job[] = [];
   const pump = async () => {
     if (running) return;
+    pending = pending.filter((p) => !dropped.has(`${p.company}:${p.file}`));
     const job = pending.shift();
     if (!job) return;
     running = job;
@@ -114,7 +117,7 @@ function lane(newest: boolean, tracked = false) {
       if (!have.has(job.file)) {
         progress(0);
         const r = await job.run(progress);
-        if (r) {
+        if (r && !dropped.has(key)) {
           const b = new Uint8Array(await r.video.arrayBuffer());
           await window.api.video.keep(job.company, job.file, b);
           const still = await r.poster?.arrayBuffer().catch(() => null);
@@ -140,7 +143,8 @@ function lane(newest: boolean, tracked = false) {
     }
   };
   return (job: Job) => {
-    if (failed.has(`${job.company}:${job.file}`) || kept.get(job.company)?.has(job.file)) return;
+    const key = `${job.company}:${job.file}`;
+    if (failed.has(key) || dropped.has(key) || kept.get(job.company)?.has(job.file)) return;
     if ((running && same(running, job)) || pending.some((p) => same(p, job))) return;
     if (newest) {
       const waiting = pending[0];
@@ -208,6 +212,19 @@ export function queueAd(company: string, c: Commercial, facts: () => Promise<Sho
       return renderVideo(program, voice, undefined, progress);
     },
   });
+}
+
+/** Forgets a company's deleted commercials: their renders are dropped, queued or running, and their files leave the TV's list. */
+export function forgetAds(company: string, ids: string[]): void {
+  if (ids.length === 0) return;
+  const have = kept.get(company);
+  for (const id of ids) {
+    const file = adFile(id);
+    dropped.add(`${company}:${file}`);
+    have?.delete(file);
+  }
+  if (have) kept.set(company, new Map(have));
+  notify();
 }
 
 /** A kept video's file as a blob, or null when it cannot be read. */

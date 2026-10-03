@@ -124,7 +124,7 @@ export function WorldMap({
     p === "cafe"
       ? "Build a laptop that works to bring here."
       : company.campaign
-        ? "Release a new laptop to film its commercial."
+        ? "Finish a new laptop to film its commercial before it goes on sale."
         : "Finish a new laptop to film its commercial.";
   // Nothing is picked until the player picks it.
   const [dest, setDest] = useState<Place | null>(null);

@@ -360,7 +360,15 @@ export function registerStore(): void {
   handleTop("store:delete-model",async (_e, id: unknown, modelId: unknown) => {
     if (typeof modelId !== "string") throw new Error("model id must be text");
     const c = await company(id);
-    return lean(await put({ ...c, models: c.models.filter((m) => m.id !== modelId), played: Date.now() }));
+    // Its commercial goes with it, the record and the video files.
+    const gone = (c.commercials ?? []).filter((x) => x.model === modelId).map((x) => `ad-${x.id}-`);
+    if (gone.length > 0) {
+      const dir = shortsDir(c.id);
+      const files = await readdir(dir).catch(() => [] as string[]);
+      for (const f of files) if (gone.some((g) => f.startsWith(g))) await rm(join(dir, f), { force: true });
+    }
+    const commercials = c.commercials?.filter((x) => x.model !== modelId);
+    return lean(await put({ ...c, models: c.models.filter((m) => m.id !== modelId), ...(commercials ? { commercials } : {}), played: Date.now() }));
   });
   handleTop("store:settings", () => loadSettings());
   handleTop("store:set-settings", async (_e, next: unknown) => {

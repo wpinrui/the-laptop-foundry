@@ -9,6 +9,7 @@ import {
   costOf,
   decorOf,
   type Mark,
+  type Side,
   type MarkSurface,
   migrateBody,
   migrateColours,
@@ -251,6 +252,8 @@ export function Builder({
   goRef.current = go;
   const [insideSlot, setInsideSlot] = useState("processor");
   const [port, setPort] = useState(0);
+  // The wall the Ports stage looks at: the player's own pick, never the selected port's.
+  const [portView, setPortView] = useState<Side | undefined>(() => build.ports[0]?.side);
   const [keyGroups, setKeyGroups] = useState<KeyGroup[]>(["letters", "mods", "accent"]);
   const [piece, setPiece] = useState<FinishPiece>("lid");
   const [markSurface, setMarkSurface] = useState<MarkSurface>("lid");
@@ -322,7 +325,6 @@ export function Builder({
   );
 
   const surface = SURFACE.has(stage) && !powering;
-  const portSide = build.ports[port]?.side;
   const marking = stage === "decals" && !powering;
   let frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : FRAME[stage];
   if (marking && markSurface === "palm") frame = { view: "deck", shift: 0.18, lift: 0.012 };
@@ -362,10 +364,10 @@ export function Builder({
         zoom: frame.zoom,
         lift: frame.lift,
         part: inside ? focus : undefined,
-        side: portSide,
+        side: portView,
         grill: grillAt,
       }),
-    [viewName, fit, frame, inside, focus, lidAngle, portSide, grillAt],
+    [viewName, fit, frame, inside, focus, lidAngle, portView, grillAt],
   );
 
   const panelBox = fit.boxes.find((b) => b.kind === "unit" && b.role === "panel");
@@ -468,7 +470,7 @@ export function Builder({
     case "trackpad":
     case "webcam":
     case "ports":
-      column = <SurfaceColumn {...props} item={stage} port={port} onPort={setPort} />;
+      column = <SurfaceColumn {...props} item={stage} port={port} onPort={setPort} onSide={setPortView} />;
       break;
     case "colour":
       column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;
@@ -534,7 +536,7 @@ export function Builder({
         fit={previewFit}
         year={build.year}
         view={view}
-        resetKey={`${stage}:${stage === "internals" ? slot.key : stage === "ports" ? (portSide ?? "") : marking ? `decals:${markSurface}` : ""}:${powering}`}
+        resetKey={`${stage}:${stage === "internals" ? slot.key : stage === "ports" ? (portView ?? "") : marking ? `decals:${markSurface}` : ""}:${powering}`}
         lidAngle={lidAngle}
         colours={colours}
         surfaces={surfaces}

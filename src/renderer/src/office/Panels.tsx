@@ -9,6 +9,7 @@ import { overallOf, yearOf } from "../foundry/LaptopList";
 import { BrandTab } from "../foundry/Marketing";
 import { ConfirmDelete } from "../foundry/Menus";
 import { ModelTab, statusOf, usd, usdShort } from "../foundry/Release";
+import { pctLabel } from "../video/commercial";
 import { type MarketTab, MarketScreen } from "../world/MarketScreen";
 import { labelOf, type OfficeAt, type StationId } from "./stations";
 
@@ -16,15 +17,28 @@ import { labelOf, type OfficeAt, type StationId } from "./stations";
 // the business at one glance across the view; the rest sit in the calm third
 // of their station's view.
 
-export interface ShortCard {
-  quarter: string;
+/** A finished video on the TV's list. */
+export interface TvVideo {
+  /** Its kept file. */
+  file: string;
+  /** The quarter for a short, Commercial for a commercial. */
+  label: string;
+  /** The model it is about. */
   name: string;
-  state: "idle" | "busy" | "ready";
   poster?: string;
-  /** The rendered short, once ready: it plays on the TV. */
+}
+
+/** The company's finished videos, newest first, and the one loaded on the TV. */
+export interface TvCard {
+  videos: TvVideo[];
+  /** The file loaded for the TV, once it has loaded. */
+  playing: string | null;
   url?: string;
-  /** Starts making it. */
-  onClick: () => void;
+  /** The newest video's model, while it is new and not yet watched. */
+  fresh?: string;
+  onPlay: (file: string) => void;
+  /** The one on the TV, full screen. */
+  onFull: () => void;
 }
 
 /** What the panels do: every change goes through the App, which owns the save. */
@@ -46,7 +60,7 @@ export interface OfficeActions {
   onStatement: (tab: StatementTab) => void;
   /** Opens the full Market screen on a model's rivals or buyers. */
   onMarket: (tab: "rivals" | "buyers", model: string) => void;
-  short?: ShortCard;
+  tv?: TvCard;
   /** Awards won since the player last looked at the cabinet. */
   newAwards: number;
   onSeenAwards: () => void;
@@ -91,9 +105,9 @@ interface Ctx {
   onAt: (at: OfficeAt) => void;
   go: (id: StationId) => void;
   actions: OfficeActions;
-  /** The short is playing on the TV. */
+  /** A video is playing on the TV. */
   playing: boolean;
-  onWatch: () => void;
+  onWatch: (file: string) => void;
 }
 
 export function buildPanels(c: Ctx): Partial<Record<StationId, ReactNode>> {
@@ -115,10 +129,10 @@ export function buildPanels(c: Ctx): Partial<Record<StationId, ReactNode>> {
     );
     if (worldQuarters(campaign).length > 0) out.market = <Market {...c} campaign={campaign} />;
   }
-  if (c.actions.short)
+  if (c.actions.tv && c.actions.tv.videos.length > 0)
     out.tv = (
       <Frame title={labelOf("tv")}>
-        <Short card={c.actions.short} playing={c.playing} onWatch={c.onWatch} />
+        <Videos card={c.actions.tv} playing={c.playing} onWatch={c.onWatch} />
       </Frame>
     );
   const reviewed = c.company.models.some((m) => (campaign ? campaign.reviews[m.id] : m.reviewed));
@@ -249,7 +263,7 @@ function Overview({ company, campaign, actions, go, at, onAt }: Ctx) {
   line("Sold out", soldOut, true);
   line("Review", due);
   if (actions.newAwards > 0) alerts.push({ kind: "Awards", text: String(actions.newAwards), to: "trophies" });
-  if (actions.short?.state === "ready") alerts.push({ kind: "Short", text: actions.short.name, to: "tv" });
+  if (actions.tv?.fresh) alerts.push({ kind: "Video", text: actions.tv.fresh, to: "tv" });
   return (
     <>
       <div className="of-desk-clock">
@@ -347,12 +361,19 @@ function Detail({
   const [doomed, setDoomed] = useState(false);
   const block = buildBlock(model.build);
   const over = !!campaign?.over;
+  // A commercial's wheel result, waiting on the next quarter's sales.
+  const boost = campaign?.boosts[model.id];
   return (
     <>
       {!campaign && (
         <div className="cr-model-head">
           <b>{model.name}</b>
           {score != null && <b>{Math.round(score)}</b>}
+        </div>
+      )}
+      {boost !== undefined && (
+        <div className={`of-boost${boost < 1 ? " down" : ""}`}>
+          {pctLabel(boost)}
         </div>
       )}
       <div className="of-actions">
@@ -420,21 +441,32 @@ function Market({ company, campaign }: Ctx & { campaign: CampaignState }) {
   return <MarketScreen campaign={campaign} models={company.models} company={company.name} tab={tab} onTab={setTab} />;
 }
 
-function Short({ card, playing, onWatch }: { card: ShortCard; playing: boolean; onWatch: () => void }) {
-  const ready = card.state === "ready";
+function Videos({ card, playing, onWatch }: { card: TvCard; playing: boolean; onWatch: (file: string) => void }) {
   return (
-    <button type="button" className="of-short" onClick={ready ? onWatch : card.onClick} disabled={card.state === "busy"}>
-      {card.poster && (
-        <i>
-          <img src={card.poster} alt="" />
-        </i>
+    <div className="of-videos">
+      {card.videos.map((v) => {
+        const on = playing && card.playing === v.file;
+        return (
+          <button key={v.file} type="button" className={`of-short${on ? " on" : ""}`} onClick={() => onWatch(v.file)}>
+            {v.poster && (
+              <i>
+                <img src={v.poster} alt="" />
+              </i>
+            )}
+            <span>
+              <small>{v.label}</small>
+              <b>{v.name}</b>
+            </span>
+            <em>{on ? "Replay" : "Watch"}</em>
+          </button>
+        );
+      })}
+      {playing && card.url && (
+        <button type="button" className="fd-text" onClick={card.onFull}>
+          Full screen
+        </button>
       )}
-      <span>
-        <small>{card.quarter}</small>
-        <b>{card.name}</b>
-      </span>
-      {card.state === "busy" ? <u aria-busy /> : <em>{ready ? (playing ? "Replay" : "Watch") : "Make"}</em>}
-    </button>
+    </div>
   );
 }
 

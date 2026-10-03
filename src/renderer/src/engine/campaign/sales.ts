@@ -52,6 +52,8 @@ export interface Seller {
   launch: number;
   /** Units on hand; rivals never run out. */
   stock: number;
+  /** A commercial's multiplier on the units its buyers want, before stock; 1 when absent. */
+  boost?: number;
 }
 
 /** One quarter's sales, kept compactly for display. */
@@ -199,12 +201,14 @@ export function splitDemand(
   const bySeller: Record<string, number[]> = {};
   let total = 0;
   for (const x of sellers) {
-    demand[x.id] = Math.round(demand[x.id]);
-    const saleWant = Math.round(saleDemand[x.id]);
+    // A commercial's wheel scales what its buyers want; the stock still caps what sells.
+    const boost = x.boost ?? 1;
+    demand[x.id] = Math.round(demand[x.id] * boost);
+    const saleWant = Math.round(saleDemand[x.id] * boost);
     sold[x.id] = Math.max(0, Math.min(saleWant, Math.floor(x.stock)));
     total += sold[x.id];
     bySeller[x.id] = apportion(perSegment[x.id], sold[x.id]);
-    const cut = saleWant > 0 ? sold[x.id] / saleWant : 0;
+    const cut = saleWant > 0 ? (sold[x.id] / saleWant) * boost : 0;
     for (const o of bySegment[x.id]) outcomes.push({ ...o, units: o.units * cut, review: x.review });
   }
   return { sold, demand, outcomes, total, segments: bySeller };
@@ -229,7 +233,8 @@ export function sellersOf(state: CampaignState, models: { id: string; build: unk
     if (!m || quarterIndex(r.quarter) > at) continue;
     const build = { ...(m.build as Build), price: r.price };
     const p = profileOf(id, build);
-    out.push({ id, maker: null, ...p, review: criticsScore(state, id), price: r.price, launch: quarterIndex(r.quarter), stock: r.stock });
+    const boost = state.boosts?.[id];
+    out.push({ id, maker: null, ...p, review: criticsScore(state, id), price: r.price, launch: quarterIndex(r.quarter), stock: r.stock, ...(boost ? { boost } : {}) });
   }
   const on = new Set(state.onSale);
   for (const r of rivals) {
@@ -289,6 +294,8 @@ export const simulateSales: QuarterStep = (state, ctx) => {
     sales: [...state.sales, record].slice(-SALES_HISTORY),
     shelf: [...state.shelf, shelf],
     outcomes: res.outcomes,
+    // Every commercial's multiplier is spent on this quarter.
+    boosts: {},
   };
 };
 

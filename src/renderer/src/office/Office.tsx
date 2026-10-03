@@ -93,7 +93,7 @@ export function Office({
   const [look, setLook] = useState<PageLook | null>(null);
   const slot = useMemo(makeSlot, []);
   const overlay = useRef<HTMLDivElement>(null);
-  // The short on the TV, and each Watch or Replay.
+  // A video on the TV, and each Watch or Replay.
   const [playing, setPlaying] = useState(false);
   const [take, setTake] = useState(0);
   const walk = useRef<Walk>({ pos: new THREE.Vector3(), yaw: 0, pitch: 0 });
@@ -320,7 +320,8 @@ export function Office({
         go,
         actions,
         playing,
-        onWatch: () => {
+        onWatch: (file) => {
+          actions.tv?.onPlay(file);
           setPlaying(true);
           setTake((t) => t + 1);
         },
@@ -334,7 +335,7 @@ export function Office({
   const next = stepFrom(ring, station, 1);
   const panel = free ? null : panels[station];
   const wide = station === "market" || station === "desk";
-  const tv = !free && station === "tv" && playing ? actions?.short?.url : undefined;
+  const tv = !free && station === "tv" && playing ? actions?.tv?.url : undefined;
 
   const screen = { key: "F", label: "Full screen" };
   let prompts: Prompt[] = [];

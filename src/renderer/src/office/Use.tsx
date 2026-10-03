@@ -111,7 +111,7 @@ export const fitOf = (b: Build): Fit | null => {
 };
 
 /**
- * The quarter's short on the TV: the video decodes in a hidden element, with
+ * A finished video on the TV, a short or a commercial: it decodes in a hidden element, with
  * its sound, and each frame is drawn centred on the screen's own canvas.
  * `take` restarts it.
  */
@@ -146,6 +146,8 @@ export function TvShort({ data, url, sound, take }: { data: OfficeData; url: str
   }, [data, tex]);
   useEffect(() => {
     video.src = url;
+    // A new video, loaded after its Watch, plays from the start too.
+    void video.play().catch(() => {});
     return () => {
       video.pause();
       video.removeAttribute("src");

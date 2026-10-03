@@ -1,5 +1,5 @@
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
-import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "./store";
+import type { SavedCampaign, SavedCommercial, SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "./store";
 
 export interface FoxNav {
   frame: number;
@@ -52,6 +52,9 @@ const api = {
       ipcRenderer.invoke("store:save-place", company, place),
     saveNotes: (company: string, notes: SavedNote[]): Promise<SavedCompany> =>
       ipcRenderer.invoke("store:save-notes", company, notes),
+    /** Records a finished commercial with the company. */
+    saveCommercial: (company: string, commercial: SavedCommercial): Promise<SavedCompany> =>
+      ipcRenderer.invoke("store:save-commercial", company, commercial),
     deleteModel: (company: string, id: string): Promise<SavedCompany> =>
       ipcRenderer.invoke("store:delete-model", company, id),
     settings: (): Promise<Settings> => ipcRenderer.invoke("store:settings"),
@@ -64,12 +67,16 @@ const api = {
     > => ipcRenderer.invoke("marks:import-image"),
   },
   video: {
-    /** The narration in a narrator's voice ("michael" or "heart"), one clip per line; null when the game has no voice installed. */
+    /** The narration in a narrator's voice (a name from voices), one clip per line; null when the game has no voice installed. */
     say: (lines: string[], narrator: string): Promise<{ sampleRate: number; clips: Float32Array[] } | null> =>
       ipcRenderer.invoke("video:say", lines, narrator),
-    /** A short rendered for the company and quarter ("2016q3") before, or null. */
+    /** The narrators installed, by name; empty without the voice. */
+    voices: (): Promise<string[]> => ipcRenderer.invoke("video:voices"),
+    /** Every video kept for the company, by file ("2016q3-v4", "ad-<id>-v1"), with when it was written. */
+    list: (company: string): Promise<{ file: string; time: number }[]> => ipcRenderer.invoke("video:list", company),
+    /** A video rendered for the company before, by file ("2016q3-v4", "ad-<id>-v1"), or null. */
     kept: (company: string, quarter: string): Promise<Uint8Array | null> => ipcRenderer.invoke("video:kept", company, quarter),
-    /** Keeps a rendered short beside the company's save, replacing older quarters'. */
+    /** Keeps a rendered video beside the company's save. */
     keep: (company: string, quarter: string, bytes: Uint8Array): Promise<void> =>
       ipcRenderer.invoke("video:keep", company, quarter, bytes),
     /** A kept short's poster still (JPEG), or null. */
@@ -111,4 +118,4 @@ const api = {
 if (process.isMainFrame && window.top === window.self) contextBridge.exposeInMainWorld("api", api);
 
 export type Api = typeof api;
-export type { SavedCampaign, SavedCompany, SavedModel, SavedNote, Settings };
+export type { SavedCampaign, SavedCommercial, SavedCompany, SavedModel, SavedNote, Settings };

@@ -727,3 +727,28 @@
 .of-panel .of-rows div.fd-row {
   cursor: default;
 }
+
+/* The TV's finished videos, newest first. */
+.of-videos {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--u));
+  max-height: calc(560 * var(--u));
+  overflow-y: auto;
+}
+
+.of .of-short.on {
+  border-color: var(--accent) !important;
+}
+
+/* A commercial's sales multiplier, waiting on the next quarter. */
+.of-boost {
+  align-self: flex-start;
+  font-weight: 700;
+  font-size: calc(22 * var(--u));
+  color: var(--accent);
+}
+
+.of-boost.down {
+  color: var(--muted);
+}

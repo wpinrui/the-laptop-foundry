@@ -152,6 +152,44 @@ export function shortFacts(
   };
 }
 
+/**
+ * What a commercial's cards show about one of the player's own laptops: its
+ * latest quarter's sales and its published review in a campaign; in a sandbox,
+ * no sales and the review's own score once it has been reviewed.
+ */
+export function adFacts(subject: Subject, campaign: CampaignState | null, score: number | null): ShortFacts {
+  if (campaign) {
+    const record = [...campaign.sales].reverse().find((r) => (r.units[subject.id] ?? 0) > 0) ?? {
+      quarter: { ...campaign.now },
+      units: {},
+      demand: {},
+      makers: {},
+      total: 0,
+    };
+    return shortFacts(subject, true, campaign, record, record.units[subject.id] ?? 0);
+  }
+  const review = reviewOf(subject);
+  const left = subject.build.ports.filter((p) => p.side === "left").length;
+  const right = subject.build.ports.filter((p) => p.side === "right").length;
+  return {
+    subject,
+    quarter: { year: subject.build.year, quarter: 1 },
+    mine: true,
+    units: 0,
+    share: 0,
+    price: review.price,
+    score: score === null ? null : Math.round(score),
+    kind: review.kind,
+    cpu: review.cpu,
+    gpu: review.gpu,
+    pros: review.pros,
+    cons: review.cons,
+    stats: standouts(subject),
+    awards: [],
+    portSide: right > left ? "right" : "left",
+  };
+}
+
 /** The close-up that shows a pro or con best. */
 function shotFor(point: string): Shot {
   const p = point.toLowerCase();

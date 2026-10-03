@@ -34,8 +34,33 @@ export interface SavedCampaign {
 
 /** Where the player last was in a company: the place, and the laptop brought along, if any. */
 export interface SavedPlace {
-  at: "map" | "office" | "workshop" | "cafe" | "courts";
+  at: "map" | "office" | "workshop" | "cafe" | "courts" | "studio";
   model?: string;
+}
+
+/** One scene on a commercial's timeline: a camera shot or a card, over the script's words from startWord up to endWord. */
+export interface SavedScene {
+  kind: string;
+  startWord: number;
+  /** The word after the scene's last. */
+  endWord: number;
+}
+
+/** A commercial made in the studio. Each laptop gets one, ever. */
+export interface SavedCommercial {
+  id: string;
+  /** The model it advertises. */
+  model: string;
+  /** The script, one narrated and captioned line each. */
+  lines: string[];
+  scenes: SavedScene[];
+  ratio: "9:16" | "1:1" | "16:9";
+  /** The narrator's name, or null for no voice. */
+  voice: string | null;
+  /** When it was finished. */
+  made: number;
+  /** What the wheel landed on: 1.5 for +50%. */
+  multiplier: number;
 }
 
 /** One company: one save. */
@@ -53,6 +78,8 @@ export interface SavedCompany {
   markets?: Record<string, unknown>;
   /** The in-game Notepad's documents. Absent for a company saved before it persisted them. */
   notes?: SavedNote[];
+  /** The commercials made in the studio, oldest first. Absent for a company saved before the studio. */
+  commercials?: SavedCommercial[];
   /** Where the company was left; absent opens the office. */
   place?: SavedPlace;
 }

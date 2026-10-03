@@ -169,6 +169,19 @@
   --cafe-lamp: #ffe8cc;
   /* Tints the designer's white terrazzo floor texture. */
   --cafe-floor: #7c7c7c;
+  /* The stand-in studio room. */
+  --studio-shade: #151312;
+  --studio-sky: #fff6ea;
+  --studio-earth: #2a2522;
+  --studio-floor: #3b3836;
+  --studio-wall: #2a2725;
+  --studio-backdrop: #d9d4cc;
+  --studio-door: #5a4a3c;
+  --studio-table: #1d1b1a;
+  --studio-stand: #111111;
+  --studio-softbox: #f3efe8;
+  --studio-desk: #4a4038;
+  --studio-screen: #0d0d0f;
   /* The company office's lights, and its screens' drawings. */
   --office-sun: #fff1dc;
   --office-sky: #f6f1ea;

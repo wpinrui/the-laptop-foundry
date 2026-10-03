@@ -65,6 +65,10 @@ export interface CampaignState {
   reviews: Record<string, PublishedReview>;
   /** Every year's awards, oldest first. */
   awards: Award[];
+  /** A commercial's wheel result per model id, 1.5 for +50%: it multiplies the model's sales in the next quarter to resolve, then goes. */
+  boosts: Record<string, number>;
+  /** Models that have had their one commercial. */
+  advertised: string[];
 }
 
 /** What a quarter's resolution reads besides the campaign state. */
@@ -101,6 +105,8 @@ export function newCampaign(start: number, startCash = STARTING_CASH): CampaignS
     outcomes: [],
     reviews: {},
     awards: [],
+    boosts: {},
+    advertised: [],
   };
 }
 
@@ -135,7 +141,16 @@ export function campaignOf(saved: SavedCampaign): CampaignState {
     outcomes: [],
     reviews: reviewsOf(s.reviews),
     awards: awardsOf(s.awards),
+    boosts: boostsOf(s.boosts),
+    advertised: Array.isArray(s.advertised) ? s.advertised.filter((x): x is string => typeof x === "string") : [],
   };
+}
+
+function boostsOf(x: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!x || typeof x !== "object") return out;
+  for (const [id, v] of Object.entries(x)) if (typeof v === "number" && Number.isFinite(v) && v > 0) out[id] = v;
+  return out;
 }
 
 function releasesOf(x: unknown): Record<string, Release> {

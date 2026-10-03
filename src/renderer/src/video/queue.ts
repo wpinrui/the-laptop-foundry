@@ -1,0 +1,217 @@
+import { useSyncExternalStore } from "react";
+import type { Quarter } from "../engine/campaign";
+import { type Commercial, commercialProgram, scriptLines, voiceOver } from "./commercial";
+import { type Rendered, renderVideo, timelineFor, voiceFor } from "./render";
+import { shortProgram } from "./scene";
+import type { Short, ShortFacts } from "./script";
+import { lookFor } from "./sets";
+
+// The videos, rendered in the background wherever the player is, in two
+// queues that run side by side, each one video at a time. The shorts queue
+// makes each quarter's short once it resolves: it always finishes the one in
+// progress, then takes the newest quarter still without one, skipping older
+// ones. The commercials queue renders every finished commercial in turn.
+// Finished videos are kept on disk in the company's folder; the TV plays them
+// from there, so nothing waits on a render.
+
+/** Bumped when the short changes, so a short kept on disk from before is made again. */
+const SHORT_VERSION = 4;
+/** Bumped when the commercial's render changes. */
+const AD_VERSION = 1;
+
+export const shortFile = (q: Quarter) => `${q.year}q${q.quarter}-v${SHORT_VERSION}`;
+export const adFile = (id: string) => `ad-${id}-v${AD_VERSION}`;
+/** A short's file back to its quarter, or null for any other file. */
+export function quarterOfFile(file: string): Quarter | null {
+  const m = new RegExp(`^(\\d{4})q([1-4])-v${SHORT_VERSION}$`).exec(file);
+  return m ? { year: Number(m[1]), quarter: Number(m[2]) as Quarter["quarter"] } : null;
+}
+/** A commercial's file back to its id, or null for any other file. */
+export function adOfFile(file: string): string | null {
+  const m = new RegExp(`^ad-([0-9a-f-]{36})-v${AD_VERSION}$`, "i").exec(file);
+  return m ? m[1] : null;
+}
+
+// Each company's finished videos: file to when it was written.
+const kept = new Map<string, Map<string, number>>();
+const listing = new Map<string, Promise<Map<string, number>>>();
+// Renders that failed this session are not tried again until the next.
+const failed = new Set<string>();
+const subs = new Set<() => void>();
+let stamp = 0;
+
+const notify = () => {
+  stamp++;
+  for (const s of subs) s();
+};
+
+/** The company's kept videos, read from disk once per session. */
+function keptOf(company: string): Promise<Map<string, number>> {
+  let p = listing.get(company);
+  if (!p) {
+    p = window.api.video
+      .list(company)
+      .catch(() => [])
+      .then((files) => {
+        const m = kept.get(company) ?? new Map<string, number>();
+        for (const f of files) if (!m.has(f.file)) m.set(f.file, f.time);
+        kept.set(company, m);
+        notify();
+        return m;
+      });
+    listing.set(company, p);
+  }
+  return p;
+}
+
+/** The company's finished videos, file to when it was written; updates as renders finish. Undefined until read. */
+export function useVideos(company: string | null): ReadonlyMap<string, number> | undefined {
+  useSyncExternalStore(
+    (cb) => {
+      subs.add(cb);
+      return () => subs.delete(cb);
+    },
+    () => stamp,
+  );
+  if (company) void keptOf(company);
+  return company ? kept.get(company) : undefined;
+}
+
+interface Job {
+  company: string;
+  file: string;
+  /** Orders the shorts: the newest quarter wins. */
+  order: string;
+  run: () => Promise<Rendered | null>;
+}
+
+const same = (a: Job, b: Job) => a.company === b.company && a.file === b.file;
+
+/** One video at a time. `newest`: only the newest job offered waits; otherwise every one does, in turn. */
+function lane(newest: boolean) {
+  let running: Job | null = null;
+  let pending: Job[] = [];
+  const pump = async () => {
+    if (running) return;
+    const job = pending.shift();
+    if (!job) return;
+    running = job;
+    const key = `${job.company}:${job.file}`;
+    try {
+      const have = await keptOf(job.company);
+      if (!have.has(job.file)) {
+        const r = await job.run();
+        if (r) {
+          const b = new Uint8Array(await r.video.arrayBuffer());
+          await window.api.video.keep(job.company, job.file, b);
+          const still = await r.poster?.arrayBuffer().catch(() => null);
+          if (still) await window.api.video.keepPoster(job.company, job.file, new Uint8Array(still)).catch(() => {});
+          have.set(job.file, Date.now());
+          notify();
+        }
+      }
+    } catch (e) {
+      failed.add(key);
+      console.error(`video: could not make ${job.file}`, e);
+    } finally {
+      running = null;
+      void pump();
+    }
+  };
+  return (job: Job) => {
+    if (failed.has(`${job.company}:${job.file}`) || kept.get(job.company)?.has(job.file)) return;
+    if ((running && same(running, job)) || pending.some((p) => same(p, job))) return;
+    if (newest) {
+      const waiting = pending[0];
+      if (!waiting || job.order > waiting.order || waiting.company !== job.company) pending = [job];
+    } else pending.push(job);
+    void pump();
+  };
+}
+
+const shorts = lane(true);
+const ads = lane(false);
+
+/**
+ * Offers the short for a company's quarter to the shorts queue. `make` writes
+ * its script once its turn comes; null means there is nothing to show.
+ * `index` counts the company's quarters from 0 and picks the set.
+ */
+export function offerShort(company: string, quarter: Quarter, index: number, make: () => Promise<Short | null>): void {
+  const file = shortFile(quarter);
+  shorts({
+    company,
+    file,
+    order: `${quarter.year}q${quarter.quarter}`,
+    run: async () => {
+      const short = await make();
+      if (!short) return null;
+      // Two narrators, taking turns by quarter.
+      const narrator = index % 2 === 0 ? "michael" : "heart";
+      const said = await window.api.video.say(short.lines.map((l) => l.say), narrator).catch(() => null);
+      const voice = voiceFor(short.lines.length, said);
+      const program = shortProgram(short, timelineFor(short.lines.map((l) => l.text), voice));
+      return renderVideo(program, lookFor(index), voice);
+    },
+  });
+}
+
+/**
+ * Queues a finished commercial's render. `facts` gathers what its cards show
+ * once its turn comes; null means its laptop is gone. `index` counts the
+ * company's commercials from 0 and picks the set.
+ */
+export function queueAd(company: string, c: Commercial, facts: () => Promise<ShortFacts | null>, index: number): void {
+  ads({
+    company,
+    file: adFile(c.id),
+    order: String(c.made),
+    run: async () => {
+      const f = await facts();
+      if (!f) return null;
+      const lines = scriptLines(c.lines);
+      const voice = voiceFor(lines.length, await voiceOver(c));
+      const program = commercialProgram(c, f, timelineFor(lines, voice));
+      return renderVideo(program, lookFor(index), voice);
+    },
+  });
+}
+
+/** A kept video's file as a blob, or null when it cannot be read. */
+export async function loadVideo(company: string, file: string): Promise<Blob | null> {
+  const b = await window.api.video.kept(company, file).catch(() => null);
+  return b ? new Blob([b as Uint8Array<ArrayBuffer>], { type: "video/mp4" }) : null;
+}
+
+// Poster stills as object URLs, by company and file, kept for the session.
+const posters = new Map<string, string | null>();
+
+/** The poster stills of the listed videos, as object URLs, loading the ones not yet read. */
+export function usePosters(company: string | null, files: string[]): Record<string, string> {
+  useSyncExternalStore(
+    (cb) => {
+      subs.add(cb);
+      return () => subs.delete(cb);
+    },
+    () => stamp,
+  );
+  const out: Record<string, string> = {};
+  if (!company) return out;
+  for (const f of files) {
+    const key = `${company}:${f}`;
+    if (!posters.has(key)) {
+      posters.set(key, null);
+      void window.api.video
+        .poster(company, f)
+        .catch(() => null)
+        .then((b) => {
+          if (!b) return;
+          posters.set(key, URL.createObjectURL(new Blob([b as Uint8Array<ArrayBuffer>], { type: "image/jpeg" })));
+          notify();
+        });
+    }
+    const url = posters.get(key);
+    if (url) out[f] = url;
+  }
+  return out;
+}

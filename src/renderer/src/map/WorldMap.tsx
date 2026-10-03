@@ -6,12 +6,12 @@ import { overallOf, sortedModels, yearOf } from "../foundry/LaptopList";
 import "../foundry/foundry.css";
 import "./map.css";
 
-// The world map: a street plan on the left with the four places on street
+// The world map: a street plan on the left with the five places on street
 // corners, and a panel on the right naming the destination, the laptop to
-// bring and Go. The workshop and the cafe take a laptop; the Office and Courts
-// do not.
+// bring and Go. The workshop and the cafe take a laptop; the Office, Courts
+// and the studio do not.
 
-export type Place = "workshop" | "cafe" | "office" | "courts";
+export type Place = "workshop" | "cafe" | "office" | "courts" | "studio";
 /** Where the map was opened from: a place's door, or the menu. */
 export type MapFrom = Place | "menu";
 
@@ -41,6 +41,14 @@ const ICON: Record<Place, ReactNode> = {
       <path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z" />
     </>
   ),
+  studio: (
+    <>
+      <path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z" />
+      <path d="m6.2 5.3 3.1 3.9" />
+      <path d="m12.4 3.4 3.1 4" />
+      <path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    </>
+  ),
 };
 
 /** Each place on its street corner, design px on the 1040 by 810 map. */
@@ -49,6 +57,7 @@ const PLACES: { id: Place; name: string; tip: string; x: number; y: number; brin
   { id: "cafe", name: "Cafe", tip: "Use one of your laptops", x: 470, y: 210, bring: true },
   { id: "office", name: "Office", tip: "Run the company", x: 800, y: 210, bring: false },
   { id: "courts", name: "Courts", tip: "See the laptops on sale", x: 800, y: 690, bring: false },
+  { id: "studio", name: "Studio", tip: "Create a commercial for your laptop", x: 180, y: 690, bring: false },
 ];
 const STREETS_Y = [201, 461, 681];
 const STREETS_X = [171, 461, 791];
@@ -57,7 +66,7 @@ const u = (n: number) => `calc(${n} * var(--u))`;
 
 /** The laptops that can come along: any model to the workshop, only a working one to the cafe. */
 function carried(models: SavedModel[], place: Place): SavedModel[] {
-  if (place === "office" || place === "courts") return [];
+  if (place === "office" || place === "courts" || place === "studio") return [];
   return place === "workshop" ? models : models.filter((m) => !buildBlock(m.build));
 }
 
@@ -87,18 +96,21 @@ export function Thumb({ model }: { model: SavedModel | null }) {
 export function WorldMap({
   company,
   from,
+  studio,
   onGo,
   onBack,
 }: {
   company: SavedCompany;
   from: MapFrom;
+  /** The studio opens while a laptop can still have a commercial made. */
+  studio: boolean;
   onGo: (to: Place, laptop: SavedModel | null) => void;
   /** Stay from a place, Menu from the menu. */
   onBack: () => void;
 }) {
   const all = useMemo(() => sortedModels(company), [company]);
-  // The cafe opens once there is a working laptop to bring.
-  const open = (p: Place) => p !== from && (p !== "cafe" || carried(all, "cafe").length > 0);
+  // The cafe opens once there is a working laptop to bring, the studio while one can have a commercial.
+  const open = (p: Place) => p !== from && (p !== "cafe" || carried(all, "cafe").length > 0) && (p !== "studio" || studio);
   const [dest, setDest] = useState<Place>(() => PLACES.find((p) => open(p.id))?.id ?? "workshop");
   const [bring, setBring] = useState<string | null>(null);
   const laptops = useMemo(() => carried(all, dest), [all, dest]);

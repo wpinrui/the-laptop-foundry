@@ -124,7 +124,7 @@ function placeSvg(fit: Fit, marks: Mark[], surface: MarkSurface, fields: Pick<Ma
 
 /** A preset placed at its default size on the surface's default spot, printed in cream. */
 export function presetMark(fit: Fit, marks: Mark[], surface: MarkSurface, decal: Decal): Mark {
-  return placeSvg(fit, marks, surface, { text: decal.name, svg: decal.svg, preset: decal.id, size: decal.size });
+  return placeSvg(fit, marks, surface, { text: decal.name, svg: decal.svg, preset: decal.id, size: decal.size, ...(decal.colour && { colour: decal.colour }) });
 }
 
 const EMOJI_SIZE: Record<MarkSurface, number> = { lid: 30, palm: 10, bottom: 10, bezel: 4 };
@@ -274,7 +274,7 @@ function PresetBrowser({
   useEffect(() => () => onGhost(null), []);
   const marks = build.marks ?? [];
   const placed = new Set(marks.map((m) => m.preset));
-  const here = (d: Decal) => d.surface === surface;
+  const here = (d: Decal) => d.surface === surface || !!d.also?.includes(surface);
   const sets = DECAL_SETS.map(([id, label]) => ({ id, label, items: DECALS.filter((d) => d.set === id && (all || here(d))) })).filter(
     (g) => g.items.length > 0,
   );
@@ -307,6 +307,7 @@ function PresetBrowser({
                 >
                   <span className="bd-preset-tile">
                     <DecalGlyph decal={d} className="bd-preset-glyph" />
+                    {d.colour && <i className="bd-preset-ink" style={{ background: d.colour }} />}
                     {!here(d) && <small>{SURFACES.find(([s]) => s === d.surface)?.[1]}</small>}
                     {placed.has(d.id) && <i className="bd-preset-dot" />}
                   </span>

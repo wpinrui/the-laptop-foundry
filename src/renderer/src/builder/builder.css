@@ -1835,6 +1835,16 @@
   height: calc(34 * var(--u));
 }
 
+.bd-preset-ink {
+  position: absolute;
+  left: calc(6 * var(--u));
+  top: calc(6 * var(--u));
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--line, rgba(128, 128, 128, 0.5));
+}
+
 .bd-preset-tile small {
   position: absolute;
   left: calc(6 * var(--u));

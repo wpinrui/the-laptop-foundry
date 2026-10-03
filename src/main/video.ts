@@ -23,12 +23,12 @@ const MAX_CHARS = 400;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 /** A poster still is a small JPEG. */
 const MAX_POSTER_BYTES = 2 * 1024 * 1024;
-/** The narrators, by name, as Kokoro v1.0's speaker ids: its American and British English voices. */
-const NARRATORS: Record<string, number> = {
-  alloy: 0, aoede: 1, bella: 2, heart: 3, jessica: 4, kore: 5, nicole: 6, nova: 7, river: 8, sarah: 9, sky: 10,
-  adam: 11, echo: 12, eric: 13, fenrir: 14, liam: 15, michael: 16, onyx: 17, puck: 18, santa: 19,
-  alice: 20, emma: 21, isabella: 22, lily: 23, daniel: 24, fable: 25, george: 26, lewis: 27,
-};
+/**
+ * The narrators, by name, as Kokoro v1.0's speaker ids: its best graded
+ * English voices. Saves naming a voice since dropped move to the nearest
+ * kept one (see main/store.ts).
+ */
+const NARRATORS: Record<string, number> = { heart: 3, bella: 2, emma: 21, michael: 16 };
 /** A touch quicker than Kokoro's own pace, for a short. */
 const SPEED = 1.08;
 const COMPANY = /^[0-9a-f-]{36}$/i;

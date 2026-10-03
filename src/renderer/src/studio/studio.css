@@ -695,6 +695,18 @@
   height: calc(46 * var(--u));
 }
 
+.st-papers .st-square {
+  width: calc(34 * var(--u));
+  height: calc(34 * var(--u));
+  align-self: center;
+}
+
+.st-papers .st-square i {
+  display: block;
+  width: calc(22 * var(--u));
+  height: calc(22 * var(--u));
+}
+
 .st-ratio {
   display: block;
   box-sizing: border-box;

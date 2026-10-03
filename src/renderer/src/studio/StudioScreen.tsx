@@ -27,7 +27,8 @@ import {
 import { adFile, loadVideo, usePosters, useVideos } from "../video/queue";
 import type { Ratio } from "../video/scene";
 import { adFacts, type ShortFacts } from "../video/script";
-import { SET_IDS, type SetId } from "../video/sets";
+import { SET_IDS, type SetId, useSweepColours } from "../video/sets";
+import { Tooltip } from "../ui/Tooltip";
 import { adSubject } from "./eligible";
 import { ICON, Icon } from "./icons";
 import { frameSize, Preview } from "./Preview";
@@ -156,6 +157,8 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
   const defaults = setsOf({}, index);
   const [sceneSet, setSceneSet] = useState<SetId>(defaults.set);
   const [brollSet, setBrollSet] = useState<SetId>(defaults.set);
+  const [paper, setPaper] = useState(defaults.paper);
+  const papers = useSweepColours();
   const [voices, setVoices] = useState<string[]>([]);
   const [voice, setVoice] = useState<string | null>(null);
   const [menu, setMenu] = useState<"voice" | "set" | "broll" | null>(null);
@@ -207,7 +210,9 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
       return null;
     }
   }, [model, company.name, campaign]);
-  const sets = { set: sceneSet, brollSet, paper: defaults.paper };
+  const sets = { set: sceneSet, brollSet, paper };
+  // The paper only matters while the sweep is on screen: as the b-roll's set, or any angle's.
+  const sweepUsed = brollSet === "sweep" || kept.angles.some((a) => (a.set ?? sceneSet) === "sweep");
   const program = facts ? commercialProgram({ id, lines, ...kept, ratio, ...sets }, facts, tl) : null;
   const can = !!model && !!facts && words.length > 0 && total <= MAX_SECONDS;
 
@@ -470,6 +475,23 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
               </button>
             ))}
           </Drop>
+          {sweepUsed && papers.length > 0 && (
+            <div className="st-ratios st-papers">
+              <em className="st-label">Paper</em>
+              {papers.map(([name, hex], i) => (
+                <Tooltip key={name} tip={name.charAt(0).toUpperCase() + name.slice(1)}>
+                  <button
+                    type="button"
+                    className={`st-square${i === paper % papers.length ? " on" : ""}`}
+                    aria-label={name}
+                    onClick={() => setPaper(i)}
+                  >
+                    <i style={{ background: hex }} />
+                  </button>
+                </Tooltip>
+              ))}
+            </div>
+          )}
           <div className="st-ratios">
             <em className="st-label">Ratio</em>
             {(["9:16", "1:1", "16:9"] as Ratio[]).map((r) => (

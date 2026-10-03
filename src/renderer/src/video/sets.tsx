@@ -1,5 +1,5 @@
 import { useLoader, useThree } from "@react-three/fiber";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import benchUrl from "../assets/video-sets/laptop-foundry-set-bench.glb?url";
@@ -39,6 +39,41 @@ export function preloadSets(ids: SetId[]): void {
 export function lookFor(quarter: number): Look {
   const n = Math.max(0, Math.floor(quarter));
   return { set: ROTATION[n % ROTATION.length], paper: Math.floor(n / ROTATION.length) };
+}
+
+// The sweep's paper colours, read once from its file's root extras: name and hex, in palette order.
+let sweepPalette: Promise<[string, string][]> | null = null;
+
+function loadSweepColours(): Promise<[string, string][]> {
+  sweepPalette ??= fetch(sweepUrl)
+    .then((r) => r.arrayBuffer())
+    .then((buf) => {
+      // A GLB: a 12 byte header, then the JSON chunk's length, its type, and the JSON.
+      const view = new DataView(buf);
+      const json = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, view.getUint32(12, true)))) as {
+        nodes?: { extras?: Partial<Extras> }[];
+      };
+      const found = json.nodes?.find((n) => n.extras?.sweepColours)?.extras?.sweepColours ?? {};
+      return Object.entries(found);
+    })
+    .catch(() => {
+      sweepPalette = null;
+      return [];
+    });
+  return sweepPalette;
+}
+
+/** The sweep's paper colours as [name, hex], in the order a look's paper counts round them; empty until read. */
+export function useSweepColours(): [string, string][] {
+  const [colours, setColours] = useState<[string, string][]>([]);
+  useEffect(() => {
+    let live = true;
+    void loadSweepColours().then((c) => live && setColours(c));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return colours;
 }
 
 type V3 = [number, number, number];

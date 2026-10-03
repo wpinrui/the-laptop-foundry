@@ -148,6 +148,10 @@ function useOffice(): OfficeData {
       const o = scene.getObjectByName(`trophy_slot_${String(i).padStart(2, "0")}`);
       if (o) trophySlots.push(o);
     }
+    // The shell marks its prototype group (the award templates, at the origin) `hidden`; glTF has no visibility, so honour it here.
+    scene.traverse((o) => {
+      if ((o.userData as { hidden?: boolean }).hidden) o.visible = false;
+    });
     const templates: Partial<Record<Award, THREE.Object3D>> = {};
     for (const a of ["cup", "obelisk", "plaque"] as Award[]) {
       const o = scene.getObjectByName(`award_${a}`);

@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useBuilderSounds } from "../audio/sfx";
 import type { SavedModel } from "../../../preload/store";
 import {
   type Box,
@@ -379,6 +380,7 @@ export function Builder({
     }
   }, [preview.body, build, fit]);
   const valid = fit.problems.length === 0;
+  useBuilderSounds(build, fit.problems.length);
   const measured = useMemo(() => (valid ? simulate(build, fit) : null), [valid, build, fit]);
   const stats = useMemo(() => statsOf(build, fit, measured), [measured, build, fit]);
 

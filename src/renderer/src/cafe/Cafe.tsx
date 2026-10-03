@@ -3,6 +3,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
 import { SoundColumn } from "../foundry/Volume";
+import { usePanelSound } from "../audio/sfx";
 import { setSpeakerFull } from "../panel/speaker";
 import { type Aim, type LaptopLook, World } from "./World";
 
@@ -155,6 +156,7 @@ export function Cafe({
   const [full, setFull] = useState(false);
   const [paused, setPaused] = useState(false);
   const [soundMenu, setSoundMenu] = useState(false);
+  usePanelSound(paused);
   useEffect(() => {
     if (!paused) setSoundMenu(false);
   }, [paused]);

@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SavedCompany, SavedModel, SavedNote, SavedPlace } from "../../preload/store";
 import { initVolumes, setVolumes, useVolumes } from "./audio/engine";
+import { sfx, useUiSounds } from "./audio/sfx";
 import { campaignSaved, queueCampaignSave } from "./app/campaignSaves";
 import { randomName } from "./app/names";
 import { Builder } from "./builder/Builder";
@@ -97,6 +98,7 @@ export function App() {
   // While a quarter resolves, campaign changes are held off: the quarter's result would overwrite them.
   const resolvingRef = useRef(false);
   const volumes = useVolumes();
+  useUiSounds();
   // The laptop's own sound follows the effects volume; its mute switches effects off and on.
   const sound = volumes.master > 0 && volumes.sfx > 0;
   const onSound = (on: boolean) =>
@@ -737,7 +739,9 @@ export function App() {
       },
       onRelease: (id, units, cost, re) => {
         const m = find(id);
-        if (m) commit((s) => release(s, id, (m.build as Build).price, cost, units, re));
+        if (!m) return;
+        sfx("ui_success", { volume: 0.8 });
+        commit((s) => release(s, id, (m.build as Build).price, cost, units, re));
       },
       onReorder: (id, units, cost) => commit((s) => reorder(s, id, cost, units)),
       onTier: (segment, t) => commit((s) => ({ ...s, brand: setCampaign(s.brand, segment, t) })),

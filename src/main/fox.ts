@@ -342,17 +342,27 @@ export function registerFox(
 
   // Escape leaves a site's full screen and goes no further. Otherwise, inside
   // a site it hands the keys back to the game, which steps back on the next one.
+  // In the game itself the press acts on its release: Electron's pointer lock
+  // controller sees every Escape event before before-input-event and drops a
+  // held lock on it, so a lock taken on the key down was lost on the key up.
+  let held = false;
   wc.on("before-input-event", (e, input) => {
     if (input.key !== "Escape") return;
-    // The release too: Chromium drops the pointer lock on an Escape key up as
-    // well, so one press that takes the pointer back (a station into free roam,
-    // up from a seat) would lose it again on release and pause the game.
-    // main.tsx replays the key up with the key down.
     if (input.type === "keyUp") {
-      if (!full.size && !isSiteFrame(win, wc.focusedFrame)) e.preventDefault();
+      // A release whose press freed the pointer never reached here: not ours.
+      if (!held) return;
+      held = false;
+      e.preventDefault();
+      // Replayed as F24, a key the game has no other use for: a real key press
+      // gives the page user activation (Escape never does), so a place stepping
+      // back into free roam can take the pointer again without a click.
+      if (wc.isDestroyed()) return;
+      wc.sendInputEvent({ type: "keyDown", keyCode: "F24" });
+      wc.sendInputEvent({ type: "keyUp", keyCode: "F24" });
       return;
     }
     if (input.type !== "keyDown") return;
+    if (!input.isAutoRepeat) held = false;
     if (full.size) {
       e.preventDefault();
       for (const f of [...full.values()]) {
@@ -365,18 +375,7 @@ export function registerFox(
       send("fox:escape", null);
       return;
     }
-    // In the game itself the browser never sees Escape, so it never takes the
-    // pointer away: the game pauses on it and frees the pointer itself, and
-    // can take it back again without a click.
     e.preventDefault();
-    // Replayed as a user gesture: a key the browser never saw grants no
-    // activation, and without one a place stepping back into free roam could
-    // not take the pointer again until a click.
-    if (wc.isDestroyed()) return;
-    wc.executeJavaScript("window.__gameEscape ? (window.__gameEscape(), true) : false", true)
-      .then((ran) => {
-        if (!ran) send("game:escape", null);
-      })
-      .catch(() => send("game:escape", null));
+    if (!input.isAutoRepeat) held = true;
   });
 }

@@ -274,6 +274,14 @@ export function Office({
         return;
       }
       if (typing()) return;
+      // Space steps from a station into free roam: a key press, so the pointer locks without a click.
+      if (e.code === "Space" && !k.free && !k.using && !k.full) {
+        if (e.repeat) return;
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        k.enterFree();
+        return;
+      }
       if (e.code === "KeyM") {
         if (e.repeat || k.used) return;
         e.preventDefault();

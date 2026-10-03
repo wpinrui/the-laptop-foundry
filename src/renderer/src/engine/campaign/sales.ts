@@ -1,6 +1,7 @@
 import type { Rival } from "../market/field";
 import { marketScore } from "../market/score";
 import { NOVELTY_DECAY_BASE, NOVELTY_LAUNCH_BONUS, population, priceCeiling, quarterlyBuyers, SEGMENTS, screenFit } from "../market/segments";
+import { curveAt } from "../market/io";
 import { type Pack, packAverage, profileOf, rivalProfile } from "../market/profile";
 import type { HeadlineValues } from "../market/stats";
 import { HEADLINE_STATS, type Segment, type SegmentId } from "../market/types";
@@ -12,6 +13,8 @@ import {
   DEMAND_SCALE,
   MARKET_PAR,
   MAX_REACH,
+  OPTICAL_PULL,
+  OPTICAL_WANT,
   OVER_CEILING_STEEPNESS,
   PACK_BASE,
   PACK_MAX,
@@ -62,6 +65,8 @@ export interface Seller {
   boost?: number;
   /** Weight, thickness and screen-to-body; absent counts as the market's average. */
   pack?: Pack;
+  /** Carries an optical drive. */
+  optical?: boolean;
 }
 
 /** One quarter's sales, kept compactly for display. */
@@ -117,6 +122,18 @@ export function packFactor(p: Pack | undefined, avg: Pack | null, s: Segment): n
   if (!p || !avg || !(p.kg > 0 && p.mm > 0 && avg.stb > 0)) return 1;
   const r = Math.cbrt((avg.kg / p.kg) * (avg.mm / p.mm) * (p.stb / avg.stb));
   return clamp(r, PACK_MIN, PACK_MAX) ** (PACK_BASE + PACK_PER_WEIGHT * s.weights.portability);
+}
+
+/** An optical drive: wanted early, a liability late, more so for segments that care little about portability. */
+export function opticalFactor(has: boolean, year: number, s: Segment): number {
+  const want = curveAt(OPTICAL_WANT, year);
+  const k = OPTICAL_PULL * clamp(1 - 2 * s.weights.portability, 0.3, 1);
+  return has ? Math.exp(k * want) : Math.exp(-k * Math.max(0, 2 * want - 1));
+}
+
+/** Whether a build carries an optical drive. */
+export function hasOptical(b: Build): boolean {
+  return (b.parts.optical?.length ?? 0) > 0;
 }
 
 /** The critics' pull from the review score. */
@@ -186,6 +203,7 @@ export function splitDemand(
         priceFactor(x.price, ceiling) *
         screenFit(s, x.inches) *
         packFactor(x.pack, packAvg, s) *
+        opticalFactor(!!x.optical, now.year, s) *
         noveltyFactor(at - x.launch, s) *
         criticsFactor(x.review) *
         awardFactor(state, x.id, s.id) *
@@ -255,7 +273,7 @@ export function sellersOf(state: CampaignState, models: { id: string; build: unk
     const build = { ...(m.build as Build), price: r.price };
     const p = profileOf(id, build);
     const boost = state.boosts?.[id];
-    out.push({ id, maker: null, ...p, review: criticsScore(state, id), price: r.price, launch: quarterIndex(r.quarter), stock: r.stock, ...(boost ? { boost } : {}) });
+    out.push({ id, maker: null, ...p, optical: hasOptical(build), review: criticsScore(state, id), price: r.price, launch: quarterIndex(r.quarter), stock: r.stock, ...(boost ? { boost } : {}) });
   }
   const on = new Set(state.onSale);
   for (const r of rivals) {
@@ -265,6 +283,7 @@ export function sellersOf(state: CampaignState, models: { id: string; build: unk
       id: r.id,
       maker: r.maker,
       ...p,
+      optical: hasOptical(r.build),
       review: criticsScore(state, r.id),
       price: r.build.price ?? 0,
       launch: rivalLaunch(company, r, at),

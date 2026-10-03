@@ -3,7 +3,7 @@ import { DEMAND_SCALE, RETAILER_CUT, STARTING_PERCEPTION } from "../campaign/con
 // A nominal small reach to rank with: a new company starts at none, which scores every candidate zero.
 const RANKING_REACH = 0.02;
 import { MAX_PRICE, scaleFactor } from "../campaign/release";
-import { criticsFactor, noveltyFactor, packFactor, priceFactor, rivalBrand, scoreFactor } from "../campaign/sales";
+import { criticsFactor, hasOptical, noveltyFactor, opticalFactor, packFactor, priceFactor, rivalBrand, scoreFactor } from "../campaign/sales";
 import { costOf } from "../price";
 import { solve } from "../solve";
 import type { Build } from "../types";
@@ -73,6 +73,7 @@ function fieldOf(seg: Segment, year: number, rivals: Rival[], brand: number): Fi
       priceFactor(r.build.price ?? 0, ceiling) *
       screenFit(seg, p.inches) *
       packFactor(p.pack, pack, seg) *
+      opticalFactor(hasOptical(r.build), year, seg) *
       noveltyFactor(RIVAL_AGE, seg) *
       criticsFactor(p.review) *
       Math.max(0, rivalBrand(r.maker, seg.id));
@@ -104,10 +105,10 @@ interface Priced {
 }
 
 /** The most profitable price for a measured build. Stats but price do not move with the price. */
-function bestPrice(stats: HeadlineValues, review: number, inches: number, pack: Pack, cost: number, f: Field): Priced {
+function bestPrice(stats: HeadlineValues, review: number, inches: number, pack: Pack, cost: number, f: Field, extra = 1): Priced {
   const ratios = {} as Record<(typeof HEADLINE_STATS)[number], number>;
   for (const k of HEADLINE_STATS) ratios[k] = statRatio(stats[k], f.avg[k]);
-  const fixed = screenFit(f.seg, inches) * packFactor(pack, f.pack, f.seg) * noveltyFactor(0, f.seg) * criticsFactor(review) * f.brand;
+  const fixed = screenFit(f.seg, inches) * packFactor(pack, f.pack, f.seg) * noveltyFactor(0, f.seg) * criticsFactor(review) * f.brand * extra;
   const net = 1 - RETAILER_CUT;
   const hi = Math.min(MAX_PRICE, Math.max(f.ceiling * 1.6, cost * 3));
   let best: Priced = { price: 0, units: 0, profit: Number.NEGATIVE_INFINITY };
@@ -208,7 +209,7 @@ export function optimiseFor(
       if (fit.problems.length > 0) return null;
       const cost = costOf(g.build, fit).total;
       const p = profileOf(line.id, g.build);
-      const priced = bestPrice(p.stats, p.review, p.inches, p.pack, cost, field);
+      const priced = bestPrice(p.stats, p.review, p.inches, p.pack, cost, field, opticalFactor(hasOptical(g.build), year, seg));
       return { ...priced, build: { ...g.build, price: priced.price }, t, pos, priorities };
     } catch {
       return null;

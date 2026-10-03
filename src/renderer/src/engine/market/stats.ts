@@ -9,6 +9,7 @@ import { solve } from "../solve";
 import type { Build, Fit, Part } from "../types";
 import { BASS_RANGE, GRILL_LOSS, LOUD_WATTS } from "../../panel/tuning";
 import { speakerModel } from "../speaker";
+import { connectivityOf } from "./io";
 import type { HeadlineStat } from "./types";
 
 // The market score's headline stats (GDD, Version 0.2, "Market score"): one
@@ -70,11 +71,6 @@ export function headlineStatsOf(build: Build, content: Content = CONTENT): Headl
 function partIn(build: Build, cat: keyof Build["parts"], content: Content): Part | undefined {
   const id = build.parts[cat]?.[0]?.part;
   return id ? content.parts.find((p) => p.id === id) : undefined;
-}
-
-function opt(build: Build, cat: keyof Build["parts"], part: Part | undefined, key: string): string | undefined {
-  const v = build.parts[cat]?.[0]?.opts?.[key] ?? part?.options?.[key]?.[0];
-  return v === undefined ? undefined : String(v);
 }
 
 // ------------------------------------------------------------------ performance
@@ -226,75 +222,7 @@ export function trackpadOf(build: Build, _fit: Fit, content: Content): number {
 
 // ------------------------------------------------------------------ connectivity
 
-/** Signalling rate per port, Gbit/s. Power, lock and audio carry no data worth counting. */
-const PORT_GBPS: Record<string, number> = {
-  "dc-jack": 0,
-  vga: 0.5,
-  "dvi-d": 1,
-  "s-video": 0.2,
-  "hdmi-1.3": 3,
-  "hdmi-1.4": 5,
-  "mini-dp": 8,
-  displayport: 8,
-  "hdmi-2.0": 14,
-  "hdmi-2.1": 40,
-  "ethernet-100": 0.1,
-  "ethernet-1g": 1,
-  "ethernet-2.5g": 2.5,
-  "ethernet-drop-jaw": 1,
-  "modem-rj11": 0.05,
-  "usb-a-2.0": 0.48,
-  "usb-a-5g": 5,
-  "usb-a-10g": 10,
-  "esata-usb": 3,
-  "usb-c-5g": 5,
-  "usb-c-10g": 10,
-  "usb4-40g": 40,
-  "thunderbolt-1": 10,
-  "thunderbolt-2": 20,
-  "thunderbolt-3": 40,
-  "thunderbolt-4": 40,
-  "thunderbolt-5": 80,
-  "firewire-400": 0.4,
-  "pc-card": 1,
-  "expresscard-34": 2.5,
-  "expresscard-54": 2.5,
-  "sd-reader": 0.8,
-  "sd-reader-uhs2": 2.5,
-  "microsd-reader": 0.8,
-  "headphone-mic": 0,
-  "audio-combo": 0,
-  "lock-slot": 0,
-};
-
-/**
- * Connectivity, a sum of points:
- *   each connector    0.5 + log2(1 + Gbit/s); the DC jack scores 0
- *   charging from two sides   +1
- *   Wi-Fi             log2(1 + measured receive Mbit/s / 10)
- *   Bluetooth         +1
- */
-export function connectivityOf(build: Build, m: Measurements, content: Content): number {
-  let points = 0;
-  const chargeSides = new Set<string>();
-  for (const bp of build.ports) {
-    const part = content.parts.find((p) => p.id === bp.part);
-    const shape = part && !Array.isArray(part.shape) && part.shape.kind === "port" ? part.shape : undefined;
-    if (shape?.charges) chargeSides.add(bp.side);
-    if (bp.part === "dc-jack") continue;
-    const n = shape?.count ?? 1;
-    const gbps = PORT_GBPS[bp.part] ?? 1;
-    points += n * (0.5 + Math.log2(1 + gbps));
-  }
-  if (chargeSides.size >= 2) points += 1;
-  if (m.lab.wifi) points += Math.log2(1 + m.lab.wifi.receive / 10);
-  const wl = partIn(build, "wireless", content);
-  if (wl) {
-    const bt = opt(build, "wireless", wl, "bluetooth");
-    if (bt && bt !== "none") points += 1;
-  }
-  return points;
-}
+export { connectivityOf };
 
 // ------------------------------------------------------------------ thermals
 

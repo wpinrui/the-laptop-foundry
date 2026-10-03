@@ -9,6 +9,7 @@ import type { BodyClass, Budget, PerfClass } from "../price";
 import { factsOf } from "../review";
 import type { Build } from "../types";
 import type { Award } from "./awards";
+import { COURTS_LISTING_SHARE } from "./constants";
 import type { LedgerEntry } from "./finance";
 import type { CampaignState, Quarter } from "./index";
 import { quarterIndex } from "./rivals";
@@ -339,11 +340,23 @@ function filteredListing(items: StoreItem[], f: StoreFilters): StoreItem[] {
   });
 }
 
-/** Every laptop on sale in the quarter, filtered and sorted. */
+/**
+ * Every laptop on sale in the quarter, filtered and sorted. Courts lists the
+ * player's models only once the company won COURTS_LISTING_SHARE of all the
+ * quarter's laptop units.
+ */
 export function storeListing(state: CampaignState, market: WorldMarket, q: Quarter, filters: StoreFilters = {}): StoreItem[] {
   const shelf = shelfAt(state, q);
   if (!shelf) return [];
+  let total = 0;
+  let ours = 0;
+  for (const [id, u] of Object.entries(shelf.units)) {
+    total += unitsOf(u);
+    if (shelf.own[id]) ours += unitsOf(u);
+  }
+  const listsOwn = total > 0 && ours / total >= COURTS_LISTING_SHARE;
   const items = Object.entries(shelf.units).flatMap(([id, u]): StoreItem[] => {
+    if (shelf.own[id] && !listsOwn) return [];
     const l = laptopOf(state, market, id, q);
     return l ? [{ ...l, units: unitsOf(u), isNew: shelf.launched.includes(id), segments: topSegments(u) }] : [];
   });

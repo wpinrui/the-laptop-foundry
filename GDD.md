@@ -336,7 +336,7 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 The player is always on the world map or in one of five places: the Workshop, the Cafe, the Office, Courts and the Studio.
 
 - Opening a company reopens it where the player left it; a new company, or one whose place is gone, opens in the office.
-- The map is a street plan with the five places on street corners. A panel beside it names the selected destination and holds Go.
+- The map is a street plan with the five places on street corners. A panel beside it names the selected destination and holds Go. Double-clicking a place travels there straight away.
 - The place the player walked out of is marked as the current place and cannot be picked. A dashed route runs along the streets from it to the destination.
 - The Workshop and the Cafe ask which laptop to bring. The Workshop offers None first, by default. The Cafe always takes one, and is shut until a laptop works.
 - Any laptop can come to the Workshop, drafts included. Only a laptop that works can come to the Cafe.
@@ -366,13 +366,13 @@ The Office is a small loft in the workshop's building, and works as a 3D menu. I
 - Finance: the Books, with the statement and sales beside them. Marketing: the Brand. Market intel: the Market screen's Quarter, Rivals, Buyers and Store.
 - Product wall: a showcase of the company's laptops on shelves, newest first, in as many bays as they fill. A draft stands in foam grey, a laptop in stock has its screen lit, and a sold out one is dark with its lid half shut. Its panel shows the picked laptop and the list at a glance; decisions are made at the Desk.
 - Trophy cabinet: a cup, obelisk or plaque per award won, and the panel's awards and reviews. TV: the company's finished videos, shorts and commercials, newest first, picked and watched on its screen with its sound, or full screen.
-- Door: E leaves to the map. Arriving from the map starts at the door and walks to the Desk.
+- Door: E leaves to the map. Arriving from the map starts in free roam beside the Desk.
 - M walks the room in first person, with WASD and the mouse, the panels hidden; M again returns to the nearest station. Aiming at a laptop on the product wall that works, E uses it as in the Cafe: its own OS on its screen, F full screen and E stops using. Aiming at the door, E leaves. The desk's monitor is scenery.
 - A sandbox company's office has no Finance, Market intel or Marketing in the ring and no End quarter.
 
 ## The studio
 
-The Studio is a small commercial studio, walked in first person. At its editing desk the player makes a commercial for one of their laptops.
+The Studio is a small commercial studio, walked in first person. At its editing desk the player makes a commercial for one of their laptops. Arriving from the map starts at the editing desk.
 
 - Each laptop can have one commercial, ever. In a campaign only released laptops can; in a sandbox, any laptop that works.
 - The script is typed line by line. The narrator reads each line and it shows as a caption.
@@ -391,7 +391,7 @@ Every video is an MP4 made in the background, wherever the player is.
 
 ## The system menu
 
-In the Office, Esc opens the system menu: Resume, Map, New company, Load company, Sound and Quit. Esc or Resume return to exactly where the player was, a laptop in use included. The other places keep their own Esc pause menus, which end with New company, Load company and Quit.
+In a place that can be walked in free roam, Esc anywhere else in it returns to free roam. In free roam, or in a place without it, Esc opens the pause menu. In the Office that is the system menu: Resume, Map, New company, Load company, Sound and Quit. Esc or Resume return to exactly where the player was. The other places keep their own pause menus, which end with New company, Load company and Quit.
 
 Esc in any pause menu closes it again; the pointer is never lost to it.
 

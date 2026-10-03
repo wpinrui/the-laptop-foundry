@@ -563,7 +563,7 @@ function activeWidth(s: ScreenSpec): number {
   return activeArea({ inches: s.diag, aspect: s.ratio } as PanelOption).x;
 }
 
-function pickBattery(ctx: Ctx, screen: ScreenSpec, shrink = 0): BuildPart {
+function pickBattery(ctx: Ctx, screen: ScreenSpec, shrink = 0, flat = false, cap = Number.POSITIVE_INFINITY): BuildPart {
   const year = ctx.year;
   shrink = Math.max(shrink, ctx.batteryShrink);
   ctx.batteryShrink = shrink;
@@ -571,7 +571,7 @@ function pickBattery(ctx: Ctx, screen: ScreenSpec, shrink = 0): BuildPart {
   const cells = list.find((p) => firstShape(p).kind === "cells");
   const pouches = list.filter((p) => firstShape(p).kind === "pouch").sort((a, b) => b.from - a.from);
   const pb = clamp01(pct(ctx, "battery", 0, "battery") - shrink);
-  const useCells = cells && (pouches.length === 0 || (!ctx.who.thin && (year < 2010 || (year < 2013 && ctx.pos < 0.5))));
+  const useCells = cells && !(flat && pouches.length > 0) && (pouches.length === 0 || (!ctx.who.thin && (year < 2010 || (year < 2013 && ctx.pos < 0.5))));
   if (useCells) {
     const counts = optionValues(cells, "cells", year);
     const pick = numericAt(counts, ctx.who.large ? pb + 0.2 : ctx.who.thin ? pb - 0.3 : pb) ?? 6;
@@ -587,11 +587,13 @@ function pickBattery(ctx: Ctx, screen: ScreenSpec, shrink = 0): BuildPart {
   const hi = Math.min(99, 55 + size * 40 + (ctx.who.gaming ? 10 : 0));
   const wh = lerp(lo, hi, pb) * (1 - shrink * 0.5);
   const keys = Object.keys(shape.thickness);
-  const thick = ctx.who.thin || shrink > 0 ? (shape.thickness.slim ?? shape.thickness[keys[0]]) : shape.thickness[keys[0]];
-  const maxLen = Math.min(shape.limits.x[1], activeWidth(screen) * 0.85);
+  // Flat packs take the thickest cells the part offers, for the least depth.
+  const thick = flat ? Math.max(...Object.values(shape.thickness)) : ctx.who.thin || shrink > 0 ? (shape.thickness.slim ?? shape.thickness[keys[0]]) : shape.thickness[keys[0]];
+  const maxLen = Math.max(shape.limits.x[0], Math.min(shape.limits.x[1], activeWidth(screen) * 0.85, cap));
   let depth = shape.depth;
   let length = (wh * 1e6) / (density * depth * thick);
-  if (length > maxLen) {
+  // Flat: the full width the panel allows, so the pack takes the least depth.
+  if (flat || length > maxLen) {
     depth = clamp((wh * 1e6) / (density * maxLen * thick), shape.limits.y[0], shape.limits.y[1]);
     length = (wh * 1e6) / (density * depth * thick);
   }
@@ -616,7 +618,8 @@ function pickCooling(ctx: Ctx, cpu: Part, gpu: Part | undefined, bump = 0): Buil
   i += bump;
   const ok = COOLERS.filter((id) => partsIn("cooling", ctx.year, false).some((p) => p.id === id));
   const id = ok.includes(COOLERS[clamp(i, 0, 3)]) ? COOLERS[clamp(i, 0, 3)] : ok[Math.min(clamp(i, 0, 3), ok.length - 1)];
-  return { part: id };
+  // Apple hides its exhaust in the hinge: no grill on any wall, the air leaving through the seams.
+  return ctx.who.apple && id !== "fanless" ? { part: id, opts: { grill: "none" } } : { part: id };
 }
 
 // ------------------------------------------------------------------ peripherals
@@ -1747,6 +1750,133 @@ function dressed(ctx: Ctx, build: Build, fit: Fit): Build {
   return { ...out, marks: logoMarks(ctx.line, ctx.year, out, fit) };
 }
 
+/** Lid depth past what the panel and the era's top bezel and chin need, mm: what shows as an oversized bezel. */
+function lidExcess(build: Build): number {
+  const s = build.screen;
+  if (!s) return 0;
+  const e = eraFor(build.year).bezel;
+  return build.size.y - activeArea({ inches: s.diag, aspect: s.ratio } as PanelOption).y - e.top - e.chin;
+}
+
+/** Past this much spare lid depth, mm, the generator repacks the base. */
+const EXCESS_MM = 15;
+
+/** The plan the panel asks for: its active area with the bezel either side, and the era's top bezel and chin. */
+function panelPlan(build: Build): Size | undefined {
+  const s = build.screen;
+  if (!s) return undefined;
+  const e = eraFor(build.year).bezel;
+  const a = activeArea({ inches: s.diag, aspect: s.ratio } as PanelOption);
+  return { x: up(a.x + 2 * s.bezel + 6), y: up(a.y + e.top + e.chin + 6), z: build.size.z };
+}
+
+/**
+ * Settle with auto placement aimed at a target plan: the solver moves and
+ * turns the movable floor parts to fit the room it is given, so starting from
+ * the panel's plan packs for the panel's depth, and the plan only grows where
+ * the parts still need it.
+ */
+function settleTo(ctx: Ctx, c: Choices, target: Size, t: Tally): { build: Build; fit: Fit } | undefined {
+  const lim = CONTENT.bodies.find((b) => b.id === c.body)?.limits ?? { x: [240, 450], y: [160, 330], z: [8, 55] };
+  let size: Size = { x: clamp(target.x, lim.x[0], lim.x[1]), y: clamp(target.y, lim.y[0], lim.y[1]), z: clamp(target.z, lim.z[0], lim.z[1]) };
+  for (let i = 0; i < 6; i++) {
+    const build = assemble(ctx, c, size);
+    const fit = counted(t, build, true);
+    if (fit.problems.length === 0) return { build, fit };
+    if (!fit.problems.every(growable)) return undefined;
+    const next: Size = {
+      x: Math.min(up(Math.max(size.x, fit.min.x + 0.25 * i)), lim.x[1]),
+      y: Math.min(up(Math.max(size.y, fit.min.y + 0.25 * i)), lim.y[1]),
+      z: Math.min(up(Math.max(size.z, fit.min.z + 0.25 * i)), lim.z[1]),
+    };
+    if (next.x === size.x && next.y === size.y && next.z === size.z) return undefined;
+    size = next;
+  }
+  return undefined;
+}
+
+/**
+ * The side ports spread over both side walls by the length of wall each takes,
+ * the longest first onto the shorter run, the power port staying where it is.
+ * A side column of ports sets the depth of the rear block it sits in.
+ */
+function balancedPorts(ports: BuildPort[], fit: Fit): BuildPort[] {
+  const len = new Map<number, number>();
+  const units = fit.boxes.filter((b) => b.kind === "unit" && (b.role === "port:left" || b.role === "port:right"));
+  const sideIdx = ports.map((p, i) => (p.side === "left" || p.side === "right" ? i : -1)).filter((i) => i >= 0);
+  // Units come out in port order per side; match them back by side and order.
+  for (const side of ["left", "right"] as const) {
+    const idx = sideIdx.filter((i) => ports[i].side === side);
+    const us = units.filter((u) => u.role === `port:${side}`).sort((p, q) => p.id.localeCompare(q.id, undefined, { numeric: true }));
+    idx.forEach((i, k) => len.set(i, (us[k]?.size.y ?? 12) + 4));
+  }
+  if (sideIdx.length < 2) return ports;
+  const power = sideIdx.find((i) => ports[i].part === "dc-jack" || ports[i].part.startsWith("magsafe"));
+  const run = { left: 0, right: 0 };
+  const side = new Map<number, "left" | "right">();
+  if (power !== undefined) {
+    const s0 = ports[power].side as "left" | "right";
+    side.set(power, s0);
+    run[s0] += len.get(power) ?? 12;
+  }
+  for (const i of [...sideIdx].filter((i) => i !== power).sort((p, q) => (len.get(q) ?? 0) - (len.get(p) ?? 0))) {
+    const s1 = run.left <= run.right ? "left" : "right";
+    side.set(i, s1);
+    run[s1] += len.get(i) ?? 12;
+  }
+  return ports.map((p, i) => (side.has(i) ? { ...p, side: side.get(i) as "left" | "right" } : p));
+}
+
+/**
+ * Repack the base so its depth follows the panel: the line's picks in each of
+ * the body's layouts, with the side ports as picked and spread over both
+ * walls, and the battery as picked and as a flat full-width pack, each packed
+ * toward the panel's plan; then a shallower trackpad. The shallowest that
+ * solves clean, no thicker and not much wider, wins.
+ */
+function compact(ctx: Ctx, c0: Choices, build: Build, fit: Fit, t: Tally): { build: Build; fit: Fit } {
+  const target = panelPlan(build);
+  if (!target || lidExcess(build) <= EXCESS_MM) return { build, fit };
+  let out = { build, fit };
+  let best = c0;
+  // Room past the panel's plan, wide and deep alike: both show as bezel.
+  // A thicker base may stack a drive over the board or battery: each mm of it counts as 5 of plan.
+  const thicker = ctx.who.thin ? 1 : 4;
+  const over = (b: Build) => Math.max(0, b.size.x - target.x) + Math.max(0, b.size.y - target.y) + 5 * Math.max(0, b.size.z - build.size.z);
+  const flat = pickBattery({ ...ctx }, c0.screen, ctx.batteryShrink, true);
+  // A pack short enough to sit beside the optical drive in one row, under the palm rest.
+  const beside = c0.optical ? pickBattery({ ...ctx }, c0.screen, ctx.batteryShrink, true, activeWidth(c0.screen) - 150) : undefined;
+  const packs = [c0.battery, flat, ...(beside ? [beside] : [])];
+  const tryOne = (c: Choices): boolean => {
+    const r = settleTo(ctx, c, { ...target, z: build.size.z }, t);
+    if (!r) return false;
+    const b = r.build;
+    if (over(b) >= over(out.build) - 3 || b.size.z > build.size.z + thicker) return false;
+    out = r;
+    best = c;
+    return true;
+  };
+  search: for (const layout of [c0.layout, ...layoutsFor(ctx, c0.body, c0).filter((l) => l !== c0.layout)])
+    for (const spread of [false, true])
+      for (const battery of packs) {
+        if (layout === c0.layout && !spread && battery === c0.battery) continue;
+        const c = clone(c0);
+        c.layout = layout;
+        c.battery = battery;
+        c.ports = reseatPorts(c.ports, layout);
+        if (spread) c.ports = balancedPorts(c.ports, fit);
+        tryOne(c);
+        if (lidExcess(out.build) <= EXCESS_MM) break search;
+      }
+  if (lidExcess(out.build) > EXCESS_MM && best.pad) {
+    const lim = padLimits(ctx.year);
+    const c = clone(best);
+    c.pad = { w: best.pad.w, d: Math.round(clamp(best.pad.d * 0.8, lim.d[0], lim.d[1])) };
+    tryOne(c);
+  }
+  return out;
+}
+
 /**
  * Shrink the plan back to what the parts need: the settle loop only grows, and
  * a body's shape follows its size, so a chassis can end up far wider or deeper
@@ -1799,7 +1929,7 @@ export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: 
   let c: Choices | undefined = firstChoices(ctx);
   // Start in the body that suits the picks best: some shapes cost the same parts far more thickness.
   if (!lookBody(ctx)) thinnestBody(ctx, c, t);
-  let best: { build: Build; fit: Fit; score: number } | undefined;
+  let best: { build: Build; fit: Fit; score: number; c?: Choices } | undefined;
   let last: { build: Build; fit: Fit } | undefined;
   // The time budget only cuts the search short once there is a valid build to return.
   while (c && t.solves < MAX_SOLVES && (!best || performance.now() - start < MODEL_BUDGET_MS)) {
@@ -1823,12 +1953,13 @@ export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: 
       }
     }
     const miss = missOf(ctx, r.build, r.fit, t);
-    if (!best || miss.score < best.score) best = { build: r.build, fit: r.fit, score: miss.score };
+    if (!best || miss.score < best.score) best = { build: r.build, fit: r.fit, score: miss.score, c };
     if (miss.score === 0) break;
     c = fixPriority(ctx, c, miss);
   }
   if (best) {
     best = { ...best, ...tighten(ctx, best.build, best.fit, t) };
+    if (best.c) best = { ...best, ...compact(ctx, best.c, best.build, best.fit, t) };
     const build = pricedAtCost(dressed(ctx, best.build, best.fit), best.fit);
     const listPrice = best.build.price ?? 0;
     return { build, valid: true, fallback: false, solves: t.solves, sims: t.sims, ms: performance.now() - start, problems: [], listPrice, repriced: build.price !== listPrice };

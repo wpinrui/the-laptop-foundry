@@ -10,6 +10,8 @@ export interface Decal {
   set: string;
   /** The surface it is meant for. Any preset can go on any surface. */
   surface: MarkSurface;
+  /** Other surfaces it is listed under. */
+  also?: MarkSurface[];
   /** Default height in mm; width follows the viewBox. */
   size: number;
   /** The viewBox and path, for drawing the glyph in the UI. */
@@ -17,6 +19,10 @@ export interface Decal {
   d: string;
   /** The SVG as a mark stores it. */
   svg: string;
+  /** The asset file, when several presets share one glyph. */
+  file?: string;
+  /** The ink it is placed in, when it has a brand colour. */
+  colour?: string;
 }
 
 export const DECAL_SETS: [string, string][] = [
@@ -25,6 +31,8 @@ export const DECAL_SETS: [string, string][] = [
   ["cert", "Certification"],
   ["regulatory", "Regulatory"],
   ["fun", "Fun"],
+  ["nokia", "Nokia"],
+  ["motorola", "Motorola"],
 ];
 
 const FILES = import.meta.glob<string>("../assets/decals/*.svg", { query: "?raw", import: "default", eager: true });
@@ -60,10 +68,62 @@ const META: Omit<Decal, "vb" | "d" | "svg">[] = [
   { id: "e4-checker-flag", name: "Checker Flag", set: "fun", surface: "lid", size: 36 },
   { id: "e5-bolt-robot", name: "Bolt the Robot", set: "fun", surface: "lid", size: 40 },
   { id: "e6-kiln-cat", name: "Kiln the Cat", set: "fun", surface: "lid", size: 40 },
+  { id: "n1-nokia-blue", file: "n1-nokia", name: "Nokia Blue", set: "nokia", surface: "lid", also: ["bezel"], size: 14, colour: "#124191" },
+  { id: "n1-nokia-white", file: "n1-nokia", name: "Nokia White", set: "nokia", surface: "lid", also: ["bezel"], size: 14, colour: "#FFFFFF" },
+  { id: "n1-nokia-black", file: "n1-nokia", name: "Nokia Black", set: "nokia", surface: "lid", also: ["bezel"], size: 14, colour: "#000000" },
+  { id: "n1-nokia-silver", file: "n1-nokia", name: "Nokia Silver", set: "nokia", surface: "lid", also: ["bezel"], size: 14, colour: "#C0C4C8" },
+  { id: "n2-nokia-2023-blue", file: "n2-nokia-2023", name: "Nokia 2023 Blue", set: "nokia", surface: "lid", also: ["bezel"], size: 16, colour: "#005AFF" },
+  { id: "n2-nokia-2023-white", file: "n2-nokia-2023", name: "Nokia 2023 White", set: "nokia", surface: "lid", also: ["bezel"], size: 16, colour: "#FFFFFF" },
+  { id: "n2-nokia-2023-black", file: "n2-nokia-2023", name: "Nokia 2023 Black", set: "nokia", surface: "lid", also: ["bezel"], size: 16, colour: "#000000" },
+  { id: "n3-nokia-connecting-people-blue", file: "n3-nokia-connecting-people", name: "Connecting People Blue", set: "nokia", surface: "lid", also: ["bezel"], size: 28, colour: "#124191" },
+  { id: "n3-nokia-connecting-people-white", file: "n3-nokia-connecting-people", name: "Connecting People White", set: "nokia", surface: "lid", also: ["bezel"], size: 28, colour: "#FFFFFF" },
+  { id: "n3-nokia-connecting-people-silver", file: "n3-nokia-connecting-people", name: "Connecting People Silver", set: "nokia", surface: "lid", also: ["bezel"], size: 28, colour: "#C0C4C8" },
+  { id: "m1-motorola-batwing-blue", file: "m1-motorola-batwing", name: "Batwing Blue", set: "motorola", surface: "lid", also: ["bezel"], size: 36, colour: "#0F589F" },
+  { id: "m1-motorola-batwing-white", file: "m1-motorola-batwing", name: "Batwing White", set: "motorola", surface: "lid", also: ["bezel"], size: 36, colour: "#FFFFFF" },
+  { id: "m1-motorola-batwing-black", file: "m1-motorola-batwing", name: "Batwing Black", set: "motorola", surface: "lid", also: ["bezel"], size: 36, colour: "#000000" },
+  { id: "m1-motorola-batwing-silver", file: "m1-motorola-batwing", name: "Batwing Silver", set: "motorola", surface: "lid", also: ["bezel"], size: 36, colour: "#C0C4C8" },
+  { id: "m2-motorola-badge-blue", file: "m2-motorola-badge", name: "Badge Blue", set: "motorola", surface: "lid", also: ["bezel"], size: 36, colour: "#0F589F" },
+  { id: "m2-motorola-badge-white", file: "m2-motorola-badge", name: "Badge White", set: "motorola", surface: "lid", also: ["bezel"], size: 36, colour: "#FFFFFF" },
+  { id: "m2-motorola-badge-black", file: "m2-motorola-badge", name: "Badge Black", set: "motorola", surface: "lid", also: ["bezel"], size: 36, colour: "#000000" },
+  { id: "m2-motorola-badge-silver", file: "m2-motorola-badge", name: "Badge Silver", set: "motorola", surface: "lid", also: ["bezel"], size: 36, colour: "#C0C4C8" },
+  { id: "m3-motorola-blue", file: "m3-motorola", name: "Motorola Blue", set: "motorola", surface: "lid", also: ["bezel"], size: 11, colour: "#0F589F" },
+  { id: "m3-motorola-white", file: "m3-motorola", name: "Motorola White", set: "motorola", surface: "lid", also: ["bezel"], size: 11, colour: "#FFFFFF" },
+  { id: "m3-motorola-black", file: "m3-motorola", name: "Motorola Black", set: "motorola", surface: "lid", also: ["bezel"], size: 11, colour: "#000000" },
+  { id: "m3-motorola-silver", file: "m3-motorola", name: "Motorola Silver", set: "motorola", surface: "lid", also: ["bezel"], size: 11, colour: "#C0C4C8" },
+  { id: "m4-motorola-lockup-blue", file: "m4-motorola-lockup", name: "Motorola Lockup Blue", set: "motorola", surface: "lid", also: ["bezel"], size: 20, colour: "#0F589F" },
+  { id: "m4-motorola-lockup-white", file: "m4-motorola-lockup", name: "Motorola Lockup White", set: "motorola", surface: "lid", also: ["bezel"], size: 20, colour: "#FFFFFF" },
+  { id: "m4-motorola-lockup-black", file: "m4-motorola-lockup", name: "Motorola Lockup Black", set: "motorola", surface: "lid", also: ["bezel"], size: 20, colour: "#000000" },
+  { id: "m4-motorola-lockup-silver", file: "m4-motorola-lockup", name: "Motorola Lockup Silver", set: "motorola", surface: "lid", also: ["bezel"], size: 20, colour: "#C0C4C8" },
+  { id: "n1-nokia-blue-bezel", file: "n1-nokia", name: "Nokia Blue", set: "nokia", surface: "bezel", size: 3.5, colour: "#124191" },
+  { id: "n1-nokia-white-bezel", file: "n1-nokia", name: "Nokia White", set: "nokia", surface: "bezel", size: 3.5, colour: "#FFFFFF" },
+  { id: "n1-nokia-black-bezel", file: "n1-nokia", name: "Nokia Black", set: "nokia", surface: "bezel", size: 3.5, colour: "#000000" },
+  { id: "n1-nokia-silver-bezel", file: "n1-nokia", name: "Nokia Silver", set: "nokia", surface: "bezel", size: 3.5, colour: "#C0C4C8" },
+  { id: "n2-nokia-2023-blue-bezel", file: "n2-nokia-2023", name: "Nokia 2023 Blue", set: "nokia", surface: "bezel", size: 3.5, colour: "#005AFF" },
+  { id: "n2-nokia-2023-white-bezel", file: "n2-nokia-2023", name: "Nokia 2023 White", set: "nokia", surface: "bezel", size: 3.5, colour: "#FFFFFF" },
+  { id: "n2-nokia-2023-black-bezel", file: "n2-nokia-2023", name: "Nokia 2023 Black", set: "nokia", surface: "bezel", size: 3.5, colour: "#000000" },
+  { id: "n3-nokia-connecting-people-blue-bezel", file: "n3-nokia-connecting-people", name: "Connecting People Blue", set: "nokia", surface: "bezel", size: 6, colour: "#124191" },
+  { id: "n3-nokia-connecting-people-white-bezel", file: "n3-nokia-connecting-people", name: "Connecting People White", set: "nokia", surface: "bezel", size: 6, colour: "#FFFFFF" },
+  { id: "n3-nokia-connecting-people-silver-bezel", file: "n3-nokia-connecting-people", name: "Connecting People Silver", set: "nokia", surface: "bezel", size: 6, colour: "#C0C4C8" },
+  { id: "m1-motorola-batwing-blue-bezel", file: "m1-motorola-batwing", name: "Batwing Blue", set: "motorola", surface: "bezel", size: 5, colour: "#0F589F" },
+  { id: "m1-motorola-batwing-white-bezel", file: "m1-motorola-batwing", name: "Batwing White", set: "motorola", surface: "bezel", size: 5, colour: "#FFFFFF" },
+  { id: "m1-motorola-batwing-black-bezel", file: "m1-motorola-batwing", name: "Batwing Black", set: "motorola", surface: "bezel", size: 5, colour: "#000000" },
+  { id: "m1-motorola-batwing-silver-bezel", file: "m1-motorola-batwing", name: "Batwing Silver", set: "motorola", surface: "bezel", size: 5, colour: "#C0C4C8" },
+  { id: "m2-motorola-badge-blue-bezel", file: "m2-motorola-badge", name: "Badge Blue", set: "motorola", surface: "bezel", size: 5, colour: "#0F589F" },
+  { id: "m2-motorola-badge-white-bezel", file: "m2-motorola-badge", name: "Badge White", set: "motorola", surface: "bezel", size: 5, colour: "#FFFFFF" },
+  { id: "m2-motorola-badge-black-bezel", file: "m2-motorola-badge", name: "Badge Black", set: "motorola", surface: "bezel", size: 5, colour: "#000000" },
+  { id: "m2-motorola-badge-silver-bezel", file: "m2-motorola-badge", name: "Badge Silver", set: "motorola", surface: "bezel", size: 5, colour: "#C0C4C8" },
+  { id: "m3-motorola-blue-bezel", file: "m3-motorola", name: "Motorola Blue", set: "motorola", surface: "bezel", size: 3, colour: "#0F589F" },
+  { id: "m3-motorola-white-bezel", file: "m3-motorola", name: "Motorola White", set: "motorola", surface: "bezel", size: 3, colour: "#FFFFFF" },
+  { id: "m3-motorola-black-bezel", file: "m3-motorola", name: "Motorola Black", set: "motorola", surface: "bezel", size: 3, colour: "#000000" },
+  { id: "m3-motorola-silver-bezel", file: "m3-motorola", name: "Motorola Silver", set: "motorola", surface: "bezel", size: 3, colour: "#C0C4C8" },
+  { id: "m4-motorola-lockup-blue-bezel", file: "m4-motorola-lockup", name: "Motorola Lockup Blue", set: "motorola", surface: "bezel", size: 4.5, colour: "#0F589F" },
+  { id: "m4-motorola-lockup-white-bezel", file: "m4-motorola-lockup", name: "Motorola Lockup White", set: "motorola", surface: "bezel", size: 4.5, colour: "#FFFFFF" },
+  { id: "m4-motorola-lockup-black-bezel", file: "m4-motorola-lockup", name: "Motorola Lockup Black", set: "motorola", surface: "bezel", size: 4.5, colour: "#000000" },
+  { id: "m4-motorola-lockup-silver-bezel", file: "m4-motorola-lockup", name: "Motorola Lockup Silver", set: "motorola", surface: "bezel", size: 4.5, colour: "#C0C4C8" },
 ];
 
 export const DECALS: Decal[] = META.flatMap((m) => {
-  const svg = FILES[`../assets/decals/${m.id}.svg`];
+  const svg = FILES[`../assets/decals/${m.file ?? m.id}.svg`];
   if (!svg) return [];
   const vb = (/viewBox="([^"]+)"/.exec(svg)?.[1] ?? "0 0 1 1").split(/\s+/).map(Number) as Decal["vb"];
   const d = / d="([^"]+)"/.exec(svg)?.[1] ?? "";

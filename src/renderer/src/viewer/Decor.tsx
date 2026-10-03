@@ -2,8 +2,12 @@ import { useEffect, useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import { type Fit, type Mark, type MarkSurface, outerSection, outerSpanAt } from "../engine";
 import { planDistance } from "../engine/shell";
+import { LOGO_PREFIX } from "../engine/market/logos";
 import { useSettled, useStable } from "./stable";
 import { token } from "./theme";
+
+/** Rival brand logos, by path, for marks whose image is `logo:<id>`. */
+const LOGOS = import.meta.glob("../assets/logos/*.png", { eager: true, query: "?url", import: "default" }) as Record<string, string>;
 
 // The player's decoration on the Model: the bezel's own colour, and text or
 // SVG marks on the lid, palm rest, bottom and bezel. Each surface is one
@@ -343,7 +347,7 @@ function FaceMarks({ face, marks }: { face: Face; marks: Mark[] }) {
         sources.push({ img, src: () => svgUrl(outlined(m) ? outlineSvg(svg, m) : svg), blob: true });
         images.set(m.id, img);
       } else if (m.kind === "image" && m.image) {
-        const image = m.image;
+        const image = m.image.startsWith(LOGO_PREFIX) ? (LOGOS[`../assets/logos/${m.image.slice(LOGO_PREFIX.length)}.png`] ?? "") : m.image;
         const img = new Image();
         img.onload = redraw;
         sources.push({ img, src: () => image, blob: false });

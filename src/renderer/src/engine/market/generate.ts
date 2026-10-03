@@ -36,6 +36,7 @@ import type {
 } from "../types";
 import { PIECES, QUALITY_KEYS } from "../types";
 import { curveAt } from "./io";
+import { logoMarks } from "./logos";
 import { dress, type Look, lookFor } from "./looks";
 import { linesIn, nameFor, priceFor, shapeFor } from "./makers";
 import { modelName } from "./names";
@@ -1735,14 +1736,15 @@ function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
   return undefined;
 }
 
-function dressed(ctx: Ctx, build: Build): Build {
-  return dress(build, ctx.look, (m) => {
+function dressed(ctx: Ctx, build: Build, fit: Fit): Build {
+  const out = dress(build, ctx.look, (m) => {
     const mat = CONTENT.materials.find((x) => x.id === m);
     return (mat?.finishes ?? []).filter((f) => {
       const tex = CONTENT.finishes.find((x) => x.id === f);
       return !!tex && available(tex, ctx.year);
     });
   });
+  return { ...out, marks: logoMarks(ctx.line, ctx.year, out, fit) };
 }
 
 /**
@@ -1827,7 +1829,7 @@ export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: 
   }
   if (best) {
     best = { ...best, ...tighten(ctx, best.build, best.fit, t) };
-    const build = pricedAtCost(dressed(ctx, best.build), best.fit);
+    const build = pricedAtCost(dressed(ctx, best.build, best.fit), best.fit);
     const listPrice = best.build.price ?? 0;
     return { build, valid: true, fallback: false, solves: t.solves, sims: t.sims, ms: performance.now() - start, problems: [], listPrice, repriced: build.price !== listPrice };
   }
@@ -1837,7 +1839,7 @@ export function generateModel(line: Line, year: number, rng: Rng, opts: { pos?: 
   t.solves += st.solves;
   const ok = safe.fit.problems.length === 0;
   const out = ok ? safe : (last ?? safe);
-  const build = pricedAtCost(dressed(ctx, out.build), out.fit);
+  const build = pricedAtCost(dressed(ctx, out.build, out.fit), out.fit);
   const listPrice = out.build.price ?? 0;
   return {
     build,

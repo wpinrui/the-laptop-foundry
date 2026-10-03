@@ -275,12 +275,24 @@ async function put(c: SavedCompany, markets = false): Promise<SavedCompany> {
 async function loadSettings(): Promise<Settings> {
   if (settings) return settings;
   try {
-    const x = JSON.parse(await readFile(settingsFile(), "utf8")) as Partial<Settings>;
-    settings = { sound: typeof x.sound === "boolean" ? x.sound : true };
+    const x = JSON.parse(await readFile(settingsFile(), "utf8")) as Partial<Settings> & { sound?: boolean };
+    const def = defaultSettings();
+    // Older settings held only a sound switch: off becomes a silent master.
+    settings = {
+      master: x.sound === false ? 0 : (volume(x.master) ?? def.master),
+      music: volume(x.music) ?? def.music,
+      sfx: volume(x.sfx) ?? def.sfx,
+    };
   } catch {
-    settings = { sound: true };
+    settings = defaultSettings();
   }
   return settings;
+}
+
+const defaultSettings = (): Settings => ({ master: 0.8, music: 0.6, sfx: 0.8 });
+
+function volume(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1 ? v : null;
 }
 
 export function registerStore(): void {
@@ -373,8 +385,11 @@ export function registerStore(): void {
   handleTop("store:settings", () => loadSettings());
   handleTop("store:set-settings", async (_e, next: unknown) => {
     const x = next as Partial<Settings> | null;
-    if (!x || typeof x.sound !== "boolean") throw new Error("bad settings");
-    settings = { sound: x.sound };
+    const master = volume(x?.master);
+    const music = volume(x?.music);
+    const sfx = volume(x?.sfx);
+    if (master === null || music === null || sfx === null) throw new Error("bad settings");
+    settings = { master, music, sfx };
     await atomicWrite(settingsFile(), settings);
     return settings;
   });

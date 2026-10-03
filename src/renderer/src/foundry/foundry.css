@@ -763,3 +763,35 @@
   color: var(--muted);
   animation: fd-in 300ms ease-out both;
 }
+
+/* A volume entry: the label, then a bar filled to the level. */
+.fd-volume {
+  align-items: center;
+  outline: none;
+  cursor: default;
+}
+
+.fd-volume-bar {
+  position: relative;
+  width: calc(150 * var(--u));
+  height: calc(8 * var(--u));
+  background: var(--line-strong);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.fd-volume-bar::before {
+  content: "";
+  position: absolute;
+  inset: calc(-12 * var(--u)) 0;
+}
+
+.fd-volume-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--muted);
+}
+
+.fd-volume[data-focus] .fd-volume-bar i {
+  background: var(--accent);
+}

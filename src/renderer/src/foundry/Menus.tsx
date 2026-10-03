@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { SavedCompany } from "../../../preload/store";
 import { FIRST_START, LAST_START, STARTING_CASH } from "../engine/campaign/constants";
 import { ASSETS } from "../viewer/reviewScenes";
+import { SoundColumn } from "./Volume";
 import "./foundry.css";
 
 // The left-column menus: start, new company, load company, settings and the
@@ -446,16 +447,10 @@ export function ConfirmDelete({
   );
 }
 
-export function SettingsMenu({
-  sound,
-  onSound,
-  onBack,
-}: {
-  sound: boolean;
-  onSound: (on: boolean) => void;
-  onBack: () => void;
-}) {
+export function SettingsMenu({ onBack }: { onBack: () => void }) {
   const [credits, setCredits] = useState(false);
+  const [sound, setSound] = useState(false);
+  if (sound) return <SoundColumn onBack={() => setSound(false)} />;
   if (credits)
     return (
       <Column key="credits" onBack={() => setCredits(false)}>
@@ -540,7 +535,7 @@ export function SettingsMenu({
   return (
     <Column key="settings" onBack={onBack}>
       <div className="fd-entries">
-        <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)} autoFocus>
+        <Entry onClick={() => setSound(true)} autoFocus>
           Sound
         </Entry>
         <Entry secondary onClick={() => setCredits(true)}>

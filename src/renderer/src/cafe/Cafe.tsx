@@ -2,6 +2,7 @@ import { isRecentEscape } from "../app/escape";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
+import { SoundColumn } from "../foundry/Volume";
 import { setSpeakerFull } from "../panel/speaker";
 import { type Aim, type LaptopLook, World } from "./World";
 
@@ -153,6 +154,10 @@ export function Cafe({
   const using = pose === "use";
   const [full, setFull] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [soundMenu, setSoundMenu] = useState(false);
+  useEffect(() => {
+    if (!paused) setSoundMenu(false);
+  }, [paused]);
   const [aim, setAim] = useState<Aim>(null);
   const aimRef = useRef<Aim>(null);
   // Leaving pointer lock on purpose (full screen, leaving) is not a pause.
@@ -335,19 +340,21 @@ export function Cafe({
         <div className="fd fd-over">
           <div className="fd-scrim" />
           {/* Escape resumes through the cafe's own key handler. */}
+          {soundMenu ? (
+            <SoundColumn onBack={() => setSoundMenu(false)} />
+          ) : (
           <Column>
             <div className="fd-entries">
               <Entry onClick={resume} autoFocus>
                 Resume
               </Entry>
-              <Entry valued sub={sound ? "On" : "Off"} onClick={() => onSound(!sound)}>
-                Sound
-              </Entry>
+              <Entry onClick={() => setSoundMenu(true)}>Sound</Entry>
               {onLeave && <Entry onClick={onLeave}>Leave</Entry>}
               <Entry onClick={toMap}>Map</Entry>
               <SystemEntries />
             </div>
           </Column>
+          )}
         </div>
       )}
     </div>

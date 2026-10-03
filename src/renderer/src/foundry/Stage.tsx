@@ -135,6 +135,7 @@ export function StagedLaptop({ build, fit, maker, model, rival, onLock, lidAngle
       onHover={noHover}
       lockScreen={lock}
       unlit={unlit}
+      problems={false}
     />
   );
 }

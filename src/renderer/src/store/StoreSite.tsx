@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import logo from "../assets/store/courts-logo.png";
 import { colourHex } from "../engine";
 import { type CampaignState, contestOf, type Quarter, type StoreItem, storeListing, type WorldMarket, yearListing } from "../engine/campaign";
@@ -7,7 +7,7 @@ import type { BodyClass, Budget, PerfClass } from "../engine/price";
 import { factsOf, reviewOf } from "../engine/review";
 import type { Era } from "../review/Charts";
 import { cap, makerName } from "../world/data";
-import { usePhotos } from "../viewer/Photos";
+import { type StillSubject, useStills } from "../viewer/stills";
 import { STORE } from "./name";
 import "./store.css";
 
@@ -121,21 +121,23 @@ const slug = (s: string) =>
 /** A product's page in the store's address. */
 const pageOf = (p: Product) => slug(`${p.brand} ${p.name}`);
 
-/** The product's studio photo once taken, the drawing until then. */
-function Render({ p, era, company }: { p: Product; era: Era; company: string }) {
-  const subject = useMemo(
-    () => (p.build ? { id: `store:${p.id}`, name: p.name, company: makerName(p.maker, company), build: { ...p.build, price: p.price }, maker: p.maker } : null),
-    [p, company],
-  );
-  const { photos, shoot } = usePhotos(subject);
-  const hero = photos?.["studio/hero"];
+/** The product's photo once taken, the drawing until then, in the same box. */
+function Photo({ p, v }: { p: Product; v: ViewProps }) {
+  const still = v.stills[p.id];
+  return still ? <img className="ct-art" src={still} alt={`${p.brand} ${p.name}`} draggable={false} /> : <LaptopArt item={p} era={v.era} />;
+}
+
+/** The product page's photo. */
+function Render({ p, v }: { p: Product; v: ViewProps }) {
   return (
     <div className="ct-shot">
-      {hero ? <img src={hero} alt={`${p.brand} ${p.name}`} draggable={false} /> : <LaptopArt item={p} era={era} />}
-      {shoot}
+      <Photo p={p} v={v} />
     </div>
   );
 }
+
+/** A product as the still renderer takes it; none for a deleted model. */
+const subjectOf = (p: Product): StillSubject[] => (p.build ? [{ id: p.id, name: p.name, company: p.brand, build: p.build, maker: p.maker }] : []);
 
 /** A drawing of the laptop in its own finish, the screen lit in the era's desktop colours. */
 function LaptopArt({ item, era }: { item: StoreItem; era: Era }) {
@@ -195,7 +197,7 @@ function useCourts(source: StoreSource, company: string) {
       };
     });
   }, [source, company]);
-  const similar = (p: Product, n: number): Product[] => {
+  const similar = useCallback((p: Product, n: number): Product[] => {
     if (source.kind === "quarter") {
       const c = contestOf(source.state, source.market, p.id, source.quarter, n);
       return c.laptops.filter((l) => l.id !== p.id).flatMap((l) => items.find((x) => x.id === l.id) ?? []).slice(0, n);
@@ -204,7 +206,7 @@ function useCourts(source: StoreSource, company: string) {
       .filter((x) => x.id !== p.id && x.price > 0 && p.price > 0)
       .sort((a, b) => Math.abs(Math.log(a.price / p.price)) - Math.abs(Math.log(b.price / p.price)))
       .slice(0, n);
-  };
+  }, [source, items]);
   return { items, similar };
 }
 
@@ -264,9 +266,13 @@ export function StoreSite({
   const shown = useMemo(() => filtered(items, f, sort), [items, f, sort]);
   const groups = useMemo(() => groupsOf(items), [items]);
   const product = open ? items.find((x) => x.id === open || slug(`${x.brand} ${x.name}`) === open) : undefined;
+  const also = useMemo(() => (product ? similar(product, era === 2016 ? 5 : era === 2026 ? 3 : 4) : []), [product, similar, era]);
+  // Photographed in the order the page shows them: the product and its similar laptops, or the listing.
+  const subjects = useMemo(() => (product ? [product, ...also] : shown).flatMap(subjectOf), [product, also, shown]);
+  const stills = useStills(subjects);
   const toggle = (key: keyof Filters, v: string) =>
     setF((x) => ({ ...x, [key]: x[key].includes(v) ? x[key].filter((y) => y !== v) : [...x[key], v] }));
-  const view: ViewProps = { era, company, items, shown, groups, f, toggle, sort, setSort, go, similar };
+  const view: ViewProps = { era, company, items, shown, groups, f, toggle, sort, setSort, go, also, stills };
   return (
     <div className={`ct ct-${era}`}>
       {era === 2006 ? <Page06 {...view} product={product} /> : era === 2016 ? <Page16 {...view} product={product} /> : <Page26 {...view} product={product} />}
@@ -285,7 +291,10 @@ interface ViewProps {
   sort: Sort;
   setSort: (s: Sort) => void;
   go: (id: string | null) => void;
-  similar: (p: Product, n: number) => Product[];
+  /** The open product's similar laptops. */
+  also: Product[];
+  /** The products' photos taken so far, by id. */
+  stills: Record<string, string>;
 }
 
 const Logo = ({ onHome }: { onHome: () => void }) => (
@@ -367,7 +376,7 @@ function Page06(v: ViewProps & { product?: Product }) {
     return (
       <Chrome06 go={go}>
         <div className="ct-product">
-          <Render p={p} era={v.era} company={v.company} />
+          <Render p={p} v={v} />
           <div className="ct-about">
             <h1>{`${p.brand} ${p.name}`}</h1>
             <u className="ct-by">{p.brand}</u>
@@ -390,7 +399,7 @@ function Page06(v: ViewProps & { product?: Product }) {
             <span className="ct-wish">Add to Wish List</span>
           </div>
         </div>
-        <Also p={p} v={v} title="Customers also bought" />
+        <Also v={v} title="Customers also bought" />
         <Details p={p} />
       </Chrome06>
     );
@@ -406,7 +415,7 @@ function Page06(v: ViewProps & { product?: Product }) {
             return (
               <div key={x.id} className="ct-row">
                 <button type="button" className="ct-shot" onClick={() => go(pageOf(x))}>
-                  <LaptopArt item={x} era={v.era} />
+                  <Photo p={x} v={v} />
                 </button>
                 <div className="ct-row-main">
                   <Badge p={x} era={v.era} />
@@ -487,8 +496,8 @@ function ListHead({ v }: { v: ViewProps }) {
   );
 }
 
-function Also({ p, v, title }: { p: Product; v: ViewProps; title: string }) {
-  const also = v.similar(p, v.era === 2016 ? 5 : 4);
+function Also({ v, title }: { v: ViewProps; title: string }) {
+  const also = v.also;
   if (also.length === 0) return null;
   return (
     <section className="ct-also">
@@ -497,7 +506,7 @@ function Also({ p, v, title }: { p: Product; v: ViewProps; title: string }) {
         {also.map((x) => (
           <div key={x.id} className="ct-also-item">
             <button type="button" className="ct-shot" onClick={() => v.go(pageOf(x))}>
-              <LaptopArt item={x} era={v.era} />
+              <Photo p={x} v={v} />
             </button>
             <button type="button" className="ct-title" onClick={() => v.go(pageOf(x))}>
               {`${x.brand} ${x.name}`}
@@ -581,7 +590,7 @@ function Page16(v: ViewProps & { product?: Product }) {
     return (
       <Chrome16 go={go}>
         <div className="ct-product">
-          <Render p={p} era={v.era} company={v.company} />
+          <Render p={p} v={v} />
           <div className="ct-about">
             <h1>{`${p.brand} ${p.name}`}</h1>
             <u className="ct-by">{p.brand}</u>
@@ -606,7 +615,7 @@ function Page16(v: ViewProps & { product?: Product }) {
             <span className={`ct-now${p.stock === 0 ? " off" : ""}`}>Buy Now</span>
           </div>
         </div>
-        <Also p={p} v={v} title="Customers also bought" />
+        <Also v={v} title="Customers also bought" />
         <Details p={p} />
       </Chrome16>
     );
@@ -637,7 +646,7 @@ function Page16(v: ViewProps & { product?: Product }) {
                 <button key={x.id} type="button" className="ct-card" onClick={() => go(pageOf(x))}>
                   <Badge p={x} era={v.era} />
                   <span className="ct-shot">
-                    <LaptopArt item={x} era={v.era} />
+                    <Photo p={x} v={v} />
                   </span>
                   <span className="ct-title">{`${x.brand} ${x.name}`}</span>
                   <Price16 price={x.price} />
@@ -695,11 +704,11 @@ function Page26(v: ViewProps & { product?: Product }) {
       ["Weight", p.kg === null ? "" : `${p.kg.toFixed(2)} kg`],
       ["Wireless", p.specs.wireless],
     ];
-    const compare = [p, ...v.similar(p, 3)];
+    const compare = [p, ...v.also];
     return (
       <Chrome26 go={go}>
         <div className="ct-product">
-          <Render p={p} era={v.era} company={v.company} />
+          <Render p={p} v={v} />
           <div className="ct-about">
             <u className="ct-by">{p.brand}</u>
             <h1>{p.name}</h1>
@@ -736,7 +745,7 @@ function Page26(v: ViewProps & { product?: Product }) {
                   {compare.map((x) => (
                     <th key={x.id} className={x.id === p.id ? "this" : undefined}>
                       <button type="button" onClick={() => go(pageOf(x))}>
-                        <LaptopArt item={x} era={v.era} />
+                        <Photo p={x} v={v} />
                         <small>{x.brand}</small>
                         <b>{x.name}</b>
                       </button>
@@ -796,7 +805,7 @@ function Page26(v: ViewProps & { product?: Product }) {
               <button key={x.id} type="button" className="ct-card" onClick={() => go(pageOf(x))}>
                 <span className="ct-shot">
                   <Badge p={x} era={v.era} />
-                  <LaptopArt item={x} era={v.era} />
+                  <Photo p={x} v={v} />
                 </span>
                 <small>{x.brand}</small>
                 <span className="ct-title">{x.name}</span>

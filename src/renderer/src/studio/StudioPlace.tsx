@@ -1,6 +1,5 @@
-import { useStills } from "./Stills";
 import { Canvas } from "@react-three/fiber";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { SavedCompany, SavedModel } from "../../../preload/store";
 import { Loaded } from "../app/Loaded";
@@ -12,6 +11,7 @@ import { SystemEntries } from "../foundry/SystemMenu";
 import type { Commercial } from "../video/commercial";
 import { adFile, useAdRender } from "../video/queue";
 import type { ShortFacts } from "../video/script";
+import { useStills } from "../viewer/stills";
 import { ICON, Icon } from "./icons";
 import { type Goal, type ScreenAt, StudioRoom } from "./Room";
 import { StudioScreen } from "./StudioScreen";
@@ -66,7 +66,8 @@ export function StudioPlace({
   const root = useRef<HTMLDivElement>(null);
   const at = useRef<ScreenAt | null>(null);
   // The pick cards' stills are taken while the studio loads: the travel card waits for the last one.
-  const { stills, shoot } = useStills(models, company.name);
+  const subjects = useMemo(() => models.map((m) => ({ id: m.id, name: m.name, company: company.name, build: m.build as Build })), [models, company.name]);
+  const stills = useStills(subjects);
   const shot = models.every((m) => m.id in stills);
   const [paused, setPaused] = useState(false);
   const [goal, setGoal] = useState<Goal>("walk");
@@ -253,7 +254,6 @@ export function StudioPlace({
           </Suspense>
         </Canvas>
       </div>
-      {shoot}
       {active && <i className="cafe-dot" />}
       {active && <Prompts list={prompts} using={false} />}
       {ui === "screen" && (

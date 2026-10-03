@@ -1,190 +1,121 @@
-import { factsOf, solve } from "../engine";
+import { solve } from "../engine";
 import type { OnSale } from "./onSale";
 
 // The floor plan, in metres as the designer's store is: y up, the entrance
-// facing +z. Display tables stand in the designer's twelve slots, one
-// department to a table or more; laptops go on them cheapest first.
+// facing +z. Display tables stand in rows across the floor, a central aisle
+// down the middle from the door; every laptop faces the entrance, toward the
+// aisle in front of its table. One brand to a table, brands in order of
+// market share from the entrance in.
 
 export const ROOM = { x0: -12, x1: 12, z0: -10, z1: 10, h: 4.2 };
 export const TABLE_Y = 0.9;
-export const TABLE = { w: 2.6, d: 1.1 };
+/** A table holds one row of laptops. */
+export const TABLE = { w: 2.0, d: 0.7 };
 /** How far the display laptops' lids stand open, degrees. */
 export const LID = 110;
 
 /** The doorway in the front wall: walking into it leaves the store. */
 export const DOOR = { x0: -0.65, x1: 0.65 };
 
-/**
- * The designer's twelve slots, front centre first: the slot nearest the
- * entrance takes the player's own table. The rest run row by row, each row
- * turning back where the last ended, so a department's tables stand together.
- */
-const SLOTS: [number, number][] = [
-  [0, 4.1],
-  [-4.2, 0.9],
-  [0, 0.9],
-  [4.2, 0.9],
-  [4.2, -2.3],
-  [0, -2.3],
-  [-4.2, -2.3],
-  [-4.2, -5.5],
-  [0, -5.5],
-  [4.2, -5.5],
-  [4.2, 4.1],
-  [-4.2, 4.1],
-];
-/** Clear floor between the outer columns, for a store with more departments than the twelve slots hold. */
-const SPARE: [number, number][] = [
-  [8.2, -5.5],
-  [8.2, 1.7],
-  [-8.2, 1.7],
-  [-8.2, -5.5],
-];
-
-/** The departments, in the order they fill the floor from the entrance in. */
-const DEPARTMENTS = ["MacBook", "Gaming", "Budget", "Creator", "Business", "Thin and Light", "Everyday"] as const;
-export type DepartmentName = (typeof DEPARTMENTS)[number];
-
-const GAMER = new Set(["Gamer", "Esports", "Streamer"]);
-const CREATOR = new Set(["Creative", "Video Ed.", "3D Artist", "Music Prod.", "Developer"]);
-const BUSINESS = new Set(["Corporate", "Biz Pro", "Field"]);
-/** Under this a laptop goes to Thin and Light, kg. */
-const LIGHT_KG = 1.4;
-
-/** A discrete graphics chip strong enough that the game classes the laptop as gaming for its year. */
-function strongGpu(i: OnSale): boolean {
-  if (!(i.build.parts.graphics ?? []).length) return false;
-  try {
-    return factsOf({ id: i.id, name: i.name, company: i.brand, build: i.build }).cls.performance === "gaming";
-  } catch {
-    return false;
-  }
-}
+/** Half the central aisle's width, from the door to the back wall. */
+const AISLE = 0.8;
+/** Gap between tables side by side in a row. */
+const GAP = 0.2;
+/** Tables either side of the central aisle in a row. */
+const PER_SIDE = 3;
+/** The front row's table centre, and the distance from one row to the next back. */
+const FRONT_Z = 5.2;
+const ROW_PITCH = 2.0;
+const ROWS = 8;
 
 /**
- * Each rival laptop's department, the first that fits: Apple's, then gaming
- * by its graphics or its buyers, the cheapest quarter of the store, creators',
- * business, the light ones, and everything else.
+ * The table places, nearest the entrance first: row by row from the front,
+ * each row read left to right as a shopper facing its laptops sees it.
  */
-function departmentsOf(items: OnSale[], classOf: Map<string, string>): Map<string, DepartmentName> {
-  const prices = items.map((i) => i.price).sort((a, b) => a - b);
-  // The dearest price still in the cheapest quarter.
-  const cheap = prices.length ? prices[Math.max(0, Math.ceil(prices.length / 4) - 1)] : 0;
-  const out = new Map<string, DepartmentName>();
-  for (const i of items) {
-    const c = classOf.get(i.id) ?? "";
-    const d: DepartmentName =
-      i.maker === "apple"
-        ? "MacBook"
-        : strongGpu(i) || GAMER.has(c)
-          ? "Gaming"
-          : i.price <= cheap
-            ? "Budget"
-            : CREATOR.has(c)
-              ? "Creator"
-              : BUSINESS.has(c)
-                ? "Business"
-                : i.kg !== null && i.kg < LIGHT_KG
-                  ? "Thin and Light"
-                  : "Everyday";
-    out.set(i.id, d);
-  }
+const SLOTS: [number, number][] = (() => {
+  const xs: number[] = [];
+  for (let k = 0; k < PER_SIDE; k++) xs.push(AISLE + TABLE.w / 2 + k * (TABLE.w + GAP));
+  const row = [...xs.map((x) => -x).reverse(), ...xs];
+  const out: [number, number][] = [];
+  for (let r = 0; r < ROWS; r++) for (const x of row) out.push([x, FRONT_Z - r * ROW_PITCH]);
   return out;
-}
+})();
 
-/** Places along one side of a table, by how many a side holds. */
+/** Laptops a table holds. */
+const PER_TABLE = 3;
+/** Places along a table, by how many it holds. */
 const ALONG: Record<number, number[]> = {
   1: [0],
-  2: [-0.55, 0.55],
-  3: [-0.8, 0, 0.8],
-  4: [-0.93, -0.31, 0.31, 0.93],
+  2: [-0.31, 0.31],
+  3: [-0.62, 0, 0.62],
 };
+/** How far in from the table's front edge a laptop's front stands, metres. */
+const FRONT_IN = 0.12;
 
 export interface Table {
   x: number;
   z: number;
-  /** Its department, or the company's name on the player's own table. */
+  /** Its maker, or the company's name on the player's own. */
   label: string;
   own: boolean;
-  /** Its department, by index into the layout's departments. */
-  dept: number;
-  makers: string[];
   /** The cheapest and dearest laptop on it. */
   low: number;
   high: number;
 }
 
-/** A department, or the player's own laptops, on one or more tables. */
-export interface Department {
-  label: string;
-  own: boolean;
-  tables: number[];
-}
-
 export interface Seat {
   item: OnSale;
   table: number;
-  /** Where the laptop sits, its hinge side away from `side`. */
+  /** Where the laptop sits, facing `side`. */
   x: number;
   z: number;
-  /** +1 faces the +z aisle, -1 the -z aisle. */
+  /** +1 faces the +z aisle; every laptop does. */
   side: 1 | -1;
 }
 
 export interface Layout {
   tables: Table[];
   seats: Seat[];
-  departments: Department[];
 }
 
-/**
- * How far a laptop's centre sits from the table's middle: far enough that its
- * lid, leaning back past upright, stops short of the middle, so laptops on
- * the two sides never meet. Metres.
- */
+/** How far in front of the table's middle a laptop's centre sits: its front stays just in from the edge, its lid leaning back over the rest. */
 function offsetOf(item: OnSale): number {
   let depth = 0.3;
   try {
     depth = solve(item.build).shell.outer.y / 1000;
   } catch {}
-  const lean = Math.max(0, -Math.cos((LID * Math.PI) / 180));
-  return Math.max(0.2, depth / 2 + depth * lean + 0.015);
+  return TABLE.d / 2 - FRONT_IN - depth / 2;
 }
 
-/** Laptops a table holds, both sides together. */
-const PER_TABLE = [4, 6, 8];
-
 /**
- * Tables by department: the player's own on the table nearest the entrance,
- * then one department to a table in department order, a big one taking several
- * tables side by side. Each department runs cheapest first, left to right
- * along each side as a shopper faces it. Tables hold fewer laptops the
- * fewer there are, and more when the departments would not fit otherwise.
+ * Tables by brand: each brand's laptops together on consecutive tables,
+ * cheapest first, brands by their share of units sold, the biggest nearest
+ * the entrance. With nothing sold (a sandbox's market) a brand's share is its
+ * count of laptops on sale. The player's own brand goes by its share like any.
  */
-export function layoutOf(items: OnSale[], classOf: Map<string, string>, company: string): Layout {
+export function layoutOf(items: OnSale[], company: string): Layout {
   const byPrice = (a: OnSale, b: OnSale) => a.price - b.price || a.id.localeCompare(b.id);
-  const groups: { label: string; own: boolean; items: OnSale[] }[] = [];
-  const own = items.filter((i) => i.own).sort(byPrice);
-  if (own.length) groups.push({ label: company, own: true, items: own });
-  const rivals = items.filter((i) => !i.own);
-  const dept = departmentsOf(rivals, classOf);
-  for (const d of DEPARTMENTS) {
-    const here = rivals.filter((i) => dept.get(i.id) === d).sort(byPrice);
-    if (here.length) groups.push({ label: d, own: false, items: here });
+  const keyOf = (i: OnSale) => (i.own ? "\u0000own" : (i.maker ?? i.brand));
+  const groups = new Map<string, { label: string; own: boolean; items: OnSale[]; units: number }>();
+  for (const i of items) {
+    const k = keyOf(i);
+    let g = groups.get(k);
+    if (!g) {
+      g = { label: i.own ? company : i.brand, own: i.own, items: [], units: 0 };
+      groups.set(k, g);
+    }
+    g.items.push(i);
+    g.units += i.units;
   }
+  const sold = items.some((i) => i.units > 0);
+  const share = (g: { items: OnSale[]; units: number }) => (sold ? g.units : g.items.length);
+  const ordered = [...groups.values()]
+    .sort((a, b) => share(b) - share(a) || a.label.localeCompare(b.label))
+    .map((g) => ({ ...g, items: g.items.sort(byPrice) }));
 
-  // Without own laptops the slot by the entrance stands empty.
-  const slots = [...SLOTS, ...SPARE].slice(own.length ? 0 : 1);
-  const main = SLOTS.length - (own.length ? 0 : 1);
-  const tablesAt = (per: number) => groups.reduce((n, g) => n + Math.ceil(g.items.length / per), 0);
-  // The fewest a table holds that still fits every department on the twelve slots, else on the spare floor too.
-  const per =
-    PER_TABLE.find((p) => tablesAt(p) <= main && (p > 4 || items.length <= 20)) ??
-    PER_TABLE.find((p) => tablesAt(p) <= slots.length) ??
-    PER_TABLE[PER_TABLE.length - 1];
-  // Still too many: the biggest departments give up tables, their dearest laptops unshown, until every one fits.
-  const counts = groups.map((g) => Math.ceil(g.items.length / per));
-  for (let over = tablesAt(per) - slots.length; over > 0; over--) {
+  const counts = ordered.map((g) => Math.ceil(g.items.length / PER_TABLE));
+  // Too many for the floor: the brands with the most tables give some up, their dearest laptops unshown.
+  for (let over = counts.reduce((n, c) => n + c, 0) - SLOTS.length; over > 0; over--) {
     const i = counts.indexOf(Math.max(...counts));
     if (counts[i] <= 1) break;
     counts[i]--;
@@ -192,45 +123,34 @@ export function layoutOf(items: OnSale[], classOf: Map<string, string>, company:
 
   const tables: Table[] = [];
   const seats: Seat[] = [];
-  const departments: Department[] = [];
   let next = 0;
-  groups.forEach((g, gi) => {
+  ordered.forEach((g, gi) => {
     const n = counts[gi];
-    const shown = g.items.slice(0, n * per);
-    const dept: Department = { label: g.label, own: g.own, tables: [] };
-    // More departments than the floor holds: the last ones go unshown rather than share a table.
-    for (let k = 0; k < n && next < slots.length; k++) {
-      // The department's laptops shared out evenly over its tables.
+    const shown = g.items.slice(0, n * PER_TABLE);
+    // More brands than the floor holds: the last ones go unshown rather than share a table.
+    for (let k = 0; k < n && next < SLOTS.length; k++) {
+      // The brand's laptops shared out evenly over its tables.
       const here = shown.slice(Math.round((k * shown.length) / n), Math.round(((k + 1) * shown.length) / n));
-      const [tx, tz] = slots[next++];
+      const [tx, tz] = SLOTS[next++];
       const t = tables.length;
       tables.push({
         x: tx,
         z: tz,
         label: g.label,
         own: g.own,
-        dept: departments.length,
-        makers: [...new Set(here.map((l) => l.brand))],
         low: here[0].price,
         high: here[here.length - 1].price,
       });
-      dept.tables.push(t);
-      // The cheaper half faces the front aisle, the rest the back, each read left to right.
-      const front = Math.ceil(here.length / 2);
       here.forEach((item, i) => {
-        const s: 1 | -1 = i < front ? 1 : -1;
-        const count = s > 0 ? front : here.length - front;
-        const along = ALONG[count][s > 0 ? i : i - front];
         seats.push({
           item,
           table: t,
-          x: tx + s * along,
-          z: tz + s * offsetOf(item),
-          side: s,
+          x: tx + ALONG[here.length][i],
+          z: tz + offsetOf(item),
+          side: 1,
         });
       });
     }
-    if (dept.tables.length) departments.push(dept);
   });
-  return { tables, seats, departments };
+  return { tables, seats };
 }

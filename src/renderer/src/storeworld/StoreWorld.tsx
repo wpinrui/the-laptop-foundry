@@ -174,11 +174,8 @@ export function StoreWorld({
     }
     return out;
   }, [stock.items]);
-  // Laid out by retail department, worked out partly from each laptop's class as its card shows it.
-  const layout = useMemo(
-    () => layoutOf(stock.items, new Map([...classes].map(([id, c]) => [id, c.name])), company.name),
-    [stock.items, classes, company.name],
-  );
+  // Laid out by brand, brands by market share from the entrance in.
+  const layout = useMemo(() => layoutOf(stock.items, company.name), [stock.items, company.name]);
   const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLElement>(null);
   const [paused, setPaused] = useState(false);

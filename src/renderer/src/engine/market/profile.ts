@@ -24,7 +24,7 @@ export interface Profile {
 }
 
 /** Bumped whenever a headline stat's formula changes, so saved markets re-measure. */
-export const PROFILE_VERSION = 2;
+export const PROFILE_VERSION = 3;
 
 export interface Pack {
   kg: number;

@@ -116,26 +116,25 @@ const FRAME: Record<Stage, Frame> = {
   year: { view: "hero", shift: 0.2, zoom: 1.05 },
   chassis: { view: "hero", shift: 0.2, zoom: 1.05 },
   screen: { view: "screen", shift: 0.2, zoom: 1.05, lift: 0.01 },
-  inside: { view: "part", shift: 0.24 },
+  internals: { view: "part", shift: 0.24 },
   keyboard: { view: "deck", shift: 0.18, lift: 0.012 },
   trackpad: { view: "deck", shift: 0.18, lift: 0.012 },
   webcam: { view: "screen", shift: 0.2, zoom: 0.9, lift: 0.02 },
   ports: { view: "side", shift: 0.15, zoom: 1.05, lift: 0.02 },
-  finish: { view: "finish", shift: 0.16, zoom: 1.12, lift: 0.03 },
-  price: { view: "hero", shift: 0.2 },
+  colour: { view: "finish", shift: 0.16, zoom: 1.12, lift: 0.03 },
+  decals: { view: "lid", shift: 0.18, zoom: 0.98, lift: 0.02 },
+  done: { view: "hero", shift: 0.2 },
 };
-/** The Finish stage's Decals page, on the lid. */
-const DECALS: Frame = { view: "lid", shift: 0.18, zoom: 0.98, lift: 0.02 };
+
+/** The body's class per stage, by the names the stylesheet knows them by. */
+const BODY: Partial<Record<Stage, string>> = { internals: "inside", colour: "finish", decals: "marks", done: "price" };
 
 /** The stages for what sits on the laptop's surfaces: each one is its surface item. */
 const SURFACE = new Set<Stage>(["keyboard", "trackpad", "webcam", "ports"]);
 type SurfaceStageName = "keyboard" | "trackpad" | "webcam" | "ports";
 
 /** Stages with a tray of cards along the bottom. */
-const TRAY = new Set<Stage>(["chassis", "screen", "finish"]);
-
-/** The Finish stage's two pages. */
-type FinishPage = "finish" | "decals";
+const TRAY = new Set<Stage>(["chassis", "screen", "colour", "decals"]);
 
 /** Floor zone roles where an empty slot's part would go. */
 const ZONE_ROLE: Partial<Record<Category, string>> = {
@@ -251,8 +250,6 @@ export function Builder({
   const goRef = useRef(go);
   goRef.current = go;
   const [insideSlot, setInsideSlot] = useState("processor");
-  // An older save left on its Decals stage reopens on the Finish stage's Decals page.
-  const [finishPage, setFinishPage] = useState<FinishPage>(() => (build.stage === "marks" ? "decals" : "finish"));
   const [port, setPort] = useState(0);
   const [keyGroups, setKeyGroups] = useState<KeyGroup[]>(["letters", "mods", "accent"]);
   const [piece, setPiece] = useState<FinishPiece>("lid");
@@ -291,7 +288,7 @@ export function Builder({
 
   // A price appears once there is a cost to set it against.
   useEffect(() => {
-    if (stage === "price" && valid && build.price === undefined && !locked) {
+    if (stage === "done" && valid && build.price === undefined && !locked) {
       const cost = costOf(build, fit).total;
       const p = Math.round((cost * 1.45) / 10) * 10 - 1;
       set((b) => ({ ...b, price: p }));
@@ -318,7 +315,7 @@ export function Builder({
     const role = ZONE_ROLE[slot.cat];
     return role ? fit.boxes.filter((b) => b.kind === "zone" && b.piece === "floor" && b.role === role) : [];
   }, [fit, slotPart, slot.cat]);
-  const inside = stage === "inside" && !powering;
+  const inside = stage === "internals" && !powering;
   const paint = useMemo<Paint | undefined>(
     () => (inside ? { selected: new Set(selectedBoxes.map((b) => b.id)), dim: false } : undefined),
     [inside, selectedBoxes],
@@ -326,8 +323,8 @@ export function Builder({
 
   const surface = SURFACE.has(stage) && !powering;
   const portSide = build.ports[port]?.side;
-  const marking = stage === "finish" && finishPage === "decals" && !powering;
-  let frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : marking ? DECALS : FRAME[stage];
+  const marking = stage === "decals" && !powering;
+  let frame = powering ? ({ view: "front", shift: 0.2 } as Frame) : FRAME[stage];
   if (marking && markSurface === "palm") frame = { view: "deck", shift: 0.18, lift: 0.012 };
   if (marking && markSurface === "bottom") frame = { view: "bottom", shift: 0.18 };
   if (marking && markSurface === "bezel") frame = { view: "screen", shift: 0.2, zoom: 1.05, lift: 0.01 };
@@ -457,7 +454,7 @@ export function Builder({
       );
       tray = <ScreenTray {...props} />;
       break;
-    case "inside":
+    case "internals":
       column = <InsideColumn {...props} slot={slot.key} onSlot={setInsideSlot} onGrillView={setGrillView} />;
       break;
     case "keyboard":
@@ -473,11 +470,10 @@ export function Builder({
     case "ports":
       column = <SurfaceColumn {...props} item={stage} port={port} onPort={setPort} />;
       break;
-    case "finish":
-      if (finishPage === "finish") {
-        column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;
-        break;
-      }
+    case "colour":
+      column = <FinishColumn {...props} piece={piece} onPiece={setPiece} />;
+      break;
+    case "decals":
       column = (
         <>
           <MarksColumn
@@ -512,7 +508,7 @@ export function Builder({
         />
       );
       break;
-    case "price":
+    case "done":
       column = (
         <PriceColumn
           {...props}
@@ -538,7 +534,7 @@ export function Builder({
         fit={previewFit}
         year={build.year}
         view={view}
-        resetKey={`${stage}:${stage === "inside" ? slot.key : stage === "ports" ? (portSide ?? "") : marking ? `decals:${markSurface}` : ""}:${powering}`}
+        resetKey={`${stage}:${stage === "internals" ? slot.key : stage === "ports" ? (portSide ?? "") : marking ? `decals:${markSurface}` : ""}:${powering}`}
         lidAngle={lidAngle}
         colours={colours}
         surfaces={surfaces}
@@ -547,7 +543,7 @@ export function Builder({
         screen={screen}
         glow={powering}
         paint={paint}
-        problems={stage !== "finish"}
+        problems={stage !== "colour" && stage !== "decals"}
         extra={
           inside && outside ? undefined : inside ? (
             <SelectionMarks selected={selectedBoxes} empty={emptyBoxes} />
@@ -578,7 +574,7 @@ export function Builder({
           <SectionView fit={fit} />
         </div>
       )}
-      <div className={stage === "inside" ? "bd-scrim wide" : "bd-scrim"} />
+      <div className={stage === "internals" ? "bd-scrim wide" : "bd-scrim"} />
       {TRAY.has(stage) && !powering && <div className="bd-scrim-bottom" />}
 
       <nav className="bd-stages">
@@ -609,9 +605,7 @@ export function Builder({
                 // biome-ignore lint/suspicious/noArrayIndexKey: problems have no id and never reorder within one render
                 key={i}
                 onClick={() => {
-                  const to = stageOf(p);
-                  if (to === "finish") setFinishPage("finish");
-                  go(to);
+                  go(stageOf(p));
                   setListOpen(false);
                 }}
               >
@@ -632,24 +626,9 @@ export function Builder({
         <PowerOn name={shownName} stats={stats} onDone={donePowering} />
       ) : (
         // One body per stage: the column scrolls on its own and always ends above the tray row.
-        <div className={`bd-body bd-${stage}${surface ? " bd-surface" : ""}${marking ? " bd-marks" : ""}`}>
+        <div className={`bd-body bd-${BODY[stage] ?? stage}${surface ? " bd-surface" : ""}`}>
           <div key={stage} className="bd-column fd-in">
-            {stage === "finish" && (
-              // Finish and Decals: two pages of the one stage. Next and Back step over stages, not these.
-              <div className="bd-slots big">
-                {(["finish", "decals"] as const).map((p) => (
-                  <button
-                    type="button"
-                    key={p}
-                    className={["bd-row-item", p === finishPage ? "on" : ""].join(" ")}
-                    onClick={() => setFinishPage(p)}
-                  >
-                    {p === "finish" ? "Finish" : "Decals"}
-                  </button>
-                ))}
-              </div>
-            )}
-            {stage === "price" ? column : <fieldset disabled={locked}>{column}</fieldset>}
+            {stage === "done" ? column : <fieldset disabled={locked}>{column}</fieldset>}
             {stage === "year" && (
               <div className="bd-actions">
                 <button type="button" className="fd-text" onClick={leave}>
@@ -670,7 +649,7 @@ export function Builder({
                 <button type="button" className="fd-text" onClick={idx > 0 ? () => go(stages[idx - 1]) : leave}>
                   Back
                 </button>
-                {stage !== "price" ? (
+                {stage !== "done" ? (
                   <button type="button" className="fd-primary" onClick={() => go(stages[idx + 1])}>
                     Next
                   </button>

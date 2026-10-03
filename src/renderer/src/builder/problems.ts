@@ -3,25 +3,47 @@ import { formatOption, panelLabel } from "./format";
 
 // Fit problems in words, and the builder stage each one belongs to.
 
-export const STAGES = ["year", "chassis", "screen", "inside", "keyboard", "trackpad", "webcam", "ports", "finish", "price"] as const;
+export const STAGES = [
+  "year",
+  "chassis",
+  "screen",
+  "internals",
+  "keyboard",
+  "trackpad",
+  "webcam",
+  "ports",
+  "colour",
+  "decals",
+  "done",
+] as const;
 export type Stage = (typeof STAGES)[number];
 export const STAGE_NAME: Record<Stage, string> = {
   year: "Year",
   chassis: "Chassis",
   screen: "Screen",
-  inside: "Inside",
+  internals: "Internals",
   keyboard: "Keyboard",
   trackpad: "Trackpad",
   webcam: "Webcam",
   ports: "Ports",
-  finish: "Finish",
-  price: "Price",
+  colour: "Colour",
+  decals: "Decals",
+  done: "Done",
 };
 
-/** A stage remembered by an older save, as the stage that holds it now. */
+/** Stages older saves remember by an older name, as the stage that holds it now. */
+const RENAMED: Record<string, Stage> = {
+  surface: "keyboard",
+  keys: "keyboard",
+  inside: "internals",
+  finish: "colour",
+  marks: "decals",
+  price: "done",
+};
+
+/** A stage remembered by a save, as the stage that holds it now. */
 export function stageNow(saved: string | undefined): Stage | undefined {
-  if (saved === "surface" || saved === "keys") return "keyboard";
-  if (saved === "marks") return "finish";
+  if (saved && saved in RENAMED) return RENAMED[saved];
   return STAGES.find((s) => s === saved);
 }
 
@@ -102,7 +124,7 @@ export function stageOfCategory(cat: string | undefined): Stage {
   if (cat === "display") return "screen";
   if (cat === "keyboard" || cat === "trackpad" || cat === "webcam") return cat;
   if (cat === "port") return "ports";
-  return "inside";
+  return "internals";
 }
 
 function partName(id: string): string {
@@ -122,7 +144,7 @@ export function stageOf(p: Problem): Stage {
     if (p.what === "part" || p.what === "panel") return partStage(p.ref);
     if (p.what === "option") return partStage(p.ref.split(":")[0]);
     if (p.what === "body" || p.what === "layout") return "chassis";
-    return "finish";
+    return "colour";
   }
   switch (p.code) {
     case "needs":
@@ -135,7 +157,7 @@ export function stageOf(p: Problem): Stage {
       return stageOfCategory(p.category);
     case "wrong-piece":
     case "wrong-finish":
-      return "finish";
+      return "colour";
     case "no-charging":
       return "ports";
     case "screen":

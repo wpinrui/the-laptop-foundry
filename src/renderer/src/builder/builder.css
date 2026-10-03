@@ -994,39 +994,63 @@
   color: var(--text);
 }
 
-.bd-rivals {
-  display: flex;
-  flex-direction: column;
+/* The build against the rivals nearest its price: its own row first, each rival's figure green where it beats it, red where worse. */
+.bd-cmp {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
   border-top: 1px solid var(--line);
-}
-
-.bd-rival {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: calc(13 * var(--u)) 0;
-  border-bottom: 1px solid var(--line-row);
-}
-
-.bd-rival b {
   font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: calc(15 * var(--u));
+}
+
+.bd-cmp th,
+.bd-cmp td {
+  padding: calc(9 * var(--u)) calc(4 * var(--u));
+  border-bottom: 1px solid var(--line-row);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bd-cmp thead th {
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bd-cmp thead th:first-child {
+  width: 30%;
+}
+
+.bd-cmp thead th:nth-child(2) {
+  width: 16%;
+}
+
+.bd-cmp tbody th {
+  text-align: left;
   font-weight: 600;
-  font-size: calc(24 * var(--u));
   text-transform: uppercase;
 }
 
-.bd-rival span {
-  font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  font-size: calc(17 * var(--u));
+.bd-cmp td:nth-child(2) {
+  text-align: left;
   color: var(--muted);
 }
 
-.bd-rival em {
-  font-style: normal;
-  color: var(--text);
-  margin-left: calc(14 * var(--u));
+.bd-cmp tr.mine th {
+  color: var(--accent);
+}
+
+.bd-cmp td.up {
+  color: var(--better);
+}
+
+.bd-cmp td.down {
+  color: var(--danger);
 }
 
 .bd-price-actions {

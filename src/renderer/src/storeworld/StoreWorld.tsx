@@ -98,7 +98,7 @@ function StoreOs({
   onLook: (l: PageLook | null) => void;
 }) {
   const subject = useMemo(
-    () => ({ id: item.id, name: item.name, company: item.brand, build: item.build }),
+    () => ({ id: item.id, name: item.name, company: item.brand, build: item.build, maker: item.maker }),
     [item],
   );
   const os = useLaptopOs({ subject, sound, onSound, startPlugged: true, startOn: true });

@@ -1,5 +1,4 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import wallpaper from "../assets/os/wallpaper.jpg";
 import {
   CONTENT,
   colourHex,
@@ -44,6 +43,7 @@ import {
 import { FoxApp, isCourtsUrl, useFox } from "../os/Fox";
 import { type NoteDoc, NoteApp, useNote } from "../os/Note";
 import { SYS_SIZE, SYS_TITLE } from "../os/shots";
+import { useWallpaper } from "../os/wallpapers";
 import { sysGroups } from "../os/sys";
 import { type AppId, duration, ownerOf, type Power } from "../os/types";
 import { lookOf } from "../review/look";
@@ -277,6 +277,7 @@ export function useLaptopOs({
   plug: () => void;
 } {
   const build = subject.build;
+  const wallpaper = useWallpaper(subject.maker, build);
   const fit = useMemo(() => solve(build), [build]);
   const m = useMemo(() => simulate(build, fit), [build, fit]);
   // Any edition up to the latest can run; its feature checks decide whether it does.

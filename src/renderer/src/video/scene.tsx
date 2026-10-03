@@ -364,7 +364,7 @@ export function ShortStage({ short, fit, look, tl, time, onLock, onSet }: {
       {anchor && (
         <>
           <group ref={laptop} position={anchor} scale={MM}>
-            <StagedLaptop build={build} fit={fit} maker={short.facts.subject.company} model={short.facts.subject.name} onLock={onLock} />
+            <StagedLaptop build={build} fit={fit} maker={short.facts.subject.company} model={short.facts.subject.name} rival={short.facts.subject.maker} onLock={onLock} />
           </group>
           <Shadows group={laptop} />
           <Rig lines={short.lines} tl={tl} time={time} dims={dims} side={short.facts.portSide === "right" ? 1 : -1} anchor={anchor} />

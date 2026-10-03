@@ -1,4 +1,6 @@
 import { available, type Build, CONTENT, colourHex, type Fit, type PadFinish, type Piece, padSurface, pieceOf } from "../engine";
+import { useState } from "react";
+import { pickWallpaper, useWallpaper } from "../os/wallpapers";
 import { token } from "../viewer/theme";
 import { ColourPicker } from "./ColourPicker";
 import type { StageProps } from "./Stages";
@@ -160,7 +162,48 @@ export function FinishColumn({
           }
         />
       </div>
+      <div className="bd-rule" />
+      <WallpaperField build={build} set={set} locked={locked} />
     </>
+  );
+}
+
+/** The model's own wallpaper on its OS; none means the company's. */
+function WallpaperField({ build, set, locked }: Pick<StageProps, "build" | "set" | "locked">) {
+  const shown = useWallpaper(null, build);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="bd-line bd-wall">
+      <Label>Wallpaper</Label>
+      <img className="bd-wall-pic" src={shown} alt="" draggable={false} />
+      <Chips>
+        <Chip
+          caps
+          disabled={locked || busy}
+          onClick={async () => {
+            if (locked) return;
+            setNote(null);
+            setBusy(true);
+            const got = await pickWallpaper(build.year).finally(() => setBusy(false));
+            if (!got) return;
+            if ("error" in got) {
+              setNote(got.error);
+              return;
+            }
+            set((b) => ({ ...b, wallpaper: got.id }));
+          }}
+        >
+          Choose image
+        </Chip>
+        {build.wallpaper && (
+          <Chip caps disabled={locked} onClick={() => set((b) => ({ ...b, wallpaper: undefined }))}>
+            Remove
+          </Chip>
+        )}
+      </Chips>
+      {note && <span className="bd-note">{note}</span>}
+    </div>
   );
 }
 

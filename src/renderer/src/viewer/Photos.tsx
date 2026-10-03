@@ -237,7 +237,7 @@ function Shooter({
     (async () => {
       const owner = ownerOf(build, who.company);
       for (const k of Object.keys(OS_SHOT) as (keyof typeof OS_SHOT)[]) {
-        os[k] = await osShot({ shot: OS_SHOT[k], build, owner, model: `${who.company} ${who.name}`.trim(), aspect, outW: 1600 });
+        os[k] = await osShot({ shot: OS_SHOT[k], build, owner, model: `${who.company} ${who.name}`.trim(), aspect, outW: 1600, rival: who.maker });
         if (cancelled) return;
       }
       const photos: Record<string, string> = {};
@@ -296,6 +296,8 @@ function Shooter({
 interface Who {
   name: string;
   company: string;
+  /** The rival maker's id; absent for the player's own. */
+  maker?: string | null;
 }
 
 /** A hidden canvas that photographs one build and reports the photos. */
@@ -328,7 +330,7 @@ const cache = new Map<string, Record<string, string>>();
  * shoot to render until then.
  */
 export function usePhotos(
-  subject: { id: string; name: string; company: string; build: Build } | null,
+  subject: { id: string; name: string; company: string; build: Build; maker?: string | null } | null,
 ): { photos: Record<string, string> | null; shoot: ReactNode } {
   const key = subject?.id ?? null;
   const build = subject?.build ?? null;
@@ -341,7 +343,7 @@ export function usePhotos(
         key={full}
         id={key}
         build={build}
-        who={{ name: subject.name, company: subject.company }}
+        who={{ name: subject.name, company: subject.company, maker: subject.maker }}
         onDone={(p) => {
           cache.set(full, p);
           bump((n) => n + 1);

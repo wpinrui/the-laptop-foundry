@@ -685,6 +685,8 @@ export interface Build {
   /** The keyboard deck (the well and key plate around the caps), hex. Absent means the stock near-black. */
   keyDeck?: string;
   marks?: Mark[];
+  /** The id of the model's own wallpaper, kept beside the saves. Absent means the company's. */
+  wallpaper?: string;
   /**
    * The signature slider per body id, 0 to 1; 0.5 when absent. Every build made
    * since the body types carries it, so a build without it is an older save.

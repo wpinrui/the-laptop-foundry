@@ -26,6 +26,8 @@ export function useOsStill(
   model: string,
   aspect: number,
   outW = 1280,
+  /** The rival maker's id, for its wallpaper; absent for the player's own. */
+  rival?: string | null,
 ): THREE.CanvasTexture | undefined {
   const [tex, setTex] = useState<THREE.CanvasTexture>();
   const key = build ? JSON.stringify(build) : "";
@@ -34,7 +36,7 @@ export function useOsStill(
     if (!build) return;
     let live = true;
     let made: THREE.CanvasTexture | undefined;
-    osShot({ shot, build, owner, model, aspect, outW }).then((c) => {
+    osShot({ shot, build, owner, model, aspect, outW, rival }).then((c) => {
       if (!live) return;
       made = textureOf(c);
       setTex(made);
@@ -43,7 +45,7 @@ export function useOsStill(
       live = false;
       made?.dispose();
     };
-  }, [shot, key, owner.maker, owner.wordmark, model, aspect.toFixed(3), outW]);
+  }, [shot, key, owner.maker, owner.wordmark, model, aspect.toFixed(3), outW, rival]);
   return build ? tex : undefined;
 }
 
@@ -59,6 +61,9 @@ export function useBootingScreen(on: boolean, build: Build, owner: Owner, model:
   const era = eraOf(build.year);
   const logicalH = lookOfPanel(panelOf(build))?.height ?? 810;
   const ratio = Math.round(aspect * 100) / 100;
+  // The desktop picture, and whether the boot has settled on it.
+  const desk = useRef<HTMLCanvasElement | null>(null);
+  const booted = useRef(false);
   // biome-ignore lint/correctness/useExhaustiveDependencies: boots again only when the screen itself changes
   useEffect(() => {
     if (!on) {
@@ -76,14 +81,16 @@ export function useBootingScreen(on: boolean, build: Build, owner: Owner, model:
     let raf = 0;
     let start = 0;
     let ready = false;
-    let desk: HTMLCanvasElement | null = null;
+    desk.current = null;
+    booted.current = false;
     let live = true;
     const { build: b, owner: o, model: m } = latest.current;
     osFontsReady(lookOf(era)).then(() => {
       ready = true;
     });
     osShot({ shot: "desktop", build: b, owner: o, model: m, aspect: ratio, outW: W }).then((d) => {
-      if (live) desk = d;
+      // A wallpaper changed while booting has already drawn its own.
+      if (live && !desk.current) desk.current = d;
     });
     const u = H / logicalH;
     const loop = (now: number) => {
@@ -97,8 +104,9 @@ export function useBootingScreen(on: boolean, build: Build, owner: Owner, model:
       }
       if (!start) start = now;
       const ms = now - start;
-      if (ms >= BOOT_MS && desk) {
-        g.drawImage(desk, 0, 0, W, H);
+      if (ms >= BOOT_MS && desk.current) {
+        booted.current = true;
+        g.drawImage(desk.current, 0, 0, W, H);
         t.needsUpdate = true;
         return;
       }
@@ -112,5 +120,28 @@ export function useBootingScreen(on: boolean, build: Build, owner: Owner, model:
       cancelAnimationFrame(raf);
     };
   }, [on, era, ratio, logicalH, owner.maker]);
+  // A new wallpaper redraws the desktop once booted, without booting again.
+  const wall = build.wallpaper;
+  const shown = useRef(wall);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: redraws only when the wallpaper changes
+  useEffect(() => {
+    if (shown.current === wall) return;
+    shown.current = wall;
+    const t = tex;
+    const c = t?.image as HTMLCanvasElement | undefined;
+    if (!on || !t || !c) return;
+    let live = true;
+    const { build: b, owner: o, model: m } = latest.current;
+    osShot({ shot: "desktop", build: b, owner: o, model: m, aspect: ratio, outW: c.width }).then((d) => {
+      if (!live) return;
+      desk.current = d;
+      if (!booted.current) return;
+      c.getContext("2d")?.drawImage(d, 0, 0, c.width, c.height);
+      t.needsUpdate = true;
+    });
+    return () => {
+      live = false;
+    };
+  }, [wall]);
   return on ? tex : undefined;
 }

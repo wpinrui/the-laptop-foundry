@@ -518,6 +518,10 @@ export function SettingsMenu({
             <span>Wallpaper photo</span>
             <small>Marek Piwnicki on Unsplash, Unsplash License</small>
           </li>
+          <li>
+            <span>Wallpaper photos</span>
+            <small>Akif Waseem, Alexander Andrews, Alexander X., Angelo Abear, Ankit Malhotra, Arnaud Mariat, Bhautik Patel, BoliviaInteligente, Cam Carpenter, Dave Hoefler, Dawid Sokołowski, Denis Sebastian Tamas, Elti Meshau, Fabio Fistarol, Federico Di Dio photography, Fernando Strabuli, Filipe Nobre, Hasan Almasi, Jakob Owens, Johnny Africa, Justin Hu, Leo Chen, Luke Chesser, MagicPattern, Martin Martz, Milad Fakurian, Monya Prinsloo, Neil Thomas, Patrick Hendry, Pawel Czerwinski, Quentin Grignet, Richard Horvath, Robin Pierre, Scott Webb, Sebastian Unrau, Sebastien Gabriel, Simon Spring, Thomas Tygreat and Vimal S on Unsplash, Unsplash License</small>
+          </li>
         </ul>
         <div className="fd-entries">
           <Entry secondary onClick={() => setCredits(false)} autoFocus>

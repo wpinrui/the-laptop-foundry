@@ -589,7 +589,8 @@ function Player({
     const down = (e: KeyboardEvent) => keys.current.add(e.code);
     const up = (e: KeyboardEvent) => keys.current.delete(e.code);
     const mouse = (e: MouseEvent) => {
-      if (!document.pointerLockElement || live.current.inspect !== null) return;
+      // At a laptop the mouse is its, whatever holds the pointer (a game on its screen may lock it).
+      if (!document.pointerLockElement || !live.current.active || live.current.inspect !== null) return;
       const k = LOOK * (fov.current / FOV);
       look.current.yaw -= e.movementX * k;
       look.current.pitch = clamp(

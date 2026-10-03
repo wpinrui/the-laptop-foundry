@@ -2,8 +2,8 @@ import type { BuildPort, Side } from "../engine";
 
 // A typical mainstream laptop's ports, year by year, on its left and right
 // walls (every layout has both), each wall's list in its order from the rear.
-// Only ports the content offers in that year. Thunderbolt is left out: it
-// needs an Intel platform, and a default must fit any build.
+// Only ports the content offers in that year. On an Intel build the fast
+// USB-C ports are Thunderbolt instead, as Intel laptops shipped them.
 
 type Wall = string[];
 
@@ -97,10 +97,17 @@ const LOADOUTS: Record<number, [Wall, Wall]> = {
 
 const YEARS = Object.keys(LOADOUTS).map(Number);
 
+/** On an Intel build, the year's Thunderbolt in place of its fastest USB-C: 3 from 2016, 4 from 2021. */
+function thunderbolt(part: string, year: number): string {
+  if (year >= 2021 && part === "usb4-40g") return "thunderbolt-4";
+  if (year >= 2016 && year <= 2020 && part === "usb-c-10g") return "thunderbolt-3";
+  return part;
+}
+
 /** The year's default ports, left wall then right; the nearest year's outside 2006 to 2026. */
-export function defaultPorts(year: number): BuildPort[] {
+export function defaultPorts(year: number, intel = false): BuildPort[] {
   const y = YEARS.reduce((a, b) => (Math.abs(b - year) < Math.abs(a - year) ? b : a));
   const [left, right] = LOADOUTS[y];
-  const on = (side: Side) => (part: string): BuildPort => ({ part, side });
+  const on = (side: Side) => (part: string): BuildPort => ({ part: intel ? thunderbolt(part, y) : part, side });
   return [...left.map(on("left")), ...right.map(on("right"))];
 }

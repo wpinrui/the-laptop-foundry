@@ -378,7 +378,10 @@ function PortDetail({
         type="button"
         className="fd-text bd-default-ports"
         onClick={() => {
-          set((b) => ({ ...b, ports: defaultPorts(b.year) }));
+          set((b) => {
+            const cpu = CONTENT.parts.find((p) => p.id === b.parts.processor?.[0]?.part);
+            return { ...b, ports: defaultPorts(b.year, !!cpu?.provides?.includes("platform:intel")) };
+          });
           onPort(0);
         }}
       >

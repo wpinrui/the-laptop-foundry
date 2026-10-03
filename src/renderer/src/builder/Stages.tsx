@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useDeferredValue, useMemo, useState } from "react";
 import {
   available,
   type Axis,
@@ -17,6 +17,7 @@ import {
   rivalSubject,
   type PerimSides,
   type Signature,
+  type Subject,
   solve,
   perimBand,
   perimZones,
@@ -27,6 +28,8 @@ import {
 } from "../engine";
 import { insideLitres, Silhouette, silhouetteExtent } from "./bodyShape";
 import { useMarket } from "../market/markets";
+import { batteryOf, gamesOf } from "../engine/market/stats";
+import { bestSegments } from "../review/segments";
 import { BatteryFields } from "./BatteryFields";
 import { FanField, GrillField } from "./FanField";
 import { SpeakerGrillField } from "./SpeakerGrillField";
@@ -686,6 +689,70 @@ function snapPrice(v: number): number {
   return Math.max(9, Math.round(v / 10) * 10 - 1);
 }
 
+/** The player's build among the rivals: an id no rival has. */
+const MINE = "__mine";
+
+interface CompareRow {
+  id: string;
+  name: string;
+  own: boolean;
+  /** Its best buyer segment's short name, and its market score there. */
+  cls: string | null;
+  score: number | null;
+  /** Mean frame rate in the year's games at high: sustained processor and graphics together. */
+  fps: number | null;
+  /** Hours of web browsing. */
+  hours: number | null;
+  kg: number | null;
+  price: number;
+}
+
+type Metric = "score" | "fps" | "hours" | "kg" | "price";
+/** Which way is better per figure: up, or down for weight and price. */
+const BETTER: Record<Metric, 1 | -1> = { score: 1, fps: 1, hours: 1, kg: -1, price: -1 };
+
+/** The rivals nearest the price, each figure green where it beats the player's build and red where it is worse. */
+function CompareTable({ rows }: { rows: CompareRow[] }) {
+  const mine = rows[0];
+  const tone = (r: CompareRow, k: Metric): string | undefined => {
+    const a = r[k];
+    const b = mine[k];
+    if (r.own || a === null || b === null || a === b) return undefined;
+    return (a - b) * BETTER[k] > 0 ? "up" : "down";
+  };
+  const cell = (r: CompareRow, k: Metric, text: string | null) => (
+    <td className={tone(r, k)}>{text ?? ""}</td>
+  );
+  return (
+    <table className="bd-cmp">
+      <thead>
+        <tr>
+          <th />
+          <th>Class</th>
+          <th>Mkt</th>
+          <th>FPS</th>
+          <th>Batt</th>
+          <th>kg</th>
+          <th>Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.id} className={r.own ? "mine" : undefined}>
+            <th title={r.name}>{r.name}</th>
+            <td>{r.cls ?? ""}</td>
+            {cell(r, "score", r.score === null ? null : String(r.score))}
+            {cell(r, "fps", r.fps === null ? null : String(r.fps))}
+            {cell(r, "hours", r.hours === null ? null : r.hours.toFixed(1))}
+            {cell(r, "kg", r.kg === null ? null : r.kg.toFixed(2))}
+            {cell(r, "price", money(r.price))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 export function PriceColumn({
   build,
   fit,
@@ -716,22 +783,44 @@ export function PriceColumn({
   const priced = cost > 0;
   const price = build.price ?? snapPrice(cost * PRICE_OVER_COST);
   const opened = useMarket(build.year);
-  const rivals = useMemo(() => {
+  // The build against the year's rivals nearest its price: the player's row first, then theirs.
+  // It follows the slider a beat behind, so dragging the price never waits on the table.
+  const shownBuild = useDeferredValue(build);
+  const rows = useMemo(() => {
+    const build = shownBuild;
+    const price = build.price ?? snapPrice(cost * PRICE_OVER_COST);
     if (!priced || !opened) return [];
-    return [...rivalsFor(build.year)]
-      .sort(
-        (a, b) =>
-          Math.abs((a.build.price ?? 0) - price) -
-          Math.abs((b.build.price ?? 0) - price),
-      )
-      .slice(0, 3)
-      .map((r) => ({
-        id: r.id,
-        name: r.name,
-        price: r.build.price ?? 0,
-        kg: factsOf(rivalSubject(r)).kg,
-      }));
-  }, [priced, opened, build.year, price]);
+    const field = rivalsFor(build.year).map(rivalSubject);
+    const near = [...field]
+      .sort((a, b) => Math.abs((a.build.price ?? 0) - price) - Math.abs((b.build.price ?? 0) - price))
+      .slice(0, 4);
+    // The player's own figures need a build that solves and simulates.
+    const mine: Subject = { id: MINE, name: name.trim() || "Yours", company: "", build: { ...build, price } };
+    let ok = valid;
+    if (ok)
+      try {
+        factsOf(mine);
+      } catch {
+        ok = false;
+      }
+    const best = bestSegments(ok ? [mine, ...field] : field);
+    const row = (s: Subject, own: boolean, measured: boolean): CompareRow => {
+      const f = measured ? factsOf(s) : null;
+      const b = best.get(s.id);
+      return {
+        id: s.id,
+        name: own ? s.name : `${s.company} ${s.name}`,
+        own,
+        cls: b?.segment ?? null,
+        score: b ? Math.round(b.score) : null,
+        fps: f ? Math.round(gamesOf(f.r)) : null,
+        hours: f ? Math.round(batteryOf(f.m) * 10) / 10 : null,
+        kg: f ? Math.round(f.kg * 100) / 100 : null,
+        price: s.build.price ?? 0,
+      };
+    };
+    return [row(mine, true, ok), ...near.map((s) => row(s, false, true))];
+  }, [priced, opened, shownBuild, cost, valid, name]);
   const lo = Math.max(1, Math.round(cost * 0.5));
   const hi = Math.max(lo + 10, Math.round(cost * 3));
   const margin = price - cost;
@@ -783,16 +872,7 @@ export function PriceColumn({
               </span>
             </div>
           </div>
-          <div className="bd-rivals">
-            {rivals.map((r) => (
-              <div key={r.id} className="bd-rival">
-                <b>{r.name}</b>
-                <span>
-                  {r.kg.toFixed(2)} kg <em>{money(r.price)}</em>
-                </span>
-              </div>
-            ))}
-          </div>
+          {rows.length > 1 && <CompareTable rows={rows} />}
         </>
       )}
       <div className="bd-price-actions">

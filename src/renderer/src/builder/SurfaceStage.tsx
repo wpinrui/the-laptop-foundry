@@ -115,7 +115,14 @@ export function SurfaceColumn({
   item,
   port,
   onPort,
-}: StageProps & { item: SurfaceItem; port: number; onPort: (i: number) => void }) {
+  onSide,
+}: StageProps & {
+  item: SurfaceItem;
+  port: number;
+  onPort: (i: number) => void;
+  /** The player picked a wall: the camera turns to it. Nothing else turns it. */
+  onSide?: (s: Side) => void;
+}) {
   const rep = fit.place;
   return (
     <>
@@ -204,7 +211,7 @@ export function SurfaceColumn({
             <Centred />
           </>
         )}
-        {item === "ports" && <PortDetail build={build} fit={fit} set={set} port={port} onPort={onPort} />}
+        {item === "ports" && <PortDetail build={build} fit={fit} set={set} port={port} onPort={onPort} onSide={onSide} />}
         {fit.problems
           .filter(
             (p) =>
@@ -223,7 +230,21 @@ export function SurfaceColumn({
   );
 }
 
-function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit; set: SetBuild; port: number; onPort: (i: number) => void }) {
+function PortDetail({
+  build,
+  fit,
+  set,
+  port,
+  onPort,
+  onSide,
+}: {
+  build: Build;
+  fit: Fit;
+  set: SetBuild;
+  port: number;
+  onPort: (i: number) => void;
+  onSide?: (s: Side) => void;
+}) {
   const layout = CONTENT.layouts.find((l) => l.id === build.layout);
   const sides = layout?.portSides ?? [];
   const bp = build.ports[port];
@@ -248,7 +269,8 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
   const walls = [...sides, ...build.ports.map((p) => p.side).filter((s) => !sides.includes(s))].filter(
     (s, i, a) => a.indexOf(s) === i,
   );
-  // The player picks a wall first, then configures the ports on it.
+  // The player picks a wall first, then configures the ports on it. The list follows the
+  // selected port's wall; the camera turns only when the player picks a wall here.
   const [wall, setWall] = useState<Side>(bp?.side ?? sides[0] ?? "left");
   useEffect(() => {
     if (bp && bp.side !== wall) setWall(bp.side);
@@ -256,6 +278,7 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
   const onWall = build.ports.map((p, i) => ({ p, i })).filter((x) => x.p.side === wall);
   const pickWall = (w: Side) => {
     setWall(w);
+    onSide?.(w);
     const first = build.ports.findIndex((p) => p.side === w);
     onPort(first >= 0 ? first : -1);
   };
@@ -355,6 +378,15 @@ function PortDetail({ build, fit, set, port, onPort }: { build: Build; fit: Fit;
           <div className="bd-port-head">
             <b>{part.name}</b>
           </div>
+          {/* Another type in its place: same wall, same place in the order, the rest of it kept. */}
+          <Dropdown
+            label="Replace port"
+            value={bp.part}
+            options={portOptions(build)}
+            onChange={(id) =>
+              set((b) => ({ ...b, ports: b.ports.map((p, j) => (j === port ? { ...p, part: id } : p)) }))
+            }
+          />
           {rep && (
             <>
               <Line label={bp.side === "left" || bp.side === "right" ? "From rear" : "From left"}>

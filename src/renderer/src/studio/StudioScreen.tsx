@@ -405,6 +405,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             onOpen={(o) => setMenu(o ? "set" : null)}
             button={
               <>
+                <em className="st-label">Scenes</em>
                 <SetSwatch set={sceneSet} size={18} />
                 <span>{SET_NAMES[sceneSet]}</span>
               </>
@@ -431,6 +432,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             onOpen={(o) => setMenu(o ? "broll" : null)}
             button={
               <>
+                <em className="st-label">B-roll</em>
                 <span className="st-broll-swatch">
                   <SetSwatch set={brollSet} size={18} />
                 </span>
@@ -456,6 +458,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             ))}
           </Drop>
           <div className="st-ratios">
+            <em className="st-label">Ratio</em>
             {(["9:16", "1:1", "16:9"] as Ratio[]).map((r) => (
               <button key={r} type="button" className={`st-square${r === ratio ? " on" : ""}`} onClick={() => setRatio(r)}>
                 <i className={`st-ratio r${r.replace(":", "x")}`} />
@@ -468,8 +471,9 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             wide
             button={
               <>
+                <em className="st-label">Voice</em>
                 <Icon d={voice ? ICON.speaker : ICON.mute} size={22} />
-                <span className="st-voice-name">{voice ? capital(voice) : ""}</span>
+                <span className="st-voice-name">{voice ? capital(voice) : "None"}</span>
               </>
             }
           >
@@ -497,7 +501,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
                       setMenu(null);
                     }}
                   >
-                    <span>{v ? capital(v) : ""}</span>
+                    <span>{v ? capital(v) : "None"}</span>
                     <span className="st-pace">
                       <i style={{ height: u(bars ? 6 : 0) }} />
                       <i style={{ height: u(bars > 1 ? 11 : 0) }} />
@@ -509,6 +513,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             })}
           </Drop>
           <div className={`st-dur${over ? " over" : words.length ? "" : " empty"}`}>
+            <em className="st-label">Length</em>
             <b>{fmt(total)}</b>
             <div>
               <i className="fill" style={{ width: `${Math.min(100, (total / MAX_SECONDS) * 100)}%` }} />
@@ -520,6 +525,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             Finish
           </button>
         </div>
+        <em className="st-label st-at-script">Script</em>
         <textarea
           className="st-script"
           value={text}
@@ -538,6 +544,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
             )
           }
         />
+        <em className="st-label st-at-view">Preview</em>
         <div className="st-view">
           <div className="st-view-box">
             {program ? (

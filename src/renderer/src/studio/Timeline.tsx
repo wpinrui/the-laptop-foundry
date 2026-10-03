@@ -192,22 +192,29 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
     <>
       <div className="st-tiles">
         <div>
+          <em className="st-label">Shots</em>
+          <div>
           {SHOTS.map((k) => (
             <div key={k} className="st-tile" onPointerDown={(e) => tileDown(k, e)}>
               <Icon d={ICON[k as keyof typeof ICON]} size={24} width={1.6} />
               <span>{LABEL[k]}</span>
             </div>
           ))}
+          </div>
         </div>
         <div>
+          <em className="st-label">Cards</em>
+          <div>
           {CARDS.map((k) => (
             <div key={k} className="st-tile card" onPointerDown={(e) => tileDown(k, e)}>
               <Icon d={ICON[k as keyof typeof ICON]} size={24} width={1.6} />
               <span>{LABEL[k]}</span>
             </div>
           ))}
+          </div>
         </div>
       </div>
+      <em className="st-label st-at-track">Timeline</em>
       <div ref={track} className="st-track">
         <div ref={inner} className="st-track-in" style={{ width: u(geo.width + 40) }}>
           {gaps.map((g) => (

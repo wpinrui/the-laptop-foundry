@@ -433,13 +433,20 @@ export function App() {
     const id = company.id;
     const v = tvVideos.find((x) => x.file === file);
     setWatched((w) => new Set(w).add(file));
-    if (!v || tv?.file === file) return;
+    if (!v) return;
+    // Watching plays full screen, over the place; the TV shows it too.
+    if (tv?.file === file) {
+      setFull(tv);
+      return;
+    }
     void loadVideo(id, file).then((blob) => {
       if (!blob) return;
+      const next = { file, url: URL.createObjectURL(blob), blob, name: `${name} ${v.name} ${v.label}`.trim(), label: v.label, model: v.name };
       setTv((was) => {
         if (was && was !== full) URL.revokeObjectURL(was.url);
-        return { file, url: URL.createObjectURL(blob), blob, name: `${name} ${v.name} ${v.label}`.trim(), label: v.label, model: v.name };
+        return next;
       });
+      setFull(next);
     });
   };
   // A finished commercial: recorded with the company, its wheel result on the laptop's next quarter, its render queued.
@@ -555,7 +562,6 @@ export function App() {
     />
   );
 
-  if (full) return <VideoScreen key={full.url} video={full} onBack={() => setFull(null)} />;
   if (map && !away) return map;
   // Each place keeps the same shape with the map over it or not, so opening the map never remounts the place.
   if (company && here.at === "studio")
@@ -752,7 +758,7 @@ export function App() {
           onMap={leaveOffice}
           onEndQuarter={endQuarter}
           resolving={resolving}
-          blocked={!!marketView || !!statement || system || away}
+          blocked={!!marketView || !!statement || system || away || !!full}
           actions={actions}
           library={company.models.filter((x) => x.reviewed).map(subject)}
           sound={settings.sound}
@@ -902,6 +908,8 @@ export function App() {
   return (
     <SystemActions.Provider value={company ? { onNew: () => leaveCompany("new"), onLoad: () => leaveCompany("load") } : null}>
       {view}
+      {/* A video full screen, over the place: closing it is straight back, nothing reloaded. */}
+      {full && <VideoScreen key={full.url} video={full} onBack={() => setFull(null)} />}
       {arrival.key && arrival.stage !== "done" && (
         <Travel
           key={arrival.key}

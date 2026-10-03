@@ -450,43 +450,50 @@ function Market({ company, campaign }: Ctx & { campaign: CampaignState }) {
   return <MarketScreen campaign={campaign} models={company.models} company={company.name} tab={tab} onTab={setTab} />;
 }
 
-function Videos({ card, playing, onWatch }: { card: TvCard; playing: boolean; onWatch: (file: string) => void }) {
+function Videos({ card, onWatch }: { card: TvCard; playing: boolean; onWatch: (file: string) => void }) {
+  const isAd = (file: string) => file.startsWith("ad-");
+  const shorts = card.videos.filter((v) => !isAd(v.file));
+  const ads = card.videos.filter((v) => isAd(v.file));
+  // Shorts and commercials on their own tabs; commercials first while one is still being made.
+  const [tab, setTab] = useState<"shorts" | "ads">(() => (card.pending.length > 0 || shorts.length === 0 ? "ads" : "shorts"));
+  const list = tab === "ads" ? ads : shorts;
   return (
     <div className="of-videos">
-      {card.pending.map((p) => (
-        <div key={p.file} className="of-short pending">
-          <span>
-            <small>Commercial</small>
-            <b>{p.name}</b>
-            <span className="of-render">
-              <i style={{ width: `${Math.round((p.progress ?? 0) * 100)}%` }} />
-            </span>
-          </span>
-          <em>{p.progress === null ? "Queued" : `${Math.round(p.progress * 100)}%`}</em>
-        </div>
-      ))}
-      {card.videos.map((v) => {
-        const on = playing && card.playing === v.file;
-        return (
-          <button key={v.file} type="button" className={`of-short${on ? " on" : ""}`} onClick={() => onWatch(v.file)}>
-            {v.poster && (
-              <i>
-                <img src={v.poster} alt="" />
-              </i>
-            )}
-            <span>
-              <small>{v.label}</small>
-              <b>{v.name}</b>
-            </span>
-            <em>{on ? "Replay" : "Watch"}</em>
-          </button>
-        );
-      })}
-      {playing && card.url && (
-        <button type="button" className="fd-text" onClick={card.onFull}>
-          Full screen
+      <div className="of-tabs">
+        <button type="button" className={tab === "shorts" ? "on" : undefined} onClick={() => setTab("shorts")}>
+          Shorts
         </button>
-      )}
+        <button type="button" className={tab === "ads" ? "on" : undefined} onClick={() => setTab("ads")}>
+          Commercials
+        </button>
+      </div>
+      {tab === "ads" &&
+        card.pending.map((p) => (
+          <div key={p.file} className="of-short pending">
+            <span>
+              <small>Commercial</small>
+              <b>{p.name}</b>
+              <span className="of-render">
+                <i style={{ width: `${Math.round((p.progress ?? 0) * 100)}%` }} />
+              </span>
+            </span>
+            <em>{p.progress === null ? "Queued" : `${Math.round(p.progress * 100)}%`}</em>
+          </div>
+        ))}
+      {list.map((v) => (
+        <button key={v.file} type="button" className="of-short" onClick={() => onWatch(v.file)}>
+          {v.poster && (
+            <i>
+              <img src={v.poster} alt="" />
+            </i>
+          )}
+          <span>
+            <small>{v.label}</small>
+            <b>{v.name}</b>
+          </span>
+          <em>Watch</em>
+        </button>
+      ))}
     </div>
   );
 }

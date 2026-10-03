@@ -347,6 +347,7 @@ export function Rig({
   arrive,
   walk,
   active,
+  zoom,
 }: {
   data: OfficeData;
   target: Pose | null;
@@ -358,8 +359,12 @@ export function Rig({
   walk: RefObject<Walk>;
   /** Keys and mouse move the player. */
   active: boolean;
+  /** In free roam: the field of view the wheel asks for, as a share of the default. */
+  zoom?: RefObject<number>;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  // The field of view as it eases toward the wheel's, a share of the default.
+  const scale = useRef(1);
   const size = useThree((s) => s.size);
   const clock = useRef(0);
   const tween = useRef<{ from: Pose; to: Pose; at: number; dur: number } | null>(null);
@@ -454,7 +459,11 @@ export function Rig({
 
   useFrame((_, dt) => {
     clock.current += dt;
-    const fov = fovFor(size.width / size.height);
+    // The wheel's zoom holds only while walking; anywhere else the view is the default.
+    const want = live.current.free ? (zoom?.current ?? 1) : 1;
+    scale.current += (want - scale.current) * Math.min(1, dt * 10);
+    if (Math.abs(want - scale.current) < 0.001) scale.current = want;
+    const fov = fovFor(size.width / size.height) * scale.current;
     if (Math.abs(camera.fov - fov) > 0.01) {
       camera.fov = fov;
       camera.updateProjectionMatrix();

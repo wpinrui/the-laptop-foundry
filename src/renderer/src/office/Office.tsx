@@ -22,12 +22,13 @@ import "../cafe/cafe.css";
 import "./office.css";
 
 // The Office: the company's loft as a 3D menu. The arrow keys step round its
-// stations, each a fixed view with its panel open on the view's calm side. Tab
-// walks the room in first person, where the laptops on the product wall can
-// be used as in the cafe, and Tab again comes back to the nearest station.
-// In from the map the player stands beside the Desk in free roam. M opens the
-// world map over the office. Escape steps back to free roam, from a station or
-// a laptop; in free roam it opens the system menu. A
+// stations, each a fixed view with its panel open on the view's calm side.
+// Free roam walks the room in first person, the panels hidden and the wheel
+// zooming, where the laptops on the product wall can be used as in the cafe;
+// aimed at a station's part of the room, E opens it. In from the map the
+// player stands beside the Desk in free roam. M opens the world map over the
+// office. Escape steps back to free roam, from a station or a laptop; in free
+// roam it opens the system menu. A
 // strip along the top carries the quarter, the cash, last quarter's profit
 // and End quarter wherever the player is.
 
@@ -70,6 +71,11 @@ function Keys({ list }: { list: Prompt[] }) {
     </div>
   );
 }
+
+/** The narrowest free roam zoom, as a share of the default field of view: 30 degrees of 50. */
+const ZOOM_MIN = 0.6;
+/** Each wheel notch widens or narrows the view by this factor. */
+const ZOOM_STEP = 1.08;
 
 /** The desk computer's id among the things in use. */
 const DESK = DESK_PC_ID;
@@ -202,27 +208,28 @@ export function Office({
     // biome-ignore lint/correctness/useExhaustiveDependencies: stopUsing only sets state
     [at, onAt, unlock],
   );
-  // Free roam ends at the station nearest where the player stands.
-  const nearest = (): StationId => {
-    if (!data) return "desk";
-    let best: StationId = "desk";
-    let d = Number.POSITIVE_INFINITY;
-    for (const id of ring) {
-      const s = data.stands[id];
-      if (!s) continue;
-      const k = Math.hypot(s.x - walk.current.pos.x, s.z - walk.current.pos.z);
-      if (k < d) {
-        d = k;
-        best = id;
-      }
-    }
-    return best;
-  };
+  /** Free roam's zoom: the field of view as a share of the default, set by the wheel. */
+  const zoom = useRef(1);
+  // Out of free roam the view is the default again.
+  useEffect(() => {
+    if (!free) zoom.current = 1;
+  }, [free]);
   const enterFree = () => {
     onAt({ ...at, arrive: false });
     setFree(true);
     lock();
   };
+
+  // In free roam the wheel zooms, not while a laptop is in use or something is open over the office.
+  useEffect(() => {
+    const wheel = (e: WheelEvent) => {
+      const k = keys.current;
+      if (!k.free || k.used || k.blocked || e.deltaY === 0) return;
+      zoom.current = Math.min(1, Math.max(ZOOM_MIN, zoom.current * (e.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP)));
+    };
+    window.addEventListener("wheel", wheel, { passive: true });
+    return () => window.removeEventListener("wheel", wheel);
+  }, []);
 
   // The TV stops when the view leaves it.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the station and free roam are the triggers
@@ -233,8 +240,8 @@ export function Office({
   // An archived laptop on the wall, aimed at in free roam, can be unarchived where it stands.
   const shut = free && !used && aim?.kind === "laptop" ? company.models.find((m) => m.id === aim.id && m.archived) : undefined;
   const unarchive = shut && actions ? () => actions.onUnarchive(shut.id) : undefined;
-  const keys = useRef({ station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem, unarchive });
-  keys.current = { station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem, unarchive };
+  const keys = useRef({ station, free, at, blocked, go, enterFree, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem, unarchive });
+  keys.current = { station, free, at, blocked, go, enterFree, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem, unarchive };
   const onAtRef = useRef(onAt);
   onAtRef.current = onAt;
   // biome-ignore lint/correctness/useExhaustiveDependencies: reads the latest through keys
@@ -267,15 +274,6 @@ export function Office({
         return;
       }
       if (typing()) return;
-      if (e.key === "Tab") {
-        if (k.used) return;
-        // Tab toggles free roam here; it never moves the focus.
-        e.preventDefault();
-        if (e.repeat) return;
-        if (k.free) k.go(k.nearest());
-        else k.enterFree();
-        return;
-      }
       if (e.code === "KeyM") {
         if (e.repeat || k.used) return;
         e.preventDefault();
@@ -407,7 +405,6 @@ export function Office({
   ];
   if ((station === "desk" || station === "products") && order.length > 1) stationKeys.push({ key: "↑↓", label: "Laptops" });
   if (station === "door") stationKeys.push({ key: "E", label: "Leave" });
-  stationKeys.push({ key: "Tab", label: "Free roam" });
   const osPage = look && usedSubject ? { node: <SlotView slot={slot} />, width: look.width, height: look.height, mm: look.mm } : null;
 
   return (
@@ -434,6 +431,7 @@ export function Office({
                     arrive={arriving}
                     walk={walk}
                     active={free && !blocked && !used}
+                    zoom={zoom}
                   />
                   <Picker data={d} laptops={boxes} bays={bays} free={free && !used && !blocked} onLock={lock} onAim={setAim} />
                   <Bays data={d} count={count} />
@@ -502,7 +500,6 @@ export function Office({
         <>
           {!used && <div className="cafe-dot" />}
           <Prompts list={prompts} using={using} title={shelfTitle} />
-          {!used && <Keys list={[{ key: "Tab", label: "Stations" }]} />}
           {full && osPage && (
             <div className="cafe-world">
               <FullPage page={osPage} />

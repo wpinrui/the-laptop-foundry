@@ -626,7 +626,7 @@
 }
 
 
-/* The key prompts along the bottom: round the stations, and in free roam. */
+/* The key prompts along the bottom, round the stations. */
 .of-keys {
   position: absolute;
   left: 0;

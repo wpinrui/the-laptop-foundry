@@ -416,7 +416,10 @@ export function useLaptopOs({
     return () => clearTimeout(id);
   }, [phase]);
 
-  const plug = useCallback(() => setPlugged((v) => !v), []);
+  const plug = useCallback(() => {
+    sfx("plug_in", { volume: 0.8 });
+    setPlugged((v) => !v);
+  }, []);
 
   const pct = battery ? Math.round((wh / battery.wh) * 100) : 100;
   // The low battery notice shows once each time the level first drops under 10%.

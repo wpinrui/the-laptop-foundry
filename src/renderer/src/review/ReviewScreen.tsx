@@ -1,4 +1,5 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { sfx } from "../audio/sfx";
 import {
   panelOf,
   type Review,
@@ -172,11 +173,13 @@ export function ReviewScreen({
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
   const open = () => {
+    sfx("laptop_lid_open", { volume: 0.8 });
     setBeat("open");
     const at = (ms: number, f: () => void) => timers.current.push(window.setTimeout(f, ms));
     at(SCREEN_ON_MS, () => setScreenOn(true));
     at(LOADED_MS, () => setLoaded(true));
     at(SCORE_MS, () => {
+      sfx("review_published", { volume: 0.8 });
       setBeat("score");
       onRevealed?.();
     });

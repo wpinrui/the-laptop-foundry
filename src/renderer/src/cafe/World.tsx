@@ -1,4 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
+import { stepper } from "../audio/sfx";
 import { type ReactNode, type RefObject, Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -28,6 +29,7 @@ const M = 1000;
 const ROOM = { x0: -7000, x1: 7000, z0: -3400, z1: 6600 };
 const EYE = 1620;
 const SPEED = 2000;
+const STEPS = stepper("tile");
 const LOOK = 0.0022;
 const REACH = 2000;
 /** How far away the door can be aimed at to leave, mm. */
@@ -343,6 +345,7 @@ function Player({
         pos.current.x += dx * SPEED * dt;
         pos.current.z += dz * SPEED * dt;
         collide(pos.current);
+        STEPS(pos.current);
       }
     }
     const l = look.current;

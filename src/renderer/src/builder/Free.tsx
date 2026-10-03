@@ -22,7 +22,7 @@ import type { Fit, Subject } from "../engine";
 import { Column, Entry } from "../foundry/Menus";
 import { SystemEntries } from "../foundry/SystemMenu";
 import { SoundColumn } from "../foundry/Volume";
-import { usePanelSound } from "../audio/sfx";
+import { sfx, stepper, usePanelSound } from "../audio/sfx";
 import { PLINTH_H } from "../foundry/Stage";
 import { BottomCover, Model } from "../viewer/Scene";
 import type { AimShelf } from "./Archive";
@@ -39,6 +39,7 @@ const FLOOR = PLINTH_H - 950;
 const EYE = FLOOR + 1620;
 const FOV = 62;
 const SPEED = 2000;
+const STEPS = stepper("wood");
 const LOOK = 0.0022;
 const REACH = 2000;
 /** How far away the door can be aimed at to leave, mm. */
@@ -412,6 +413,7 @@ export function Walker({
         pos.current.x += ((-Math.sin(yaw) * f + Math.cos(yaw) * r) / len) * SPEED * dt;
         pos.current.z += ((-Math.cos(yaw) * f - Math.sin(yaw) * r) / len) * SPEED * dt;
         collideIn(pos.current, ROOM, RECTS, BODY);
+        STEPS(pos.current);
       }
     }
     const e = enter.current;
@@ -897,6 +899,7 @@ export function FreeOverlay({
       } else if (e.code === "KeyO" && s.flipped) {
         patch({ coverOff: !s.coverOff, busy: true });
       } else if (e.code === "KeyL" && !s.flipped) {
+        sfx(s.lidOpen ? "laptop_lid_close" : "laptop_lid_open", { volume: 0.8 });
         patch({ lidOpen: !s.lidOpen, busy: true });
       }
     };

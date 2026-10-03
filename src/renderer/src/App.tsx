@@ -36,6 +36,8 @@ import { OFFICE_START, type OfficeAt } from "./office/stations";
 import type { OfficeActions, TvVideo } from "./office/Panels";
 
 const store = () => window.api.store;
+/** Whether the open company was last seen owing money, so the warning sounds once per fall below zero. */
+let wasOwing = false;
 
 function inchesOf(b: Build): number | undefined {
   return screenOf(b)?.diag;
@@ -375,7 +377,11 @@ export function App() {
     if (here.at === "office" && menu === "list" && !(run?.over && run.bankrupt)) return "office";
     return null;
   })();
-  if (placeKey !== arrival.key) setArrival({ key: placeKey, stage: placeKey ? "loading" : "done" });
+  if (placeKey !== arrival.key) {
+    // Arriving in a place closes its door behind the player.
+    if (placeKey) sfx("door_close_1", { volume: 0.6 });
+    setArrival({ key: placeKey, stage: placeKey ? "loading" : "done" });
+  }
   const loading = arrival.stage === "loading";
 
 
@@ -383,6 +389,12 @@ export function App() {
 
   const name = company?.name ?? "";
   const campaign = company?.campaign ? campaignOf(company.campaign) : null;
+  // Cash falling below zero warns once each time: a year ended owing money is bankruptcy.
+  const owing = !!campaign && !campaign.over && campaign.cash < 0;
+  if (owing !== wasOwing) {
+    wasOwing = owing;
+    if (owing) sfx("bankruptcy_warning", { volume: 0.8 });
+  }
   // Shows a new campaign state at once and saves it in the background; resolves once it is on disk.
   const apply = (next: CampaignState): Promise<void> => {
     if (!company) return Promise.resolve();
@@ -435,6 +447,10 @@ export function App() {
           s = step.run(s, ctx);
         }
         const next = advanceClock(s);
+        sfx("quarter_resolved", { volume: 0.8 });
+        if ((s.ledger[s.ledger.length - 1]?.revenue ?? 0) > 0) setTimeout(() => sfx("sale_cash_register", { volume: 0.7 }), 700);
+        const mine = (x: CampaignState) => x.awards.filter((a) => a.maker === null).length;
+        if (mine(next) > mine(campaign)) setTimeout(() => sfx("award_won", { volume: 0.9 }), 1500);
         // The Market screen opens on the quarter just played, with Continue.
         const played = s.ledger[s.ledger.length - 1]?.quarter;
         if (!next.over && played) {
@@ -491,7 +507,10 @@ export function App() {
   };
 
   // The world map over a place, the place paused underneath it as it was, the builder too; closing the map goes back into it.
-  const toMap = (from: InPlace) => setWhere({ at: "map", from });
+  const toMap = (from: InPlace) => {
+    sfx("door_open_1", { volume: 0.6 });
+    setWhere({ at: "map", from });
+  };
   const visit = (place: "workshop" | "cafe", m: SavedModel | null, office = false) => {
     if (m && !buildBlock(m.build)) withMarket(subject(m), (s) => setWhere({ at: place, model: m, subject: s, office }));
     else setWhere({ at: place, model: m, subject: null, office });
@@ -572,6 +591,7 @@ export function App() {
       from={where.from?.at ?? "menu"}
       studio={studioModels.length > 0}
       onGo={(to, m) => {
+        sfx("map_whoosh_long", { volume: 0.6 });
         // Going is the trip: the place under the map, the builder too, is left for the next.
         setOpen(null);
         if (to === "office") {

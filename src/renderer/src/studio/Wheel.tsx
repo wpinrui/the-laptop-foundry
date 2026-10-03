@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { sfx } from "../audio/sfx";
 import { pctLabel, WHEEL } from "../video/commercial";
 
 // The commercial's wheel, over the darkened studio: each wedge as wide as its
@@ -49,11 +50,38 @@ export function Wheel({ landed, name, colour, sandbox, onDone }: {
       setTurn(TURNS * 360 - w.mid - jitter);
     }, DELAY_MS);
     const b = setTimeout(() => setShown(true), DELAY_MS + SPIN_MS + 200);
+    const c = setTimeout(() => sfx("wheel_land", { volume: 0.7 }), DELAY_MS + SPIN_MS);
     return () => {
       clearTimeout(a);
       clearTimeout(b);
+      clearTimeout(c);
     };
   }, []);
+  // A tick each time a wedge edge passes the pointer, read from the face's turn as the transition runs it.
+  const face = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!spinning) return;
+    const edges = DRAW.map((i) => wedges[i].to);
+    const wedgeAt = (deg: number) => {
+      const a = (((-deg) % 360) + 360) % 360;
+      return edges.findIndex((e) => a < e);
+    };
+    let was = -1;
+    let raf = 0;
+    const end = performance.now() + SPIN_MS;
+    const frame = () => {
+      const el = face.current;
+      if (el) {
+        const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+        const w = wedgeAt((Math.atan2(m.b, m.a) * 180) / Math.PI);
+        if (was >= 0 && w !== was) sfx("wheel_tick", { volume: 0.5, gap: 25 });
+        was = w;
+      }
+      if (performance.now() < end) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [spinning, wedges]);
   const stops = DRAW.map((i) => wedges[i]).map((w) => `var(--vs-w${w.i}) ${w.from}deg ${w.to - 0.6}deg, var(--ground) ${w.to - 0.6}deg ${w.to}deg`).join(", ");
   const m = pctOf(landed);
   const pct = WHEEL[landed].pct;
@@ -62,6 +90,7 @@ export function Wheel({ landed, name, colour, sandbox, onDone }: {
     <div className="st-wheel">
       <div className="st-wheel-disc">
         <div
+          ref={face}
           className="st-wheel-face"
           style={{
             background: `conic-gradient(${stops})`,

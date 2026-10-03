@@ -40,7 +40,7 @@ export function useUiSounds() {
       }
       const at = performance.now();
       setTimeout(() => {
-        if (lastSpecific < at) sfx("ui_click", { volume: 0.55 });
+        if (lastSpecific < at - 150) sfx("ui_click", { volume: 0.55 });
       }, 60);
     };
     const over = (e: MouseEvent) => {
@@ -51,11 +51,23 @@ export function useUiSounds() {
         play("sfx/ui_hover", { volume: 0.25 });
       }
     };
+    // The laptop's own screen: a trackpad click for a press, a key for each key typed.
+    const press = (e: PointerEvent) => {
+      if ((e.target as Element | null)?.closest?.(".os")) sfx("trackpad_click", { volume: 0.5 });
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.repeat || !(e.target as Element | null)?.closest?.(".os")) return;
+      if (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter") sfxAny("key", 5, 0, { volume: 0.45, gap: 0 });
+    };
     document.addEventListener("click", click, true);
     document.addEventListener("mouseover", over, true);
+    document.addEventListener("pointerdown", press, true);
+    document.addEventListener("keydown", key, true);
     return () => {
       document.removeEventListener("click", click, true);
       document.removeEventListener("mouseover", over, true);
+      document.removeEventListener("pointerdown", press, true);
+      document.removeEventListener("keydown", key, true);
     };
   }, []);
 }
@@ -114,4 +126,24 @@ export function useBuilderSounds(build: Build, problems: number) {
     if (problems === 0 && had.current > 0) sfx("builder_model_complete", { volume: 0.8 });
     had.current = problems;
   }, [problems]);
+}
+
+/** Footsteps for one place: a step every so far walked, on its floor. */
+export function stepper(floor: "wood" | "carpet" | "tile") {
+  let last: { x: number; z: number } | null = null;
+  let walked = 0;
+  let at = 0;
+  return (p: { x: number; z: number }) => {
+    const now = performance.now();
+    const d = last ? Math.hypot(p.x - last.x, p.z - last.z) : 0;
+    // A pause, or a jump the walking did not make, starts the count again, nearly a step in.
+    if (!last || d > 300 || now - at > 250) walked = 550;
+    else walked += d;
+    last = { x: p.x, z: p.z };
+    at = now;
+    if (walked >= 700) {
+      walked = 0;
+      sfxAny(`step_${floor}`, 5, 0, { volume: 0.4, gap: 0, rate: 0.92 + Math.random() * 0.16 });
+    }
+  };
 }

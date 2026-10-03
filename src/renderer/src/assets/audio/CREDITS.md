@@ -58,6 +58,11 @@ Freesound files were taken from the site's HQ preview MP3 of each sound (same li
 | sfx/wheel_land.ogg | impactBell_heavy_000.ogg (Impact Sounds pack) | Kenney (kenney.nl) | CC0 1.0 | https://kenney.nl/assets/impact-sounds | not required |
 | sfx/map_whoosh.ogg | Whoosh | qubodup (freesound.org) | CC0 1.0 | https://freesound.org/people/qubodup/sounds/60013/ | not required |
 | sfx/map_whoosh_long.ogg | quick woosh | florianreichelt (freesound.org) | CC0 1.0 | https://freesound.org/people/florianreichelt/sounds/683101/ | not required |
+| sfx/key_0.ogg | Keyboard Typing (one keystroke cut from it) | Trollarch2 (freesound.org) | CC0 1.0 | https://freesound.org/people/Trollarch2/sounds/331656/ | not required |
+| sfx/key_1.ogg | Keyboard Typing (one keystroke cut from it) | Trollarch2 (freesound.org) | CC0 1.0 | https://freesound.org/people/Trollarch2/sounds/331656/ | not required |
+| sfx/key_2.ogg | Keyboard Typing (one keystroke cut from it) | Trollarch2 (freesound.org) | CC0 1.0 | https://freesound.org/people/Trollarch2/sounds/331656/ | not required |
+| sfx/key_3.ogg | Keyboard Typing (one keystroke cut from it) | Trollarch2 (freesound.org) | CC0 1.0 | https://freesound.org/people/Trollarch2/sounds/331656/ | not required |
+| sfx/key_4.ogg | Keyboard Typing (one keystroke cut from it) | Trollarch2 (freesound.org) | CC0 1.0 | https://freesound.org/people/Trollarch2/sounds/331656/ | not required |
 | sfx/keyboard_typing_loop.ogg | Keyboard Typing | Trollarch2 (freesound.org) | CC0 1.0 | https://freesound.org/people/Trollarch2/sounds/331656/ | not required |
 | sfx/step_wood_0.ogg | footstep_wood_000.ogg (Impact Sounds pack) | Kenney (kenney.nl) | CC0 1.0 | https://kenney.nl/assets/impact-sounds | not required |
 | sfx/step_wood_1.ogg | footstep_wood_001.ogg (Impact Sounds pack) | Kenney (kenney.nl) | CC0 1.0 | https://kenney.nl/assets/impact-sounds | not required |

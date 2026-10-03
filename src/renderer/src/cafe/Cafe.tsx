@@ -222,8 +222,8 @@ export function Cafe({
     onMap();
   };
 
-  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug, onMap, away, onUnarchive });
-  state.current = { pose, using, full, paused, aim, active, resume, onPlug, onMap, away, onUnarchive };
+  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug, onMap, away, onUnarchive, soundMenu });
+  state.current = { pose, using, full, paused, aim, active, resume, onPlug, onMap, away, onUnarchive, soundMenu };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
@@ -231,6 +231,8 @@ export function Cafe({
       // Escape steps back to walking: out of full screen, off the laptop, up from the seat. Walking, it pauses.
       if (e.code === "Escape") {
         if (s.paused) {
+          // The Sound menu steps back to the pause menu itself.
+          if (s.soundMenu) return;
           if (performance.now() - pausedAt.current > 300) s.resume();
         } else if (typing(e)) blurField();
         else if (s.full) {

@@ -4,9 +4,10 @@ import { DEMAND_SCALE, RETAILER_CUT, STARTING_PERCEPTION } from "../campaign/con
 const RANKING_REACH = 0.02;
 import { MAX_PRICE, scaleFactor } from "../campaign/release";
 import { criticsFactor, hasOptical, noveltyFactor, opticalFactor, packFactor, priceFactor, rivalBrand, scoreFactor } from "../campaign/sales";
+import { available, CONTENT } from "../content";
 import { costOf } from "../price";
 import { solve } from "../solve";
-import type { Build } from "../types";
+import type { Build, Part, Side } from "../types";
 import type { Rival } from "./field";
 import { generateModel, hashOf, rngOf } from "./generate";
 import { LINES, linesIn, priceFor, shapeFor } from "./makers";
@@ -175,6 +176,46 @@ interface Candidate extends Priced {
   priorities: StatWeights;
 }
 
+/** Most passes the port and optical search makes. */
+const IO_PASSES = 6;
+
+function portShape(p: Part | undefined) {
+  return p && !Array.isArray(p.shape) && p.shape.kind === "port" ? p.shape : undefined;
+}
+
+/**
+ * Every one-step change to the ports and the optical drive: drop a port, swap
+ * one for another of its group, add one on any wall the layout has, or add or
+ * drop the drive. A build keeps at least one port that charges it. The fit
+ * decides what physically fits.
+ */
+function ioVariants(b: Build): Build[] {
+  const ports = CONTENT.parts.filter((p) => p.category === "port" && p.id !== "dc-jack" && available(p, b.year));
+  const sides: Side[] = CONTENT.layouts.find((l) => l.id === b.layout)?.portSides ?? ["left", "right"];
+  const byId = (id: string) => CONTENT.parts.find((p) => p.id === id);
+  const charges = (list: Build["ports"]) => list.some((x) => portShape(byId(x.part))?.charges);
+  const out: Build[] = [];
+  b.ports.forEach((bp, i) => {
+    const rest = b.ports.filter((_, j) => j !== i);
+    if (charges(rest)) out.push({ ...b, ports: rest });
+    const group = portShape(byId(bp.part))?.group;
+    for (const p of ports) {
+      if (p.id === bp.part || portShape(p)?.group !== group) continue;
+      const swapped = b.ports.map((x, j) => (j === i ? { ...x, part: p.id } : x));
+      if (charges(swapped)) out.push({ ...b, ports: swapped });
+    }
+  });
+  for (const p of ports) for (const side of sides) out.push({ ...b, ports: [...b.ports, { part: p.id, side }] });
+  if (b.parts.optical?.length) {
+    const { optical: _, ...parts } = b.parts;
+    out.push({ ...b, parts });
+  } else {
+    const odd = CONTENT.parts.find((p) => p.category === "optical" && available(p, b.year));
+    if (odd) out.push({ ...b, parts: { ...b.parts, optical: [{ part: odd.id }] } });
+  }
+  return out;
+}
+
 function nudged(w: StatWeights, k: keyof StatWeights, d: number): StatWeights | null {
   const next = { ...w, [k]: Math.max(0, w[k] + d) };
   if (next[k] === w[k]) return null;
@@ -199,21 +240,23 @@ export function optimiseFor(
   const seg = segmentById(segment);
   const field = fieldOf(seg, year, rivals, brand);
   let tried = 0;
+  const evaluate = (build: Build, t: Template, pos: number, priorities: StatWeights): Candidate | null => {
+    try {
+      const fit = solve(build);
+      if (fit.problems.length > 0) return null;
+      const cost = costOf(build, fit).total;
+      const p = profileOf(`optimise-${seg.id}`, build);
+      const priced = bestPrice(p.stats, p.review, p.inches, p.pack, cost, field, opticalFactor(hasOptical(build), year, seg));
+      return { ...priced, build: { ...build, price: priced.price }, t, pos, priorities };
+    } catch {
+      return null;
+    }
+  };
   const measure = (t: Template, pos: number, priorities: StatWeights): Candidate | null => {
     tried++;
     const line = lineFor(t, seg, year, priorities);
     const g = generateModel(line, year, rngOf(hashOf(seg.id, t.line.id, year)), { pos });
-    if (!g.valid) return null;
-    try {
-      const fit = solve(g.build);
-      if (fit.problems.length > 0) return null;
-      const cost = costOf(g.build, fit).total;
-      const p = profileOf(line.id, g.build);
-      const priced = bestPrice(p.stats, p.review, p.inches, p.pack, cost, field, opticalFactor(hasOptical(g.build), year, seg));
-      return { ...priced, build: { ...g.build, price: priced.price }, t, pos, priorities };
-    } catch {
-      return null;
-    }
+    return g.valid ? evaluate(g.build, t, pos, priorities) : null;
   };
   const over = () => performance.now() - start > BUDGET_MS;
 
@@ -251,6 +294,20 @@ export function optimiseFor(
         }
       }
     }
+  }
+
+  // Then the ports and the drive: the best single change each pass, until none gains.
+  for (let pass = 0; pass < IO_PASSES && !over(); pass++) {
+    const from: Candidate = best;
+    let next: Candidate | null = null;
+    for (const b of ioVariants(from.build)) {
+      if (over()) break;
+      tried++;
+      const c = evaluate(b, from.t, from.pos, from.priorities);
+      if (c && c.profit > (next ?? from).profit) next = c;
+    }
+    if (!next) break;
+    best = next;
   }
   return {
     segment,

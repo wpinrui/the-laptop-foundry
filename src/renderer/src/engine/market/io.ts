@@ -71,8 +71,8 @@ const PORTS: Record<string, { fn: Fn; gbps: number; want: Curve }> = {
   "lock-slot": { fn: "lock", gbps: 0, want: [[2006, 0.2]] },
 };
 
-/** Each further port of the same function is worth this share of the one before. */
-const DUPLICATE = 0.5;
+/** Each further port of a function is worth this share of the one before: a second USB port helps, a second Ethernet jack does not. */
+const DUPLICATE: Record<Fn, number> = { usbA: 0.5, usbC: 0.5, video: 0.15, cards: 0.1, legacy: 0.2, net: 0, audio: 0, lock: 0 };
 /** How much lacking Bluetooth costs while it is an option, by year. */
 const BLUETOOTH_EXPECTED: Curve = [[2006, 0.3], [2009, 0.8]];
 
@@ -100,10 +100,10 @@ export function connectivityOf(build: Build, m: Measurements, content: Content):
     byFn.set(d.fn, list);
   }
   let points = 0;
-  for (const list of byFn.values()) {
+  for (const [fn, list] of byFn) {
     list.sort((a, b) => b - a);
     list.forEach((v, i) => {
-      points += v * DUPLICATE ** i;
+      points += v * DUPLICATE[fn] ** i;
     });
   }
   if (charge.size >= 2) points += 1;

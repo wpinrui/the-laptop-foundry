@@ -2290,3 +2290,31 @@
   padding-top: 0;
   border-top: 0;
 }
+
+/* Undo and redo, beside the lid slider. */
+.bd-undo {
+  display: flex;
+  gap: calc(6 * var(--u));
+}
+
+.bd-undo button {
+  display: grid;
+  place-items: center;
+  width: calc(32 * var(--u));
+  height: calc(32 * var(--u));
+  padding: 0;
+}
+
+.bd-undo button:disabled {
+  opacity: 0.35;
+}
+
+.bd-undo svg {
+  width: calc(18 * var(--u));
+  height: calc(18 * var(--u));
+}
+
+/* Under Add port: the era's default ports in place of the build's. */
+.bd-default-ports {
+  align-self: flex-start;
+}

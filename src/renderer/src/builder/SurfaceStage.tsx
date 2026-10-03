@@ -18,6 +18,7 @@ import { OptionChips, QualityField, type SetBuild, withPart } from "./Parts";
 import { problemText } from "./problems";
 import type { StageProps } from "./Stages";
 import { type DropOption, Dropdown } from "./Dropdown";
+import { defaultPorts } from "./defaultPorts";
 import { Chip, Chips, Label, Line, money, SliderField, Value } from "./ui";
 
 // What sits on the laptop's surfaces, each its own stage (the display on the
@@ -373,6 +374,16 @@ function PortDetail({
         </div>
       </div>
       <Dropdown label="Add port" value={null} placeholder="Add port" options={portOptions(build)} onChange={add} />
+      <button
+        type="button"
+        className="fd-text bd-default-ports"
+        onClick={() => {
+          set((b) => ({ ...b, ports: defaultPorts(b.year) }));
+          onPort(0);
+        }}
+      >
+        Load default ports for era
+      </button>
       {shown && bp && part && (
         <>
           <div className="bd-port-head">

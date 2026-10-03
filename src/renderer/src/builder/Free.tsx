@@ -797,8 +797,12 @@ export function FreeOverlay({
     else if (!state.paused && !state.using && !state.full) lock();
   }, [held, lock, unlock, state.paused, state.using, state.full]);
 
-  const live = useRef({ state, canUse, resume, archive, onMap, models, held });
-  live.current = { state, canUse, resume, archive, onMap, models, held };
+  const [soundMenu, setSoundMenu] = useState(false);
+  useEffect(() => {
+    if (!state.paused) setSoundMenu(false);
+  }, [state.paused]);
+  const live = useRef({ state, canUse, resume, archive, onMap, models, held, soundMenu });
+  live.current = { state, canUse, resume, archive, onMap, models, held, soundMenu };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const { state: s, canUse: runs, resume: back, archive: shelves, onMap: leave, models: made } = live.current;
@@ -806,6 +810,8 @@ export function FreeOverlay({
       // Escape steps back to free roam: out of full screen, off the laptop. In free roam it pauses.
       if (e.code === "Escape") {
         if (s.paused) {
+          // The Sound menu steps back to the pause menu itself.
+          if (live.current.soundMenu) return;
           if (performance.now() - pausedAt.current > 300) back();
         } else if (typing(e)) blurField();
         else if (s.full) {
@@ -896,10 +902,6 @@ export function FreeOverlay({
     return () => window.removeEventListener("keydown", key);
   }, [lock, unlock, pause, patch]);
 
-  const [soundMenu, setSoundMenu] = useState(false);
-  useEffect(() => {
-    if (!state.paused) setSoundMenu(false);
-  }, [state.paused]);
   const active = !state.paused && !state.full && !held;
   const screen = { key: "F", label: "Full screen" };
   let prompts: Prompt[] = [];

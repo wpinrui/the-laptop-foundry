@@ -60,14 +60,14 @@ export function StudioPlace({
   onFinish: (c: Commercial, facts: ShortFacts) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  const keycap = useRef<HTMLDivElement>(null);
   const at = useRef<ScreenAt | null>(null);
   const [paused, setPaused] = useState(false);
   const [goal, setGoal] = useState<Goal>("walk");
   const [ui, setUi] = useState<"screen" | "wheel" | null>(null);
   const [zoomed, setZoomed] = useState(false);
   const [origin, setOrigin] = useState({ x: 0, y: 0, w: window.innerWidth, h: window.innerHeight });
-  const [door, setDoor] = useState(false);
+  const [aim, setAim] = useState<"desk" | "door" | null>(null);
+  const door = aim === "door";
   const [spun, setSpun] = useState<{ landed: number; model: SavedModel | undefined } | null>(null);
   const expectUnlock = useRef(false);
   const pausedAt = useRef(0);
@@ -195,23 +195,7 @@ export function StudioPlace({
     return () => window.removeEventListener("keydown", key);
   }, [pause, unlock]);
 
-  // The E keycap under the desk screen, following it on the page while the player is near.
-  useEffect(() => {
-    let f = 0;
-    const move = () => {
-      f = requestAnimationFrame(move);
-      const el = keycap.current;
-      const a = at.current;
-      if (!el) return;
-      const on = !!a?.near && active;
-      el.classList.toggle("on", on);
-      if (a && on) el.style.transform = `translate(${a.rect.x + a.rect.w / 2}px, ${a.rect.y + a.rect.h}px)`;
-    };
-    f = requestAnimationFrame(move);
-    return () => cancelAnimationFrame(f);
-  }, [active]);
-
-  const prompts: Prompt[] = active && door ? [{ key: "E", label: "Leave" }] : [];
+  const prompts: Prompt[] = !active ? [] : door ? [{ key: "E", label: "Leave" }] : aim === "desk" ? [{ key: "E", label: "Make commercial" }] : [];
   const chip = rendering ?? (finished ? { file: finished, progress: 1 } : null);
   const chipAd = chip ? company.commercials?.find((c) => adFile(c.id) === chip.file) : undefined;
   const chipModel = chipAd ? company.models.find((m) => m.id === chipAd.model) : undefined;
@@ -241,7 +225,7 @@ export function StudioPlace({
               active={active}
               onAir={!!rendering}
               onArrive={arrive}
-              onAim={setDoor}
+              onAim={setAim}
               at={at}
             />
             {onReady && <Loaded onReady={onReady} />}
@@ -250,9 +234,6 @@ export function StudioPlace({
       </div>
       {active && <i className="cafe-dot" />}
       {active && <Prompts list={prompts} using={false} />}
-      <div ref={keycap} className="st-keycap">
-        <span>E</span>
-      </div>
       {ui === "screen" && (
         <StudioScreen
           company={company}

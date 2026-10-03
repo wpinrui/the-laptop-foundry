@@ -24,11 +24,11 @@ const FOV = 50;
 const WIDE = 16 / 9;
 /** Turntable turns, radians a second. */
 const SPIN = 0.35;
-/** How near stand_desk the player has to be for the desk to answer, mm. */
-const NEAR_DESK = 1300;
+/** How far away the desk screen can be aimed at to use it, mm. */
+const DESK_REACH = 2500;
 /** How far away the door can be aimed at to leave, mm. */
 const DOOR_REACH = 6000;
-/** The desk screen's glow: faint, and when the player is near. */
+/** The desk screen's glow: faint, and when the aim dot is on it. */
 const SCREEN_DIM = 0.35;
 const SCREEN_LIT = 1.1;
 const ON_AIR = 2.6;
@@ -265,8 +265,8 @@ function Rig({ data, goal, active, onArrive, onAim, at }: {
   /** Keys and mouse move the player. */
   active: boolean;
   onArrive: (g: Goal) => void;
-  /** The aim dot is on the door. */
-  onAim: (door: boolean) => void;
+  /** What the aim dot is on: the desk screen or the door. */
+  onAim: (aim: "desk" | "door" | null) => void;
   at: RefObject<ScreenAt | null>;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
@@ -279,8 +279,17 @@ function Rig({ data, goal, active, onArrive, onAim, at }: {
   live.current = { active, goal };
   const arrive = useRef(onArrive);
   arrive.current = onArrive;
-  const aimed = useRef(false);
+  const aimed = useRef<"desk" | "door" | null>(null);
   const ray = useMemo(() => new THREE.Raycaster(), []);
+  // The desk screen as something to aim at: its glass, with some depth.
+  const screenBox = useMemo(() => {
+    const s = data.screen;
+    const b = new THREE.Box3();
+    const p = new THREE.Vector3();
+    for (const [sx, sy, sz] of [[-1, -1, -1], [1, 1, 1], [-1, 1, -1], [1, -1, 1]])
+      b.expandByPoint(p.set((sx * s.w) / 2, (sy * s.h) / 2, sz * 60).applyQuaternion(s.pose.quat).add(s.pose.pos));
+    return b;
+  }, [data]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: placed once, on arrival
   useLayoutEffect(() => {
@@ -414,22 +423,28 @@ function Rig({ data, goal, active, onArrive, onAim, at }: {
       y1 = Math.max(y1, py);
     }
     const walking = live.current.goal === "walk" && !tween.current;
-    const near = walking && Math.hypot(camera.position.x - data.standDesk.x, camera.position.z - data.standDesk.z) < NEAR_DESK;
+    // What the aim dot is on, as in every free roam: the desk screen or the door, whichever is nearer.
+    let aim: "desk" | "door" | null = null;
+    if (walking) {
+      ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const hit = new THREE.Vector3();
+      let best = Number.POSITIVE_INFINITY;
+      if (ray.ray.intersectBox(screenBox, hit) && hit.distanceTo(ray.ray.origin) < DESK_REACH) {
+        best = hit.distanceTo(ray.ray.origin);
+        aim = "desk";
+      }
+      if (ray.ray.intersectBox(data.door, hit) && hit.distanceTo(ray.ray.origin) < Math.min(best, DOOR_REACH)) aim = "door";
+    }
+    const near = aim === "desk";
     at.current = { rect: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, near };
     if (data.screenMat) {
       const want = near || !walking ? SCREEN_LIT : SCREEN_DIM;
       data.screenMat.emissiveIntensity += (want - data.screenMat.emissiveIntensity) * Math.min(1, dt * 6);
     }
 
-    let door = false;
-    if (walking) {
-      ray.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const hit = new THREE.Vector3();
-      door = !near && !!ray.ray.intersectBox(data.door, hit) && hit.distanceTo(ray.ray.origin) < DOOR_REACH;
-    }
-    if (door !== aimed.current) {
-      aimed.current = door;
-      onAim(door);
+    if (aim !== aimed.current) {
+      aimed.current = aim;
+      onAim(aim);
     }
   }, -1);
   return null;
@@ -445,7 +460,7 @@ export function StudioRoom({ model, company, goal, active, onAir, onArrive, onAi
   /** A commercial is rendering: the lamp over the door is lit. */
   onAir: boolean;
   onArrive: (g: Goal) => void;
-  onAim: (door: boolean) => void;
+  onAim: (aim: "desk" | "door" | null) => void;
   at: RefObject<ScreenAt | null>;
 }) {
   const data = useStudio();

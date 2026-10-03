@@ -91,15 +91,14 @@ export const HOLDING_RATE = 0.04;
 // is a share of a segment's buyers who know the company, 0 to 1 (Tycoon keeps
 // it in percent). Perception is the segment's opinion of the company.
 
-/**
- * Reach a new company starts with in every segment. Tycoon starts at zero; a
- * real newcomer has a trade press mention and a few shop shelves, and zero
- * reach would sell nothing at all until the first campaign lands.
- */
-export const STARTING_REACH = 0.02;
+/** Reach a new company starts with in every segment, as in Tycoon: it sells nothing until it markets. */
+export const STARTING_REACH = 0;
 
-/** Reach never decays below this: the shelves and search results a maker keeps while it trades. */
-export const REACH_FLOOR = 0.01;
+/** Reach never decays below this share of the highest reach the company has held in a segment. */
+export const REACH_PEAK_FLOOR = 0.5;
+
+/** The share of a quarter's laptop units, all segments, the company must win for Courts to list its models. */
+export const COURTS_LISTING_SHARE = 0.01;
 
 /**
  * Cost per quarter of each campaign tier in 2000 dollars, Tycoon's numbers.

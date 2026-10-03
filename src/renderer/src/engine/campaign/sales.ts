@@ -6,7 +6,7 @@ import type { HeadlineValues } from "../market/stats";
 import { HEADLINE_STATS, type Segment, type SegmentId } from "../market/types";
 import { rng } from "../review";
 import type { Build } from "../types";
-import { brandFactor, type SegmentOutcome } from "./brand";
+import { brandFactor, type SegmentOutcome, withReach } from "./brand";
 import {
   CRITICS_STRENGTH,
   DEMAND_SCALE,
@@ -313,7 +313,7 @@ export function wordOfMouth(state: CampaignState, outcomes: SegmentOutcome[]): C
     const gain = (WORD_OF_MOUTH * o.units) / DEMAND_SCALE / pool;
     reach[o.segment] = Math.max(reach[o.segment], Math.min(MAX_REACH, reach[o.segment] + gain));
   }
-  return { ...state, brand: { ...state.brand, reach } };
+  return { ...state, brand: withReach(state.brand, reach) };
 }
 
 /** The player's share of every unit sold in the quarter's record, 0 to 1. */

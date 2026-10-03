@@ -13,7 +13,7 @@ import {
   PERCEPTION_MIN,
   PERCEPTION_SCALE,
   REACH_DECAY,
-  REACH_FLOOR,
+  REACH_PEAK_FLOOR,
   REVIEW_PAR,
   REVIEW_SPAN,
   SPILLOVER,
@@ -39,6 +39,8 @@ export type Tier = 1 | 2 | 3 | 4 | 5;
 export interface Brand {
   /** Share of each segment that knows the company, 0 to 1. */
   reach: Record<SegmentId, number>;
+  /** The highest reach the company has held in each segment; decay never takes reach below REACH_PEAK_FLOOR of it. */
+  peak: Record<SegmentId, number>;
   /** Each segment's opinion of the company, PERCEPTION_MIN to PERCEPTION_MAX. */
   perception: Record<SegmentId, number>;
   /** The campaigns that run each quarter until changed. */
@@ -68,7 +70,14 @@ function perSegment(v: number): Record<SegmentId, number> {
 }
 
 export function newBrand(): Brand {
-  return { reach: perSegment(STARTING_REACH), perception: perSegment(STARTING_PERCEPTION), campaigns: {} };
+  return { reach: perSegment(STARTING_REACH), peak: perSegment(STARTING_REACH), perception: perSegment(STARTING_PERCEPTION), campaigns: {} };
+}
+
+/** The brand with new reach, each segment's peak raised to it. */
+export function withReach(brand: Brand, reach: Record<SegmentId, number>): Brand {
+  const peak = { ...brand.peak };
+  for (const s of SEGMENTS) peak[s.id] = Math.max(peak[s.id] ?? 0, reach[s.id]);
+  return { ...brand, reach, peak };
 }
 
 /** The top tier a segment takes, from its permeability. */
@@ -124,7 +133,7 @@ export function applyCampaigns(brand: Brand, year: number): Record<SegmentId, nu
       // Below the ceiling a campaign grows reach up to it; above, reach sinks back toward it.
       next = now < ceiling ? Math.min(ceiling, now + gain) : ceiling + (now - ceiling) * (1 - decay);
     } else next = now * (1 - decay) + gain;
-    reach[s.id] = clamp(next, REACH_FLOOR, 1);
+    reach[s.id] = clamp(next, (brand.peak[s.id] ?? 0) * REACH_PEAK_FLOOR, 1);
   }
   return reach;
 }
@@ -181,7 +190,7 @@ export function market(state: CampaignState): CampaignState {
     ...state,
     cash: state.cash - cost,
     spent: { ...state.spent, marketing: state.spent.marketing + cost },
-    brand: { ...state.brand, reach: applyCampaigns(state.brand, state.now.year) },
+    brand: withReach(state.brand, applyCampaigns(state.brand, state.now.year)),
   };
 }
 
@@ -195,6 +204,9 @@ export function brandOf(x: unknown): Brand {
     const r = b.reach?.[s.id];
     const p = b.perception?.[s.id];
     if (num(r)) fresh.reach[s.id] = clamp(r, 0, 1);
+    // A save from before peaks were kept takes its current reach as the peak.
+    const k = b.peak?.[s.id];
+    fresh.peak[s.id] = Math.max(fresh.reach[s.id], num(k) ? clamp(k, 0, 1) : 0);
     if (num(p)) fresh.perception[s.id] = clamp(p, PERCEPTION_MIN, PERCEPTION_MAX);
     const t = b.campaigns?.[s.id];
     if (num(t)) campaigns = setCampaign({ ...fresh, campaigns }, s.id, t).campaigns;

@@ -1,4 +1,7 @@
-import { DEMAND_SCALE, RETAILER_CUT, STARTING_PERCEPTION, STARTING_REACH } from "../campaign/constants";
+import { DEMAND_SCALE, RETAILER_CUT, STARTING_PERCEPTION } from "../campaign/constants";
+
+// A nominal small reach to rank with: a new company starts at none, which scores every candidate zero.
+const RANKING_REACH = 0.02;
 import { MAX_PRICE, scaleFactor } from "../campaign/release";
 import { criticsFactor, noveltyFactor, priceFactor, rivalBrand, scoreFactor } from "../campaign/sales";
 import { costOf } from "../price";
@@ -184,7 +187,7 @@ export function optimiseFor(
   segment: SegmentId,
   year: number,
   rivals: Rival[],
-  brand = STARTING_REACH * (1 + STARTING_PERCEPTION / 100),
+  brand = RANKING_REACH * (1 + STARTING_PERCEPTION / 100),
 ): Optimised | null {
   const start = performance.now();
   const seg = segmentById(segment);

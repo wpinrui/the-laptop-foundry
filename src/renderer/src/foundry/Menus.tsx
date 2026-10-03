@@ -473,6 +473,21 @@ export function SettingsMenu({ onBack }: { onBack: () => void }) {
             </small>
           </li>
           <li>
+            <span>Music</span>
+            <small>
+              "Hackbeat", "Bossa Antigua", "Airport Lounge" and "Chill Wave" Kevin MacLeod (incompetech.com) Licensed under Creative
+              Commons: By Attribution 4.0 License http://creativecommons.org/licenses/by/4.0/
+            </small>
+          </li>
+          <li>
+            <span>Music</span>
+            <small>"Bubbles", "Ocean Breeze" and "Tranquil Mindscape" HoliznaCC0, CC0</small>
+          </li>
+          <li>
+            <span>Sound effects and ambience</span>
+            <small>Kenney, and Freesound contributors Zott820, Kukensius, Keegan_Miner, Trollarch2, neilraouf, unfa, Fission9, TRP, qubodup, florianreichelt, LilMati, BageBoy, plasterbrain, Profispiesser, DiArchangeli, priesjensen, Soundkrampf, LudwigMueller and janbezouska, CC0</small>
+          </li>
+          <li>
             <span>Lucide</span>
             <small>Lucide Contributors, ISC License</small>
           </li>

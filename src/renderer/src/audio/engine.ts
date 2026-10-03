@@ -88,8 +88,8 @@ export interface Loop {
   stop: (seconds?: number) => void;
 }
 
-/** A looping file on a bus, faded in from silence. */
-export function loop(name: string, bus: Bus, level = 1, fadeIn = 1.5): Loop {
+/** A looping file on a bus, faded in from silence, from a random point or from its start. */
+export function loop(name: string, bus: Bus, level = 1, fadeIn = 1.5, fromStart = false): Loop {
   let src: AudioBufferSourceNode | null = null;
   let gain: GainNode | null = null;
   let stopped = false;
@@ -104,7 +104,7 @@ export function loop(name: string, bus: Bus, level = 1, fadeIn = 1.5): Loop {
     gain.gain.setValueAtTime(0, c.currentTime);
     gain.gain.linearRampToValueAtTime(target, c.currentTime + fadeIn);
     src.connect(gain).connect(buses[bus] as GainNode);
-    src.start(0, Math.random() * buf.duration);
+    src.start(0, fromStart ? 0 : Math.random() * buf.duration);
   });
   const ramp = (to: number, seconds: number) => {
     if (!ctx || !gain) return;

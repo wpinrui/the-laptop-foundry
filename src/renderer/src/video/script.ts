@@ -8,8 +8,8 @@ import { speak } from "./speech";
 // the numbers, a card. No language model: every sentence is a template, picked
 // per laptop and quarter so two videos rarely read the same.
 
-export type Shot = "title" | "orbit" | "keyboard" | "ports" | "screen" | "lid" | "turn";
-export type Card = "title" | "sales" | "stats" | "score" | null;
+export type Shot = "title" | "orbit" | "keyboard" | "ports" | "screen" | "lid" | "turn" | "hero" | "glance" | "side" | "top" | "push";
+export type Card = "title" | "sales" | "stats" | "score" | "price" | "spec" | "quote" | "chips" | "launch" | "logo" | null;
 
 export interface Line {
   /** The caption. */

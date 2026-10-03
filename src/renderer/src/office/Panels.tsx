@@ -262,7 +262,7 @@ function Overview({ company, campaign, actions, go, at, onAt }: Ctx) {
   const due: SavedModel[] = [];
   for (const m of company.models) {
     const r = campaign.releases[m.id];
-    if (!r) continue;
+    if (!r || m.archived) continue;
     if (r.stock <= 0) soldOut.push(m);
     const pub = publicationQuarter(r.quarter);
     if (!campaign.reviews[m.id] && pub.year === campaign.now.year && pub.quarter === campaign.now.quarter) due.push(m);

@@ -1,10 +1,10 @@
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
 import { handleTop } from "./ipc";
 
-// The quarter video's narration and export. The voice is Kokoro-82M
+// The videos' narration, storage and export: the quarter shorts and the commercials. The voice is Kokoro-82M
 // (Apache-2.0) run offline by sherpa-onnx's native addon; no language model
 // and no network. scripts/fetch-voice.mjs puts the model in
 // resources/voice/kokoro. Without it the video plays silent, on caption timing.
@@ -23,12 +23,20 @@ const MAX_CHARS = 400;
 const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 /** A poster still is a small JPEG. */
 const MAX_POSTER_BYTES = 2 * 1024 * 1024;
-/** The narrators, by name, as Kokoro v1.0's speaker ids. */
-const NARRATORS: Record<string, number> = { michael: 16, heart: 3 };
+/** The narrators, by name, as Kokoro v1.0's speaker ids: its American and British English voices. */
+const NARRATORS: Record<string, number> = {
+  alloy: 0, aoede: 1, bella: 2, heart: 3, jessica: 4, kore: 5, nicole: 6, nova: 7, river: 8, sarah: 9, sky: 10,
+  adam: 11, echo: 12, eric: 13, fenrir: 14, liam: 15, michael: 16, onyx: 17, puck: 18, santa: 19,
+  alice: 20, emma: 21, isabella: 22, lily: 23, daniel: 24, fable: 25, george: 26, lewis: 27,
+};
 /** A touch quicker than Kokoro's own pace, for a short. */
 const SPEED = 1.08;
 const COMPANY = /^[0-9a-f-]{36}$/i;
+/** A quarter's short ("2016q3-v4") or a commercial ("ad-<id>-v1"). */
 const QUARTER = /^\d{4}q[1-4](-v\d{1,3})?$/;
+const AD = /^ad-[0-9a-f-]{36}-v\d{1,3}$/i;
+/** Quarter shorts kept per company; older quarters' files go. */
+const KEEP_SHORTS = 12;
 
 /** Where a company's rendered shorts are kept, beside its save. */
 export function shortsDir(company: string): string {
@@ -36,7 +44,7 @@ export function shortsDir(company: string): string {
 }
 
 function shortFile(company: unknown, quarter: unknown): { dir: string; file: string } {
-  if (typeof company !== "string" || !COMPANY.test(company) || typeof quarter !== "string" || !QUARTER.test(quarter))
+  if (typeof company !== "string" || !COMPANY.test(company) || typeof quarter !== "string" || !(QUARTER.test(quarter) || AD.test(quarter)))
     throw new Error("video: bad short");
   const dir = shortsDir(company);
   return { dir, file: join(dir, `${quarter}.mp4`) };
@@ -110,15 +118,46 @@ export function registerVideo(): void {
     );
   });
 
-  /** Keeps a rendered short for the company, in place of any older quarter's. */
+  /** Keeps a rendered video for the company: a quarter's short or a commercial. Files of an older version go, and the oldest quarters' shorts past KEEP_SHORTS. */
   handleTop("video:keep", async (_e, company: unknown, quarter: unknown, bytes: unknown) => {
     if (!(bytes instanceof Uint8Array) || bytes.byteLength > MAX_VIDEO_BYTES) throw new Error("video:keep: bad video");
     const { dir, file } = shortFile(company, quarter);
     await mkdir(dir, { recursive: true });
-    // Older quarters' files go; this quarter's poster stays.
-    for (const f of await readdir(dir)) if (!f.startsWith(`${quarter}.`)) await rm(join(dir, f), { force: true });
     await writeFile(file, bytes);
+    const name = quarter as string;
+    const version = name.match(/-v\d+$/)?.[0] ?? "";
+    const ad = AD.test(name);
+    const files = await readdir(dir);
+    const base = (f: string) => f.replace(/\.(mp4|jpg)$/, "");
+    for (const f of files) {
+      const b = base(f);
+      if ((ad ? AD.test(b) : QUARTER.test(b)) && !b.endsWith(version)) await rm(join(dir, f), { force: true });
+    }
+    if (!ad) {
+      const shorts = [...new Set(files.map(base).filter((b) => QUARTER.test(b) && b.endsWith(version)))].sort().reverse();
+      for (const old of shorts.slice(KEEP_SHORTS))
+        for (const ext of [".mp4", ".jpg"]) await rm(join(dir, `${old}${ext}`), { force: true });
+    }
   });
+
+  /** Every video kept for the company, by file name without its extension, with when it was written. */
+  handleTop("video:list", async (_e, company: unknown) => {
+    if (typeof company !== "string" || !COMPANY.test(company)) throw new Error("video:list: bad company");
+    const dir = shortsDir(company);
+    const names = await readdir(dir).catch(() => [] as string[]);
+    const out: { file: string; time: number }[] = [];
+    for (const n of names) {
+      if (!n.endsWith(".mp4")) continue;
+      const file = n.slice(0, -4);
+      if (!QUARTER.test(file) && !AD.test(file)) continue;
+      const s = await stat(join(dir, n)).catch(() => null);
+      if (s) out.push({ file, time: s.mtimeMs });
+    }
+    return out;
+  });
+
+  /** The narrators that can speak: every voice once the model is installed, none without it. */
+  handleTop("video:voices", async () => ((await voice()) ? Object.keys(NARRATORS) : []));
 
   /** A short's poster still kept before, or null. */
   handleTop("video:poster", async (_e, company: unknown, quarter: unknown) => {

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { app } from "electron";
 import { handleTop } from "./ipc";
 import { shortsDir } from "./video";
-import type { SavedCampaign, SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "../preload/store";
+import type { SavedCampaign, SavedCommercial, SavedCompany, SavedModel, SavedNote, SavedPlace, Settings } from "../preload/store";
 
 // Each company is one save: one JSON file in the companies folder of the user
 // data folder. Settings live in their own file. Writes go to a temporary file
@@ -84,7 +84,37 @@ function isModel(m: unknown): m is SavedModel {
   );
 }
 
-const PLACES = ["map", "office", "workshop", "cafe", "courts"];
+const RATIOS = ["9:16", "1:1", "16:9"];
+const MAX_LINES = 24;
+const MAX_LINE = 400;
+const MAX_SCENES = 200;
+
+const isCount = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0 && n <= 100000;
+
+function isCommercial(c: unknown): c is SavedCommercial {
+  const x = c as SavedCommercial;
+  return (
+    !!x &&
+    typeof x.id === "string" &&
+    ID.test(x.id) &&
+    typeof x.model === "string" &&
+    Array.isArray(x.lines) &&
+    x.lines.length <= MAX_LINES &&
+    x.lines.every((l) => typeof l === "string" && l.length <= MAX_LINE) &&
+    Array.isArray(x.scenes) &&
+    x.scenes.length <= MAX_SCENES &&
+    x.scenes.every((s) => !!s && typeof s.kind === "string" && isCount(s.startWord) && isCount(s.endWord) && s.endWord > s.startWord) &&
+    RATIOS.includes(x.ratio) &&
+    (x.voice === null || typeof x.voice === "string") &&
+    typeof x.made === "number" &&
+    typeof x.multiplier === "number" &&
+    Number.isFinite(x.multiplier) &&
+    x.multiplier > 0 &&
+    x.multiplier <= 10
+  );
+}
+
+const PLACES = ["map", "office", "workshop", "cafe", "courts", "studio"];
 function readPlace(raw: unknown): SavedPlace | undefined {
   const x = raw as Partial<SavedPlace> | null | undefined;
   if (!x || typeof x.at !== "string" || !PLACES.includes(x.at)) return undefined;
@@ -105,6 +135,7 @@ function readCompany(raw: unknown, id: string): SavedCompany | null {
     campaign: readCampaign(x.campaign),
     markets: x.markets && typeof x.markets === "object" && !Array.isArray(x.markets) ? x.markets : undefined,
     notes: Array.isArray(x.notes) ? x.notes.filter(isNote) : undefined,
+    commercials: Array.isArray(x.commercials) ? x.commercials.filter(isCommercial) : undefined,
     place: readPlace(x.place),
   };
 }
@@ -276,6 +307,14 @@ export function registerStore(): void {
     if (!p) throw new Error("bad place");
     const c = await company(id);
     return lean(await put({ ...c, place: p }));
+  });
+  /** Records a finished commercial. A laptop gets one, ever. */
+  handleTop("store:save-commercial", async (_e, id: unknown, commercial: unknown) => {
+    if (!isCommercial(commercial)) throw new Error("bad commercial");
+    const c = await company(id);
+    const had = c.commercials ?? [];
+    if (had.some((x) => x.model === commercial.model || x.id === commercial.id)) throw new Error("that laptop has a commercial");
+    return lean(await put({ ...c, commercials: [...had, commercial], played: Date.now() }));
   });
   handleTop("store:save-notes", async (_e, id: unknown, notes: unknown) => {
     if (!Array.isArray(notes) || !notes.every(isNote)) throw new Error("bad notes");

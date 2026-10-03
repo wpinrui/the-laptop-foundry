@@ -94,7 +94,7 @@ function useLock(build: Build, fit: Fit, maker: string, model: string, rival?: s
   return useOsStill("lock", build, owner, `${maker} ${model}`.trim(), aspect, undefined, rival);
 }
 
-export function StagedLaptop({ build, fit, maker, model, rival, onLock }: {
+export function StagedLaptop({ build, fit, maker, model, rival, onLock, lidAngle = 112 }: {
   build: Build;
   fit: Fit;
   maker: string;
@@ -103,6 +103,8 @@ export function StagedLaptop({ build, fit, maker, model, rival, onLock }: {
   rival?: string | null;
   /** Called once the lock screen is drawn onto the panel. */
   onLock?: () => void;
+  /** How far the lid is open, degrees. */
+  lidAngle?: number;
 }) {
   const lock = useLock(build, fit, maker, model, rival);
   useEffect(() => {
@@ -122,7 +124,7 @@ export function StagedLaptop({ build, fit, maker, model, rival, onLock }: {
     <Model
       fit={fit}
       year={build.year}
-      lidAngle={112}
+      lidAngle={lidAngle}
       colours={colours}
       decor={decorOf(build)}
       surfaces={surfaces}

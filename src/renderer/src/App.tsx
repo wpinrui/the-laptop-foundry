@@ -10,7 +10,7 @@ import { CafeScreen } from "./cafe/CafeScreen";
 import { WorldMap } from "./map/WorldMap";
 import { StoreWorld } from "./storeworld/StoreWorld";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
-import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, type Quarter, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
+import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, type Quarter, quarterLabel, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
 import { sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameCard, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { StatementView, type StatementTab } from "./foundry/Finance";
@@ -21,13 +21,17 @@ import { setHonours } from "./review/honours";
 import { Stage, type StageView } from "./foundry/Stage";
 import { ReviewScreen } from "./review/ReviewScreen";
 import { ensureMarket, FIRST_MARKET_YEAR, openMarkets } from "./market/markets";
-import { bestSeller, shortFacts, subjectOf, writeShort } from "./video/script";
-import { cancelShort, prepareShort, type ReadyShort, shortKey, useShort } from "./video/shorts";
-import { VideoScreen } from "./video/VideoScreen";
+import { adFacts, bestSeller, shortFacts, subjectOf, writeShort } from "./video/script";
+import type { Commercial } from "./video/commercial";
+import { adOfFile, loadVideo, offerShort, quarterOfFile, queueAd, usePosters, useVideos } from "./video/queue";
+import { type PlayingVideo, VideoScreen } from "./video/VideoScreen";
+import { adSubject, eligibleModels } from "./studio/eligible";
+import { StudioPlace } from "./studio/StudioPlace";
+import { overallOf } from "./foundry/LaptopList";
 import { SystemActions, SystemMenu, useSystemMenu } from "./foundry/SystemMenu";
 import { Office } from "./office/Office";
 import { OFFICE_START, type OfficeAt } from "./office/stations";
-import type { OfficeActions } from "./office/Panels";
+import type { OfficeActions, TvVideo } from "./office/Panels";
 
 const store = () => window.api.store;
 
@@ -56,7 +60,7 @@ const CAMPAIGN_VIEW: StageView = { azimuth: 0, distance: 1300, shift: 0.014, mod
 
 /**
  * Where the player is while a company is open: on the world map or in one of
- * its four places. The map remembers the place it was walked out of, which
+ * its five places. The map remembers the place it was walked out of, which
  * Stay goes back into; null when it opened from the menu. The workshop and the
  * cafe hold the laptop brought along, if any; a visit made from the Office
  * goes back to the Office on Leave.
@@ -64,8 +68,22 @@ const CAMPAIGN_VIEW: StageView = { azimuth: 0, distance: 1300, shift: 0.014, mod
 type InPlace =
   | { at: "office" }
   | { at: "courts" }
+  | { at: "studio" }
   | { at: "workshop" | "cafe"; model: SavedModel | null; subject: Subject | null; office?: boolean };
 type Where = InPlace | { at: "map"; from: InPlace | null };
+
+/** When this session began: a video finished after it is new. */
+const SESSION_START = Date.now();
+
+/** What a commercial's cards show, gathered when its render's turn comes; null once its laptop is gone. */
+async function adFactsFor(c: SavedCompany, ad: Commercial) {
+  const m = c.models.find((x) => x.id === ad.model);
+  if (!m) return null;
+  await ensureMarket((m.build as Build).year);
+  const state = c.campaign ? campaignOf(c.campaign) : null;
+  const score = state ? null : m.reviewed ? overallOf(m, c.name) : null;
+  return adFacts(adSubject(m, c.name, state), state, score);
+}
 
 function latestModel(c: SavedCompany | null | undefined): SavedModel | null {
   return c ? (sortedModels(c)[0] ?? null) : null;
@@ -120,8 +138,11 @@ export function App() {
   useEffect(() => {
     setSeenAwards(company?.campaign ? campaignOf(company.campaign).awards.length : null);
   }, [company?.id]);
-  // The last quarter's best seller as a short video.
-  const [short, setShort] = useState<ReadyShort | null>(null);
+  // A finished video full screen, and the one loaded for the Office TV.
+  const [full, setFull] = useState<PlayingVideo | null>(null);
+  const [tv, setTv] = useState<PlayingVideo | null>(null);
+  // Videos watched this session: a new one is flagged at the Desk until then.
+  const [watched, setWatched] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     store().companies().then((all) => setCompanies(all.map(migrated)));
@@ -165,6 +186,7 @@ export function App() {
           const m = p?.model ? (c.models.find((x) => x.id === p.model) ?? null) : null;
           if (p?.at === "map") setWhere({ at: "map", from: null });
           else if (p?.at === "courts") setWhere({ at: "courts" });
+          else if (p?.at === "studio") setWhere({ at: "studio" });
           else if (p?.at === "workshop") setWhere({ at: "workshop", model: m, subject: null });
           else if (p?.at === "cafe" && m && !buildBlock(m.build)) {
             const s: Subject = { id: m.id, name: m.name, company: c.name, build: m.build as Build };
@@ -211,21 +233,17 @@ export function App() {
     );
   }, [company]);
 
-  // The last quarter's short: made only when the player asks for it, from the Short card.
+  // Each quarter's short is made in the background once it resolves; the queue takes the newest quarter still without one.
   const campaignState = company?.campaign;
   const best = useMemo(() => (campaignState ? bestSeller(campaignOf(campaignState)) : null), [campaignState]);
-  const shortId = company && best ? shortKey(company.id, best.record.quarter) : null;
-  const shortEntry = useShort(shortId);
-  // Leaving the company, or its short moving to a new quarter, cancels a render still on its way.
+  const bestKey = company && best ? `${company.id}:${best.record.quarter.year}q${best.record.quarter.quarter}` : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: offered once per company and quarter
   useEffect(() => {
-    return () => cancelShort();
-  }, [shortId]);
-  const startShort = () => {
-    if (!company?.campaign || !best || !shortId) return;
+    if (!company?.campaign || !best) return;
     const c = company;
     const state = campaignOf(company.campaign);
     const y = best.record.quarter.year;
-    prepareShort(shortId, c.id, best.record.quarter, state.sales.length - 1, () =>
+    offerShort(c.id, best.record.quarter, state.sales.length - 1, () =>
       Promise.all([ensureMarket(y - 1), ensureMarket(y)]).then(() => {
         // The player's models at the price they were released at.
         const own = c.models.map((m): Subject => {
@@ -237,7 +255,51 @@ export function App() {
         return found ? writeShort(shortFacts(found.subject, found.mine, state, best.record, best.units)) : null;
       }),
     );
-  };
+  }, [bestKey]);
+
+  // Every finished commercial is queued for its render, in order; one already on disk is skipped.
+  const adsKey = company ? `${company.id}:${company.commercials?.length ?? 0}` : null;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: queued when the company or its commercials change
+  useEffect(() => {
+    if (!company) return;
+    const c = company;
+    (c.commercials ?? []).forEach((ad, i) => queueAd(c.id, ad, () => adFactsFor(c, ad), i));
+  }, [adsKey]);
+
+  // The company's finished videos for the Office TV, newest first.
+  const kept = useVideos(company?.id ?? null);
+  const tvVideos = useMemo((): Omit<TvVideo, "poster">[] => {
+    if (!company || !kept) return [];
+    const state = company.campaign ? campaignOf(company.campaign) : null;
+    const nameOf = (id: string) => company.models.find((m) => m.id === id)?.name ?? subjectOf(id, [])?.subject.name ?? "";
+    const out: (Omit<TvVideo, "poster"> & { time: number })[] = [];
+    for (const [file, time] of kept) {
+      const q = quarterOfFile(file);
+      if (q) {
+        const r = state?.sales.find((x) => x.quarter.year === q.year && x.quarter.quarter === q.quarter);
+        const top = r?.top?.id ?? (r ? Object.entries(r.units).sort((a, b) => b[1] - a[1])[0]?.[0] : undefined);
+        out.push({ file, label: quarterLabel(q), name: top ? nameOf(top) : "", time });
+        continue;
+      }
+      const ad = company.commercials?.find((c) => c.id === adOfFile(file));
+      if (ad) out.push({ file, label: "Commercial", name: nameOf(ad.model), time });
+    }
+    return out.sort((a, b) => b.time - a.time).map(({ time: _, ...v }) => v);
+  }, [company, kept]);
+  const posters = usePosters(company?.id ?? null, tvVideos.map((v) => v.file));
+  const newest = tvVideos[0];
+  const newestTime = newest ? (kept?.get(newest.file) ?? 0) : 0;
+
+  // The studio needs the markets of the laptops it can film: their reviews compare them with their year.
+  const studioModels = useMemo(
+    () => (company ? eligibleModels(company, company.campaign ? campaignOf(company.campaign) : null) : []),
+    [company],
+  );
+  const inStudio = where.at === "studio";
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on the way into the studio
+  useEffect(() => {
+    if (inStudio) for (const y of new Set(studioModels.map((m) => (m.build as Build).year))) void ensureMarket(y);
+  }, [inStudio, companyId]);
 
   // Wherever the player goes, the company remembers it for the next time it opens.
   const placeSaved = useRef("");
@@ -246,7 +308,7 @@ export function App() {
     if (!company) return;
     const p: SavedPlace = open
       ? { at: "workshop", model: open }
-      : where.at === "map" || where.at === "office" || where.at === "courts"
+      : where.at === "map" || where.at === "office" || where.at === "courts" || where.at === "studio"
         ? { at: where.at }
         : where.model
           ? { at: where.at, model: where.model.id }
@@ -265,9 +327,10 @@ export function App() {
   const placeKey = ((): string | null => {
     if (!company) return null;
     // A review or a video over the place is no trip: closing it is no arrival.
-    if (short || reviewing) return arrival.key;
+    if (full || reviewing) return arrival.key;
     if (where.at === "cafe") return `cafe:${where.model?.id ?? ""}`;
     if (where.at === "courts") return "courts";
+    if (where.at === "studio") return "studio";
     // Opening the map from a place is no trip either: Stay goes back with no card, Go to another place is one.
     if (where.at === "map") return where.from ? arrival.key : null;
     // The workshop and its builder are one place: going between them is no arrival.
@@ -348,10 +411,29 @@ export function App() {
         setResolving(null);
       });
   };
-  // Plays the short if it is ready; otherwise the click starts making it.
-  const shortAction = () => {
-    if (shortEntry?.state === "ready") setShort(shortEntry);
-    else if (!shortEntry) startShort();
+  // Loads a finished video for the TV, in place of the one before.
+  const playOnTv = (file: string) => {
+    if (!company) return;
+    const id = company.id;
+    const v = tvVideos.find((x) => x.file === file);
+    setWatched((w) => new Set(w).add(file));
+    if (!v || tv?.file === file) return;
+    void loadVideo(id, file).then((blob) => {
+      if (!blob) return;
+      setTv((was) => {
+        if (was && was !== full) URL.revokeObjectURL(was.url);
+        return { file, url: URL.createObjectURL(blob), blob, name: `${name} ${v.name} ${v.label}`.trim(), label: v.label, model: v.name };
+      });
+    });
+  };
+  // A finished commercial: recorded with the company, its wheel result on the laptop's next quarter, its render queued.
+  const finishAd = (c: Commercial, facts: ReturnType<typeof adFacts>) => {
+    if (!company) return;
+    const id = company.id;
+    void store().saveCommercial(id, c).then(refresh);
+    if (campaign)
+      commit((s) => ({ ...s, boosts: { ...s.boosts, [c.model]: c.multiplier }, advertised: [...s.advertised, c.model] }));
+    queueAd(id, c, () => Promise.resolve(facts), company.commercials?.length ?? 0);
   };
   // The first review locks the model, so its review never changes.
   const review = (m: SavedModel) => {
@@ -432,7 +514,20 @@ export function App() {
     />
   );
 
-  if (short) return <VideoScreen key={short.url} video={short} onBack={() => setShort(null)} />;
+  if (full) return <VideoScreen key={full.url} video={full} onBack={() => setFull(null)} />;
+  if (company && where.at === "studio")
+    return (
+      <StudioPlace
+        company={company}
+        campaign={campaign}
+        models={studioModels}
+        sound={settings.sound}
+        onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
+        onMap={() => toMap({ at: "studio" })}
+        onReady={ready}
+        onFinish={finishAd}
+      />
+    );
   if (company && where.at === "cafe")
     return (
       <CafeScreen
@@ -469,12 +564,14 @@ export function App() {
         key={where.from?.at ?? "menu"}
         company={company}
         from={where.from?.at ?? "menu"}
+        studio={studioModels.length > 0}
         onGo={(to, m) => {
           if (to === "office") {
             setOfficeAt(OFFICE_START);
             setWhere({ at: "office" });
           }
           else if (to === "courts") setWhere({ at: "courts" });
+          else if (to === "studio") setWhere({ at: "studio" });
           else visit(to, m);
         }}
         onBack={() => {
@@ -596,17 +693,14 @@ export function App() {
         setStatement(null);
         setMarketView({ tab: t, model: id });
       },
-      short:
-        shortId && best
-          ? {
-              quarter: `Q${best.record.quarter.quarter} ${best.record.quarter.year}`,
-              name: company.models.find((m) => m.id === best.id)?.name ?? subjectOf(best.id, [])?.subject.name ?? "",
-              state: shortEntry?.state === "ready" ? "ready" : shortEntry?.state === "busy" ? "busy" : "idle",
-              poster: shortEntry?.state === "ready" ? shortEntry.poster : undefined,
-              url: shortEntry?.state === "ready" ? shortEntry.url : undefined,
-              onClick: shortAction,
-            }
-          : undefined,
+      tv: {
+        videos: tvVideos.map((v) => ({ ...v, poster: posters[v.file] })),
+        playing: tv?.file ?? null,
+        url: tv?.url,
+        fresh: newest && newestTime > SESSION_START && !watched.has(newest.file) ? newest.name || newest.label : undefined,
+        onPlay: playOnTv,
+        onFull: () => tv && setFull(tv),
+      },
       newAwards: campaign && seenAwards !== null ? Math.max(0, campaign.awards.length - seenAwards) : 0,
       onSeenAwards: () => campaign && setSeenAwards(campaign.awards.length),
     };
@@ -762,7 +856,8 @@ export function App() {
   const leaveCompany = (to: Menu) => {
     setSystem(false);
     if (document.pointerLockElement) document.exitPointerLock();
-    setShort(null);
+    setFull(null);
+    setTv(null);
     setOpen(null);
     setReviewing(null);
     setCompany(null);

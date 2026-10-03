@@ -4,11 +4,10 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { createRoot } from "react-dom/client";
 import { type Fit, solve } from "../engine";
-import { drawOverlay, FOV, H, ShortStage, SILENT_WPS, type Timeline, timelineOf, W } from "./scene";
-import type { Short } from "./script";
+import { drawOverlay, type Frame, type LidControl, lidAt, type Program, SILENT_WPS, type Timeline, timelineOf, VideoStage } from "./scene";
 import type { Look } from "./sets";
 
-// The short, rendered offline: the scene is stepped at a fixed frame rate in a
+// A video, rendered offline: the scene is stepped at a fixed frame rate in a
 // hidden canvas of its own, each frame composited with its overlay and handed
 // to WebCodecs, the narration mixed and encoded beside it, and both muxed into
 // one MP4. Nothing waits on a wall clock, so it runs as fast as the machine
@@ -46,13 +45,13 @@ const AUDIO_CODECS = [
 ] as const;
 
 /** H.264 for phone galleries, on the GPU's encoder where there is one; VP9 where there is no H.264. */
-async function pickVideo(): Promise<{ mux: (typeof VIDEO_CODECS)[number]["mux"]; config: VideoEncoderConfig }> {
+async function pickVideo(f: Frame): Promise<{ mux: (typeof VIDEO_CODECS)[number]["mux"]; config: VideoEncoderConfig }> {
   for (const c of VIDEO_CODECS)
     for (const hardwareAcceleration of ["prefer-hardware", "no-preference"] as const) {
       const config: VideoEncoderConfig = {
         codec: c.codec,
-        width: W,
-        height: H,
+        width: f.w,
+        height: f.h,
         bitrate: VIDEO_BITRATE,
         framerate: FPS,
         latencyMode: "quality",
@@ -79,15 +78,15 @@ function yieldTask(): Promise<void> {
 }
 
 /** The narration as one track: each line's clip at its start, resampled to the encoder's rate. */
-async function mixdown(voice: Voice, tl: Timeline): Promise<Float32Array> {
-  const ctx = new OfflineAudioContext(1, Math.ceil(tl.total * AUDIO_RATE), AUDIO_RATE);
+async function mixdown(voice: Voice, p: Program): Promise<Float32Array> {
+  const ctx = new OfflineAudioContext(1, Math.ceil(p.total * AUDIO_RATE), AUDIO_RATE);
   voice.clips.forEach((c, i) => {
     const b = ctx.createBuffer(1, Math.max(1, c.length), voice.sampleRate);
     b.copyToChannel(new Float32Array(c), 0);
     const src = ctx.createBufferSource();
     src.buffer = b;
     src.connect(ctx.destination);
-    src.start(tl.starts[i]);
+    src.start(p.captions[i]?.start ?? 0);
   });
   return (await ctx.startRendering()).getChannelData(0);
 }
@@ -121,39 +120,31 @@ async function encodeAudio(pcm: Float32Array, codec: string, muxer: Muxer<ArrayB
 }
 
 interface Job {
-  short: Short;
+  program: Program;
   look: Look;
-  tl: Timeline;
   voice: Voice | null;
   cancelled: () => boolean;
 }
 
-/** A rendered short: the MP4 and a small still of the laptop from it. */
+/** A rendered video: the MP4 and a small still of the laptop from it. */
 export interface Rendered {
   video: Blob;
   /** A JPEG of the hero shot without captions, or null when it could not be taken. */
   poster: Blob | null;
 }
 
-/** The poster's size in pixels, the video's portrait shape. */
-const POSTER_W = 180;
-const POSTER_H = 320;
-
-/** The frame the poster is taken from: midway through the first wide shot of the laptop. */
-function posterFrame(short: Short, tl: Timeline): number {
-  const i = Math.max(
-    0,
-    short.lines.findIndex((l) => l.shot === "title" || l.shot === "orbit"),
-  );
-  const end = i + 1 < tl.starts.length ? tl.starts[i + 1] : tl.total;
-  return Math.floor(((tl.starts[i] + end) / 2) * FPS);
-}
+/** The poster's longer side in pixels; the shorter follows the video's shape. */
+const POSTER_LONG = 320;
 
 /** Steps the scene through every frame, encodes it with the narration and returns the MP4 and its poster. */
-async function encode(job: Job, state: RootState, time: { current: number }): Promise<Rendered> {
-  const { short, tl, voice, cancelled } = job;
+async function encode(job: Job, state: RootState, time: { current: number }, lid: LidControl): Promise<Rendered> {
+  const { program, voice, cancelled } = job;
+  const { w: W, h: H } = program.frame;
+  const k = POSTER_LONG / Math.max(W, H);
+  const posterW = Math.round(W * k);
+  const posterH = Math.round(H * k);
   const began = performance.now();
-  const vc = await pickVideo();
+  const vc = await pickVideo(program.frame);
   const ac = voice ? await pickAudio() : null;
   const target = new ArrayBufferTarget();
   const muxer = new Muxer({
@@ -162,7 +153,7 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
     audio: ac ? { codec: ac.mux, numberOfChannels: 1, sampleRate: AUDIO_RATE } : undefined,
     fastStart: "in-memory",
   });
-  if (voice && ac) await encodeAudio(await mixdown(voice, tl), ac.codec, muxer);
+  if (voice && ac) await encodeAudio(await mixdown(voice, program), ac.codec, muxer);
 
   let failed: unknown = null;
   const enc = new VideoEncoder({
@@ -176,8 +167,8 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
   const g = frame.getContext("2d");
   if (!g) throw new Error("no 2d context");
   const gl = state.gl.domElement;
-  const frames = Math.ceil(tl.total * FPS);
-  const still = Math.min(frames - 1, posterFrame(short, tl));
+  const frames = Math.ceil(program.total * FPS);
+  const still = Math.min(frames - 1, Math.floor(program.poster * FPS));
   let poster: Promise<Blob | null> = Promise.resolve(null);
   try {
     for (let f = 0; f < frames; f++) {
@@ -185,17 +176,19 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
       if (failed) throw failed;
       const t = f / FPS;
       time.current = t;
+      // A new cut's lid angle is in the scene, and its shadow drawn, before the frame.
+      await lid.current?.(lidAt(program, t));
       state.advance(t * 1000);
       g.fillStyle = "#14100d";
       g.fillRect(0, 0, W, H);
       g.drawImage(gl, 0, 0, W, H);
       if (f === still) {
         // The 3D view alone, before the captions go over it.
-        const p = new OffscreenCanvas(POSTER_W, POSTER_H);
-        p.getContext("2d")?.drawImage(frame, 0, 0, POSTER_W, POSTER_H);
+        const p = new OffscreenCanvas(posterW, posterH);
+        p.getContext("2d")?.drawImage(frame, 0, 0, posterW, posterH);
         poster = p.convertToBlob({ type: "image/jpeg", quality: 0.85 }).catch(() => null);
       }
-      drawOverlay(g, short, tl, t);
+      drawOverlay(g, program, t);
       const vf = new VideoFrame(frame, { timestamp: Math.round((f * 1e6) / FPS), duration: Math.round(1e6 / FPS) });
       enc.encode(vf, { keyFrame: f % (FPS * 2) === 0 });
       vf.close();
@@ -214,7 +207,7 @@ async function encode(job: Job, state: RootState, time: { current: number }): Pr
   }
   muxer.finalize();
   const secs = (performance.now() - began) / 1000;
-  console.info(`short: ${frames} frames (${tl.total.toFixed(1)} s, ${vc.mux} ${vc.config.hardwareAcceleration}${ac ? `+${ac.mux}` : ""}) in ${secs.toFixed(1)} s, ${(tl.total / secs).toFixed(2)}x real time, ${target.buffer.byteLength} bytes`);
+  console.info(`video: ${frames} frames (${program.total.toFixed(1)} s, ${vc.mux} ${vc.config.hardwareAcceleration}${ac ? `+${ac.mux}` : ""}) in ${secs.toFixed(1)} s, ${(program.total / secs).toFixed(2)}x real time, ${target.buffer.byteLength} bytes`);
   return { video: new Blob([target.buffer], { type: "video/mp4" }), poster: await poster };
 }
 
@@ -230,6 +223,7 @@ function Driver({ onState }: { onState: (s: RootState) => void }) {
 
 function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered | Error) => void }) {
   const time = useRef(0);
+  const lid = useRef<LidControl["current"]>(null);
   const ready = useMemo(() => {
     let state: (s: RootState) => void = () => {};
     let set: () => void = () => {};
@@ -260,7 +254,7 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered |
           state.advance(0);
           await yieldTask();
         }
-        return encode(job, state, time);
+        return encode(job, state, time, lid);
       })
       .then(done, (e) => done(e instanceof Error ? e : new Error(String(e))));
   }, []);
@@ -270,34 +264,42 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered |
       dpr={GL_SCALE}
       frameloop="never"
       gl={{ preserveDrawingBuffer: true, antialias: true }}
-      camera={{ fov: FOV, near: 0.01, far: 20, position: [0, 1.2, 1] }}
+      camera={{ fov: job.program.frame.fov, near: 0.01, far: 20, position: [0, 1.2, 1] }}
     >
-      <ShortStage short={job.short} fit={fit} look={job.look} tl={job.tl} time={time} onLock={ready.lock} onSet={ready.set} />
+      <VideoStage program={job.program} fit={fit} look={job.look} time={time} onLock={ready.lock} onSet={ready.set} lid={lid} />
       <Driver onState={ready.state} />
     </Canvas>
   );
 }
 
-/** The timeline of a short: each line as long as its clip, or its caption at a speaking rate without a voice. */
-export function timelineFor(short: Short, voice: Voice | null): Timeline {
-  if (voice && voice.clips.length === short.lines.length) return timelineOf(voice.clips.map((c) => c.length / voice.sampleRate));
-  return timelineOf(short.lines.map((l) => 0.6 + l.text.split(/\s+/).length / SILENT_WPS));
+/** How long a caption shows without a voice, seconds: its words at a speaking rate. */
+export const silentDur = (text: string) => 0.6 + text.split(/\s+/).length / SILENT_WPS;
+
+/** The timeline of a video's lines: each as long as its clip, or its caption at a speaking rate without a voice. */
+export function timelineFor(lines: string[], voice: Voice | null): Timeline {
+  if (voice && voice.clips.length === lines.length) return timelineOf(voice.clips.map((c) => c.length / voice.sampleRate));
+  return timelineOf(lines.map(silentDur));
+}
+
+/** The voice when it has a clip for every line, else none: the video then runs on caption timing. */
+export function voiceFor(lines: number, voice: Voice | null): Voice | null {
+  return voice && voice.clips.length === lines ? voice : null;
 }
 
 /**
- * Renders the short to an MP4 in a hidden canvas of its own React root, away
+ * Renders a program to an MP4 in a hidden canvas of its own React root, away
  * from whatever the player is looking at. Rejects with Cancelled once
- * `cancelled` turns true.
+ * `cancelled` turns true. `voice` has one clip per caption, or is null.
  */
-export function renderShort(short: Short, look: Look, voice: Voice | null, cancelled: () => boolean): Promise<Rendered> {
+export function renderVideo(program: Program, look: Look, voice: Voice | null, cancelled: () => boolean = () => false): Promise<Rendered> {
   let fit: Fit;
   try {
-    fit = solve(short.facts.subject.build);
+    fit = solve(program.facts.subject.build);
   } catch (e) {
     return Promise.reject(e);
   }
-  const v = voice && voice.clips.length === short.lines.length ? voice : null;
-  const job: Job = { short, look, tl: timelineFor(short, v), voice: v, cancelled };
+  const job: Job = { program, look, voice: voiceFor(program.captions.length, voice), cancelled };
+  const { w: W, h: H } = program.frame;
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
   host.style.cssText = `position:fixed;left:-${W * 4}px;top:0;width:${W}px;height:${H}px;pointer-events:none;visibility:hidden;`;

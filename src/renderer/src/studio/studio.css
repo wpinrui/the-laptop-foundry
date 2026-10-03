@@ -1,0 +1,313 @@
+/* The studio's stand-in editor and wheel: plain, working, and replaced by the designer's. */
+
+.st-desk {
+  position: absolute;
+  inset: calc(40 * var(--u));
+  display: grid;
+  grid-template-columns: calc(300 * var(--u)) 1fr;
+  grid-template-rows: 1fr auto;
+  gap: calc(20 * var(--u));
+  padding: calc(24 * var(--u));
+  background: var(--ground-deep);
+  border: 1px solid var(--line);
+}
+
+.st-side {
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  gap: calc(16 * var(--u));
+  min-height: 0;
+}
+
+.st-side .wm-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.st-ratios {
+  display: flex;
+  gap: calc(8 * var(--u));
+}
+
+.st-ratios button {
+  flex: 1;
+}
+
+.st .st-ratios button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.st-voice {
+  display: flex;
+  gap: calc(10 * var(--u));
+  align-items: center;
+}
+
+.st-voice select {
+  flex: 1;
+  font: inherit;
+  color: var(--text);
+  background: var(--ground);
+  border: 1px solid var(--line);
+  padding: calc(8 * var(--u));
+}
+
+.st-time {
+  display: flex;
+  align-items: baseline;
+  gap: calc(10 * var(--u));
+  font-family: var(--font-display);
+  font-size: calc(44 * var(--u));
+}
+
+.st-time small {
+  font-size: calc(18 * var(--u));
+  color: var(--muted);
+}
+
+.st-time.over {
+  color: var(--warning);
+}
+
+.st-end {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--u));
+}
+
+.st-main {
+  display: flex;
+  gap: calc(20 * var(--u));
+  min-height: 0;
+}
+
+.st-script {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  font: inherit;
+  font-size: calc(20 * var(--u));
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--ground);
+  border: 1px solid var(--line);
+  padding: calc(16 * var(--u));
+}
+
+.st-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8 * var(--u));
+  height: 100%;
+  max-width: 55%;
+}
+
+.st-preview {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  max-width: 100%;
+  background: var(--ground);
+}
+
+.st-preview > div,
+.st-preview-over {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.st-preview-over {
+  pointer-events: none;
+}
+
+.st-preview-bar {
+  display: flex;
+  gap: calc(12 * var(--u));
+  align-items: center;
+}
+
+.st-preview-bar input {
+  flex: 1;
+}
+
+.st-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: calc(10 * var(--u));
+  min-width: 0;
+}
+
+.st-library {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(8 * var(--u));
+}
+
+.st-chip {
+  padding: calc(6 * var(--u)) calc(12 * var(--u)) !important;
+  border: 1px solid var(--line-strong) !important;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.st-chip.card {
+  border-color: var(--accent) !important;
+}
+
+.st-chip.ghost {
+  position: fixed;
+  z-index: 1000;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: var(--ground-deep);
+}
+
+.st-track {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: calc(8 * var(--u));
+  border: 1px solid var(--line);
+  background: var(--ground);
+}
+
+.st-axis {
+  position: relative;
+  height: calc(84 * var(--u));
+  min-width: 100%;
+}
+
+.st-word {
+  position: absolute;
+  bottom: 0;
+  height: calc(30 * var(--u));
+  line-height: calc(30 * var(--u));
+  text-align: center;
+  font-size: calc(14 * var(--u));
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  user-select: none;
+}
+
+.st-word.break {
+  border-left: 2px solid var(--line-strong);
+}
+
+.st-scene {
+  position: absolute;
+  top: calc(6 * var(--u));
+  height: calc(40 * var(--u));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--accent-wash);
+  border: 1px solid var(--line-strong);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  overflow: hidden;
+}
+
+.st-scene.card {
+  border-color: var(--accent);
+}
+
+.st-scene span {
+  flex: 1;
+  min-width: 0;
+  padding: 0 calc(6 * var(--u));
+  font-size: calc(14 * var(--u));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.st-trim {
+  flex: none;
+  align-self: stretch;
+  width: calc(8 * var(--u));
+  background: var(--line-strong);
+  cursor: ew-resize;
+}
+
+.st-remove {
+  flex: none;
+  padding: 0 calc(6 * var(--u)) !important;
+  color: var(--muted) !important;
+}
+
+.st-spin {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(24 * var(--u));
+}
+
+.st-wheel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(16 * var(--u));
+}
+
+.st-wheel svg {
+  width: calc(420 * var(--u));
+  height: calc(444 * var(--u));
+}
+
+.st-wheel-spin {
+  transition: transform 4.5s cubic-bezier(0.12, 0.8, 0.22, 1);
+}
+
+.st-wheel path {
+  stroke: var(--ground-deep);
+  stroke-width: 2;
+}
+
+.st-wheel .neg path {
+  fill: var(--line-strong);
+}
+
+.st-wheel .zero path {
+  fill: var(--muted);
+}
+
+.st-wheel .pos path {
+  fill: var(--accent);
+}
+
+.st-wheel text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  fill: var(--ground-deep);
+}
+
+.st-wheel .neg text {
+  fill: var(--text);
+}
+
+.st-wheel-pin {
+  fill: var(--text) !important;
+}
+
+.st-wheel > b {
+  min-height: 1.2em;
+  font-family: var(--font-display);
+  font-size: calc(72 * var(--u));
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.st-wheel > b.on {
+  opacity: 1;
+}

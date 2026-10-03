@@ -13,6 +13,9 @@ const SPIN_MS = 5200;
 
 const pctOf = (i: number) => 1 + WHEEL[i].pct / 100;
 
+/** WHEEL indices in the order they go round the wheel: gains alternate with the losses and the flat wedge. */
+const DRAW = [3, 0, 5, 1, 6, 2, 4, 7];
+
 export function Wheel({ landed, name, colour, sandbox, onDone }: {
   landed: number;
   name: string;
@@ -21,13 +24,17 @@ export function Wheel({ landed, name, colour, sandbox, onDone }: {
   sandbox: boolean;
   onDone: () => void;
 }) {
+  // Kept by WHEEL index, so the landed wedge is found by its index, but laid out in DRAW order.
   const wedges = useMemo(() => {
     let at = 0;
-    return WHEEL.map((w, i) => {
+    const out: { i: number; from: number; to: number; mid: number; p: number; pct: number }[] = [];
+    for (const i of DRAW) {
+      const w = WHEEL[i];
       const from = at;
       at += w.p * 3.6;
-      return { i, from, to: at, mid: (from + at) / 2, p: w.p, pct: w.pct };
-    });
+      out[i] = { i, from, to: at, mid: (from + at) / 2, p: w.p, pct: w.pct };
+    }
+    return out;
   }, []);
   const [turn, setTurn] = useState(0);
   const [spinning, setSpinning] = useState(false);
@@ -47,7 +54,7 @@ export function Wheel({ landed, name, colour, sandbox, onDone }: {
       clearTimeout(b);
     };
   }, []);
-  const stops = wedges.map((w) => `var(--vs-w${w.i}) ${w.from}deg ${w.to - 0.6}deg, var(--ground) ${w.to - 0.6}deg ${w.to}deg`).join(", ");
+  const stops = DRAW.map((i) => wedges[i]).map((w) => `var(--vs-w${w.i}) ${w.from}deg ${w.to - 0.6}deg, var(--ground) ${w.to - 0.6}deg ${w.to}deg`).join(", ");
   const m = pctOf(landed);
   const pct = WHEEL[landed].pct;
   const tone = sandbox ? "void" : pct > 0 ? "up" : pct < 0 ? "down" : "flat";

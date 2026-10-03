@@ -226,6 +226,7 @@ function Desk(c: Ctx) {
               key={current.id}
               model={current}
               models={company.models}
+              company={company.id}
               campaign={campaign}
               score={scores.get(current.id) ?? null}
               actions={actions}
@@ -370,12 +371,14 @@ function Products({ company, campaign, at }: Ctx) {
 function Detail({
   model,
   models,
+  company,
   campaign,
   score,
   actions,
 }: {
   model: SavedModel;
   models: SavedModel[];
+  company: string;
   campaign: CampaignState | null;
   score: number | null;
   actions: OfficeActions;
@@ -441,6 +444,7 @@ function Detail({
           <ModelTab
             key={model.id}
             campaign={campaign}
+            company={company}
             model={model}
             models={models}
             units={actions.units(model.id)}

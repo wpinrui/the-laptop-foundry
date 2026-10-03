@@ -242,7 +242,6 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
           </tr>
         </thead>
         {ids.map((id) => {
-          const lost = rows.some((r) => (r.demand[id] ?? 0) > (r.units[id] ?? 0));
           const stock = campaign.releases[id]?.stock;
           return (
             <tbody key={id}>
@@ -260,32 +259,6 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
                 ))}
                 <td className="sum" />
               </tr>
-              <tr>
-                <th>Wanted</th>
-                {rows.map((r) => {
-                  const d = r.demand[id];
-                  return (
-                    <td key={q(r)} className={warn(d !== undefined && d > (r.units[id] ?? 0))}>
-                      {d === undefined ? "" : <Short value={d} />}
-                    </td>
-                  );
-                })}
-                <td className="sum" />
-              </tr>
-              {lost && (
-                <tr>
-                  <th>Lost</th>
-                  {rows.map((r) => {
-                    const l = (r.demand[id] ?? 0) - (r.units[id] ?? 0);
-                    return (
-                      <td key={q(r)} className="short">
-                        {l > 0 ? <Short value={l} /> : ""}
-                      </td>
-                    );
-                  })}
-                  <td className="sum" />
-                </tr>
-              )}
               <tr>
                 <th>Price</th>
                 {rows.map((r) => (
@@ -332,7 +305,7 @@ function SalesTable({ campaign, models }: { campaign: CampaignState; models: Sav
 }
 
 // The books in their own view between the rails: the statement for every
-// quarter so far, or sales against demand per model.
+// quarter so far, or sales per model.
 export function StatementView({
   campaign,
   models,

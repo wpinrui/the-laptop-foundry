@@ -31,7 +31,7 @@ import {
   UNDER_CEILING_STEEPNESS,
   WORD_OF_MOUTH,
 } from "./constants";
-import type { CampaignState, Quarter, QuarterStep } from "./index";
+import type { CampaignState, Quarter, QuarterContext, QuarterStep } from "./index";
 import { awardFactor } from "./awards";
 import { criticsScore } from "./critics";
 import { launchQuarter, quarterIndex } from "./rivals";
@@ -166,7 +166,8 @@ function valueOf(ratios: Record<string, number>, s: Segment): number {
 /**
  * Splits every segment's buyers among the sellers. `basis` is the year's
  * market the stats are measured against, `packs` the packaging it is
- * measured against. `seed` fixes the quarter's noise.
+ * measured against. `seed` fixes the quarter's noise; `luckOf`, when
+ * given, sets each seller's noise multiplier instead, for estimates.
  */
 export function splitDemand(
   sellers: Seller[],
@@ -175,12 +176,13 @@ export function splitDemand(
   seed: string,
   segments: Segment[] = SEGMENTS,
   packs: Pack[] = sellers.flatMap((x) => (x.pack ? [x.pack] : [])),
+  luckOf?: (x: Seller) => number,
 ): SalesResult {
   const now = state.now;
   const packAvg = packAverage(packs);
   const at = quarterIndex(now);
   const scores = new Map(sellers.map((x) => [x.id, marketScore({ id: x.id, stats: x.stats }, basis, segments)]));
-  const luck = new Map(sellers.map((x) => [x.id, 1 + (rng(`${seed}:${x.id}`)() * 2 - 1) * SALES_NOISE]));
+  const luck = new Map(sellers.map((x) => [x.id, luckOf ? luckOf(x) : 1 + (rng(`${seed}:${x.id}`)() * 2 - 1) * SALES_NOISE]));
   const demand: Record<string, number> = {};
   const saleDemand: Record<string, number> = {};
   const bySegment: Record<string, { segment: SegmentId; units: number; market: number; value: number }[]> = {};
@@ -293,16 +295,32 @@ export function sellersOf(state: CampaignState, models: { id: string; build: unk
   return out;
 }
 
-/** Segment demand for the quarter is split among the laptops on sale. */
-export const simulateSales: QuarterStep = (state, ctx) => {
+/**
+ * The quarter's sellers and their split, as the sales step resolves it.
+ * `adjust` may change the sellers before the split and `luckOf` fix their
+ * noise, both for estimates; without them this is the real quarter.
+ */
+export function quarterSplit(
+  state: CampaignState,
+  ctx: QuarterContext,
+  adjust?: (sellers: Seller[]) => Seller[],
+  luckOf?: (x: Seller) => number,
+): { sellers: Seller[]; res: SalesResult } {
   const rivals = ctx.rivals ?? [];
   const company = ctx.company ?? "";
-  const sellers = sellersOf(state, ctx.models, rivals, company);
+  const listed = sellersOf(state, ctx.models, rivals, company);
+  const sellers = adjust ? adjust(listed) : listed;
   const year = rivals.filter((r) => r.build.year === state.now.year).map((r) => rivalProfile(r));
   const own = sellers.filter((x) => x.maker === null);
   const basis = year.length > 0 ? [...year, ...own].map((x) => x.stats) : sellers.map((x) => x.stats);
   const packs = (year.length > 0 ? [...year, ...own] : sellers).flatMap((x) => (x.pack ? [x.pack] : []));
-  const res = splitDemand(sellers, basis, state, `sales:${company}:${state.now.year}:${state.now.quarter}`, SEGMENTS, packs);
+  const res = splitDemand(sellers, basis, state, `sales:${company}:${state.now.year}:${state.now.quarter}`, SEGMENTS, packs, luckOf);
+  return { sellers, res };
+}
+
+/** Segment demand for the quarter is split among the laptops on sale. */
+export const simulateSales: QuarterStep = (state, ctx) => {
+  const { sellers, res } = quarterSplit(state, ctx);
   const releases = { ...state.releases };
   const units: Record<string, number> = {};
   const demand: Record<string, number> = {};

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Quarter } from "../engine/campaign";
-import { type Commercial, commercialProgram, scriptLines, voiceOver } from "./commercial";
+import { type Commercial, commercialProgram, scriptLines, setsOf, voiceOver } from "./commercial";
 import { type Rendered, renderVideo, timelineFor, voiceFor } from "./render";
 import { shortProgram } from "./scene";
 import type { Short, ShortFacts } from "./script";
@@ -82,13 +82,20 @@ interface Job {
   file: string;
   /** Orders the shorts: the newest quarter wins. */
   order: string;
-  run: () => Promise<Rendered | null>;
+  run: (progress: (p: number) => void) => Promise<Rendered | null>;
 }
+
+/** The commercial rendering now, and how far through it is, 0 to 1. */
+let rendering: { company: string; file: string; progress: number } | null = null;
 
 const same = (a: Job, b: Job) => a.company === b.company && a.file === b.file;
 
-/** One video at a time. `newest`: only the newest job offered waits; otherwise every one does, in turn. */
-function lane(newest: boolean) {
+/**
+ * One video at a time. `newest`: only the newest job offered waits; otherwise
+ * every one does, in turn. `tracked`: the job in progress is what
+ * useAdRender reports.
+ */
+function lane(newest: boolean, tracked = false) {
   let running: Job | null = null;
   let pending: Job[] = [];
   const pump = async () => {
@@ -97,10 +104,16 @@ function lane(newest: boolean) {
     if (!job) return;
     running = job;
     const key = `${job.company}:${job.file}`;
+    const progress = (p: number) => {
+      if (!tracked) return;
+      rendering = { company: job.company, file: job.file, progress: p };
+      notify();
+    };
     try {
       const have = await keptOf(job.company);
       if (!have.has(job.file)) {
-        const r = await job.run();
+        progress(0);
+        const r = await job.run(progress);
         if (r) {
           const b = new Uint8Array(await r.video.arrayBuffer());
           await window.api.video.keep(job.company, job.file, b);
@@ -115,6 +128,10 @@ function lane(newest: boolean) {
       console.error(`video: could not make ${job.file}`, e);
     } finally {
       running = null;
+      if (tracked && rendering) {
+        rendering = null;
+        notify();
+      }
       void pump();
     }
   };
@@ -130,7 +147,19 @@ function lane(newest: boolean) {
 }
 
 const shorts = lane(true);
-const ads = lane(false);
+const ads = lane(false, true);
+
+/** The company's commercial rendering now, by its file, and how far through it is; null while none is. */
+export function useAdRender(company: string | null): { file: string; progress: number } | null {
+  useSyncExternalStore(
+    (cb) => {
+      subs.add(cb);
+      return () => subs.delete(cb);
+    },
+    () => stamp,
+  );
+  return rendering && rendering.company === company ? { file: rendering.file, progress: rendering.progress } : null;
+}
 
 /**
  * Offers the short for a company's quarter to the shorts queue. `make` writes
@@ -150,8 +179,8 @@ export function offerShort(company: string, quarter: Quarter, index: number, mak
       const narrator = index % 2 === 0 ? "michael" : "heart";
       const said = await window.api.video.say(short.lines.map((l) => l.say), narrator).catch(() => null);
       const voice = voiceFor(short.lines.length, said);
-      const program = shortProgram(short, timelineFor(short.lines.map((l) => l.text), voice));
-      return renderVideo(program, lookFor(index), voice);
+      const program = shortProgram(short, timelineFor(short.lines.map((l) => l.text), voice), lookFor(index));
+      return renderVideo(program, voice);
     },
   });
 }
@@ -159,20 +188,20 @@ export function offerShort(company: string, quarter: Quarter, index: number, mak
 /**
  * Queues a finished commercial's render. `facts` gathers what its cards show
  * once its turn comes; null means its laptop is gone. `index` counts the
- * company's commercials from 0 and picks the set.
+ * company's commercials from 0 and picks the sets of one saved before it had its own.
  */
 export function queueAd(company: string, c: Commercial, facts: () => Promise<ShortFacts | null>, index: number): void {
   ads({
     company,
     file: adFile(c.id),
     order: String(c.made),
-    run: async () => {
+    run: async (progress) => {
       const f = await facts();
       if (!f) return null;
       const lines = scriptLines(c.lines);
       const voice = voiceFor(lines.length, await voiceOver(c));
-      const program = commercialProgram(c, f, timelineFor(lines, voice));
-      return renderVideo(program, lookFor(index), voice);
+      const program = commercialProgram({ ...c, ...setsOf(c, index) }, f, timelineFor(lines, voice));
+      return renderVideo(program, voice, undefined, progress);
     },
   });
 }

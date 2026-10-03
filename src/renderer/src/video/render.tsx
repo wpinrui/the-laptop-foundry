@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { createRoot } from "react-dom/client";
 import { type Fit, solve } from "../engine";
-import { drawOverlay, type Frame, type LidControl, lidAt, type Program, SILENT_WPS, type Timeline, timelineOf, VideoStage } from "./scene";
-import type { Look } from "./sets";
+import { drawOverlay, type Frame, looksOf, type Program, SILENT_WPS, type StageControl, type Timeline, timelineOf, VideoStage } from "./scene";
+import { preloadSets } from "./sets";
 
 // A video, rendered offline: the scene is stepped at a fixed frame rate in a
 // hidden canvas of its own, each frame composited with its overlay and handed
@@ -121,9 +121,10 @@ async function encodeAudio(pcm: Float32Array, codec: string, muxer: Muxer<ArrayB
 
 interface Job {
   program: Program;
-  look: Look;
   voice: Voice | null;
   cancelled: () => boolean;
+  /** How far through the frames, 0 to 1. */
+  onProgress: (p: number) => void;
 }
 
 /** A rendered video: the MP4 and a small still of the laptop from it. */
@@ -137,8 +138,8 @@ export interface Rendered {
 const POSTER_LONG = 320;
 
 /** Steps the scene through every frame, encodes it with the narration and returns the MP4 and its poster. */
-async function encode(job: Job, state: RootState, time: { current: number }, lid: LidControl): Promise<Rendered> {
-  const { program, voice, cancelled } = job;
+async function encode(job: Job, state: RootState, time: { current: number }, stage: StageControl): Promise<Rendered> {
+  const { program, voice, cancelled, onProgress } = job;
   const { w: W, h: H } = program.frame;
   const k = POSTER_LONG / Math.max(W, H);
   const posterW = Math.round(W * k);
@@ -176,8 +177,9 @@ async function encode(job: Job, state: RootState, time: { current: number }, lid
       if (failed) throw failed;
       const t = f / FPS;
       time.current = t;
-      // A new cut's lid angle is in the scene, and its shadow drawn, before the frame.
-      await lid.current?.(lidAt(program, t));
+      // A new cut's set and lid angle are in the scene, and its shadow drawn, before the frame.
+      await stage.current?.(t);
+      if (f % FPS === 0) onProgress(f / frames);
       state.advance(t * 1000);
       g.fillStyle = "#14100d";
       g.fillRect(0, 0, W, H);
@@ -223,7 +225,7 @@ function Driver({ onState }: { onState: (s: RootState) => void }) {
 
 function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered | Error) => void }) {
   const time = useRef(0);
-  const lid = useRef<LidControl["current"]>(null);
+  const stage = useRef<StageControl["current"]>(null);
   const ready = useMemo(() => {
     let state: (s: RootState) => void = () => {};
     let set: () => void = () => {};
@@ -254,7 +256,7 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered |
           state.advance(0);
           await yieldTask();
         }
-        return encode(job, state, time, lid);
+        return encode(job, state, time, stage);
       })
       .then(done, (e) => done(e instanceof Error ? e : new Error(String(e))));
   }, []);
@@ -266,7 +268,7 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered |
       gl={{ preserveDrawingBuffer: true, antialias: true }}
       camera={{ fov: job.program.frame.fov, near: 0.01, far: 20, position: [0, 1.2, 1] }}
     >
-      <VideoStage program={job.program} fit={fit} look={job.look} time={time} onLock={ready.lock} onSet={ready.set} lid={lid} />
+      <VideoStage program={job.program} fit={fit} time={time} onLock={ready.lock} onSet={ready.set} control={stage} />
       <Driver onState={ready.state} />
     </Canvas>
   );
@@ -291,14 +293,21 @@ export function voiceFor(lines: number, voice: Voice | null): Voice | null {
  * from whatever the player is looking at. Rejects with Cancelled once
  * `cancelled` turns true. `voice` has one clip per caption, or is null.
  */
-export function renderVideo(program: Program, look: Look, voice: Voice | null, cancelled: () => boolean = () => false): Promise<Rendered> {
+export function renderVideo(
+  program: Program,
+  voice: Voice | null,
+  cancelled: () => boolean = () => false,
+  onProgress: (p: number) => void = () => {},
+): Promise<Rendered> {
   let fit: Fit;
   try {
     fit = solve(program.facts.subject.build);
   } catch (e) {
     return Promise.reject(e);
   }
-  const job: Job = { program, look, voice: voiceFor(program.captions.length, voice), cancelled };
+  const job: Job = { program, voice: voiceFor(program.captions.length, voice), cancelled, onProgress };
+  // Every set the video moves between is loading before it starts.
+  preloadSets(looksOf(program).map((l) => l.set));
   const { w: W, h: H } = program.frame;
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");

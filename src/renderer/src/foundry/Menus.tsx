@@ -471,6 +471,13 @@ export function SettingsMenu({
             <small>CC0</small>
           </li>
           <li>
+            <span>Poly Haven, in the studio</span>
+            <small>
+              Metal Office Desk, Modern Arm Chair 01, Industrial Storage Cart, Cardboard Box 01, Plastic Crate 01, Metal Stool 01,
+              Potted Plant 04, Smooth Concrete Floor and Plywood textures, CC0
+            </small>
+          </li>
+          <li>
             <span>Lucide</span>
             <small>Lucide Contributors, ISC License</small>
           </li>

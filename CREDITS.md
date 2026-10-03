@@ -101,6 +101,24 @@ The four sets in `src/renderer/src/assets/video-sets/` (creator desk, colour swe
 
 Everything else in the sets, including the geometry and the surround, city, rain, ESD mat, tray and pegboard textures, was built for this project and falls under the repository's own licence.
 
+## Studio scene
+
+`src/renderer/src/assets/studio/laptop-foundry-studio.glb` is the designer's video studio. Its third-party assets are from [Poly Haven](https://polyhaven.com) and are licensed **CC0 1.0** (public domain). Credit isn't required, but it is given here.
+
+| Asset | Used as | Source |
+|---|---|---|
+| Metal Office Desk | Editing desk | https://polyhaven.com/a/metal_office_desk |
+| Modern Arm Chair 01 | Editing chair | https://polyhaven.com/a/modern_arm_chair_01 |
+| Industrial Storage Cart | Gear cart | https://polyhaven.com/a/industrial_storage_cart |
+| Cardboard Box 01 | Boxes by the wall | https://polyhaven.com/a/cardboard_box_01 |
+| Plastic Crate 01 | Crates | https://polyhaven.com/a/plastic_crate_01 |
+| Metal Stool 01 | Set stool | https://polyhaven.com/a/metal_stool_01 |
+| Potted Plant 04 | Plant by the desk | https://polyhaven.com/a/potted_plant_04 |
+| Smooth Concrete Floor (texture) | Floor | https://polyhaven.com/a/smooth_concrete_floor |
+| Plywood (texture) | Apple boxes, cyc frame | https://polyhaven.com/a/plywood |
+
+Everything else in the studio, including the room shell, cyclorama, turntable, softboxes, stands, camera, lighting grid, desk monitor, door and on-air lamp, was built for this project and falls under the repository's own licence.
+
 ## Legend and decal fonts
 
 These fonts are vendored in `src/renderer/src/assets/fonts/` (Latin subset, from [Fontsource](https://fontsource.org)) for keyboard legends and text decals. Every one is licensed under the **SIL Open Font License 1.1**; each licence text sits beside its files as `OFL-<font>.txt`.
@@ -128,4 +146,4 @@ These fonts are vendored in `src/renderer/src/assets/fonts/` (Latin subset, from
 
 ## Narration voice
 
-The quarter video's narration is Kokoro-82M v1.0 by hexgrad (https://huggingface.co/hexgrad/Kokoro-82M), with its voices `am_michael` and `af_heart`. The model and its voice packs are licensed **Apache-2.0**. It is fetched at build time by `scripts/fetch-voice.mjs` into `resources/voice/kokoro/` (not in the repository), in sherpa-onnx's packaging (Apache-2.0, https://github.com/k2-fsa/sherpa-onnx), whose US English lexicon ships with it. Words the lexicon lacks are phonemized by espeak-ng (GPL-3.0, https://github.com/espeak-ng/espeak-ng), whose English data ships with the voice and whose code is linked into the `sherpa-onnx-node` addon.
+The quarter video's narration is Kokoro-82M v1.0 by hexgrad (https://huggingface.co/hexgrad/Kokoro-82M), with its English voices (`af_*`, `am_*`, `bf_*` and `bm_*`). The model and its voice packs are licensed **Apache-2.0**. It is fetched at build time by `scripts/fetch-voice.mjs` into `resources/voice/kokoro/` (not in the repository), in sherpa-onnx's packaging (Apache-2.0, https://github.com/k2-fsa/sherpa-onnx), whose US English lexicon ships with it. Words the lexicon lacks are phonemized by espeak-ng (GPL-3.0, https://github.com/espeak-ng/espeak-ng), whose English data ships with the voice and whose code is linked into the `sherpa-onnx-node` addon.

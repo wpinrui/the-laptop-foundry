@@ -85,6 +85,8 @@ function isModel(m: unknown): m is SavedModel {
 }
 
 const RATIOS = ["9:16", "1:1", "16:9"];
+const SETS = ["desk", "sweep", "night", "bench"];
+const isSetOrNone = (x: unknown) => x === undefined || (typeof x === "string" && SETS.includes(x));
 const MAX_LINES = 24;
 const MAX_LINE = 400;
 const MAX_SCENES = 200;
@@ -103,7 +105,12 @@ function isCommercial(c: unknown): c is SavedCommercial {
     x.lines.every((l) => typeof l === "string" && l.length <= MAX_LINE) &&
     Array.isArray(x.scenes) &&
     x.scenes.length <= MAX_SCENES &&
-    x.scenes.every((s) => !!s && typeof s.kind === "string" && isCount(s.startWord) && isCount(s.endWord) && s.endWord > s.startWord) &&
+    x.scenes.every(
+      (s) => !!s && typeof s.kind === "string" && isCount(s.startWord) && isCount(s.endWord) && s.endWord > s.startWord && isSetOrNone(s.set),
+    ) &&
+    isSetOrNone(x.set) &&
+    isSetOrNone(x.brollSet) &&
+    (x.paper === undefined || isCount(x.paper)) &&
     RATIOS.includes(x.ratio) &&
     (x.voice === null || typeof x.voice === "string") &&
     typeof x.made === "number" &&

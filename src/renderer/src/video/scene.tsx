@@ -80,6 +80,13 @@ export interface Cut {
   cardFrom: number;
 }
 
+/** A card over the cuts from `start` to `end`, whatever they show, its animation starting at `start`. */
+export interface CardSpan {
+  card: Card;
+  start: number;
+  end: number;
+}
+
 export interface Caption {
   text: string;
   start: number;
@@ -94,6 +101,8 @@ export interface Program {
   kicker: string;
   /** Back to back from 0 to total. */
   cuts: Cut[];
+  /** Cards on a track of their own, over the cuts; when absent, each cut carries its own. */
+  cards?: CardSpan[];
   captions: Caption[];
   total: number;
   /** When the poster still is taken. */
@@ -371,6 +380,10 @@ function drawCard(g: CanvasRenderingContext2D, p: Program, card: Card, local: nu
   g.textBaseline = "alphabetic";
   if (card === "title") {
     g.globalAlpha = a;
+    // No panel behind the title: a soft shadow keeps it readable over a busy shot.
+    g.shadowColor = "rgba(0,0,0,0.7)";
+    g.shadowBlur = 28;
+    g.shadowOffsetY = 4;
     const top = rise - 20;
     g.fillStyle = ACCENT;
     g.font = `700 44px ${DISPLAY}`;
@@ -463,8 +476,13 @@ function drawCard(g: CanvasRenderingContext2D, p: Program, card: Card, local: nu
 /** One frame's overlay at `t` seconds: the cut's card, the caption's chunk and the progress bar. */
 export function drawOverlay(g: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D, p: Program, t: number) {
   const ctx = g as CanvasRenderingContext2D;
-  const { cut } = cutAt(p, t);
-  if (cut) drawCard(ctx, p, cut.card, Math.max(0, t - cut.cardFrom));
+  if (p.cards) {
+    const on = p.cards.find((c) => t >= c.start && t < c.end);
+    if (on) drawCard(ctx, p, on.card, t - on.start);
+  } else {
+    const { cut } = cutAt(p, t);
+    if (cut) drawCard(ctx, p, cut.card, Math.max(0, t - cut.cardFrom));
+  }
   for (const c of p.captions) {
     const local = t - c.start;
     if (local >= 0 && local <= c.dur + GAP) {

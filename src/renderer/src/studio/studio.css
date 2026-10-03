@@ -968,7 +968,7 @@
   background: var(--ground);
 }
 
-/* The timeline: the script's words along the bottom, clips over them. */
+/* The timeline: the script's words along the top, the card lane under them, the angle lane at the bottom. */
 .st-track {
   position: absolute;
   left: calc(32 * var(--u));
@@ -986,13 +986,26 @@
   height: 100%;
 }
 
+.st-lane,
 .st-broll,
 .st-drop,
 .st-clip {
   position: absolute;
-  top: calc(14 * var(--u));
-  height: calc(80 * var(--u));
+  top: calc(106 * var(--u));
+  height: calc(52 * var(--u));
   box-sizing: border-box;
+}
+
+.st-lane.cards,
+.st-drop.cards,
+.st-clip.cards {
+  top: calc(48 * var(--u));
+}
+
+.st-lane {
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--text) 3%, transparent);
 }
 
 .st-broll {
@@ -1032,8 +1045,9 @@
 
 .st-clip-name {
   position: absolute;
-  left: calc(14 * var(--u));
-  top: calc(12 * var(--u));
+  left: calc(16 * var(--u));
+  top: 0;
+  bottom: 0;
   right: calc(14 * var(--u));
   display: flex;
   align-items: center;
@@ -1067,21 +1081,23 @@
 
 .st-trim i {
   width: 2px;
-  height: calc(26 * var(--u));
+  height: calc(20 * var(--u));
   background: color-mix(in srgb, var(--text) 60%, transparent);
 }
 
 /* A clip on a set of its own: its swatch in the corner. */
 .st-clip-set {
   position: absolute;
-  left: calc(20 * var(--u));
-  bottom: calc(12 * var(--u));
+  right: calc(20 * var(--u));
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
 }
 
 .st .st-clip-btn {
   position: absolute;
-  bottom: calc(10 * var(--u));
+  top: 50%;
+  transform: translateY(-50%);
   width: calc(28 * var(--u));
   height: calc(28 * var(--u));
   display: flex;
@@ -1094,7 +1110,7 @@
 }
 
 .st .st-clip-btn.set {
-  left: calc(18 * var(--u));
+  right: calc(52 * var(--u));
 }
 
 .st .st-clip-btn.set.own,
@@ -1113,16 +1129,17 @@
 
 .st-mark {
   position: absolute;
-  top: calc(102 * var(--u));
-  height: calc(56 * var(--u));
+  top: calc(4 * var(--u));
+  height: calc(154 * var(--u));
+  pointer-events: none;
   width: 1px;
   background: color-mix(in srgb, var(--text) 25%, transparent);
 }
 
 .st-word {
   position: absolute;
-  top: calc(108 * var(--u));
-  height: calc(44 * var(--u));
+  top: calc(6 * var(--u));
+  height: calc(36 * var(--u));
   display: flex;
   align-items: center;
   justify-content: center;

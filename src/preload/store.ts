@@ -40,13 +40,13 @@ export interface SavedPlace {
   model?: string;
 }
 
-/** One scene on a commercial's timeline: a camera shot or a card, over the script's words from startWord up to endWord. */
+/** One scene on a commercial's timeline track: a camera angle or a card, over the script's words from startWord up to endWord. */
 export interface SavedScene {
   kind: string;
   startWord: number;
   /** The word after the scene's last. */
   endWord: number;
-  /** Its own set; the commercial's scene set when absent. */
+  /** An angle's own set; the commercial's scene set when absent. Cards take none. */
   set?: string;
 }
 
@@ -57,7 +57,10 @@ export interface SavedCommercial {
   model: string;
   /** The script, one narrated and captioned line each. */
   lines: string[];
-  scenes: SavedScene[];
+  /** The angle track: camera shots, b-roll wherever none is placed. */
+  angles: SavedScene[];
+  /** The card track: cards shown over whatever the angle track is playing. */
+  cards: SavedScene[];
   ratio: "9:16" | "1:1" | "16:9";
   /** The narrator's name, or null for no voice. */
   voice: string | null;

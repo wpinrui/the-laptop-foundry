@@ -8,16 +8,18 @@ import {
   commercialProgram,
   estimateTimeline,
   fitScenes,
+  fitTracks,
   heard,
   MAX_LINE,
   MAX_LINES,
   MAX_SECONDS,
   multiplierOf,
+  NO_TRACKS,
   rateOf,
-  type Scene,
   scriptLines,
   setsOf,
   spinWheel,
+  type Tracks,
   WHEEL,
   wordsOf,
   wordTimes,
@@ -29,7 +31,7 @@ import { SET_IDS, type SetId } from "../video/sets";
 import { adSubject } from "./eligible";
 import { ICON, Icon } from "./icons";
 import { frameSize, Preview } from "./Preview";
-import { SET_NAMES, SetThumb, Timeline } from "./Timeline";
+import { type ClipRef, SET_NAMES, SetThumb, Timeline } from "./Timeline";
 
 // The editing desk's screen, grown out of the monitor to fill the window:
 // pick the laptop, then write the script, lay scenes on its words, pick the
@@ -149,7 +151,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
   // ---------------------------------------------------------------- the editor's commercial
   const [id, setId] = useState(() => crypto.randomUUID());
   const [text, setText] = useState("");
-  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [tracks, setTracks] = useState<Tracks>(NO_TRACKS);
   const [ratio, setRatio] = useState<Ratio>("16:9");
   const defaults = setsOf({}, index);
   const [sceneSet, setSceneSet] = useState<SetId>(defaults.set);
@@ -160,7 +162,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
   // The right of the page shows the video, or the laptop's spec sheet to write from.
   const [side, setSide] = useState<"preview" | "specs">("preview");
   const [previewing, setPreviewing] = useState<string | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<ClipRef | null>(null);
   const [playing, setPlaying] = useState(false);
   const time = useRef(0);
   const [, tick] = useState(0);
@@ -183,7 +185,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
 
   const lines = useMemo(() => text.split("\n"), [text]);
   const words = useMemo(() => wordsOf(lines), [lines]);
-  const kept = useMemo(() => fitScenes(scenes, words.length), [scenes, words.length]);
+  const kept = useMemo(() => fitTracks(tracks, words.length), [tracks, words.length]);
   const tl = estimateTimeline(lines, voice);
   const total = words.length ? tl.total : 0;
   const starts = useMemo(() => wordTimes(scriptLines(lines), tl), [lines, tl]);
@@ -206,7 +208,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
     }
   }, [model, company.name, campaign]);
   const sets = { set: sceneSet, brollSet, paper: defaults.paper };
-  const program = facts ? commercialProgram({ id, lines, scenes: kept, ratio, ...sets }, facts, tl) : null;
+  const program = facts ? commercialProgram({ id, lines, ...kept, ratio, ...sets }, facts, tl) : null;
   const can = !!model && !!facts && words.length > 0 && total <= MAX_SECONDS;
 
   // The word under the playhead, and how far through it.
@@ -225,7 +227,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
     setPicked(m.id);
     setId(crypto.randomUUID());
     setText("");
-    setScenes([]);
+    setTracks(NO_TRACKS);
     setSelected(null);
     time.current = 0;
     setPlaying(false);
@@ -239,7 +241,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
       id,
       model: model.id,
       lines: scriptLines(lines),
-      scenes: kept,
+      ...kept,
       ratio,
       voice,
       made: Date.now(),
@@ -274,8 +276,8 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
           setStep(s.models.length ? "pick" : "done");
         } else s.onLeave();
       } else if (s.step === "edit" && (e.key === "Delete" || e.key === "Backspace") && s.selected !== null) {
-        const i = s.selected;
-        setScenes((ss) => fitScenes(ss, Number.POSITIVE_INFINITY).filter((_, j) => j !== i));
+        const { track, i } = s.selected;
+        setTracks((t) => ({ ...t, [track]: fitScenes(t[track], Number.POSITIVE_INFINITY).filter((_, j) => j !== i) }));
         setSelected(null);
       } else if (s.step === "edit" && e.key === " ") {
         e.preventDefault();
@@ -592,8 +594,8 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
         </div>
         <Timeline
           words={words}
-          scenes={kept}
-          onScenes={setScenes}
+          tracks={kept}
+          onTracks={setTracks}
           selected={selected}
           onSelect={setSelected}
           current={current}

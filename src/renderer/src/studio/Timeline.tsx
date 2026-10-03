@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CARDS, type Scene, type SceneKind, SHOTS } from "../video/commercial";
+import { CARDS, type Scene, type SceneKind, SHOTS, TRACK_IDS, type TrackId, type Tracks, trackOf } from "../video/commercial";
 import { SET_IDS, type SetId } from "../video/sets";
 import benchThumb from "../assets/video-sets/thumbs/bench.png";
 import deskThumb from "../assets/video-sets/thumbs/desk.png";
@@ -7,12 +7,14 @@ import nightThumb from "../assets/video-sets/thumbs/night.png";
 import sweepThumb from "../assets/video-sets/thumbs/sweep.png";
 import { ICON, Icon, LABEL } from "./icons";
 
-// The commercial's timeline: the scene library's tiles over a track whose
+// The commercial's timeline: the scene library's tiles over two lanes whose
 // x-axis is the script, word by word, the lines laid end to end with a mark
-// at each break. Tiles drag onto a word (onto a clip, they swap its scene);
-// clips move, trim at either end to any word boundary, take their own set and
-// are removed; they never overlap. Words not under a clip are the b-roll's,
-// hatched. Lengths are design px, scaled by --u.
+// at each break. The card lane sits over the angle lane, as cards play over
+// angles. A tile drags onto a word of its own kind's lane (onto a clip, it
+// swaps its scene); clips move, trim at either end to any word boundary, are
+// removed, and an angle takes its own set; within a lane they never overlap.
+// Angle words not under a clip are the b-roll's, hatched. Lengths are design
+// px, scaled by --u.
 
 const CHAR = 8.3;
 const PAD = 16;
@@ -38,13 +40,15 @@ export function SetThumb({ set, size = 14 }: { set: SetId; size?: number }) {
 
 type Drag = { kind: SceneKind; x: number; y: number; hover: number | null };
 
-export function Timeline({ words, scenes, onScenes, selected, onSelect, current, head, onSeek, sceneSet }: {
+/** A clip: its lane and its index in that lane's scenes. */
+export type ClipRef = { track: TrackId; i: number };
+
+export function Timeline({ words, tracks, onTracks, selected, onSelect, current, head, onSeek, sceneSet }: {
   words: { text: string; line: number }[];
-  scenes: Scene[];
-  onScenes: (s: Scene[]) => void;
-  /** The selected clip, by its index in scenes. */
-  selected: number | null;
-  onSelect: (i: number | null) => void;
+  tracks: Tracks;
+  onTracks: (t: Tracks) => void;
+  selected: ClipRef | null;
+  onSelect: (c: ClipRef | null) => void;
   /** The word playing, and how far through it the playhead is, 0 to 1. */
   current: number;
   head: number;
@@ -72,8 +76,9 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
   dragging.current = drag;
   // The selected clip's set menu, where it opens on the page.
   const [setMenu, setSetMenu] = useState<{ x: number; y: number } | null>(null);
-  const live = useRef({ scenes, onScenes, n, geo });
-  live.current = { scenes, onScenes, n, geo };
+  const live = useRef({ tracks, onTracks, n, geo });
+  live.current = { tracks, onTracks, n, geo };
+  const setTrack = (track: TrackId, ss: Scene[]) => live.current.onTracks({ ...live.current.tracks, [track]: ss });
 
   const tlX = (clientX: number) => (clientX - (inner.current?.getBoundingClientRect().left ?? 0)) / unit();
   const wordAt = (x: number) => {
@@ -107,8 +112,9 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
     return !!r && e.clientY >= r.top - 30 && e.clientY <= r.bottom && e.clientX >= r.left && e.clientX <= r.right;
   };
   /** Where a tile dropped on word `w` goes: onto the clip there, or DROP_WORDS words from it, stopping at the next clip or the line's end. */
-  const placement = (w: number): { replace?: number; a: number; b: number } => {
-    const { scenes: ss, n: count } = live.current;
+  const placement = (track: TrackId, w: number): { replace?: number; a: number; b: number } => {
+    const { n: count } = live.current;
+    const ss = live.current.tracks[track];
     const hit = ss.findIndex((s) => w >= s.startWord && w < s.endWord);
     if (hit >= 0) return { replace: hit, a: ss[hit].startWord, b: ss[hit].endWord };
     const next = ss.filter((s) => s.startWord > w).reduce((m, s) => Math.min(m, s.startWord), count);
@@ -133,15 +139,19 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
       const d = dragging.current;
       setDrag(null);
       if (!d || d.hover === null) return;
-      const { scenes: ss, onScenes: set } = live.current;
-      const p = placement(d.hover);
+      const track = trackOf(d.kind);
+      const ss = live.current.tracks[track];
+      const p = placement(track, d.hover);
       if (p.replace !== undefined) {
-        set(ss.map((s, i) => (i === p.replace ? { ...s, kind: d.kind } : s)));
-        onSelect(p.replace);
+        setTrack(
+          track,
+          ss.map((s, i) => (i === p.replace ? { ...s, kind: d.kind } : s)),
+        );
+        onSelect({ track, i: p.replace });
       } else {
         const next = [...ss, { kind: d.kind, startWord: p.a, endWord: p.b }].sort((a, b) => a.startWord - b.startWord);
-        set(next);
-        onSelect(next.findIndex((s) => s.startWord === p.a));
+        setTrack(track, next);
+        onSelect({ track, i: next.findIndex((s) => s.startWord === p.a) });
       }
     };
     window.addEventListener("pointermove", move);
@@ -152,18 +162,18 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
     };
   }, [drag !== null]);
 
-  const clipDown = (i: number, mode: "move" | "a" | "b", e: React.PointerEvent) => {
+  const clipDown = (track: TrackId, i: number, mode: "move" | "a" | "b", e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setSetMenu(null);
-    const ss = live.current.scenes;
+    const ss = live.current.tracks[track];
     const me = ss[i];
     if (!me) return;
     const lo = ss[i - 1]?.endWord ?? 0;
     const hi = ss[i + 1]?.startWord ?? n;
     const i0 = wordAt(tlX(e.clientX));
     const len = me.endWord - me.startWord;
-    onSelect(i);
+    onSelect({ track, i });
     const move = (ev: PointerEvent) => {
       const x = tlX(ev.clientX);
       let a = me.startWord;
@@ -174,9 +184,12 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
         a = Math.max(lo, Math.min(hi - len, me.startWord + wordAt(x) - i0));
         b = a + len;
       }
-      const cur = live.current.scenes;
+      const cur = live.current.tracks[track];
       if (cur[i] && (cur[i].startWord !== a || cur[i].endWord !== b))
-        live.current.onScenes(cur.map((s, j) => (j === i ? { ...s, startWord: a, endWord: b } : s)));
+        setTrack(
+          track,
+          cur.map((s, j) => (j === i ? { ...s, startWord: a, endWord: b } : s)),
+        );
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
@@ -190,11 +203,13 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
   const seg = (a: number, b: number) => ({ left: u(ws[a].x), width: u(ws[b - 1].x + ws[b - 1].w - ws[a].x) });
   const gaps: { a: number; b: number }[] = [];
   let at = 0;
-  for (const s of [...scenes, { startWord: n, endWord: n }]) {
+  for (const s of [...tracks.angles, { startWord: n, endWord: n }]) {
     if (s.startWord > at) gaps.push({ a: at, b: s.startWord });
     at = Math.max(at, s.endWord);
   }
-  const drop = drag && drag.hover !== null && n ? placement(drag.hover) : null;
+  const dropTrack = drag ? trackOf(drag.kind) : null;
+  const drop = drag && dropTrack && drag.hover !== null && n ? placement(dropTrack, drag.hover) : null;
+  const sel = selected ? tracks[selected.track][selected.i] : undefined;
   const cw = ws[current];
   const headX = cw ? cw.x + cw.w * head : 0;
 
@@ -227,63 +242,70 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
       <em className="st-label st-at-track">Timeline</em>
       <div ref={track} className="st-track">
         <div ref={inner} className="st-track-in" style={{ width: u(geo.width + 40) }}>
-          {gaps.map((g) => (
-            <div key={`g${g.a}`} className="st-broll" style={seg(g.a, g.b)} />
+          {TRACK_IDS.map((t) => (
+            <div key={t} className={`st-lane ${t}`} />
           ))}
-          {drop && <div className="st-drop" style={seg(drop.a, drop.b)} />}
-          {scenes.map((s, i) => {
-            const card = IS_CARD.has(s.kind);
-            const on = selected === i;
-            const px = ws[s.endWord - 1] ? ws[s.endWord - 1].x + ws[s.endWord - 1].w - ws[s.startWord].x : 0;
-            if (!ws[s.startWord] || !ws[s.endWord - 1]) return null;
-            return (
-              <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: clips are ordered and never overlap: the index is the clip
-                key={i}
-                className={`st-clip${card ? " card" : ""}${on ? " on" : ""}`}
-                style={seg(s.startWord, s.endWord)}
-                onPointerDown={(e) => clipDown(i, "move", e)}
-              >
-                <div className="st-clip-name">
-                  <Icon d={ICON[s.kind as keyof typeof ICON]} size={22} width={1.6} />
-                  <span style={{ opacity: px > 96 ? 1 : 0 }}>{LABEL[s.kind]}</span>
+          {gaps.map((g) => (
+            <div key={`g${g.a}`} className="st-broll angles" style={seg(g.a, g.b)} />
+          ))}
+          {drop && dropTrack && <div className={`st-drop ${dropTrack}`} style={seg(drop.a, drop.b)} />}
+          {TRACK_IDS.flatMap((t) =>
+            tracks[t].map((s, i) => {
+              const card = t === "cards";
+              const on = selected?.track === t && selected.i === i;
+              if (!ws[s.startWord] || !ws[s.endWord - 1]) return null;
+              const px = ws[s.endWord - 1].x + ws[s.endWord - 1].w - ws[s.startWord].x;
+              return (
+                <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: clips in a lane are ordered and never overlap: the index is the clip
+                  key={`${t}${i}`}
+                  className={`st-clip ${t}${card ? " card" : ""}${on ? " on" : ""}`}
+                  style={seg(s.startWord, s.endWord)}
+                  onPointerDown={(e) => clipDown(t, i, "move", e)}
+                >
+                  <div className="st-clip-name">
+                    <Icon d={ICON[s.kind as keyof typeof ICON]} size={20} width={1.6} />
+                    <span style={{ opacity: px > (on ? (card ? 140 : 170) : 96) ? 1 : 0 }}>{LABEL[s.kind]}</span>
+                  </div>
+                  <div className="st-trim a" onPointerDown={(e) => clipDown(t, i, "a", e)}>
+                    <i />
+                  </div>
+                  <div className="st-trim b" onPointerDown={(e) => clipDown(t, i, "b", e)}>
+                    <i />
+                  </div>
+                  {!card && s.set && !on && <span className="st-clip-set">{<SetThumb set={s.set} size={10} />}</span>}
+                  {on && (
+                    <>
+                      {!card && (
+                        <button
+                          type="button"
+                          className={`st-clip-btn set${s.set ? " own" : ""}`}
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            const r = e.currentTarget.getBoundingClientRect();
+                            setSetMenu((m) => (m ? null : { x: r.left, y: r.top }));
+                          }}
+                        >
+                          <SetThumb set={s.set ?? sceneSet} size={12} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="st-clip-btn remove"
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          onTracks({ ...tracks, [t]: tracks[t].filter((_, j) => j !== i) });
+                          onSelect(null);
+                        }}
+                      >
+                        <Icon d={ICON.close} size={14} width={2.5} />
+                      </button>
+                    </>
+                  )}
                 </div>
-                <div className="st-trim a" onPointerDown={(e) => clipDown(i, "a", e)}>
-                  <i />
-                </div>
-                <div className="st-trim b" onPointerDown={(e) => clipDown(i, "b", e)}>
-                  <i />
-                </div>
-                {s.set && !on && <span className="st-clip-set">{<SetThumb set={s.set} size={10} />}</span>}
-                {on && (
-                  <>
-                    <button
-                      type="button"
-                      className={`st-clip-btn set${s.set ? " own" : ""}`}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        const r = e.currentTarget.getBoundingClientRect();
-                        setSetMenu((m) => (m ? null : { x: r.left, y: r.top }));
-                      }}
-                    >
-                      <SetThumb set={s.set ?? sceneSet} size={12} />
-                    </button>
-                    <button
-                      type="button"
-                      className="st-clip-btn remove"
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        onScenes(scenes.filter((_, j) => j !== i));
-                        onSelect(null);
-                      }}
-                    >
-                      <Icon d={ICON.close} size={14} width={2.5} />
-                    </button>
-                  </>
-                )}
-              </div>
-            );
-          })}
+              );
+            }),
+          )}
           {ws.map((w, i) =>
             w.first && i > 0 ? <i key={`m${w.x}`} className="st-mark" style={{ left: u(w.x - GAP / 2) }} /> : null,
           )}
@@ -306,17 +328,17 @@ export function Timeline({ words, scenes, onScenes, selected, onSelect, current,
           )}
         </div>
       </div>
-      {setMenu && selected !== null && scenes[selected] && (
+      {setMenu && selected?.track === "angles" && sel && (
         <div className="st-menu st-clip-menu" style={{ left: setMenu.x, top: setMenu.y }} onPointerDown={(e) => e.stopPropagation()}>
           {[null, ...SET_IDS].map((id) => {
-            const on = (scenes[selected].set ?? null) === id;
+            const on = (sel.set ?? null) === id;
             return (
               <button
                 key={id ?? "scene"}
                 type="button"
                 className={on ? "on" : undefined}
                 onClick={() => {
-                  onScenes(scenes.map((s, j) => (j === selected ? { ...s, set: id ?? undefined } : s)));
+                  onTracks({ ...tracks, angles: tracks.angles.map((s, j) => (j === selected.i ? { ...s, set: id ?? undefined } : s)) });
                   setSetMenu(null);
                 }}
               >

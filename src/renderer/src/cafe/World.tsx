@@ -283,7 +283,8 @@ function Player({
     const down = (e: KeyboardEvent) => keys.current.add(e.code);
     const up = (e: KeyboardEvent) => keys.current.delete(e.code);
     const mouse = (e: MouseEvent) => {
-      if (!document.pointerLockElement) return;
+      // In use the mouse is the laptop's, whatever holds the pointer (a game on its screen may lock it).
+      if (!document.pointerLockElement || live.current.using || !live.current.active) return;
       const l = look.current;
       // Slower look when zoomed in, so the aim stays steady.
       const k = LOOK * (fov.current / FOV);

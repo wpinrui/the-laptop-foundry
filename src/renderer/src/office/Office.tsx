@@ -9,7 +9,7 @@ import type { Subject } from "../engine";
 import { type CampaignState, quarterLabel } from "../engine/campaign";
 import { usd, usdShort } from "../foundry/Release";
 import { token } from "../viewer/theme";
-import { Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
+import { DESK_PC_ID, Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
 import { buildPanels, type OfficeActions, statusOfModel, wallOrder } from "./Panels";
 import { buildOf, DESK_PC, DeskScreen, deskLean, fitOf, leanFor, TvShort, UsedLaptop } from "./Use";
 import { Trophies, Wall, SETTLE as WALL_SETTLE } from "./Wall";
@@ -65,7 +65,7 @@ function Keys({ list }: { list: Prompt[] }) {
 }
 
 /** The desk computer's id among the things in use. */
-const DESK = "desk-pc";
+const DESK = DESK_PC_ID;
 
 export function Office({
   company,
@@ -212,7 +212,7 @@ export function Office({
   useEffect(() => setPlaying(false), [station, free]);
 
   const aimed =
-    aim?.kind === "laptop" && usable(aim.id) ? aim.id : aim?.kind === "station" && aim.id === "desk" ? DESK : null;
+    aim?.kind === "laptop" && (aim.id === DESK || usable(aim.id)) ? aim.id : null;
   const keys = useRef({ station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem });
   keys.current = { station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem };
   const onAtRef = useRef(onAt);

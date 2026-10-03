@@ -34,6 +34,9 @@ export type Side = "left" | "right";
 export type Award = "cup" | "obelisk" | "plaque";
 export type Pick = { kind: "station"; id: StationId } | { kind: "laptop"; id: string };
 
+/** The desk computer, as the pointer picks it: its monitor, used like a laptop. */
+export const DESK_PC_ID = "desk-pc";
+
 export interface OfficeData {
   scene: THREE.Group;
   /** Station cameras by id, the product wall's by bay count (products_1 to products_5), and the arrival spot. */
@@ -50,6 +53,8 @@ export interface OfficeData {
   bay: { z0: number; pitch: number; x: number };
   trophySlots: THREE.Object3D[];
   templates: Partial<Record<Award, THREE.Object3D>>;
+  /** The desk computer's monitor, mm: aiming at it uses the computer, anywhere else on the desk opens the Desk. */
+  deskScreen: THREE.Box3;
   /** Boxes the pointer picks a station by, mm. */
   boxes: { pick: Pick; box: THREE.Box3 }[];
   screens: Record<string, THREE.Mesh>;
@@ -197,6 +202,7 @@ function useOffice(): OfficeData {
       trophySlots,
       templates,
       boxes,
+      deskScreen: boxOf("desk_monitor_screen").expandByScalar(40),
       screens,
     };
   }, [gltf]);
@@ -511,6 +517,7 @@ export function Picker({
     const reach = 3500;
     for (const l of laptops.current ?? [])
       if (ray.ray.intersectBox(l.box, hit) && hit.distanceTo(ray.ray.origin) < reach) return { kind: "laptop", id: l.id };
+    if (ray.ray.intersectBox(data.deskScreen, hit) && hit.distanceTo(ray.ray.origin) < reach) return { kind: "laptop", id: DESK_PC_ID };
     let best: Pick | null = null;
     let near = Number.POSITIVE_INFINITY;
     const n = live.current.bays;

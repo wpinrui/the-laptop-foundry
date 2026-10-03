@@ -324,10 +324,10 @@ The cafe is where the player uses a laptop they built. Version 0.1 carries a min
 
 ## The world map
 
-The player is always on the world map or in one of four places: the Workshop, the Cafe, the Office and Courts.
+The player is always on the world map or in one of five places: the Workshop, the Cafe, the Office, Courts and the Studio.
 
 - Opening a company from the menu lands on the map, with no current place.
-- The map is a street plan with the four places on street corners. A panel beside it names the selected destination and holds Go.
+- The map is a street plan with the five places on street corners. A panel beside it names the selected destination and holds Go.
 - The place the player walked out of is marked as the current place and cannot be picked. A dashed route runs along the streets from it to the destination.
 - The Workshop and the Cafe ask which laptop to bring. None comes first and is the default: the player arrives empty handed.
 - Any laptop can come to the Workshop, drafts included. Only a laptop that works can come to the Cafe.
@@ -336,6 +336,7 @@ The player is always on the world map or in one of four places: the Workshop, th
 - Walking out through the Workshop's personnel door returns to the map. In the Cafe and Courts the exit door is a wall to walk into: aiming at it shows E Leave, which returns to the map. So does Map in any pause menu.
 - From a place, Stay goes back in. From the menu, Menu goes back to the main menu.
 - The Office is where the player runs the company: see The office.
+- The Studio is where a laptop's commercial is made: see The studio. It is shut while no laptop can have one.
 - Courts is the store, walked in first person. Its display tables hold what is on sale: in a campaign the last played quarter's shelf, rivals and the player's released models; in a sandbox the generated market of the year.
 - Each price tag carries the price and the specs. Courts shows no review scores.
 - Aiming at a laptop, E inspects it: a card with its maker, name, price, sales, specs and when it was released, a quarter such as 2024 Q2 in a campaign and the model's year in a sandbox. Previous and next step along the tables.
@@ -350,10 +351,29 @@ The Office is a small loft in the workshop's building, and works as a 3D menu. I
 - Desk: where the business is run, at one glance across the view. The company's overview (quarter, cash, profit trend, alerts for sold out laptops, reviews due, new awards and a ready short), the laptops with their status and stock, and for the picked one everything that decides its production and price: run size, price, unit cost with the run size's effect, the retailers' cut, margin, setup, overhead, marketing, profit and break-even, stock, sold and wanted last quarter, and Release or Order, with Use, Read review, Open in the workshop, Duplicate, Delete and New model.
 - Finance: the Books, with the statement and sales beside them. Marketing: the Brand. Market intel: the Market screen's Quarter, Rivals, Buyers and Store.
 - Product wall: a showcase of the company's laptops on shelves, newest first, in as many bays as they fill. A draft stands in foam grey, a laptop in stock has its screen lit, and a sold out one is dark with its lid half shut. Its panel shows the picked laptop and the list at a glance; decisions are made at the Desk.
-- Trophy cabinet: a cup, obelisk or plaque per award won, and the panel's awards and reviews. TV: the last quarter's short, made at the TV and watched on its screen, with its sound.
+- Trophy cabinet: a cup, obelisk or plaque per award won, and the panel's awards and reviews. TV: the company's finished videos, shorts and commercials, newest first, picked and watched on its screen with its sound, or full screen.
 - Door: E leaves to the map. Arriving from the map starts at the door and walks to the Desk.
 - M walks the room in first person, with WASD and the mouse, the panels hidden; M again returns to the nearest station. Aiming at a laptop on the product wall that works, E uses it as in the Cafe: its own OS on its screen, F full screen and E stops using. Aiming at the door, E leaves. The desk's monitor is scenery.
 - A sandbox company's office has no Finance, Market intel or Marketing in the ring and no End quarter.
+
+## The studio
+
+The Studio is a small commercial studio, walked in first person. At its editing desk the player makes a commercial for one of their laptops.
+
+- Each laptop can have one commercial, ever. In a campaign only released laptops can; in a sandbox, any laptop that works.
+- The script is typed line by line. The narrator reads each line and it shows as a caption.
+- The timeline runs along the script, word by word. Scenes are dragged onto it and their start and end trimmed to any word: keyboard, ports, screen, lid and turn, and cards for title, sales, stats and score. Where no scene is placed, the video shows slow b-roll pans of the laptop from showcase angles, the lid angle changing from pan to pan.
+- The video is 9:16, 1:1 or 16:9, narrated by any installed narrator or silent. A live estimate shows its length; 90 seconds is the limit.
+- Finish spins a wheel. Its wedges are sized by their odds: -50% 8%, -25% 12%, 0% 19%, +10% 20%, +25% 18%, +50% 11%, +100% 9%, +200% 3%, so +20% on average. In a campaign the result scales the laptop's demand in the next quarter to resolve, stock still capping its sales; until then the Desk shows it on that laptop. In a sandbox the wheel spins and changes nothing.
+
+## Videos
+
+Every video is an MP4 made in the background, wherever the player is.
+
+- Shorts and commercials are made in two separate queues, one video at a time each.
+- A short is made for each quarter that resolves. The queue always finishes the one it is making, then makes the newest quarter's short not yet made; quarters played past in between get none.
+- Commercials are made in the order they were finished.
+- A video plays only once it is finished.
 
 ## The system menu
 

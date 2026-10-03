@@ -320,6 +320,19 @@ export const SCORE_STEEPNESS = 0.35;
 export const OVER_CEILING_STEEPNESS = 4;
 
 /**
+ * Packaging's pull on appeal: the packaging index, the cube root of
+ * (market kg / kg) x (market mm / mm) x (screen-to-body / market's), raised
+ * to PACK_BASE + PACK_PER_WEIGHT x the segment's portability weight. A
+ * laptop 20% lighter and thinner with 10 points more screen-to-body sells
+ * about 20% better to a desktop replacement buyer and 110% to a nomad.
+ */
+export const PACK_BASE = 1;
+export const PACK_PER_WEIGHT = 10;
+/** The packaging index is clamped to this range before the power. */
+export const PACK_MIN = 0.5;
+export const PACK_MAX = 2;
+
+/**
  * Below the ceiling appeal is full up to this share of it, then eases off
  * toward the ceiling at UNDER_CEILING_STEEPNESS, so a price at the ceiling
  * is no longer free.

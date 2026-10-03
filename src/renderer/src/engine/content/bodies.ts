@@ -29,7 +29,7 @@ export const BODIES: Body[] = [
     size: { ...START },
     style: { edge: "square", corner: s([0.002, 0.01], "short", 1, 5), profile: 0, hinge: "full", latch: false, signature: "corner" },
     hinge: { x: 30, y: 20, z: 5 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // Soft consumer body: big corners, a deep round edge, a domed lid, barrel hinges and a latch.
@@ -49,7 +49,7 @@ export const BODIES: Body[] = [
       signature: "profile",
     },
     hinge: { x: 25, y: 20, z: 6 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // A cylindrical rear spine that carries the hinge and hangs below the base.
@@ -69,7 +69,7 @@ export const BODIES: Body[] = [
       signature: "drop",
     },
     hinge: { x: 28, y: 12, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // Rugged: thick walls, corner bumpers proud of the top and bottom, a latched lid.
@@ -90,7 +90,7 @@ export const BODIES: Body[] = [
       signature: "bumper",
     },
     hinge: { x: 34, y: 22, z: 6 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // A true taper to a thin chamfered front. The thickness the player sets is the rear.
@@ -110,7 +110,7 @@ export const BODIES: Body[] = [
       signature: "taper",
     },
     hinge: { x: 35, y: 15, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // A deep undercut all round: the lower half tucks in under a cove.
@@ -130,7 +130,7 @@ export const BODIES: Body[] = [
       signature: "undercut",
     },
     hinge: { x: 32, y: 15, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // The hinge set forward of a raised rear shelf that holds the exhaust and rear ports.
@@ -150,7 +150,7 @@ export const BODIES: Body[] = [
       signature: "shelf",
     },
     hinge: { x: 36, y: 18, z: 6 },
-    layouts: ["a", "c"],
+    layouts: ["a", "c", "d"],
   },
   {
     // A lifting hinge: the lid's lower edge swings down behind the rear, over a chamfered rear edge.
@@ -170,7 +170,7 @@ export const BODIES: Body[] = [
       signature: "lip",
     },
     hinge: { x: 30, y: 14, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // A straight wedge: one flat underside plane from a thick rear to a thin front,
@@ -191,7 +191,7 @@ export const BODIES: Body[] = [
       signature: "taper",
     },
     hinge: { x: 30, y: 14, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   // Perimeter bodies: one edge profile, a top zone and a bottom zone, swept
   // round the plan. Each side scales it by its multiplier (build.sides on the
@@ -218,7 +218,7 @@ export const BODIES: Body[] = [
       signature: "slant",
     },
     hinge: { x: 32, y: 15, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // The front and rear edges roll over top and bottom; the sides keep a tight radius and a flat wall.
@@ -242,7 +242,7 @@ export const BODIES: Body[] = [
       signature: "round",
     },
     hinge: { x: 30, y: 18, z: 5 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // The ultrabook: a straight bevel under every edge, a thin band showing all round.
@@ -268,7 +268,7 @@ export const BODIES: Body[] = [
       signature: "wrap",
     },
     hinge: { x: 30, y: 14, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // Double bevel: a shallow chamfer on top and a long bevel underneath meet at an edge line.
@@ -294,7 +294,7 @@ export const BODIES: Body[] = [
       signature: "wrap",
     },
     hinge: { x: 30, y: 14, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // The modern flat ultralight: uniform, big plan corners, a crisp top edge and a softer radius underneath.
@@ -319,7 +319,7 @@ export const BODIES: Body[] = [
       signature: "edge",
     },
     hinge: { x: 30, y: 14, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // The first thin-and-light: the underside sweeps up in one convex curve to a
@@ -351,7 +351,7 @@ export const BODIES: Body[] = [
       signature: "wrap",
     },
     hinge: { x: 28, y: 14, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
   {
     // Gem cut: the plan corners cut flat, a bevel under every edge.
@@ -378,6 +378,6 @@ export const BODIES: Body[] = [
       signature: "facet",
     },
     hinge: { x: 30, y: 14, z: 4 },
-    layouts: ["a", "b", "c"],
+    layouts: ["a", "b", "c", "d"],
   },
 ];

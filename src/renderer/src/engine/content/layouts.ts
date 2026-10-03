@@ -390,7 +390,7 @@ const floorB: Node = {
 };
 
 // Layout C, "Big bays": for large machines. Drive bay beside the board (left),
-// optical bay on the right edge, side ports in front of each bay, speakers
+// optical bay on the right edge, side ports behind each bay toward the rear, speakers
 // (side by side) and front ports in front of the board, and the battery on the rear edge between
 // two fans venting rear.
 const floorC: Node = {
@@ -403,15 +403,6 @@ const floorC: Node = {
           split: "y",
           children: [
             {
-              zone: "ports-left",
-              takes: ["port:left"],
-              pack: "y",
-              grow: 1,
-              edge: "left",
-              align: "end",
-              packFrom: "end",
-            },
-            {
               zone: "drive-bay",
               takes: ["drive"],
               pack: "y",
@@ -419,6 +410,15 @@ const floorC: Node = {
               align: "centre",
               capacity: 2,
               name: "Side bay",
+            },
+            {
+              zone: "ports-left",
+              takes: ["port:left"],
+              pack: "y",
+              grow: 1,
+              edge: "left",
+              align: "end",
+              packFrom: "end",
             },
           ],
         },
@@ -465,6 +465,14 @@ const floorC: Node = {
           split: "y",
           children: [
             {
+              zone: "optical-bay",
+              takes: ["odd"],
+              pack: "x",
+              grow: 1,
+              edge: "right",
+              capacity: 1,
+            },
+            {
               zone: "ports-right",
               takes: ["port:right"],
               pack: "y",
@@ -472,14 +480,6 @@ const floorC: Node = {
               edge: "right",
               align: "end",
               packFrom: "end",
-            },
-            {
-              zone: "optical-bay",
-              takes: ["odd"],
-              pack: "x",
-              grow: 1,
-              edge: "right",
-              capacity: 1,
             },
           ],
         },
@@ -537,6 +537,62 @@ const floorC: Node = {
           edge: "rear",
           align: "end",
         },
+      ],
+    },
+  ],
+};
+
+// Layout D, "Side bay": the optical bay down the right edge from the front,
+// beside the battery and the board rather than in a row of its own, as in the
+// white MacBook. Side ports run the whole left wall and behind the bay on the
+// right; the battery sits across the front, the board and fans behind it.
+const floorD: Node = {
+  split: "x",
+  children: [
+    {
+      split: "y",
+      children: [
+        { zone: "ports-left", takes: ["port:left"], pack: "y", grow: 1, edge: "left", align: "end", packFrom: "end" },
+        { zone: "hinge-l", takes: ["hinge"], pack: "x", grow: 0, edge: "rear", align: "start" },
+      ],
+    },
+    {
+      split: "y",
+      children: [
+        {
+          split: "x",
+          children: [
+            { zone: "spk-l", takes: ["spk"], pack: "y", grow: 1, align: "centre", name: "Front" },
+            { zone: "drive-bay", takes: ["drive"], pack: "x", grow: 1, align: "centre", capacity: 2, name: "Front" },
+            { zone: "battery", takes: ["battery"], pack: "x", grow: 1, align: "centre", name: "Front" },
+            { zone: "spk-r", takes: ["spk"], pack: "y", grow: 1, align: "centre", name: "Front" },
+          ],
+        },
+        {
+          split: "x",
+          children: [
+            { zone: "spk-rear-l", takes: [], may: ["spk"], pack: "y", grow: 0, align: "end", name: "Rear" },
+            { zone: "fan-l", takes: ["fan", "fin"], pack: "x", grow: 4, edge: "rear" },
+            {
+              split: "y",
+              children: [
+                { zone: "board", takes: ["board"], pack: "x", grow: 2, align: "centre" },
+                { zone: "ports-rear", takes: ["port:rear"], pack: "x", grow: 0, edge: "rear", align: "centre" },
+              ],
+            },
+            { zone: "drive-board", takes: [], may: ["drive", "battery"], pack: "x", grow: 0, align: "centre", capacity: 2, name: "Board row" },
+            { zone: "fan-r", takes: ["fan", "fin"], pack: "x", grow: 4, edge: "rear" },
+            { zone: "spk-rear-r", takes: [], may: ["spk"], pack: "y", grow: 0, align: "end", name: "Rear" },
+          ],
+        },
+      ],
+    },
+    {
+      split: "y",
+      children: [
+        { zone: "optical-bay", takes: ["odd"], pack: "x", grow: 0, edge: "right", capacity: 1, name: "Side" },
+        { zone: "ports-right", takes: ["port:right"], pack: "y", grow: 1, edge: "right", align: "end", packFrom: "end" },
+        { zone: "hinge-r", takes: ["hinge"], pack: "x", grow: 0, edge: "rear", align: "end" },
       ],
     },
   ],
@@ -657,5 +713,15 @@ export const LAYOUTS: Layout[] = [
     deck: "deck",
     lid: "lid",
     portSides: ["left", "right", "front"],
+  },
+  {
+    id: "d",
+    name: "Side bay",
+    from: 1995,
+    until: 2099,
+    floor: floorD,
+    deck: "deck",
+    lid: "lid",
+    portSides: ["left", "right", "rear"],
   },
 ];

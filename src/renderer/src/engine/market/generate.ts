@@ -261,6 +261,8 @@ interface Choices {
   spend: Build["spend"];
   quality: NonNullable<Build["quality"]>;
   pad?: { w: number; d: number };
+  /** Keyboard moved back over the strip behind it, mm. */
+  kbBack?: number;
   price: number;
   /** Room left over the minimum, mm. */
   slack: Size;
@@ -297,7 +299,7 @@ function assemble(ctx: Ctx, c: Choices, size: Size): Build {
     price: c.price,
     screen: c.screen,
     shape: { [c.body]: c.sig },
-    ...(c.pad ? { place: { pad: { w: c.pad.w, d: c.pad.d } } } : {}),
+    ...(c.pad || c.kbBack ? { place: { ...(c.pad ? { pad: { w: c.pad.w, d: c.pad.d } } : {}), ...(c.kbBack ? { kb: { y: -c.kbBack } } : {}) } } : {}),
   };
 }
 
@@ -318,7 +320,7 @@ function layoutsFor(ctx: Ctx, body: string, c: Partial<Choices>): string[] {
     return l && available(l, ctx.year);
   });
   const cells = c.battery && firstShape(partById(c.battery.part) as Part).kind === "cells";
-  const pref = ctx.who.large && c.optical && ctx.year < 2014 ? ["c", "b", "a"] : cells ? ["b", "c", "a"] : ["a", "b", "c"];
+  const pref = ctx.who.large && c.optical && ctx.year < 2014 ? ["c", "b", "a", "d"] : cells ? ["b", "c", "a", "d"] : ["a", "b", "c", "d"];
   return pref.filter((id) => ok.includes(id));
 }
 
@@ -800,13 +802,16 @@ function pickPorts(ctx: Ctx, layout: string, cpu: Part): BuildPort[] {
     out.unshift(["dc-jack", "power"]);
 
   // USB-A.
-  const usbA = who.thin ? (y < 2016 ? 2 : who.apple ? 0 : 1) : who.gaming || who.business ? 3 : who.large ? 4 : 2 + (ctx.pos < 0.5 ? 1 : 0);
+  const usbA = who.apple && !who.thin && y < 2016 ? 2 : who.thin ? (y < 2016 ? 2 : who.apple ? 0 : 1) : who.gaming || who.business ? 3 : who.large ? 4 : 2 + (ctx.pos < 0.5 ? 1 : 0);
   const aId = y < 2010 ? "usb-a-2.0" : first(ctx.trim >= 0.6 ? "usb-a-10g" : "", "usb-a-5g", "usb-a-2.0");
   if (aId) for (let i = 0; i < usbA; i++) out.push([aId, "usb"]);
 
   // Video.
-  if (!who.thin && (y <= 2012 || (who.business && y <= 2016)) && has("vga")) out.push(["vga", "video"]);
-  if ((!who.thin && (y >= 2008 || who.perf !== "office")) || (who.thin && y >= 2013 && conn >= 0.04 && !who.apple)) {
+  // Apple: Mini DisplayPort before Thunderbolt, no VGA, HDMI only on the 2012 to 2015 Pros and from 2021.
+  if (who.apple && y >= 2008 && y < 2011 && has("mini-dp")) out.push(["mini-dp", "video"]);
+  if (!who.apple && !who.thin && (y <= 2012 || (who.business && y <= 2016)) && has("vga")) out.push(["vga", "video"]);
+  const appleHdmi = !who.apple || (!who.thin && ((y >= 2012 && y < 2016) || y >= 2021));
+  if (appleHdmi && ((!who.thin && (y >= 2008 || who.perf !== "office")) || (who.thin && y >= 2013 && conn >= 0.04 && !who.apple))) {
     const hdmi = first("hdmi-2.1", "hdmi-2.0", "hdmi-1.4", "hdmi-1.3");
     if (hdmi) out.push([hdmi, "video"]);
   }
@@ -1857,14 +1862,18 @@ function compact(ctx: Ctx, c0: Choices, build: Build, fit: Fit, t: Tally): { bui
     return true;
   };
   search: for (const layout of [c0.layout, ...layoutsFor(ctx, c0.body, c0).filter((l) => l !== c0.layout)])
-    for (const spread of [false, true])
+    // Side bay: the left wall runs the whole depth, the right only behind the bay, so the ports may all go left.
+    for (const spread of layout === "d" ? ["asis", "spread", "left"] : ["asis", "spread"])
       for (const battery of packs) {
-        if (layout === c0.layout && !spread && battery === c0.battery) continue;
+        if (layout === c0.layout && spread === "asis" && battery === c0.battery) continue;
         const c = clone(c0);
         c.layout = layout;
         c.battery = battery;
+        // The keyboard back over the hinge strip or a rear battery, as far as it goes.
+        c.kbBack = 80;
         c.ports = reseatPorts(c.ports, layout);
-        if (spread) c.ports = balancedPorts(c.ports, fit);
+        if (spread === "spread") c.ports = balancedPorts(c.ports, fit);
+        if (spread === "left") c.ports = c.ports.map((p) => (p.side === "right" ? { ...p, side: "left" } : p));
         tryOne(c);
         if (lidExcess(out.build) <= EXCESS_MM) break search;
       }

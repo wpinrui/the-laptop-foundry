@@ -1,3 +1,4 @@
+import { OPTICAL_WANT } from "../campaign/constants";
 import { optionAvailable } from "../compat";
 import { available, CONTENT, eraFor, panelsFor } from "../content";
 import { offeredGenerationIds } from "../content/chips/gens";
@@ -34,6 +35,7 @@ import type {
   Size,
 } from "../types";
 import { PIECES, QUALITY_KEYS } from "../types";
+import { curveAt } from "./io";
 import { linesIn, nameFor, priceFor, shapeFor } from "./makers";
 import { modelName } from "./names";
 import type { CpuVendor, HeadlineStat, Line, LineShape } from "./types";
@@ -691,10 +693,26 @@ function pickWireless(ctx: Ctx): BuildPart {
   return bt.length > 1 && ctx.trim >= 0.4 ? { part: part.id, opts: { bluetooth: bt[bt.length - 1] } } : { part: part.id };
 }
 
+/** Share of the year's non-thin lines that kept an optical drive: nearly all to 2011, fading out by 2017. A premium line drops it sooner. */
+const OPTICAL_KEPT: [year: number, share: number][] = [
+  [2011, 1],
+  [2012, 0.85],
+  [2013, 0.65],
+  [2014, 0.45],
+  [2015, 0.25],
+  [2016, 0.1],
+  [2017, 0],
+];
+
+/** Buyers still want a drive, so a fix keeps it until nothing else is left. */
+function opticalWanted(ctx: Ctx): boolean {
+  return curveAt(OPTICAL_WANT, ctx.year) > 0.1;
+}
+
 function pickOptical(ctx: Ctx): BuildPart | undefined {
   if (ctx.who.thin) return undefined;
   const y = ctx.year;
-  const keep = y <= 2011 ? 1 : y <= 2014 ? (ctx.who.budget === "premium" ? 0 : 0.5) : 0;
+  const keep = curveAt(OPTICAL_KEPT, y) * (ctx.who.budget === "premium" ? 0.5 : 1);
   if (ctx.rng() >= keep) return undefined;
   const rank = (p: Part) => (p.id.startsWith("bd") || p.id.startsWith("hd") ? 2 : p.id.startsWith("combo") ? 0 : 1);
   const list = [...partsIn("optical", y, false)].sort((a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id));
@@ -1148,7 +1166,8 @@ function movesOf(ctx: Ctx): Move[] {
     },
     {
       key: "optical",
-      weight: 0.05,
+      // While buyers want a drive, the budget fit gives it up as late as a real priority.
+      weight: 0.05 + 0.4 * Math.max(0, curveAt(OPTICAL_WANT, ctx.year)),
       apply: (c) => {
         if (!c.optical) return false;
         c.optical = undefined;
@@ -1447,7 +1466,7 @@ function fixProblems(ctx: Ctx, c0: Choices, problems: Problem[]): Choices | unde
         c.battery = pickBattery(ctx, c.screen, 0.35);
         return true;
       case 1:
-        c.optical = undefined;
+        if (!opticalWanted(ctx)) c.optical = undefined;
         c.storage = pickStorage(ctx, true);
         return true;
       case 2:
@@ -1628,7 +1647,7 @@ function fixPriority(ctx: Ctx, c0: Choices, miss: Miss): Choices | undefined {
           break;
         case 1:
           c.battery = pickBattery(ctx, c.screen, 0.3);
-          c.optical = undefined;
+          if (!opticalWanted(ctx)) c.optical = undefined;
           c.storage = pickStorage(ctx, true);
           c.speakers = pickSpeakers(ctx, true);
           break;

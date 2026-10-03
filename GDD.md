@@ -456,7 +456,7 @@ The market score is the tycoon score. It rates a laptop for buyers directly and 
 
 - Headline stats: application performance, games performance, battery life, portability (weight and thickness), display, chassis and build, keyboard, trackpad, connectivity, thermals and noise, audio, and price.
 - Buyer segments are Laptop Tycoon's 20 segments, ported directly with their relative weights and remapped onto these headline stats.
-- Each stat is taken as a ratio to that year's market average, clamped to 0.5 to 1.5.
+- Each stat is taken as a ratio to that year's market average, clamped to 0.5 to 1.5; games performance to 0.5 to 3, since most of the market has no graphics card.
 - Per segment, the mean ratio under that segment's weights maps linearly to 1 to 10: 0.5 gives 1 and 1.5 gives 10.
 - Uniform noise of up to 0.5 either way is added, and the result is rounded.
 - A stat is good for a segment at a ratio of 1.15 or more, and bad at 0.85 or less.

@@ -1,4 +1,5 @@
 import { available, CONTENT } from "../content";
+import { padSurface } from "../pad";
 import type { Build, KeySpec, Piece } from "../types";
 import { PIECES } from "../types";
 import type { Line } from "./types";
@@ -30,6 +31,16 @@ const TONES: Record<Tone, { metal: string; plastic: string }> = {
 };
 
 const LIGHT: Tone[] = ["silver", "platinum", "white", "gold"];
+
+/**
+ * The first year a tone was sold on laptops: space grey with the 2015 MacBook,
+ * gold the same year, navy and platinum on premium ultrabooks from the mid 2010s.
+ * A look only takes a tone its first year had, so it never shows up early.
+ */
+const TONE_FROM: Partial<Record<Tone, number>> = { spacegrey: 2015, gold: 2015, navy: 2015, platinum: 2017, graphite: 2009 };
+
+/** Tones a line never wore, whatever its palette lists: gold on a MacBook Pro. */
+const NEVER: Record<string, Tone[]> = { "apple-macbook-pro": ["gold"], "apple-macbook-air": ["gold"] };
 
 /** What every line of a maker shares. */
 interface Dna {
@@ -208,7 +219,8 @@ export function lookFor(line: Line, year: number): Look {
   const body = common[0]?.[0] ?? lead.bodies[0];
   const h = hash("look", line.id, from);
   const style = STYLES[line.id] ?? FALLBACK;
-  const tones = lastAt(style.tones, from);
+  const listed = lastAt(style.tones, from).filter((t) => (TONE_FROM[t] ?? 0) <= from && !NEVER[line.id]?.includes(t));
+  const tones = listed.length > 0 ? listed : (["black"] as Tone[]);
   // The line's signature tone, listed first, half the time.
   const tone = h % 2 === 0 || tones.length < 2 ? tones[0] : tones[1 + ((h >>> 1) % (tones.length - 1))];
   const deck = style.deck ? lastAt(style.deck, from) : undefined;
@@ -257,8 +269,14 @@ export function dress(build: Build, look: Look, textures: (material: string) => 
   const out: Build = { ...build, finish, keys: look.keys, bezel: "#111112" };
   if (look.tone === "white" && build.materials.lid === "plastic" && look.maker === "apple") out.bezel = finish.lid.colour;
   if (look.plate) out.keyDeck = deckHex;
-  if (look.pad && build.year >= 2008) out.pad = { colour: deckHex, finish: "glass" };
+  // The pad matches the deck on a light deck and is a neutral dark grey on a dark one, never the stock tint.
+  const bp = build.parts.trackpad?.[0];
+  const part = bp && CONTENT.parts.find((p) => p.id === bp.part);
+  const glass = (look.pad && build.year >= 2008) || (part ? padSurface(part, bp, build.year) === "glass" : build.year >= 2015);
+  const light = LIGHT.includes(piece0(look));
+  out.pad = { colour: look.pad || light ? deckHex : glass ? "#2A2B2E" : "#232427", finish: glass ? "glass" : "matte" };
   return out;
 }
 
-export const isLight = (t: Tone) => LIGHT.includes(t);
+/** The deck's tone. */
+const piece0 = (look: Look): Tone => look.deck ?? look.tone;

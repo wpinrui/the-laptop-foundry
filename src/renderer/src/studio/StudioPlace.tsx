@@ -1,3 +1,4 @@
+import { isRecentEscape } from "../app/escape";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -123,6 +124,8 @@ export function StudioPlace({
         expectUnlock.current = false;
         return;
       }
+      // The release of an Escape already handled, not a pause.
+      if (isRecentEscape()) return;
       pause();
     };
     document.addEventListener("pointerlockchange", change);

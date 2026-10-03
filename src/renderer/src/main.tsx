@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { markEscape } from "./app/escape";
 import "@fontsource/barlow-condensed/500.css";
 import "@fontsource/barlow-condensed/600.css";
 import "@fontsource/barlow-condensed/700.css";
@@ -16,6 +17,7 @@ import "./styles/fonts.css";
 // browser never drops the pointer lock): replayed here as a key press on
 // whatever has focus, for every Escape handler to hear as before.
 window.api.onEscape(() => {
+  markEscape();
   const at = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : window;
   for (const type of ["keydown", "keyup"])
     at.dispatchEvent(new KeyboardEvent(type, { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));

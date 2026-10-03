@@ -1,3 +1,4 @@
+import { isRecentEscape } from "../app/escape";
 import { useFrame, useThree } from "@react-three/fiber";
 import {
   type ComponentProps,
@@ -769,6 +770,8 @@ export function FreeOverlay({
         expectUnlock.current = false;
         return;
       }
+      // The release of an Escape already handled, not a pause.
+      if (isRecentEscape()) return;
       pause();
     };
     document.addEventListener("pointerlockchange", change);

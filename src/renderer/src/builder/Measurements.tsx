@@ -292,6 +292,16 @@ export function Measurements({
             ))}
           </div>
           <div className="m-grid">
+            <span>CPU</span>
+            <b className={cool.throttle?.cpu ? "warn" : undefined}>{int(cool.peakDie)} °C</b>
+            <span />
+            {cool.peakGpuDie != null && (
+              <>
+                <span>GPU</span>
+                <b className={cool.throttle?.gpu ? "warn" : undefined}>{int(cool.peakGpuDie)} °C</b>
+                <span />
+              </>
+            )}
             <span>Skin</span>
             <b>{int(cool.peakSkin)} °C</b>
             <span />

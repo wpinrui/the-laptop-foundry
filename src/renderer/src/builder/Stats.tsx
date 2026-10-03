@@ -4,11 +4,12 @@ import { type Build, costOf, type Fit, type Measurements, results, weightOf } fr
 import { Label } from "./ui";
 
 // Raw measurements only: weight, thickness, battery, a benchmark figure,
-// surface temperature and fan noise. No ratings, no review score. They exist
+// chip and surface temperatures and fan noise. A chip temperature warns when
+// the chip throttles. No ratings, no review score. They exist
 // once the laptop is valid, after it has powered on.
 
 export interface Stat {
-  key: "weight" | "thickness" | "battery" | "bench" | "skin" | "noise" | "cost";
+  key: "weight" | "thickness" | "battery" | "bench" | "cpu" | "gpu" | "skin" | "noise" | "cost";
   label: string;
   value: string;
   unit: string;
@@ -37,6 +38,9 @@ export function statsOf(build: Build, fit: Fit, m: Measurements | null): Stat[] 
   const web = b ? (b.runtime[b.balanced]?.web ?? null) : null;
   const bench = results(build, m)?.bench.multi ?? null;
   const skin = m.cooling?.peakSkin ?? null;
+  const cpuDie = m.cooling?.peakDie ?? null;
+  const gpuDie = m.cooling?.peakGpuDie ?? null;
+  const cut = m.cooling?.throttle;
   const noise = m.cooling?.noise.load ?? null;
   return [
     weight,
@@ -49,6 +53,8 @@ export function statsOf(build: Build, fit: Fit, m: Measurements | null): Stat[] 
       unit: "",
       warn: false,
     },
+    { key: "cpu", label: "CPU temp", value: cpuDie === null ? "—" : String(Math.round(cpuDie)), unit: "°C", warn: !!cut?.cpu },
+    ...(gpuDie === null ? [] : [{ key: "gpu" as const, label: "GPU temp", value: String(Math.round(gpuDie)), unit: "°C", warn: !!cut?.gpu }]),
     { key: "skin", label: "Surface temp", value: skin === null ? "—" : String(Math.round(skin)), unit: "°C", warn: skin !== null && skin >= 45 },
     { key: "noise", label: "Fan noise", value: noise === null ? "—" : String(Math.round(noise)), unit: "dB", warn: noise !== null && noise >= 45 },
     price,

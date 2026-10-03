@@ -12,6 +12,8 @@ export interface SavedModel {
   reviewed?: number;
   /** When the player first saw the review's score land. The reveal plays only before this. */
   revealed?: number;
+  /** Archived after it sold: off the market, the studio and Courts until unarchived. */
+  archived?: boolean;
 }
 
 /** One saved notepad document. */

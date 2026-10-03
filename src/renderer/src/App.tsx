@@ -10,7 +10,7 @@ import { CafeScreen } from "./cafe/CafeScreen";
 import { WorldMap } from "./map/WorldMap";
 import { StoreWorld } from "./storeworld/StoreWorld";
 import { type Build, migrateBody, rivalsFor, screenOf, type Subject } from "./engine";
-import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, QUARTER_STEPS, type Quarter, quarterLabel, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
+import { advanceClock, AWARD_NAMES, type CampaignState, campaignOf, DEFAULT_RUN, hasSold, QUARTER_STEPS, type Quarter, quarterLabel, release, reorder, savedCampaign, setCampaign, setPrice } from "./engine/campaign";
 import { sortedModels } from "./foundry/LaptopList";
 import { LoadCompany, NameCard, NewCompany, SettingsMenu, StartMenu } from "./foundry/Menus";
 import { StatementView, type StatementTab } from "./foundry/Finance";
@@ -487,8 +487,10 @@ export function App() {
     return src;
   };
   // Deleting a model, from the office or the workshop: its line ends and its stock is written off.
+  // A model that has sold archives instead: its history stays, and it stops selling from the next quarter.
   const removeModel = (id: string) => {
     if (!company) return;
+    if (campaign && hasSold(campaign, id)) return archive(id, true);
     void store()
       .deleteModel(company.id, id)
       .then((c) => {
@@ -500,6 +502,10 @@ export function App() {
           return { ...s, releases };
         });
       });
+  };
+  const archive = (id: string, on: boolean) => {
+    const m = company?.models.find((x) => x.id === id);
+    if (m) void save({ ...m, archived: on || undefined });
   };
   const newModel = () => setNaming(campaign ? toYear(emptyBuild(), campaign.now.year) : emptyBuild());
   // From the Office or the store a new model, or a copy, goes to the workshop, the travel card up until the room is in.
@@ -595,6 +601,7 @@ export function App() {
           notes={company.notes ?? []}
           onSaveNotes={saveNotes}
           shop={campaign ? { state: campaign, models: company.models, company: company.name } : undefined}
+          onUnarchive={company.models.find((x) => x.id === here.model?.id)?.archived ? () => here.model && archive(here.model.id, false) : undefined}
           onReady={ready}
           away={away}
         />
@@ -656,6 +663,7 @@ export function App() {
           onNew={campaign?.over ? undefined : newModel}
           onDuplicate={campaign?.over ? undefined : duplicate}
           onDelete={removeModel}
+          onUnarchive={(id) => archive(id, false)}
           sound={settings.sound}
           onSound={(sound) => store().setSettings({ ...settings, sound }).then(setSettings)}
           builder={(canvas, exit) =>
@@ -711,6 +719,7 @@ export function App() {
         if (src) toWorkshop(src);
       },
       onDelete: removeModel,
+      onUnarchive: (id) => archive(id, false),
       units: (id) => runs[id] || DEFAULT_RUN,
       onUnits: (id, u) => setRuns((r) => ({ ...r, [id]: u })),
       onPrice: (id, p) => commit((s) => setPrice(s, id, p)),

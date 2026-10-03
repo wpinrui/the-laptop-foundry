@@ -220,8 +220,11 @@ export function Office({
 
   const aimed =
     aim?.kind === "laptop" && (aim.id === DESK || usable(aim.id)) ? aim.id : null;
-  const keys = useRef({ station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem });
-  keys.current = { station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem };
+  // An archived laptop on the wall, aimed at in free roam, can be unarchived where it stands.
+  const shut = free && !used && aim?.kind === "laptop" ? company.models.find((m) => m.id === aim.id && m.archived) : undefined;
+  const unarchive = shut && actions ? () => actions.onUnarchive(shut.id) : undefined;
+  const keys = useRef({ station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem, unarchive });
+  keys.current = { station, free, at, blocked, go, enterFree, nearest, aim, aimed, onMap, ring, order, picked, used, using, full, onSystem, unarchive };
   const onAtRef = useRef(onAt);
   onAtRef.current = onAt;
   // biome-ignore lint/correctness/useExhaustiveDependencies: reads the latest through keys
@@ -266,7 +269,8 @@ export function Office({
             setUsed(k.aimed);
             setFull(true);
           }
-        } else if (e.code === "KeyE" && !k.full) {
+        } else if (e.code === "KeyX" && !k.used && k.unarchive) k.unarchive();
+        else if (e.code === "KeyE" && !k.full) {
           if (k.using) {
             stopUsing();
             lock();
@@ -364,6 +368,7 @@ export function Office({
   else if (free && !used && aimed) prompts = [{ key: "E", label: "Use" }, screen];
   else if (free && !used && aim?.kind === "station" && aim.id === "door") prompts = [{ key: "E", label: "Leave" }];
   else if (free && !used && aim?.kind === "station" && ring.includes(aim.id)) prompts = [{ key: "E", label: labelOf(aim.id) }];
+  if (unarchive) prompts = [...prompts, { key: "X", label: "Unarchive" }];
   const stationKeys: Prompt[] = [
     { key: "←", label: labelOf(prev) },
     { key: "→", label: labelOf(next) },

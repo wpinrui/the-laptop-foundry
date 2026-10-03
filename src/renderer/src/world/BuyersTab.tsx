@@ -11,8 +11,8 @@ import { countShort, segmentName, STAT_NAME } from "./data";
 /** Won from this share up reads as a strong position. */
 const STRONG = 0.15;
 
-export function BuyersTab({ campaign, quarter }: { campaign: CampaignState; quarter: Quarter }) {
-  const { rows, models } = useMemo(() => segmentsOf(campaign, quarter), [campaign, quarter]);
+export function BuyersTab({ campaign, quarter, hidden }: { campaign: CampaignState; quarter: Quarter; hidden: Set<string> }) {
+  const { rows, models } = useMemo(() => segmentsOf(campaign, quarter, hidden), [campaign, quarter, hidden]);
   const hottest = Math.max(1, ...rows.flatMap((r) => Object.values(r.models)));
   const grid: CSSProperties = {
     gridTemplateColumns: [

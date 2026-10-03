@@ -119,7 +119,10 @@ export function Cafe({
   onReady,
   away = false,
   title,
+  onUnarchive,
 }: {
+  /** The laptop brought along is archived: aimed at, it can be unarchived. */
+  onUnarchive?: () => void;
   /** The laptop's name and year, over its prompts, as everywhere a laptop is aimed at. */
   title?: PromptTitle;
   /** None: the player came empty handed. */
@@ -210,8 +213,8 @@ export function Cafe({
     onMap();
   };
 
-  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug, onMap, away });
-  state.current = { pose, using, full, paused, aim, active, resume, onPlug, onMap, away };
+  const state = useRef({ pose, using, full, paused, aim, active, resume, onPlug, onMap, away, onUnarchive });
+  state.current = { pose, using, full, paused, aim, active, resume, onPlug, onMap, away, onUnarchive };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
@@ -262,7 +265,7 @@ export function Cafe({
         setPose("stand");
       } else if (e.code === "KeyC" && (s.using || s.full || (s.active && (s.aim === "laptop" || s.aim === "power")))) {
         s.onPlug();
-      }
+      } else if (e.code === "KeyX" && s.active && !s.using && s.aim === "laptop") s.onUnarchive?.();
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
@@ -280,6 +283,7 @@ export function Cafe({
   } else if (active && aim === "laptop") prompts = [{ key: "E", label: "Sit" }, charge, screen];
   else if (active && aim === "power") prompts = [charge];
   else if (active && aim === "door") prompts = [{ key: "E", label: "Leave" }];
+  if (active && !using && aim === "laptop" && onUnarchive) prompts = [...prompts, { key: "X", label: "Unarchive" }];
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: first-person input goes to the locked pointer

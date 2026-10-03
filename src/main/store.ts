@@ -102,7 +102,17 @@ const isTrack = (t: unknown): t is SavedScene[] =>
   t.every((s) => !!s && typeof s.kind === "string" && isCount(s.startWord) && isCount(s.endWord) && s.endWord > s.startWord && isSetOrNone(s.set));
 
 /** A commercial from before its timeline had two tracks, split onto them at the same words: its shots onto the angle track, its cards onto the card track. */
+/** Narrators since dropped, to the nearest kept one: same voice and accent where one is kept. */
+const VOICE_MOVED: Record<string, string> = {
+  alloy: "heart", aoede: "heart", jessica: "heart", kore: "heart", nicole: "bella", nova: "heart", river: "heart", sarah: "heart", sky: "heart",
+  adam: "michael", echo: "michael", eric: "michael", fenrir: "michael", liam: "michael", onyx: "michael", puck: "michael", santa: "michael",
+  alice: "emma", isabella: "emma", lily: "emma",
+  daniel: "michael", fable: "michael", george: "michael", lewis: "michael",
+};
+
 function migrateCommercial(c: unknown): unknown {
+  const v = c as { voice?: unknown } | null;
+  if (v && typeof v === "object" && typeof v.voice === "string" && VOICE_MOVED[v.voice]) c = { ...v, voice: VOICE_MOVED[v.voice] };
   const x = c as (Partial<SavedCommercial> & { scenes?: unknown }) | null;
   if (!x || typeof x !== "object" || x.angles !== undefined || !isTrack(x.scenes)) return c;
   const scenes = x.scenes as SavedScene[];

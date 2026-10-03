@@ -57,8 +57,8 @@ export function settle(state: CampaignState): CampaignState {
     const stock = r.stock - units;
     stockValue += stock * r.unitCost;
     // The price it sold at this quarter, for the books.
-    const prices = [...(r.prices ?? []), { quarter: { ...state.now }, price: r.price }];
-    releases[id] = { ...r, stock, sold: 0, prices };
+    const prices = [...(r.prices ?? []), { quarter: { ...state.now }, price: r.price, spent: r.spent ?? 0 }];
+    releases[id] = { ...r, stock, sold: 0, prices, spent: 0 };
   }
   const retail = revenue * RETAILER_CUT;
   const overhead = OVERHEAD_BASE + OVERHEAD_PER_LINE * lines;

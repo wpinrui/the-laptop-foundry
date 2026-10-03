@@ -38,6 +38,8 @@ export interface Release {
   sold: number;
   /** The price each settled quarter sold at, oldest first. */
   prices: PricedQuarter[];
+  /** Setup and production paid for it in the quarter being played. */
+  spent?: number;
 }
 
 /** The model has sold at least one unit: deleting it archives it instead. */
@@ -51,6 +53,8 @@ export function hasSold(state: CampaignState, id: string): boolean {
 export interface PricedQuarter {
   quarter: Quarter;
   price: number;
+  /** Setup and production paid for the model that quarter; older saves lack it. */
+  spent?: number;
 }
 
 /** The highest price the player can set. */
@@ -210,6 +214,7 @@ export function release(
     unitCost: q.unit,
     sold: 0,
     prices: [],
+    spent: q.total,
   };
   return {
     ...state,
@@ -240,6 +245,7 @@ export function reorder(
     stock,
     made: r.made + units,
     unitCost: (r.stock * r.unitCost + units * q.unit) / stock,
+    spent: (r.spent ?? 0) + q.total,
   };
   return {
     ...state,
@@ -264,6 +270,7 @@ export function releaseOf(x: unknown): Release | null {
     made: r.made as number,
     unitCost: num(r.unitCost) ? (r.unitCost as number) : 0,
     sold: num(r.sold) ? (r.sold as number) : 0,
+    spent: num(r.spent) ? (r.spent as number) : 0,
     prices: Array.isArray(r.prices)
       ? r.prices.filter(
           (p): p is PricedQuarter =>
@@ -342,23 +349,54 @@ export function outlook(
   };
 }
 
+/** A model's own result over a stretch of quarters: profit after the retailers' cut, its runs and setup, and units sold. */
+export interface ModelResult {
+  profit: number;
+  sold: number;
+}
+
+const sameQ = (a: Quarter, b: Quarter) => a.year === b.year && a.quarter === b.quarter;
+
+/** Units a model sold in a settled quarter. */
+function soldIn(state: CampaignState, id: string, q: Quarter): number {
+  const shelf = state.shelf.find((s) => sameQ(s.quarter, q));
+  if (shelf?.units[id]) return unitsOf(shelf.units[id]);
+  return state.sales.find((s) => sameQ(s.quarter, q))?.units[id] ?? 0;
+}
+
 /**
  * A released model's own profit over every settled quarter: what its units
  * earned after the retailers' cut at each quarter's price, less its runs and
  * its design and tooling. Overhead and marketing are the company's, not its.
  */
-export function lifetimeProfit(state: CampaignState, id: string): { profit: number; sold: number } | null {
+export function lifetimeProfit(state: CampaignState, id: string): ModelResult | null {
   const r = state.releases[id];
   if (!r) return null;
-  const at = (a: Quarter, b: Quarter) => a.year === b.year && a.quarter === b.quarter;
   let revenue = 0;
   let sold = 0;
   for (const p of r.prices) {
-    const shelf = state.shelf.find((s) => at(s.quarter, p.quarter));
-    const units = shelf?.units[id] ? unitsOf(shelf.units[id]) : (state.sales.find((s) => at(s.quarter, p.quarter))?.units[id] ?? 0);
+    const units = soldIn(state, id, p.quarter);
     sold += units;
     revenue += units * p.price * (1 - RETAILER_CUT);
   }
   const kind = r.refresh ? "refresh" : "new";
   return { profit: revenue - r.made * r.unitCost - DESIGN_COST[kind] - TOOLING_COST[kind], sold };
+}
+
+/**
+ * The model's result in the last settled quarter, or null when it was not on
+ * sale then: that quarter's revenue after the retailers' cut, less the runs
+ * and setup paid for it that quarter. Saves from before that was recorded
+ * charge the units sold at their unit cost, plus setup in the launch quarter.
+ */
+export function lastQuarterProfit(state: CampaignState, id: string): ModelResult | null {
+  const r = state.releases[id];
+  const last = state.sales[state.sales.length - 1]?.quarter ?? state.shelf[state.shelf.length - 1]?.quarter;
+  const p = r && last ? r.prices.find((x) => sameQ(x.quarter, last)) : undefined;
+  if (!r || !p) return null;
+  const sold = soldIn(state, id, p.quarter);
+  const kind = r.refresh ? "refresh" : "new";
+  const setup = sameQ(r.quarter, p.quarter) ? DESIGN_COST[kind] + TOOLING_COST[kind] : 0;
+  const spent = p.spent ?? sold * r.unitCost + setup;
+  return { profit: sold * p.price * (1 - RETAILER_CUT) - spent, sold };
 }

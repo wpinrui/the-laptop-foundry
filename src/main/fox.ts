@@ -369,6 +369,14 @@ export function registerFox(
     // pointer away: the game pauses on it and frees the pointer itself, and
     // can take it back again without a click.
     e.preventDefault();
-    send("game:escape", null);
+    // Replayed as a user gesture: a key the browser never saw grants no
+    // activation, and without one a place stepping back into free roam could
+    // not take the pointer again until a click.
+    if (wc.isDestroyed()) return;
+    wc.executeJavaScript("window.__gameEscape ? (window.__gameEscape(), true) : false", true)
+      .then((ran) => {
+        if (!ran) send("game:escape", null);
+      })
+      .catch(() => send("game:escape", null));
   });
 }

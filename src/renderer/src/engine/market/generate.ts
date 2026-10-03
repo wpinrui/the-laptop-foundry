@@ -1844,10 +1844,14 @@ function compact(ctx: Ctx, c0: Choices, build: Build, fit: Fit, t: Tally): { bui
   if (!target || lidExcess(build) <= EXCESS_MM) return { build, fit };
   let out = { build, fit };
   let best = c0;
-  // Room past the panel's plan, wide and deep alike: both show as bezel.
   // A thicker base may stack a drive over the board or battery: each mm of it counts as 5 of plan.
   const thicker = ctx.who.thin ? 1 : 4;
-  const over = (b: Build) => Math.max(0, b.size.x - target.x) + Math.max(0, b.size.y - target.y) + 5 * Math.max(0, b.size.z - build.size.z);
+  // The biggest bezel counts most: spare width splits over two sides, spare depth shows as one chin.
+  const over = (b: Build) => {
+    const side = Math.max(0, b.size.x - target.x) / 2;
+    const chin = Math.max(0, b.size.y - target.y);
+    return Math.max(side, chin) + 0.25 * (side + chin) + 5 * Math.max(0, b.size.z - build.size.z);
+  };
   const flat = pickBattery({ ...ctx }, c0.screen, ctx.batteryShrink, true);
   // A pack short enough to sit beside the optical drive in one row, under the palm rest.
   const beside = c0.optical ? pickBattery({ ...ctx }, c0.screen, ctx.batteryShrink, true, activeWidth(c0.screen) - 150) : undefined;

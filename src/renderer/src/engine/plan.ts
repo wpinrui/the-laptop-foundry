@@ -70,10 +70,12 @@ function gapOf(fill: ZoneFill, ctx: PlanCtx): number {
 
 /**
  * Fan side, mm, that carries `watts` at full speed with the sink 40 K over the
- * room and three quarters to spare: the cooling model's airflow term solved for size.
+ * room: the cooling model's airflow term solved for size. The cooling model's
+ * own fan gain is the headroom, as on real machines: a 35 W white MacBook ran
+ * a 50 mm blower, a 15 W ultrabook about 40 mm.
  */
 export function fanSideFor(watts: number, thickness: number): number {
-  const need = (watts * 1.75) / 40;
+  const need = watts / 40;
   return 50 * (need / (0.7 * (thickness / 10) ** 0.8)) ** (1 / 1.2);
 }
 

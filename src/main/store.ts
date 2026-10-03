@@ -85,7 +85,7 @@ function isModel(m: unknown): m is SavedModel {
 }
 
 const RATIOS = ["9:16", "1:1", "16:9"];
-const SETS = ["desk", "sweep", "night", "bench"];
+const SETS = ["desk", "night", "bench", "park", "lounge", "beach", "den", "library", "train", "cabin", "cyclorama"];
 const isSetOrNone = (x: unknown) => x === undefined || (typeof x === "string" && SETS.includes(x));
 const MAX_LINES = 24;
 const MAX_LINE = 400;
@@ -110,7 +110,28 @@ const VOICE_MOVED: Record<string, string> = {
   daniel: "michael", fable: "michael", george: "michael", lewis: "michael",
 };
 
+/** The retired sweep's papers, in its palette order, as the cyclorama's nearest. */
+const SWEEP_PAPER = [3, 4, 6, 7, 4];
+const unSweep = (s: unknown) => (s === "sweep" ? "cyclorama" : s);
+
+/** A commercial filmed on the retired sweep, moved to the cyclorama with the nearest paper. */
+function migrateSweep(c: unknown): unknown {
+  const x = c as { set?: unknown; brollSet?: unknown; paper?: unknown; angles?: unknown; scenes?: unknown } | null;
+  if (!x || typeof x !== "object") return c;
+  const tracks = ["angles", "scenes"] as const;
+  const onSweep = (t: unknown) => Array.isArray(t) && t.some((s) => !!s && (s as { set?: unknown }).set === "sweep");
+  if (x.set !== "sweep" && x.brollSet !== "sweep" && !tracks.some((k) => onSweep(x[k]))) return c;
+  const out: Record<string, unknown> = { ...x };
+  if (x.set !== undefined) out.set = unSweep(x.set);
+  if (x.brollSet !== undefined) out.brollSet = unSweep(x.brollSet);
+  for (const k of tracks)
+    if (Array.isArray(x[k])) out[k] = (x[k] as unknown[]).map((s) => (s && typeof s === "object" && "set" in s ? { ...s, set: unSweep((s as { set?: unknown }).set) } : s));
+  if (isCount(x.paper)) out.paper = SWEEP_PAPER[x.paper % SWEEP_PAPER.length];
+  return out;
+}
+
 function migrateCommercial(c: unknown): unknown {
+  c = migrateSweep(c);
   const v = c as { voice?: unknown } | null;
   if (v && typeof v === "object" && typeof v.voice === "string" && VOICE_MOVED[v.voice]) c = { ...v, voice: VOICE_MOVED[v.voice] };
   const x = c as (Partial<SavedCommercial> & { scenes?: unknown }) | null;

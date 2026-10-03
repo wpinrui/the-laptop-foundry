@@ -2,7 +2,7 @@ import type { SavedCommercial, SavedScene } from "../../../preload/store";
 import { rng } from "../engine/review";
 import { timelineFor, type Voice } from "./render";
 import { type CardSpan, type Cut, FRAMES, PANS, type Program, type Ratio, type Timeline, timelineOf } from "./scene";
-import { type Look, lookFor, SET_IDS, type SetId } from "./sets";
+import { type Look, lookFor, PAPER_SET, SET_IDS, type SetId } from "./sets";
 import type { Card, ShortFacts, Shot } from "./script";
 import { speak } from "./speech";
 
@@ -44,7 +44,7 @@ export interface Scene {
   set?: SetId;
 }
 
-/** Where a commercial is filmed: its scenes' set, the b-roll's, and the sweep's paper colour. */
+/** Where a commercial is filmed: its scenes' set, the b-roll's, and the cyclorama's paper colour. */
 export interface Sets {
   set: SetId;
   brollSet: SetId;
@@ -53,9 +53,19 @@ export interface Sets {
 
 const isSet = (x: unknown): x is SetId => typeof x === "string" && (SET_IDS as readonly string[]).includes(x);
 
-/** A commercial's sets, the defaults filled in for one saved before it had them: the `index`th commercial's look. */
+/** The sets in turn before the cyclorama replaced the sweep, and the sweep's papers as the cyclorama's nearest. */
+const OLD_ROTATION: SetId[] = ["desk", PAPER_SET, "night", "bench"];
+const OLD_PAPER = [3, 4, 6, 7, 4];
+
+/** The look the `index`th commercial took by default when commercials were saved without their sets. */
+function oldLookFor(index: number): Look {
+  const n = Math.max(0, Math.floor(index));
+  return { set: OLD_ROTATION[n % 4], paper: OLD_PAPER[Math.floor(n / 4) % OLD_PAPER.length] };
+}
+
+/** A commercial's sets, the defaults filled in for one saved before it had them: the look it was given then. */
 export function setsOf(c: { set?: string; brollSet?: string; paper?: number }, index: number): Sets {
-  const d = lookFor(index);
+  const d = oldLookFor(index);
   const set = isSet(c.set) ? c.set : d.set;
   return { set, brollSet: isSet(c.brollSet) ? c.brollSet : set, paper: typeof c.paper === "number" ? c.paper : d.paper };
 }

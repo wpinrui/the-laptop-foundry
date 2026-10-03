@@ -70,7 +70,7 @@ export function Preview({ program, time, playing, onEnd }: {
           key={program.facts.subject.id}
           shadows={{ enabled: true, type: THREE.PCFShadowMap }}
           dpr={[0.75, 1]}
-          camera={{ fov: program.frame.fov, near: 0.01, far: 20, position: [0, 1.2, 1] }}
+          camera={{ fov: program.frame.fov, near: 0.01, far: 60, position: [0, 1.2, 1] }}
         >
           <VideoStage program={program} fit={fit} time={time} onScreen={noop} onSet={noop} follow />
           <Clock program={program} time={time} playing={playing} onEnd={onEnd} overlay={overlay} />

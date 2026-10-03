@@ -27,7 +27,7 @@ import {
 import { adFile, loadVideo, usePosters, useVideos } from "../video/queue";
 import type { Ratio } from "../video/scene";
 import { adFacts, type ShortFacts } from "../video/script";
-import { SET_IDS, type SetId, useSweepColours } from "../video/sets";
+import { lookFor, PAPER_SET, SET_IDS, type SetId, useSweepColours } from "../video/sets";
 import { Tooltip } from "../ui/Tooltip";
 import { adSubject } from "./eligible";
 import { ICON, Icon } from "./icons";
@@ -154,7 +154,7 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
   const [text, setText] = useState("");
   const [tracks, setTracks] = useState<Tracks>(NO_TRACKS);
   const [ratio, setRatio] = useState<Ratio>("16:9");
-  const defaults = setsOf({}, index);
+  const defaults = lookFor(index);
   const [sceneSet, setSceneSet] = useState<SetId>(defaults.set);
   const [brollSet, setBrollSet] = useState<SetId>(defaults.set);
   const [paper, setPaper] = useState(defaults.paper);
@@ -211,8 +211,8 @@ export function StudioScreen({ company, campaign, models, stills, zoomed, origin
     }
   }, [model, company.name, campaign]);
   const sets = { set: sceneSet, brollSet, paper };
-  // The paper only matters while the sweep is on screen: as the b-roll's set, or any angle's.
-  const sweepUsed = brollSet === "sweep" || kept.angles.some((a) => (a.set ?? sceneSet) === "sweep");
+  // The paper only matters while the cyclorama is on screen: as the b-roll's set, or any angle's.
+  const sweepUsed = brollSet === PAPER_SET || kept.angles.some((a) => (a.set ?? sceneSet) === PAPER_SET);
   const program = facts ? commercialProgram({ id, lines, ...kept, ratio, ...sets }, facts, tl) : null;
   const can = !!model && !!facts && words.length > 0 && total <= MAX_SECONDS;
 

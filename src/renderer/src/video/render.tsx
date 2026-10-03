@@ -266,7 +266,7 @@ function Renderer({ job, fit, done }: { job: Job; fit: Fit; done: (r: Rendered |
       dpr={GL_SCALE}
       frameloop="never"
       gl={{ preserveDrawingBuffer: true, antialias: true }}
-      camera={{ fov: job.program.frame.fov, near: 0.01, far: 20, position: [0, 1.2, 1] }}
+      camera={{ fov: job.program.frame.fov, near: 0.01, far: 60, position: [0, 1.2, 1] }}
     >
       <VideoStage program={job.program} fit={fit} time={time} onScreen={ready.lock} onSet={ready.set} control={stage} />
       <Driver onState={ready.state} />

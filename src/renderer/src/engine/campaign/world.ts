@@ -646,7 +646,7 @@ export function contestOf(state: CampaignState, market: WorldMarket, modelId: st
   const scoreOf = (l: WorldLaptop): number | null => {
     const st = l.stats;
     if (!st) return null;
-    const ratios = Object.fromEntries(HEADLINE_STATS.map((k) => [k, statRatio(st[k], avg[k])])) as Record<HeadlineStat, number>;
+    const ratios = Object.fromEntries(HEADLINE_STATS.map((k) => [k, statRatio(st[k], avg[k], k)])) as Record<HeadlineStat, number>;
     return SEGMENTS.reduce((a, s, i) => a + mix[i] * weightedRatio(ratios, s.weights), 0) * 100;
   };
   const wonBy = (id: string) => {

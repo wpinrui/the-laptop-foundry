@@ -108,7 +108,7 @@ interface Priced {
 /** The most profitable price for a measured build. Stats but price do not move with the price. */
 function bestPrice(stats: HeadlineValues, review: number, inches: number, pack: Pack, cost: number, f: Field, extra = 1): Priced {
   const ratios = {} as Record<(typeof HEADLINE_STATS)[number], number>;
-  for (const k of HEADLINE_STATS) ratios[k] = statRatio(stats[k], f.avg[k]);
+  for (const k of HEADLINE_STATS) ratios[k] = statRatio(stats[k], f.avg[k], k);
   const fixed = screenFit(f.seg, inches) * packFactor(pack, f.pack, f.seg) * noveltyFactor(0, f.seg) * criticsFactor(review) * f.brand * extra;
   const net = 1 - RETAILER_CUT;
   const hi = Math.min(MAX_PRICE, Math.max(f.ceiling * 1.6, cost * 3));

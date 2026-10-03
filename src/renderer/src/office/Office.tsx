@@ -12,7 +12,7 @@ import { usd, usdShort } from "../foundry/Release";
 import { token } from "../viewer/theme";
 import { DESK_PC_ID, Lights, type OfficeData, OfficeScene, type Pick, Picker, Rig, ShadowRefresh, type Walk } from "./Room";
 import { buildPanels, type OfficeActions, statusOfModel, wallOrder } from "./Panels";
-import { buildOf, DESK_PC, DeskScreen, deskLean, fitOf, leanFor, TvShort, UsedLaptop } from "./Use";
+import { buildOf, DESK_PC, DeskScreen, deskAspect, deskLean, fitOf, leanFor, TvShort, UsedLaptop } from "./Use";
 import { Trophies, Wall, SETTLE as WALL_SETTLE } from "./Wall";
 import { labelOf, type OfficeAt, ringOf, type StationId, stepFrom } from "./stations";
 import "../foundry/foundry.css";
@@ -483,6 +483,7 @@ export function Office({
           slot={slot}
           onLook={setLook}
           perfect={atDesk}
+          aspect={atDesk && data ? deskAspect(data) : undefined}
         />
       )}
     </div>

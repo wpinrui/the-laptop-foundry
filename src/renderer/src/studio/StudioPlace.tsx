@@ -24,7 +24,9 @@ import "./studio.css";
 // glides onto the screen and the editor grows out of it to fill the window;
 // leaving shrinks it back. Finish spins the wheel over the darkened room. The
 // lamp over the door is lit while a commercial renders, and a chip in the
-// corner shows how far it has got. Escape pauses; the door leads out.
+// corner shows how far it has got. The player arrives at the desk and sits
+// straight down at the editor. Escape leaves the desk for walking; walking,
+// it pauses. The door leads out.
 
 /** How long the editor takes to shrink back into the screen, ms; studio.css times it. */
 const SHRINK_MS = 400;
@@ -194,8 +196,17 @@ export function StudioPlace({
     lock();
   }, [lock]);
 
-  const state = useRef({ paused, walking, door, resume, sit, onMap, away });
-  state.current = { paused, walking, door, resume, sit, onMap, away };
+  // Arriving: at the desk, onto the screen once the room is in.
+  const seated = useRef(false);
+  const ready = useCallback(() => {
+    onReady?.();
+    if (seated.current) return;
+    seated.current = true;
+    sit();
+  }, [onReady, sit]);
+
+  const state = useRef({ paused, walking, door, resume, sit, onMap, away, goal, ui });
+  state.current = { paused, walking, door, resume, sit, onMap, away, goal, ui };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       const s = state.current;
@@ -206,6 +217,10 @@ export function StudioPlace({
         } else if (s.walking) {
           unlock();
           pause();
+        } else if (!s.ui && s.goal !== "walk") {
+          // On the way onto the screen or back: on foot where the camera is.
+          setGoal("walk");
+          lock();
         }
         return;
       }
@@ -215,7 +230,7 @@ export function StudioPlace({
     };
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [pause, unlock]);
+  }, [pause, unlock, lock]);
 
   const prompts: Prompt[] = !active ? [] : door ? [{ key: "E", label: "Leave" }] : aim === "desk" ? [{ key: "E", label: "Make commercial" }] : [];
   const chip = rendering ?? (finished ? { file: finished, progress: 1 } : null);
@@ -250,7 +265,7 @@ export function StudioPlace({
               onAim={setAim}
               at={at}
             />
-            {onReady && shot && <Loaded onReady={onReady} />}
+            {shot && <Loaded onReady={ready} />}
           </Suspense>
         </Canvas>
       </div>

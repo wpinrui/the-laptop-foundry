@@ -8,8 +8,8 @@ import "./map.css";
 
 // The world map: a street plan on the left with the five places on street
 // corners, and a panel on the right naming the destination, the laptop to
-// bring and Go. The workshop and the cafe take a laptop; the Office, Courts
-// and the studio do not. Opened from a place it lies over that place, which
+// bring and Go. Double-clicking a place goes there at once, as Go would. The
+// workshop and the cafe take a laptop; the Office, Courts and the studio do not. Opened from a place it lies over that place, which
 // waits underneath: M, Escape or Stay closes it and the place carries on.
 
 export type Place = "workshop" | "cafe" | "office" | "courts" | "studio";
@@ -132,8 +132,13 @@ export function WorldMap({
   const canBring = !!to?.bring && laptops.length > 0;
   // The cafe always takes a laptop: with none picked, the first one goes.
   const needs = dest === "cafe";
-  const picked = canBring ? (laptops.find((m) => m.id === bring) ?? null) : null;
-  const chosen = needs && !picked ? (laptops[0] ?? null) : picked;
+  /** The laptop that goes to `p`: the one picked, or for the cafe the first when none is. */
+  const chosenFor = (p: Place): SavedModel | null => {
+    const list = carried(all, p);
+    const mine = PLACES.find((x) => x.id === p)?.bring && list.length > 0 ? (list.find((m) => m.id === bring) ?? null) : null;
+    return p === "cafe" && !mine ? (list[0] ?? null) : mine;
+  };
+  const chosen = dest ? chosenFor(dest) : null;
 
   const go = () => {
     if (dest) onGo(dest, chosen);
@@ -214,7 +219,14 @@ export function WorldMap({
                 </svg>
               )}
               <i className="wm-dot" />
-              <button type="button" disabled={!open(p.id)} onClick={() => setDest(p.id)}>
+              <button
+                type="button"
+                disabled={!open(p.id)}
+                onClick={() => setDest(p.id)}
+                onDoubleClick={() => {
+                  if (open(p.id)) onGo(p.id, chosenFor(p.id));
+                }}
+              >
                 <span className="wm-tile">
                   <svg
                     viewBox="0 0 24 24"

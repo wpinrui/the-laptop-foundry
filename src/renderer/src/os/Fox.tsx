@@ -172,12 +172,12 @@ export function useFox(open: boolean, onEmpty: () => void) {
     const offOpen = api.onOpen((url) => {
       if (live.current.open && /^https?:\/\//i.test(url)) newTab(url);
     });
-    // Escape inside a site: hand focus back to the game and let it see the key.
+    // Escape inside a site lets go of it, as Escape in a text field does: focus
+    // goes back to the game, and the next Escape steps the player off the laptop.
     const offEsc = api.onEscape(() => {
       const a = document.activeElement;
       if (!(a instanceof HTMLIFrameElement) || !a.classList.contains("fx-frame")) return;
       a.blur();
-      window.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", code: "Escape" }));
     });
     return () => {
       offNav();

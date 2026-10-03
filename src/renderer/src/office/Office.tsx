@@ -24,7 +24,9 @@ import "./office.css";
 // stations, each a fixed view with its panel open on the view's calm side. Tab
 // walks the room in first person, where the laptops on the product wall can
 // be used as in the cafe, and Tab again comes back to the nearest station.
-// M opens the world map over the office. Escape opens the system menu. A
+// In from the map the player stands beside the Desk in free roam. M opens the
+// world map over the office. Escape steps back to free roam, from a station or
+// a laptop; in free roam it opens the system menu. A
 // strip along the top carries the quarter, the cash, last quarter's profit
 // and End quarter wherever the player is.
 
@@ -90,7 +92,8 @@ export function Office({
 }: OfficeProps) {
   const ring = useMemo(() => ringOf(!!campaign), [campaign]);
   const station: StationId = ring.includes(at.station) ? at.station : "desk";
-  const [free, setFree] = useState(false);
+  // In from the map: free roam beside the Desk.
+  const [free, setFree] = useState(at.arrive);
   const [aim, setAim] = useState<Pick | null>(null);
   // In free roam: the wall laptop whose OS runs, whether its screen has the pointer, and full screen.
   const [used, setUsed] = useState<string | null>(null);
@@ -165,7 +168,10 @@ export function Office({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the arrival plays once
   useEffect(() => {
-    if (at.arrive) onAt({ ...at, arrive: false });
+    if (at.arrive) {
+      onAt({ ...at, arrive: false });
+      lock();
+    }
   }, []);
 
   // Leaving pointer lock on purpose (a laptop, full screen, the stations) is not a pause.
@@ -235,10 +241,28 @@ export function Office({
     const key = (e: KeyboardEvent) => {
       const k = keys.current;
       if (k.blocked || e.defaultPrevented) return;
-      // Escape opens the system menu; on a laptop's screen too, as in the cafe.
-      if (e.key === "Escape" && (k.used || !typing())) {
+      // Escape steps back to free roam: out of full screen, off a laptop, or off a station. In free roam it opens the system menu.
+      if (e.key === "Escape") {
+        if (typing()) {
+          // A field on a laptop's screen lets go of the keys first.
+          if (k.used) {
+            e.preventDefault();
+            blurField();
+          }
+          return;
+        }
         e.preventDefault();
-        k.onSystem();
+        if (k.full) {
+          setFull(false);
+          if (!k.using) {
+            setUsed(null);
+            lock();
+          }
+        } else if (k.using) {
+          stopUsing();
+          lock();
+        } else if (!k.free) k.enterFree();
+        else k.onSystem();
         return;
       }
       if (typing()) return;

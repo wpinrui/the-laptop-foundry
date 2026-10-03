@@ -6,7 +6,8 @@ import { type Aim, type LaptopLook, World } from "./World";
 
 // The cafe's first-person shell: pointer lock, the aim dot and prompts, the
 // sit (seated, looking and zooming), use (seated, free cursor on the screen)
-// and full-screen modes, and the pause menu. The laptop's own screen
+// and full-screen modes, and the pause menu. Escape steps back to walking,
+// and walking, it pauses. The laptop's own screen
 // (battery, power profile, apps) stays inside the in-game OS.
 
 interface Page {
@@ -219,9 +220,18 @@ export function Cafe({
     const key = (e: KeyboardEvent) => {
       const s = state.current;
       if (s.away) return;
+      // Escape steps back to walking: out of full screen, off the laptop, up from the seat. Walking, it pauses.
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) s.resume();
+        } else if (typing(e)) blurField();
+        else if (s.full) {
+          setFull(false);
+          if (!s.using) lock();
+        } else if (s.pose !== "stand") {
+          if (s.using) blurField();
+          setPose("stand");
+          lock();
         } else {
           unlock();
           pause();

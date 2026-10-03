@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Entry } from "./Menus";
 import "./foundry.css";
 
-// The system menu: in the Office, Escape opens it and Escape again (or
+// The system menu: in the Office's free roam, Escape opens it and Escape again (or
 // Resume) closes it, leaving the office exactly as it was. It holds what the
 // start menu offers: the companies, settings and Quit. The other places keep
 // their own Escape pause menus, which end with the same company entries.

@@ -22,7 +22,6 @@ const FOV = 50;
 const WIDE = 16 / 9;
 const HALF_H = Math.atan(Math.tan((FOV * Math.PI) / 360) * WIDE);
 const MOVE_S = 0.85;
-const ARRIVE_S = 2.2;
 const RISE_S = 0.5;
 const noRaycast = () => {};
 
@@ -349,7 +348,7 @@ export function Rig({
   target: Pose | null;
   /** In free roam: leaning in to use a laptop, the camera held here. */
   lean: Pose | null;
-  /** Mount at the door and glide to the target. */
+  /** In from the map: mount in free roam beside the Desk, facing its screen. */
   arrive: boolean;
   /** Free roam's position and heading, shared with the picker. */
   walk: RefObject<Walk>;
@@ -369,12 +368,26 @@ export function Rig({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: placed once, on mount
   useLayoutEffect(() => {
-    const start = arrive && data.poses.arrival ? data.poses.arrival : target;
-    if (start) {
-      camera.position.copy(start.pos);
-      camera.quaternion.copy(start.quat);
+    if (arrive && !target) {
+      const w = walk.current;
+      const spot = data.stands.desk ?? data.poses.desk?.pos ?? data.poses.arrival?.pos;
+      if (spot) w.pos.set(spot.x, EYE, spot.z);
+      collideIn(w.pos, data.room, data.colliders, BODY);
+      const c = data.deskScreen.isEmpty() ? null : data.deskScreen.getCenter(new THREE.Vector3());
+      if (c) {
+        const dx = c.x - w.pos.x;
+        const dz = c.z - w.pos.z;
+        w.yaw = Math.atan2(-dx, -dz);
+        w.pitch = clamp(Math.atan2(c.y - EYE, Math.hypot(dx, dz)), -0.8, 0.4);
+      }
+      camera.position.copy(w.pos);
+      camera.rotation.set(w.pitch, w.yaw, 0, "YXZ");
+      return;
     }
-    if (arrive && target) tween.current = { from: poseNow(), to: target, at: 0, dur: ARRIVE_S };
+    if (target) {
+      camera.position.copy(target.pos);
+      camera.quaternion.copy(target.quat);
+    }
   }, []);
   const poseNow = (): Pose => ({ pos: camera.position.clone(), quat: camera.quaternion.clone() });
 

@@ -799,9 +799,18 @@ export function FreeOverlay({
     const key = (e: KeyboardEvent) => {
       const { state: s, canUse: runs, resume: back, archive: shelves, onMap: leave, models: made } = live.current;
       if (live.current.held) return;
+      // Escape steps back to free roam: out of full screen, off the laptop. In free roam it pauses.
       if (e.code === "Escape") {
         if (s.paused) {
           if (performance.now() - pausedAt.current > 300) back();
+        } else if (typing(e)) blurField();
+        else if (s.full) {
+          patch({ full: false });
+          if (!s.using) lock();
+        } else if (s.using) {
+          patch({ using: false });
+          blurField();
+          lock();
         } else {
           unlock();
           pause();

@@ -1156,6 +1156,10 @@
   text-align: right;
 }
 
+.m-grid b.warn {
+  color: var(--warning);
+}
+
 .m-trace {
   display: flex;
   justify-content: space-between;

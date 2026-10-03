@@ -88,6 +88,10 @@ export interface Cooling {
   /** Die temperature during the multi-core loop, at the listed seconds. */
   dieTemp: { at: number; c: number }[];
   peakDie: number;
+  /** Discrete graphics die peak under the graphics and stress loads; null on integrated graphics. */
+  peakGpuDie?: number | null;
+  /** Whether a die hit its limit and had its power cut below what the profile asks, per chip. */
+  throttle?: { cpu: boolean; gpu: boolean };
   /** Hottest outer surface under combined load. */
   peakSkin: number;
   /** Surface temperature fields over the base's top and bottom at idle and under the stress test. */
@@ -430,6 +434,10 @@ interface Trace {
   cpuW: number[];
   gpuW: number[];
   cpuDie: number[];
+  gpuDie: number[];
+  /** Seconds a die's limit cut its power below the profile's ask, per chip. */
+  cpuCut: number;
+  gpuCut: number;
   sink: number[];
   fan: number[];
 }
@@ -440,7 +448,7 @@ function run(f: Facts, c: Cooler, p: Profile, load: Load, seconds: number): Trac
   const ca = cpu ? archOf(cpu) : undefined;
   const ga = gpu ? archOf(gpu) : undefined;
   const base = baseWatts(f);
-  const out: Trace = { cpuW: [], gpuW: [], cpuDie: [], sink: [], fan: [] };
+  const out: Trace = { cpuW: [], gpuW: [], cpuDie: [], gpuDie: [], cpuCut: 0, gpuCut: 0, sink: [], fan: [] };
   let sink = AMBIENT + 5;
   let fan = 0;
   for (let t = 0; t < seconds; t++) {
@@ -480,6 +488,9 @@ function run(f: Facts, c: Cooler, p: Profile, load: Load, seconds: number): Trac
     out.cpuW.push(cpuW);
     out.gpuW.push(gpuW);
     out.cpuDie.push(cpuDie);
+    out.gpuDie.push(gpuDie);
+    if (ca && cpuW < cpuWant * 0.98) out.cpuCut++;
+    if (ga && gpuW < gpuWant * 0.98) out.gpuCut++;
     out.sink.push(sink);
     out.fan.push(fan);
   }
@@ -563,6 +574,9 @@ function coolingFor(
       : null,
     dieTemp: TRACE.map((at) => ({ at, c: loop.cpuDie[at - 1] })),
     peakDie: Math.max(...loop.cpuDie, ...stress.cpuDie),
+    peakGpuDie: f.gpu ? Math.max(...game.gpuDie, ...stress.gpuDie) : null,
+    // A few seconds at the limit is a boost settling; a minute is throttling.
+    throttle: { cpu: loop.cpuCut + stress.cpuCut > RUN, gpu: game.gpuCut + stress.gpuCut > RUN },
     peakSkin,
     surface,
     noise: {

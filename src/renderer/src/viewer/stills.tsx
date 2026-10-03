@@ -265,7 +265,7 @@ function Shot({ subject, onShot }: { subject: StillSubject; onShot: (url: string
         rival={subject.maker ?? null}
         lidAngle={106}
         unlit
-        onLock={() => setLocked(true)}
+        onScreen={() => setLocked(true)}
       />
     </group>
   );

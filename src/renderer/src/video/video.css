@@ -1,37 +1,29 @@
-/* The quarter video: the rendered 9:16 file, painted on a canvas centred on black. */
+/* The quarter video: the <video> itself, letterboxed on black above a strip
+   holding its title, progress and buttons. Nothing overlaps the video's box, so a
+   hardware overlay lifting it above the page hides nothing. */
 .fd.vd {
+  --vd-strip: calc(160 * var(--u));
   z-index: 200;
   background: #000;
 }
 
 .vd-out {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  height: 100vh;
-  aspect-ratio: 9 / 16;
-  transform: translate(-50%, -50%);
-}
-
-/* The source video: still decoding and playing its sound, but 1px, transparent
-   and out of the way, so it is never a layer anyone sees. */
-.vd-src {
-  position: absolute;
   left: 0;
   top: 0;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+  display: block;
+  width: 100%;
+  height: calc(100% - var(--vd-strip));
+  object-fit: contain;
+  background: #000;
 }
 
-/* The progress line along the video's bottom edge. */
+/* The progress line along the video's bottom edge, at the top of the strip. */
 .vd-track {
   position: absolute;
   left: 50%;
-  bottom: 0;
+  top: calc(100% - var(--vd-strip));
   height: calc(4 * var(--u));
-  width: calc(100vh * 9 / 16);
   transform: translateX(-50%);
   background: var(--track);
   pointer-events: none;
@@ -44,11 +36,11 @@
   transform-origin: left;
 }
 
-/* The quarter and the model, bottom left in the black beside the video. */
+/* The quarter and the model, bottom left in the strip below the video. */
 .vd-title {
   position: absolute;
   left: calc(96 * var(--u));
-  bottom: calc(56 * var(--u));
+  bottom: calc(28 * var(--u));
   display: flex;
   flex-direction: column;
   gap: calc(6 * var(--u));
@@ -73,7 +65,7 @@
 .vd-bar {
   position: absolute;
   right: calc(56 * var(--u));
-  bottom: calc(56 * var(--u));
+  bottom: calc(28 * var(--u));
   display: flex;
   gap: calc(28 * var(--u));
 }

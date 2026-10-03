@@ -473,6 +473,26 @@ export function SettingsMenu({ onBack }: { onBack: () => void }) {
             </small>
           </li>
           <li>
+            <span>Poly Haven, in the video sets</span>
+            <small>
+              Skies Charolettenbrunn Park, Ludwikowice Farmland and Quadrangle Sunny by Grzegorz Wronkowski and Savva Zakharov;
+              Kloofendal 48d Partly Cloudy by Greg Zaal and Jarod Guest; Spiaggia di Mondello and Pizzo Pernice by Andreas Mischok.
+              Textures Leafy Grass, Stony Dirt Path, Bark Brown 02, Wood Table Worn, Terrazzo Tiles, Fabric Leather 02, Wood Floor,
+              Plastered Wall, White Planks Clean, Plywood, White Plaster Rough 01, Weathered Planks, Laminate Floor 02, Painted
+              Plaster Wall, Poly Wool Herringbone, Dark Wood, Rubber Tiles, Weathered Brown Planks and Rough Wood by Charlotte
+              Baglioni, eye-candy.xyz, Rob Tuytel, Dimitrios Savva, Rico Cilliers, Amal Kumar, Dario Barresi and colormass. Models
+              Street Lamp 01, Shrub 02, Fern 02, Modern Arm Chair 01, Side Table 01, Potted Plant 04, Plastic Monobloc Chair 01,
+              Croissant, Planter Pot Clay, Lifebuoy, Gamepad, Throw Pillows 01, Book Encyclopedia Set 01, Round Spectacles, Dining
+              Chair 02, Vintage Suitcase, Lantern 01 and Folding Wooden Stool by Josh Dean, Rico Cilliers, Rob Tuytel, Vibrant Nordic,
+              James Ray Cock, Kuutti Siitonen, Greg Zaal, Dario Barresi, Amal Kumar, Hank Kaamura, Serhii Khromov, John Malcolm,
+              Sean Buckley, Maximilian Schuster, Rajil Jose Macatangay and Ulan Cabanilla. All CC0
+            </small>
+          </li>
+          <li>
+            <span>A320neo, in the airport lounge</span>
+            <small>tower-golf-oscar</small>
+          </li>
+          <li>
             <span>Music</span>
             <small>
               "Hackbeat", "Bossa Antigua", "Airport Lounge" and "Chill Wave" Kevin MacLeod (incompetech.com) Licensed under Creative

@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CARDS, type Scene, type SceneKind, SHOTS, TRACK_IDS, type TrackId, type Tracks, trackOf } from "../video/commercial";
 import { SET_IDS, type SetId } from "../video/sets";
+import beachThumb from "../assets/video-sets/thumbs/beach.jpg";
 import benchThumb from "../assets/video-sets/thumbs/bench.png";
+import cabinThumb from "../assets/video-sets/thumbs/cabin.jpg";
+import cycloramaThumb from "../assets/video-sets/thumbs/cyclorama.jpg";
+import denThumb from "../assets/video-sets/thumbs/den.jpg";
 import deskThumb from "../assets/video-sets/thumbs/desk.png";
+import libraryThumb from "../assets/video-sets/thumbs/library.jpg";
+import loungeThumb from "../assets/video-sets/thumbs/lounge.jpg";
 import nightThumb from "../assets/video-sets/thumbs/night.png";
-import sweepThumb from "../assets/video-sets/thumbs/sweep.png";
+import parkThumb from "../assets/video-sets/thumbs/park.jpg";
+import trainThumb from "../assets/video-sets/thumbs/train.jpg";
 import { ICON, Icon, LABEL } from "./icons";
 
 // The commercial's timeline: the scene library's tiles over two lanes whose
@@ -26,9 +33,33 @@ const IS_CARD = new Set<SceneKind>(CARDS);
 const unit = () => Math.min(window.innerWidth / 1440, window.innerHeight / 810);
 const u = (n: number) => `calc(${n} * var(--u))`;
 
-export const SET_NAMES: Record<SetId, string> = { desk: "Desk", sweep: "Sweep", night: "Night", bench: "Bench" };
+export const SET_NAMES: Record<SetId, string> = {
+  desk: "Desk",
+  night: "Night",
+  bench: "Bench",
+  park: "Park",
+  lounge: "Lounge",
+  beach: "Beach",
+  den: "Den",
+  library: "Library",
+  train: "Train",
+  cabin: "Cabin",
+  cyclorama: "Cyclorama",
+};
 
-const SET_THUMBS: Record<SetId, string> = { desk: deskThumb, sweep: sweepThumb, night: nightThumb, bench: benchThumb };
+const SET_THUMBS: Record<SetId, string> = {
+  desk: deskThumb,
+  night: nightThumb,
+  bench: benchThumb,
+  park: parkThumb,
+  lounge: loungeThumb,
+  beach: beachThumb,
+  den: denThumb,
+  library: libraryThumb,
+  train: trainThumb,
+  cabin: cabinThumb,
+  cyclorama: cycloramaThumb,
+};
 
 /** The set as a picture of it, a laptop standing on its spot. */
 /** How many words a scene dropped on the timeline covers to start with. */

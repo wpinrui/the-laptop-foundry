@@ -299,7 +299,9 @@ function Rig({ program, time, dims, side, anchor }: {
     }
     const { cut, u } = cutAt(program, time.current);
     const view = cut?.view ?? "title";
-    const v = typeof view === "object" ? panView(view, u, dims) : shotView(view, u, dims, side);
+    // The train's window wall stands close on the left: a side-on shot from there is behind it.
+    const from = view === "side" && cut?.look.set === "train" ? 1 : side;
+    const v = typeof view === "object" ? panView(view, u, dims) : shotView(view, u, dims, from);
     camera.position.copy(v.pos.add(anchor));
     camera.lookAt(v.target.add(anchor));
   });

@@ -68,7 +68,7 @@ export interface SavedCommercial {
   made: number;
   /** What the wheel landed on: 1.5 for +50%. */
   multiplier: number;
-  /** The set its scenes are filmed on, the b-roll's set and the sweep's paper colour. Absent on commercials from before they were picked. */
+  /** The set its scenes are filmed on, the b-roll's set and the cyclorama's paper colour. Absent on commercials from before they were picked. */
   set?: string;
   brollSet?: string;
   paper?: number;
